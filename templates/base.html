@@ -37,6 +37,54 @@
     a.link { color: #7c83fd; text-decoration: none; }
     a.link:hover { text-decoration: underline; }
     select, input { background: #111; color: #ccc; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+
+    /* Sync progress panel */
+    #sync-panel { position: fixed; bottom: 24px; right: 24px; width: 420px; background: #13131f; border: 1px solid #2e2e4a; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.6); z-index: 1000; overflow: hidden; transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s; transform: translateY(24px); opacity: 0; pointer-events: none; }
+    #sync-panel.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+    /* Header */
+    #sync-panel-header { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: flex-start; }
+    #sync-panel-title { font-size: 14px; font-weight: 700; color: #e8e8f0; letter-spacing: -.2px; }
+    #sync-panel-phase { font-size: 12px; color: #6a6a8a; margin-top: 3px; }
+    #sync-panel-spinner { font-size: 16px; color: #7c83fd; margin-top: 2px; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #sync-panel-spinner.spinning { display: inline-block; animation: spin 1.2s linear infinite; }
+
+    /* Progress bar */
+    .sync-bar-wrap { padding: 4px 16px 0; }
+    .sync-bar-track { height: 6px; background: #1e1e32; border-radius: 3px; overflow: hidden; }
+    .sync-bar-fill { height: 6px; background: linear-gradient(90deg, #7c83fd, #a78bfa); border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); width: 0%; }
+    .sync-bar-meta { display: flex; justify-content: space-between; padding: 5px 0 0; font-size: 11px; color: #4a4a6a; }
+    .sync-bar-meta .pct { color: #7c83fd; font-weight: 600; }
+
+    /* Tally row */
+    #sync-tally { display: flex; gap: 16px; padding: 8px 16px 10px; border-bottom: 1px solid #1e1e32; }
+    .tally-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+    .tally-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tally-dot.expense { background: #e07070; }
+    .tally-dot.income  { background: #5db87d; }
+    .tally-dot.ignore  { background: #3a3a5a; }
+    .tally-num { font-weight: 700; color: #ccc; }
+    .tally-lbl { color: #4a4a6a; }
+
+    /* Email preview list — no scrollbar, fixed 6 rows max */
+    #sync-previews { overflow: hidden; }
+    .sp-item { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 7px 16px; border-top: 1px solid #1a1a2e; align-items: center; animation: slideDown .2s ease; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    .sp-subject { font-size: 12px; color: #c8c8d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sp-sender  { font-size: 11px; color: #3e3e5e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .sp-right   { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .sp-amount  { font-size: 12px; font-weight: 600; min-width: 52px; text-align: right; }
+    .sp-amount.expense { color: #e07070; }
+    .sp-amount.income  { color: #5db87d; }
+    .sp-amount.ignore  { color: #2e2e4e; }
+    .sp-badge   { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .4px; }
+    .sp-badge.expense { background: #2a1a1a; color: #e07070; }
+    .sp-badge.income  { background: #1a2a1a; color: #5db87d; }
+    .sp-badge.ignore  { background: #1a1a28; color: #3a3a5a; }
+
+    /* Done / error footer */
+    #sync-panel-done { padding: 10px 16px 14px; font-size: 12px; text-align: center; display: none; border-top: 1px solid #1e1e32; }
   </style>
 </head>
 <body>
@@ -45,6 +93,8 @@
   <a href="/" id="nav-home">Dashboard</a>
   <a href="/transactions" id="nav-txn">Transactions</a>
   <a href="/review" id="nav-review">Needs Review <span id="review-count" style="display:none;background:#e07070;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span></a>
+  <a href="/recurring" id="nav-recurring">Recurring</a>
+  <a href="/budgets" id="nav-budgets">Budgets</a>
   <a href="/settings" id="nav-settings">Settings</a>
   <div class="spacer"></div>
   <button class="btn-primary" onclick="triggerSync()">Sync Now</button>
@@ -52,12 +102,41 @@
 <div class="container">
   {% block content %}{% endblock %}
 </div>
+
+<!-- Sync progress panel -->
+<div id="sync-panel">
+  <div id="sync-panel-header">
+    <div>
+      <div id="sync-panel-title">Syncing Gmail</div>
+      <div id="sync-panel-phase">Connecting...</div>
+    </div>
+    <span id="sync-panel-spinner" class="spinning">↻</span>
+  </div>
+  <div class="sync-bar-wrap">
+    <div class="sync-bar-track"><div class="sync-bar-fill" id="sync-bar-fill"></div></div>
+    <div class="sync-bar-meta">
+      <span id="sync-bar-fraction"></span>
+      <span class="pct" id="sync-bar-pct"></span>
+    </div>
+  </div>
+  <div id="sync-tally">
+    <div class="tally-item"><div class="tally-dot expense"></div><span class="tally-num" id="tally-expense">0</span><span class="tally-lbl">expense</span></div>
+    <div class="tally-item"><div class="tally-dot income"></div><span class="tally-num" id="tally-income">0</span><span class="tally-lbl">income</span></div>
+    <div class="tally-item"><div class="tally-dot ignore"></div><span class="tally-num" id="tally-ignore">0</span><span class="tally-lbl">ignore</span></div>
+  </div>
+  <div id="sync-previews"></div>
+  <div id="sync-more" style="display:none;padding:6px 16px 10px;font-size:11px;color:#3a3a5a;text-align:center"></div>
+  <div id="sync-panel-done"></div>
+</div>
+
 <script src="/static/app.js"></script>
 <script>
   const path = window.location.pathname;
   if (path === '/') document.getElementById('nav-home').classList.add('active');
   else if (path.startsWith('/transactions')) document.getElementById('nav-txn').classList.add('active');
   else if (path.startsWith('/review')) document.getElementById('nav-review').classList.add('active');
+  else if (path.startsWith('/recurring')) document.getElementById('nav-recurring').classList.add('active');
+  else if (path.startsWith('/budgets')) document.getElementById('nav-budgets').classList.add('active');
   else if (path.startsWith('/settings')) document.getElementById('nav-settings').classList.add('active');
 </script>
 </body>
