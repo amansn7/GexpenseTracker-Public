@@ -41,7 +41,7 @@ def fetch_new_messages(last_history_id):
                 historyTypes=["messageAdded"],
             ).execute()
             message_ids = [
-                msg["id"]
+                msg["message"]["id"]
                 for record in history.get("history", [])
                 for msg in record.get("messagesAdded", [])
             ]
