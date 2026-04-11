@@ -8,6 +8,7 @@ from app.models import SyncState
 from app.config import settings
 
 router = APIRouter()
+_background_tasks: set = set()
 
 @router.get("/sync/status")
 async def sync_status(db: AsyncSession = Depends(get_db)):
@@ -25,5 +26,7 @@ async def sync_status(db: AsyncSession = Depends(get_db)):
 @router.post("/sync/trigger")
 async def trigger_sync():
     from app.sync import run_sync
-    asyncio.create_task(run_sync())
+    task = asyncio.create_task(run_sync())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
     return {"message": "Sync triggered"}

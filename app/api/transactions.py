@@ -95,7 +95,8 @@ async def patch_transaction(
             new_category = patch.category or t.category
             if existing:
                 existing.label = patch.label
-                existing.category = new_category
+                if patch.category is not None:
+                    existing.category = patch.category
                 existing.source = RuleSource.user_trained.value
             else:
                 db.add(SenderRule(
@@ -112,6 +113,7 @@ async def patch_transaction(
         t.user_notes = patch.user_notes
 
     await db.commit()
+    await db.refresh(t)
     return {"id": t.id, "status": t.status}
 
 @router.get("/stats")
@@ -121,7 +123,7 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
         select(Transaction.label, Transaction.category, func.sum(Transaction.amount).label("total"))
         .where(
-            Transaction.txn_date != None,
+            Transaction.txn_date.isnot(None),
             extract("month", Transaction.txn_date) == now.month,
             extract("year", Transaction.txn_date) == now.year,
             Transaction.status != TransactionStatus.needs_review.value,
