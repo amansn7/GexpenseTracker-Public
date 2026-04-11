@@ -20,6 +20,8 @@ async def auth_callback(code: str, state: str):
     flow = _pending.get("flow")
     if not flow:
         return {"error": "No pending auth flow. Visit /api/auth/gmail first."}
+    if state != _pending.get("state"):
+        return {"error": "State mismatch. Possible CSRF attack."}
     flow.fetch_token(code=code)
     save_credentials(flow.credentials)
     _pending.clear()
