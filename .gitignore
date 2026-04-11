@@ -1,0 +1,5 @@
+.env
+data/gmail_token.json
+__pycache__/
+.pytest_cache/
+*.pyc
