@@ -20,7 +20,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('category', sa.String(length=100), nullable=False),
         sa.Column('monthly_limit', sa.Numeric(precision=12, scale=2), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('category'),
     )
