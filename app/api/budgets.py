@@ -37,6 +37,7 @@ async def list_budgets(db: AsyncSession = Depends(get_db)):
             Transaction.txn_date >= first_of_month,
             Transaction.txn_date <= today,
             Transaction.txn_date.isnot(None),
+            # Exclude needs_review: unreviewed transactions may not be confirmed expenses
             Transaction.status != "needs_review",
         )
         .group_by(Transaction.category)
@@ -67,9 +68,14 @@ async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=422, detail="category is required")
     if body.monthly_limit <= 0:
         raise HTTPException(status_code=422, detail="monthly_limit must be positive")
+    from sqlalchemy.exc import IntegrityError
     b = Budget(category=body.category.strip(), monthly_limit=body.monthly_limit)
     db.add(b)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Budget for this category already exists")
     await db.refresh(b)
     return {"id": b.id, "category": b.category, "monthly_limit": float(b.monthly_limit)}
 
