@@ -1,0 +1,84 @@
+import uuid
+from datetime import datetime, date
+from enum import Enum as PyEnum
+from typing import Optional
+from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+import sqlalchemy as sa
+
+class Base(DeclarativeBase):
+    pass
+
+class Label(str, PyEnum):
+    expense = "expense"
+    income = "income"
+    ignore = "ignore"
+
+class TransactionStatus(str, PyEnum):
+    auto = "auto"
+    confirmed = "confirmed"
+    corrected = "corrected"
+    needs_review = "needs_review"
+
+class ClassifierMethod(str, PyEnum):
+    rule = "rule"
+    llm = "llm"
+
+class RuleSource(str, PyEnum):
+    builtin = "builtin"
+    user_trained = "user_trained"
+
+def _uuid_col():
+    # SQLite-compatible UUID: store as String(36)
+    return mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+
+class Email(Base):
+    __tablename__ = "emails"
+
+    id: Mapped[str] = _uuid_col()
+    gmail_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    subject: Mapped[Optional[str]] = mapped_column(Text)
+    sender: Mapped[Optional[str]] = mapped_column(String(500))
+    sender_domain: Mapped[Optional[str]] = mapped_column(String(255))
+    received_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    body_snippet: Mapped[Optional[str]] = mapped_column(Text)
+    gmail_link: Mapped[Optional[str]] = mapped_column(String(500))
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    transaction: Mapped[Optional["Transaction"]] = relationship(back_populates="email", uselist=False)
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id: Mapped[str] = _uuid_col()
+    email_id: Mapped[str] = mapped_column(String(36), ForeignKey("emails.id"), nullable=False)
+    label: Mapped[str] = mapped_column(String(20), nullable=False)
+    amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="INR")
+    merchant: Mapped[Optional[str]] = mapped_column(String(255))
+    category: Mapped[Optional[str]] = mapped_column(String(100))
+    txn_date: Mapped[Optional[date]] = mapped_column(Date)
+    confidence: Mapped[Optional[float]] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(20), default=TransactionStatus.needs_review)
+    classifier_method: Mapped[Optional[str]] = mapped_column(String(10))
+    user_notes: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    email: Mapped["Email"] = relationship(back_populates="transaction")
+
+class SyncState(Base):
+    __tablename__ = "sync_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_history_id: Mapped[Optional[str]] = mapped_column(String(255))
+
+class SenderRule(Base):
+    __tablename__ = "sender_rules"
+
+    id: Mapped[str] = _uuid_col()
+    sender_domain: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(20), nullable=False)
+    category: Mapped[Optional[str]] = mapped_column(String(100))
+    source: Mapped[str] = mapped_column(String(20), default=RuleSource.builtin)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
