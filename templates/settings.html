@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="margin-bottom:24px;font-size:18px">Settings</h2>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">Gmail Connection</div>
+  <div style="padding:20px">
+    <p style="color:#888;font-size:13px;margin-bottom:16px">Connect your Gmail account to start tracking expenses from emails.</p>
+    <div id="auth-status-msg" style="margin-bottom:16px;font-size:13px"></div>
+    <a href="/api/auth/gmail" class="btn-primary" style="display:inline-block;padding:8px 20px;text-decoration:none">Connect Gmail</a>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-header">Sync</div>
+  <div style="padding:20px">
+    <p style="color:#888;font-size:13px;margin-bottom:16px">Sync interval: every <strong id="sync-interval">\u2014</strong> hours. Last sync: <strong id="last-sync">\u2014</strong></p>
+    <button class="btn-primary" onclick="triggerSync()">Trigger Sync Now</button>
+    <span id="sync-msg" style="color:#5db87d;font-size:13px;margin-left:12px"></span>
+  </div>
+</div>
+
+<script>
+async function loadSettings() {
+  const [authStatus, syncStatus] = await Promise.all([
+    fetch('/api/auth/status').then(r => r.json()),
+    fetch('/api/sync/status').then(r => r.json()),
+  ]);
+  const msg = document.getElementById('auth-status-msg');
+  msg.textContent = authStatus.authenticated ? 'Gmail connected' : 'Not connected';
+  msg.style.color = authStatus.authenticated ? '#5db87d' : '#f0a500';
+  document.getElementById('sync-interval').textContent = syncStatus.sync_interval_hours;
+  document.getElementById('last-sync').textContent = syncStatus.last_synced_at
+    ? new Date(syncStatus.last_synced_at).toLocaleString('en-IN') : 'Never';
+}
+loadSettings();
+</script>
+{% endblock %}

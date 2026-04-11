@@ -40,3 +40,8 @@ async def transactions_page(request: Request):
 @app.get("/review", response_class=HTMLResponse)
 async def review_page(request: Request):
     return templates.TemplateResponse("review.html", {"request": request})
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request})

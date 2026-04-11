@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
+    nav { background: #1a1a2e; border-bottom: 1px solid #2a2a4a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 56px; }
+    nav .brand { color: #7c83fd; font-weight: 700; font-size: 18px; text-decoration: none; }
+    nav a { color: #aaa; text-decoration: none; font-size: 14px; padding: 4px 0; border-bottom: 2px solid transparent; }
+    nav a:hover, nav a.active { color: #fff; border-bottom-color: #7c83fd; }
+    nav .spacer { flex: 1; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 16px 20px; }
+    .stat-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+    .stat-card .value { font-size: 26px; font-weight: 700; }
+    .stat-card .value.expense { color: #e07070; }
+    .stat-card .value.income { color: #5db87d; }
+    .stat-card .value.warn { color: #f0a500; }
+    .stat-card .value.muted { color: #ccc; font-size: 16px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { color: #666; text-align: left; padding: 8px 12px; border-bottom: 1px solid #2a2a4a; font-weight: 500; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1e1e2e; }
+    tr:hover td { background: #1a1a2e; }
+    .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 500; }
+    .badge.expense { background: #2a1a1a; color: #e07070; }
+    .badge.income { background: #1a2a1a; color: #5db87d; }
+    .badge.ignore { background: #222; color: #888; }
+    .badge.review { background: #2a2a1a; color: #f0a500; }
+    .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; overflow: hidden; }
+    .card-header { padding: 12px 16px; border-bottom: 1px solid #2a2a4a; font-size: 13px; color: #888; display: flex; justify-content: space-between; align-items: center; }
+    .btn-primary { background: #7c83fd; color: #fff; cursor: pointer; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; }
+    .btn-ghost { background: transparent; color: #7c83fd; border: 1px solid #7c83fd; cursor: pointer; border-radius: 6px; padding: 6px 16px; font-size: 13px; }
+    a.link { color: #7c83fd; text-decoration: none; }
+    a.link:hover { text-decoration: underline; }
+    select, input { background: #111; color: #ccc; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/" class="brand">ExpenseTracker</a>
+  <a href="/" id="nav-home">Dashboard</a>
+  <a href="/transactions" id="nav-txn">Transactions</a>
+  <a href="/review" id="nav-review">Needs Review <span id="review-count" style="display:none;background:#e07070;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span></a>
+  <a href="/settings" id="nav-settings">Settings</a>
+  <div class="spacer"></div>
+  <button class="btn-primary" onclick="triggerSync()">Sync Now</button>
+</nav>
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+<script src="/static/app.js"></script>
+<script>
+  const path = window.location.pathname;
+  if (path === '/') document.getElementById('nav-home').classList.add('active');
+  else if (path.startsWith('/transactions')) document.getElementById('nav-txn').classList.add('active');
+  else if (path.startsWith('/review')) document.getElementById('nav-review').classList.add('active');
+  else if (path.startsWith('/settings')) document.getElementById('nav-settings').classList.add('active');
+</script>
+</body>
+</html>

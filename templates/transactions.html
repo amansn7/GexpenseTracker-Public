@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display:flex;gap:12px;margin-bottom:20px;align-items:center">
+  <select id="filter-label" onchange="loadTxns()">
+    <option value="">All labels</option>
+    <option value="expense">Expense</option>
+    <option value="income">Income</option>
+    <option value="ignore">Ignore</option>
+  </select>
+  <select id="filter-status" onchange="loadTxns()">
+    <option value="">All statuses</option>
+    <option value="auto">Auto</option>
+    <option value="corrected">Corrected</option>
+    <option value="needs_review">Needs Review</option>
+  </select>
+  <input type="date" id="filter-from" onchange="loadTxns()">
+  <input type="date" id="filter-to" onchange="loadTxns()">
+</div>
+
+<div class="card">
+  <div class="card-header"><span id="txn-count">Loading...</span></div>
+  <table>
+    <thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Label</th><th>Amount</th><th>Source</th><th>Status</th><th></th></tr></thead>
+    <tbody id="txn-body"></tbody>
+  </table>
+</div>
+
+<script>
+async function loadTxns() {
+  const label = document.getElementById('filter-label').value;
+  const status = document.getElementById('filter-status').value;
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  const params = new URLSearchParams();
+  if (label) params.set('label', label);
+  if (status) params.set('status', status);
+  if (from) params.set('date_from', from);
+  if (to) params.set('date_to', to);
+  const txns = await fetch('/api/transactions?' + params).then(r => r.json());
+  document.getElementById('txn-count').textContent = txns.length + ' transactions';
+  const tbody = document.getElementById('txn-body');
+  tbody.innerHTML = txns.map(t => `
+    <tr id="row-${t.id}">
+      <td>${t.txn_date || (t.email.received_at ? t.email.received_at.slice(0,10) : '\u2014')}</td>
+      <td>${t.merchant || '\u2014'}</td>
+      <td>${t.category || '\u2014'}</td>
+      <td><span class="badge ${t.label}">${t.label}</span></td>
+      <td style="color:${t.label==='expense'?'#e07070':'#5db87d'}">${t.amount != null ? '\u20B9' + Number(t.amount).toLocaleString('en-IN') : '\u2014'}</td>
+      <td><a href="${t.email.gmail_link}" target="_blank" class="link">Email</a></td>
+      <td style="font-size:11px">${t.status}</td>
+      <td><button class="btn-ghost" style="padding:3px 10px;font-size:11px" onclick="openCorrect('${t.id}','${t.label}','${t.category||''}')">Edit</button></td>
+    </tr>
+  `).join('') || '<tr><td colspan="8" style="color:#555;padding:20px;text-align:center">No transactions</td></tr>';
+}
+loadTxns();
+</script>
+{% endblock %}

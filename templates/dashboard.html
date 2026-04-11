@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="stat-grid" id="stat-grid">
+  <div class="stat-card"><div class="label">This Month Expenses</div><div class="value expense" id="stat-expense">&#8377;&#8212;</div></div>
+  <div class="stat-card"><div class="label">This Month Income</div><div class="value income" id="stat-income">&#8377;&#8212;</div></div>
+  <div class="stat-card"><div class="label">Needs Review</div><div class="value warn" id="stat-review">&#8212;</div></div>
+  <div class="stat-card"><div class="label">Last Sync</div><div class="value muted" id="stat-sync">&#8212;</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    Recent Transactions
+    <a href="/transactions" class="link" style="font-size:13px">View all &rarr;</a>
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Label</th><th>Amount</th><th>Source</th><th>Status</th></tr></thead>
+    <tbody id="txn-body"><tr><td colspan="7" style="color:#555;padding:20px;text-align:center">Loading...</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+async function loadDashboard() {
+  const [stats, txns, review, syncStatus] = await Promise.all([
+    fetch('/api/stats').then(r => r.json()),
+    fetch('/api/transactions').then(r => r.json()),
+    fetch('/api/review').then(r => r.json()),
+    fetch('/api/sync/status').then(r => r.json()),
+  ]);
+
+  document.getElementById('stat-expense').textContent = '\u20B9' + (stats.total_expense || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+  document.getElementById('stat-income').textContent = '\u20B9' + (stats.total_income || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
+  document.getElementById('stat-review').textContent = review.length + ' emails';
+
+  const rc = document.getElementById('review-count');
+  if (review.length > 0) { rc.textContent = review.length; rc.style.display = 'inline'; }
+
+  if (syncStatus.last_synced_at) {
+    const d = new Date(syncStatus.last_synced_at);
+    const diff = Math.round((Date.now() - d) / 60000);
+    document.getElementById('stat-sync').textContent = diff < 60 ? diff + 'm ago' : Math.round(diff/60) + 'h ago';
+  } else {
+    document.getElementById('stat-sync').textContent = 'Never';
+  }
+
+  const tbody = document.getElementById('txn-body');
+  if (!txns.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="color:#555;padding:20px;text-align:center">No transactions yet. Connect Gmail in Settings and sync.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = txns.slice(0, 20).map(t => `
+    <tr>
+      <td>${t.txn_date || (t.email.received_at ? t.email.received_at.slice(0,10) : '\u2014')}</td>
+      <td>${t.merchant || t.email.sender || '\u2014'}</td>
+      <td>${t.category || '\u2014'}</td>
+      <td><span class="badge ${t.label}">${t.label}</span></td>
+      <td style="color:${t.label==='expense'?'#e07070':t.label==='income'?'#5db87d':'#888'}">${t.amount != null ? (t.label==='expense'?'-':'+') + '\u20B9' + Number(t.amount).toLocaleString('en-IN') : '\u2014'}</td>
+      <td><a href="${t.email.gmail_link}" target="_blank" class="link">Email</a></td>
+      <td style="font-size:11px;color:${t.status==='auto'?'#5db87d':t.status==='corrected'?'#7c83fd':'#f0a500'}">${t.status}</td>
+    </tr>
+  `).join('');
+}
+loadDashboard();
+</script>
+{% endblock %}
