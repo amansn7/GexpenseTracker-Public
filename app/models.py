@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, date
 from enum import Enum as PyEnum
 from typing import Optional
-from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, ForeignKey
+from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, Boolean, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 import sqlalchemy as sa
 
@@ -72,6 +72,8 @@ class SyncState(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_history_id: Mapped[Optional[str]] = mapped_column(String(255))
+    # all | unread | read
+    email_filter: Mapped[str] = mapped_column(String(10), default="all", server_default="all")
 
 class SenderRule(Base):
     __tablename__ = "sender_rules"
@@ -81,4 +83,27 @@ class SenderRule(Base):
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[Optional[str]] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(20), default=RuleSource.builtin)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class RecurringExpense(Base):
+    __tablename__ = "recurring_expenses"
+
+    id: Mapped[str] = _uuid_col()
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
+    category: Mapped[Optional[str]] = mapped_column(String(100))
+    # monthly | weekly | yearly
+    frequency: Mapped[str] = mapped_column(String(20), default="monthly")
+    day_of_month: Mapped[Optional[int]] = mapped_column(Integer)   # 1-31, for monthly
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+class Budget(Base):
+    __tablename__ = "budgets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    category: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
