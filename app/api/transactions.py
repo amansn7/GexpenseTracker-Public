@@ -116,29 +116,40 @@ async def patch_transaction(
     await db.refresh(t)
     return {"id": t.id, "status": t.status}
 
-@router.get("/stats")
-async def get_stats(db: AsyncSession = Depends(get_db)):
-    from datetime import date as date_cls
-    now = date_cls.today()
+@router.get("/transactions/duplicates")
+async def find_duplicates(db: AsyncSession = Depends(get_db)):
+    """
+    Find potential duplicate expenses: same amount on the same date from different sender domains.
+    Only looks at expense-labelled transactions with non-null amount and txn_date.
+    """
     rows = (await db.execute(
-        select(Transaction.label, Transaction.category, func.sum(Transaction.amount).label("total"))
+        select(Transaction, Email)
+        .join(Email)
         .where(
+            Transaction.label == "expense",
+            Transaction.amount.isnot(None),
             Transaction.txn_date.isnot(None),
-            extract("month", Transaction.txn_date) == now.month,
-            extract("year", Transaction.txn_date) == now.year,
-            Transaction.status != TransactionStatus.needs_review.value,
         )
-        .group_by(Transaction.label, Transaction.category)
+        .order_by(Transaction.txn_date.desc(), Transaction.amount)
     )).all()
 
-    total_expense = sum(float(r.total or 0) for r in rows if r.label == "expense")
-    total_income = sum(float(r.total or 0) for r in rows if r.label == "income")
-    return {
-        "month": f"{now.year}-{now.month:02d}",
-        "total_expense": total_expense,
-        "total_income": total_income,
-        "by_category": [
-            {"label": r.label, "category": r.category, "total": float(r.total or 0)}
-            for r in rows
-        ],
-    }
+    # Group by (amount, txn_date)
+    from collections import defaultdict
+    groups: dict = defaultdict(list)
+    for t, e in rows:
+        key = (float(t.amount), t.txn_date.isoformat())
+        groups[key].append(_fmt(t, e))
+
+    # Only return groups with 2+ items from different domains
+    duplicates = []
+    for (amount, txn_date), items in groups.items():
+        domains = {item["email"].get("sender") for item in items}
+        if len(items) >= 2 and len(domains) > 1:
+            duplicates.append({
+                "amount": amount,
+                "txn_date": txn_date,
+                "transactions": items,
+            })
+
+    return sorted(duplicates, key=lambda g: g["txn_date"], reverse=True)
+
