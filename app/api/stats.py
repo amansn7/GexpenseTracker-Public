@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 
@@ -58,6 +58,8 @@ def _period_start(period: str) -> date:
 
 @router.get("/stats/summary")
 async def stats_summary(period: str = "1m", db: AsyncSession = Depends(get_db)):
+    if period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
     today = date.today()
     start = _period_start(period)
     this_month = today.replace(day=1)
@@ -73,6 +75,8 @@ async def stats_summary(period: str = "1m", db: AsyncSession = Depends(get_db)):
         )
     )).scalars().all()
 
+    # Intentional: income that shifts to next month via effective_month is excluded
+    # from the current period (e.g., Axis salary on Apr 28 counts as May income).
     income_rows = (await db.execute(
         select(Transaction.txn_date, Transaction.amount, Email.sender)
         .join(Email, Transaction.email_id == Email.id)
@@ -109,6 +113,8 @@ async def stats_summary(period: str = "1m", db: AsyncSession = Depends(get_db)):
 
 @router.get("/stats/category-breakdown")
 async def stats_category_breakdown(period: str = "1m", db: AsyncSession = Depends(get_db)):
+    if period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
     today = date.today()
     start = _period_start(period)
 
@@ -147,8 +153,8 @@ async def stats_category_breakdown(period: str = "1m", db: AsyncSession = Depend
     return {"categories": categories, "total": round(total, 2)}
 
 
-@router.get("/stats/monthly-trend")
-async def stats_monthly_trend(period: str = "1m", db: AsyncSession = Depends(get_db)):
+async def _monthly_data(period: str, db: AsyncSession) -> list:
+    """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
     start = _period_start(period)
     this_month = today.replace(day=1)
@@ -197,12 +203,20 @@ async def stats_monthly_trend(period: str = "1m", db: AsyncSession = Depends(get
     for entry in result:
         entry["expenses"] = round(entry["expenses"], 2)
         entry["income"] = round(entry["income"], 2)
+    return result
 
-    return {"months": result}
+
+@router.get("/stats/monthly-trend")
+async def stats_monthly_trend(period: str = "1m", db: AsyncSession = Depends(get_db)):
+    if period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+    return {"months": await _monthly_data(period, db)}
 
 
 @router.get("/stats/top-merchants")
 async def stats_top_merchants(period: str = "1m", db: AsyncSession = Depends(get_db)):
+    if period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
     today = date.today()
     start = _period_start(period)
 
@@ -231,53 +245,6 @@ async def stats_top_merchants(period: str = "1m", db: AsyncSession = Depends(get
 
 @router.get("/stats/income-vs-expense")
 async def stats_income_vs_expense(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    today = date.today()
-    start = _period_start(period)
-    this_month = today.replace(day=1)
-
-    months: dict = {}
-    m = start
-    while m <= this_month:
-        key = m.strftime("%Y-%m")
-        months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
-        m = _add_months(m, 1)
-
-    expense_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount)
-        .where(
-            Transaction.label == "expense",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= today,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
-    )).all()
-
-    for r in expense_rows:
-        key = r.txn_date.strftime("%Y-%m")
-        if key in months:
-            months[key]["expenses"] += float(r.amount or 0)
-
-    income_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount, Email.sender)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.label == "income",
-            Transaction.txn_date >= _add_months(start, -1),
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
-    )).all()
-
-    for r in income_rows:
-        em = _effective_month(r.txn_date, "income", r.sender)
-        key = em.strftime("%Y-%m")
-        if key in months:
-            months[key]["income"] += float(r.amount or 0)
-
-    result = sorted(months.values(), key=lambda x: x["month"])
-    for entry in result:
-        entry["expenses"] = round(entry["expenses"], 2)
-        entry["income"] = round(entry["income"], 2)
-
-    return {"months": result}
+    if period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+    return {"months": await _monthly_data(period, db)}
