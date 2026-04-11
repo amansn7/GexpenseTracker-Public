@@ -3,3 +3,13 @@ data/gmail_token.json
 __pycache__/
 .pytest_cache/
 *.pyc
+.DS_Store
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
