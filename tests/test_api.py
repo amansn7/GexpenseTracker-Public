@@ -157,3 +157,62 @@ async def test_stats_monthly_trend_empty(db_session):
         assert isinstance(data["months"], list)
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_list_budgets_empty(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get("/api/budgets")
+        assert resp.status_code == 200
+        assert resp.json()["budgets"] == []
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_create_and_delete_budget(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/api/budgets", json={"category": "Food", "monthly_limit": 4000})
+            assert resp.status_code == 201
+            created = resp.json()
+            assert created["category"] == "Food"
+            assert created["monthly_limit"] == 4000.0
+            budget_id = created["id"]
+
+            resp2 = await client.get("/api/budgets")
+            assert any(b["category"] == "Food" for b in resp2.json()["budgets"])
+
+            resp3 = await client.delete(f"/api/budgets/{budget_id}")
+            assert resp3.status_code == 200
+
+            resp4 = await client.get("/api/budgets")
+            assert resp4.json()["budgets"] == []
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_update_budget(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            created = (await client.post("/api/budgets", json={"category": "Shopping", "monthly_limit": 3000})).json()
+            budget_id = created["id"]
+            resp = await client.patch(f"/api/budgets/{budget_id}", json={"monthly_limit": 5000})
+            assert resp.status_code == 200
+            assert resp.json()["monthly_limit"] == 5000.0
+    finally:
+        app.dependency_overrides.pop(get_db, None)
