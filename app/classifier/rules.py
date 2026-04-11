@@ -1,22 +1,26 @@
 from dataclasses import dataclass, field
+from typing import Optional, List, Tuple
 from app.models import Label
 
+# Ordered longest-first within each list to avoid substring inflation:
+# e.g. "debited" supersedes "debit", "credited" supersedes "credit"
 EXPENSE_KEYWORDS = [
-    "receipt", "invoice", "order confirmed", "order confirmation",
-    "payment successful", "payment confirmation", "debited", "charged",
-    "bill", "debit", "purchase", "booking confirmed", "amount paid",
-    "transaction", "₹", "rs.", "inr",
+    "order confirmed", "order confirmation",
+    "payment successful", "payment confirmation",
+    "booking confirmed", "amount paid",
+    "receipt", "invoice", "debited", "charged",
+    "bill", "purchase", "transaction", "₹", "rs.", "inr",
 ]
 
 INCOME_KEYWORDS = [
-    "credited", "received", "salary", "transferred to you",
-    "refund", "cashback", "credit", "you have received", "amount credited",
+    "transferred to you", "you have received", "amount credited",
+    "salary", "cashback", "refund", "credited", "received",
 ]
 
 IGNORE_KEYWORDS = [
-    "newsletter", "unsubscribe", "promotional", "otp", "verify your",
-    "verification code", "one time password", "offers", "sale",
-    "click here", "no-reply marketing",
+    "verification code", "one time password", "verify your",
+    "no-reply marketing", "newsletter", "unsubscribe", "promotional",
+    "otp", "offers", "click here",
 ]
 
 BUILTIN_SENDER_RULES = {
@@ -41,23 +45,48 @@ BUILTIN_SENDER_RULES = {
     "jio.com": (Label.expense, "Utilities"),
 }
 
+
 @dataclass
 class RuleResult:
-    label: object  # Label | None
-    category: object  # str | None
+    label: Optional[Label]
+    category: Optional[str]
     confidence: float
     matched_domain: bool
-    matched_keywords: list = field(default_factory=list)
+    matched_keywords: List[str] = field(default_factory=list)
 
-def _score(text, keywords):
+
+def _score(text: str, keywords: List[str]) -> Tuple[int, List[str]]:
+    """Count distinct keyword matches in text (case-insensitive).
+    Skips a keyword if any longer keyword from this list already matched at the same position.
+    Returns (count, matched_keywords).
+    """
     lower = text.lower()
-    matched = [kw for kw in keywords if kw in lower]
+    matched = []
+    for kw in keywords:
+        if kw in lower:
+            # Skip if a longer phrase in our list already covers this keyword
+            if any(len(other) > len(kw) and kw in other and other in lower for other in keywords):
+                continue
+            matched.append(kw)
     return len(matched), matched
 
-def apply_rules(sender_domain, subject, body_snippet, db_rules=None):
-    """
-    db_rules format: {domain: (Label, category)}
-    User-trained db_rules override builtin rules.
+
+def apply_rules(
+    sender_domain: str,
+    subject: str,
+    body_snippet: str,
+    db_rules: Optional[dict] = None,
+) -> RuleResult:
+    """Classify an email using domain lookup and keyword scoring.
+
+    Args:
+        sender_domain: extracted domain from sender email address
+        subject: email subject line (None-safe)
+        body_snippet: first ~500 chars of email body (None-safe)
+        db_rules: {domain: (Label, category)} — user-trained rules, override builtins
+
+    Returns:
+        RuleResult with label=None and confidence=0.0 when classification is uncertain.
     """
     all_rules = {**BUILTIN_SENDER_RULES, **(db_rules or {})}
 
@@ -65,7 +94,7 @@ def apply_rules(sender_domain, subject, body_snippet, db_rules=None):
         label, category = all_rules[sender_domain]
         return RuleResult(label=label, category=category, confidence=0.95, matched_domain=True)
 
-    text = f"{subject} {body_snippet}"
+    text = f"{subject or ''} {body_snippet or ''}"
     expense_count, expense_matched = _score(text, EXPENSE_KEYWORDS)
     income_count, income_matched = _score(text, INCOME_KEYWORDS)
     ignore_count, ignore_matched = _score(text, IGNORE_KEYWORDS)
