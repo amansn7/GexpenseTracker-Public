@@ -293,24 +293,28 @@ function renderBudget(budgets) {
 
 // ── Main loader ────────────────────────────────────────────────
 async function loadCharts(period) {
-  try {
-    var results = await Promise.all([
-      fetch('/api/stats/summary?period='+period).then(function(r) { return r.json(); }),
-      fetch('/api/stats/category-breakdown?period='+period).then(function(r) { return r.json(); }),
-      fetch('/api/stats/monthly-trend?period='+period).then(function(r) { return r.json(); }),
-      fetch('/api/stats/top-merchants?period='+period).then(function(r) { return r.json(); }),
-      fetch('/api/stats/income-vs-expense?period='+period).then(function(r) { return r.json(); }),
-      fetch('/api/budgets').then(function(r) { return r.json(); })
-    ]);
-    renderSummary(results[0]);
-    renderDonut(results[1].categories);
-    renderTrend(results[2].months);
-    renderMerchants(results[3].merchants);
-    renderIncomeVsExpense(results[4].months);
-    renderBudget(results[5].budgets);
-  } catch(e) {
-    console.error('Dashboard load error:', e);
-  }
+  var fetches = [
+    fetch('/api/stats/summary?period='+period).then(function(r) { return r.json(); }),
+    fetch('/api/stats/category-breakdown?period='+period).then(function(r) { return r.json(); }),
+    fetch('/api/stats/monthly-trend?period='+period).then(function(r) { return r.json(); }),
+    fetch('/api/stats/top-merchants?period='+period).then(function(r) { return r.json(); }),
+    fetch('/api/stats/income-vs-expense?period='+period).then(function(r) { return r.json(); }),
+    fetch('/api/budgets').then(function(r) { return r.json(); })
+  ];
+  var results = await Promise.allSettled(fetches);
+  function val(i) { return results[i].status === 'fulfilled' ? results[i].value : null; }
+  var summary    = val(0);
+  var categories = val(1);
+  var trend      = val(2);
+  var merchants  = val(3);
+  var ive        = val(4);
+  var budgets    = val(5);
+  if (summary)    renderSummary(summary);
+  if (categories) renderDonut(categories.categories || []);
+  if (trend)      renderTrend(trend.months || []);
+  if (merchants)  renderMerchants(merchants.merchants || []);
+  if (ive)        renderIncomeVsExpense(ive.months || []);
+  if (budgets)    renderBudget(budgets.budgets || []);
 }
 
 // ── Boot ───────────────────────────────────────────────────────
