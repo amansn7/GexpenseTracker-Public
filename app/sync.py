@@ -1,16 +1,16 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
-from app.models import Email, Transaction, SyncState, SenderRule
+from app.models import Email, Transaction, SyncState, SenderRule, Label
 from app.gmail.client import fetch_new_messages
 from app.classifier.classifier import classify_email
 
 logger = logging.getLogger(__name__)
 
 async def _load_db_rules(session: AsyncSession) -> dict:
-    from app.models import Label
     result = await session.execute(select(SenderRule))
     return {r.sender_domain: (Label(r.label), r.category) for r in result.scalars().all()}
 
@@ -20,8 +20,11 @@ async def run_sync() -> dict:
         sync_state = state_result.scalar_one_or_none()
         last_history_id = sync_state.last_history_id if sync_state else None
 
+        new_history_id = last_history_id  # fallback if fetch raises
         try:
-            messages, new_history_id = fetch_new_messages(last_history_id)
+            messages, new_history_id = await asyncio.to_thread(
+                fetch_new_messages, last_history_id
+            )
         except Exception as exc:
             logger.error("Gmail fetch failed: %s", exc)
             return {"error": str(exc), "processed": 0}
@@ -63,6 +66,14 @@ async def run_sync() -> dict:
                 processed += 1
             except Exception as exc:
                 logger.error("Classification failed for %s: %s", msg["gmail_id"], exc)
+                session.add(Transaction(
+                    email_id=email.id,
+                    label=Label.ignore.value,
+                    currency="INR",
+                    status="needs_review",
+                    classifier_method="rule",
+                    confidence=0.0,
+                ))
 
         if sync_state is None:
             session.add(SyncState(id=1, last_history_id=new_history_id,
