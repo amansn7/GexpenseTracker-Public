@@ -15,7 +15,7 @@ class TransactionPatch(BaseModel):
     amount: Optional[float] = None
     user_notes: Optional[str] = None
 
-def _fmt(t: Transaction, e: Email) -> dict:
+def _fmt(t: Transaction, e: "Email | None") -> dict:
     return {
         "id": t.id,
         "label": t.label,
@@ -29,10 +29,10 @@ def _fmt(t: Transaction, e: Email) -> dict:
         "classifier_method": t.classifier_method,
         "user_notes": t.user_notes,
         "email": {
-            "subject": e.subject,
-            "sender": e.sender,
-            "received_at": e.received_at.isoformat() if e.received_at else None,
-            "gmail_link": e.gmail_link,
+            "subject": e.subject if e else None,
+            "sender": e.sender if e else None,
+            "received_at": e.received_at.isoformat() if e and e.received_at else None,
+            "gmail_link": e.gmail_link if e else None,
         },
     }
 
@@ -45,7 +45,7 @@ async def list_transactions(
     category: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(Transaction, Email).join(Email).order_by(desc(Transaction.created_at))
+    q = select(Transaction, Email).outerjoin(Email).order_by(desc(Transaction.created_at))
     if label:
         q = q.where(Transaction.label == label)
     if status:
@@ -62,15 +62,15 @@ async def list_transactions(
 @router.get("/transactions/{transaction_id}")
 async def get_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
     row = (await db.execute(
-        select(Transaction, Email).join(Email).where(Transaction.id == transaction_id)
+        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
     result = _fmt(t, e)
-    result["email"]["sender_domain"] = e.sender_domain
-    result["email"]["body_snippet"] = e.body_snippet
-    result["email"]["body_text"] = e.body_text
+    result["email"]["sender_domain"] = e.sender_domain if e else None
+    result["email"]["body_snippet"] = e.body_snippet if e else None
+    result["email"]["body_text"] = e.body_text if e else None
     return result
 
 @router.patch("/transactions/{transaction_id}")
@@ -80,7 +80,7 @@ async def patch_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     row = (await db.execute(
-        select(Transaction, Email).join(Email).where(Transaction.id == transaction_id)
+        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -89,7 +89,7 @@ async def patch_transaction(
     if patch.label is not None:
         t.label = patch.label
         t.status = TransactionStatus.corrected.value
-        if e.sender_domain:
+        if e and e.sender_domain:
             existing = (await db.execute(
                 select(SenderRule).where(SenderRule.sender_domain == e.sender_domain)
             )).scalar_one_or_none()
@@ -125,7 +125,7 @@ async def find_duplicates(db: AsyncSession = Depends(get_db)):
     """
     rows = (await db.execute(
         select(Transaction, Email)
-        .join(Email)
+        .outerjoin(Email)
         .where(
             Transaction.label == "expense",
             Transaction.amount.isnot(None),

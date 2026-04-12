@@ -52,7 +52,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[str] = _uuid_col()
-    email_id: Mapped[str] = mapped_column(String(36), ForeignKey("emails.id"), nullable=False)
+    email_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True)
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="INR")
@@ -65,7 +65,7 @@ class Transaction(Base):
     user_notes: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    email: Mapped["Email"] = relationship(back_populates="transaction")
+    email: Mapped[Optional["Email"]] = relationship(back_populates="transaction")
 
 class SyncState(Base):
     __tablename__ = "sync_state"
