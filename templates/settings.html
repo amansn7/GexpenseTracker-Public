@@ -1,9 +1,11 @@
 {% extends "base.html" %}
+{% block page_name %}settings{% endblock %}
 {% block content %}
 <h2 style="margin-bottom:24px;font-size:18px">Settings</h2>
 
-<div class="card" style="margin-bottom:20px">
-  <div class="card-header">Gmail Connection</div>
+<!-- Gmail Connection -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">Gmail Connection</div>
   <div style="padding:20px">
     <p style="color:#888;font-size:13px;margin-bottom:16px">Connect your Gmail account to start tracking expenses from emails.</p>
     <div id="auth-status-msg" style="margin-bottom:16px;font-size:13px"></div>
@@ -11,20 +13,193 @@
   </div>
 </div>
 
-<div class="card" style="margin-bottom:20px">
-  <div class="card-header">Sync</div>
+<!-- Sync -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">Sync</div>
   <div style="padding:20px">
-    <p style="color:#888;font-size:13px;margin-bottom:16px">Sync interval: every <strong id="sync-interval">\u2014</strong> hours. Last sync: <strong id="last-sync">\u2014</strong></p>
+    <p style="color:#888;font-size:13px;margin-bottom:16px">Sync interval: every <strong id="sync-interval">—</strong> hours. Last sync: <strong id="last-sync">—</strong></p>
+
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">Email Filter</label>
+      <div style="display:flex;gap:8px">
+        <button class="filter-btn" id="filter-all"     onclick="setFilter('all')"   >All emails</button>
+        <button class="filter-btn" id="filter-unread"  onclick="setFilter('unread')">Unread only</button>
+        <button class="filter-btn" id="filter-read"    onclick="setFilter('read')"  >Read only</button>
+      </div>
+      <p style="color:#555;font-size:12px;margin-top:8px">Applies to the next sync. Changing to "unread" is useful to skip already-processed emails.</p>
+    </div>
+
     <button class="btn-primary" onclick="triggerSync()">Trigger Sync Now</button>
-    <span id="sync-msg" style="color:#5db87d;font-size:13px;margin-left:12px"></span>
   </div>
 </div>
 
+<!-- LLM Providers -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">
+    LLM Providers
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="font-size:12px;color:#555">Auto-rotation on rate limit · sorted by dispatch priority</span>
+      <button class="btn-ghost" style="padding:3px 12px;font-size:12px" onclick="refreshLLMStatus()">↻ Refresh</button>
+    </div>
+  </div>
+  <div style="padding:16px 20px">
+    <div id="llm-status-wrap"><p style="color:#444;font-size:13px">Loading…</p></div>
+  </div>
+</div>
+
+<!-- Sender Rules -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">
+    Sender Rules
+    <span style="font-size:12px;color:#555">Domain → label mapping used before LLM</span>
+  </div>
+  <div style="padding:16px 20px 10px">
+    <p style="color:#666;font-size:12px;margin-bottom:16px">
+      Add a rule for any sender domain that the classifier is missing. User rules override built-ins.
+      To correct a single email instead, use the <a href="/review" class="link">Review queue</a>.
+    </p>
+
+    <!-- Add rule form -->
+    <form id="rule-form" onsubmit="addRule(event)" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #1e1e2e">
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Sender Domain</label>
+        <input id="rule-domain" type="text" placeholder="e.g. hdfc.com" style="width:200px" required>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Label</label>
+        <select id="rule-label" required>
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+          <option value="ignore">Ignore</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Category</label>
+        <input id="rule-category" type="text" placeholder="e.g. Banking" style="width:160px">
+      </div>
+      <button type="submit" class="btn-primary" style="height:34px">Add Rule</button>
+    </form>
+
+    <!-- User rules table -->
+    <div style="margin-bottom:8px">
+      <span style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:.4px">Your Rules</span>
+    </div>
+    <div id="user-rules-wrap">
+      <p style="color:#444;font-size:13px">Loading...</p>
+    </div>
+
+    <!-- Builtin rules (collapsible) -->
+    <details style="margin-top:20px">
+      <summary style="font-size:12px;color:#555;cursor:pointer;user-select:none;padding:6px 0">
+        Built-in rules (read-only, overridden by your rules above)
+      </summary>
+      <div id="builtin-rules-wrap" style="margin-top:10px"></div>
+    </details>
+  </div>
+</div>
+
+<style>
+  .filter-btn { padding:6px 16px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--muted); cursor:pointer; font-size:13px; transition:all .15s; }
+  .filter-btn:hover { border-color:var(--accent); color:var(--text); }
+  .filter-btn.active { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+  .llm-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .llm-table th { color:var(--muted); text-align:left; padding:7px 12px; border-bottom:1px solid var(--border); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  .llm-table td { padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  .llm-table tr:last-child td { border-bottom:none; }
+  .llm-table tr.unavailable td { opacity:.5; }
+  .llm-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+  .llm-dot.ok { background:var(--green); } .llm-dot.limited { background:var(--amber); } .llm-dot.off { background:#3a3a5a; }
+  .priority-badge { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:700; }
+  .priority-badge.p1 { background:var(--accent-soft); color:var(--accent); border:1px solid rgba(124,131,253,0.3); }
+  .priority-badge.p2 { background:rgba(93,184,125,0.12); color:var(--green); border:1px solid rgba(93,184,125,0.3); }
+  .priority-badge.pn { background:rgba(255,255,255,0.04); color:var(--muted); border:1px solid var(--border); }
+  .priority-badge.unavail { background:rgba(255,255,255,0.02); color:var(--dim); border:1px solid rgba(255,255,255,0.04); }
+  .score-bar-wrap { width:80px; height:5px; background:rgba(255,255,255,0.06); border-radius:3px; display:inline-block; vertical-align:middle; overflow:hidden; }
+  .score-bar-fill { height:5px; border-radius:3px; background:var(--amber); }
+  .rules-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .rules-table th { color:var(--muted); text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  .rules-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .rules-table tr:last-child td { border-bottom:none; }
+  .del-btn { background:none; border:none; color:var(--dim); cursor:pointer; font-size:16px; padding:2px 6px; border-radius:4px; }
+  .del-btn:hover { background:rgba(224,112,112,0.1); color:var(--red); }
+  .source-tag { font-size:10px; font-weight:600; padding:1px 6px; border-radius:3px; text-transform:uppercase; letter-spacing:.4px; }
+  .source-tag.user_trained { background:var(--accent-soft); color:var(--accent); border:1px solid rgba(124,131,253,0.2); }
+  .source-tag.builtin { background:rgba(255,255,255,0.04); color:var(--dim); border:1px solid rgba(255,255,255,0.06); }
+  .empty-state { color:var(--dim); font-size:13px; padding:12px 0; }
+</style>
+
 <script>
+const LABEL_COLOR = { expense: '#e07070', income: '#5db87d', ignore: '#555' };
+
+function _ruleRow(r, deletable) {
+  return `<tr>
+    <td style="font-family:monospace;font-size:12px;color:#aaa">${r.sender_domain}</td>
+    <td><span class="badge ${r.label}" style="font-size:11px">${r.label}</span></td>
+    <td style="color:#666">${r.category || '—'}</td>
+    <td><span class="source-tag ${r.source}">${r.source === 'user_trained' ? 'custom' : 'built-in'}</span></td>
+    <td style="text-align:right">${deletable
+      ? `<button class="del-btn" title="Delete rule" onclick="deleteRule('${r.sender_domain}')">×</button>`
+      : ''}</td>
+  </tr>`;
+}
+
+async function loadRules() {
+  const data = await fetch('/api/rules').then(r => r.json());
+
+  // User rules
+  const userWrap = document.getElementById('user-rules-wrap');
+  if (!data.user.length) {
+    userWrap.innerHTML = '<p class="empty-state">No custom rules yet. Add one above.</p>';
+  } else {
+    userWrap.innerHTML = `<table class="rules-table">
+      <thead><tr><th>Domain</th><th>Label</th><th>Category</th><th>Source</th><th></th></tr></thead>
+      <tbody>${data.user.map(r => _ruleRow(r, true)).join('')}</tbody>
+    </table>`;
+  }
+
+  // Builtin rules
+  const builtinWrap = document.getElementById('builtin-rules-wrap');
+  builtinWrap.innerHTML = `<table class="rules-table">
+    <thead><tr><th>Domain</th><th>Label</th><th>Category</th><th>Source</th><th></th></tr></thead>
+    <tbody>${data.builtin.map(r => _ruleRow(r, false)).join('')}</tbody>
+  </table>`;
+}
+
+async function addRule(e) {
+  e.preventDefault();
+  const domain   = document.getElementById('rule-domain').value.trim();
+  const label    = document.getElementById('rule-label').value;
+  const category = document.getElementById('rule-category').value.trim() || null;
+  const resp = await fetch('/api/rules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sender_domain: domain, label, category }),
+  });
+
+  if (resp.ok) {
+    showToast(`Rule saved for ${domain}`, 'success');
+    document.getElementById('rule-domain').value = '';
+    document.getElementById('rule-category').value = '';
+    await loadRules();
+  } else {
+    const err = await resp.json();
+    showToast(err.detail || 'Error saving rule', 'error');
+  }
+}
+
+async function deleteRule(domain) {
+  if (!confirm(`Delete rule for "${domain}"?`)) return;
+  const resp = await fetch('/api/rules/' + encodeURIComponent(domain), { method: 'DELETE' });
+  if (resp.ok) await loadRules();
+}
+
+let _currentFilter = 'all';
+
 async function loadSettings() {
-  const [authStatus, syncStatus] = await Promise.all([
+  const [authStatus, syncStatus, llmStatus] = await Promise.all([
     fetch('/api/auth/status').then(r => r.json()),
     fetch('/api/sync/status').then(r => r.json()),
+    fetch('/api/llm/status').then(r => r.json()),
   ]);
   const msg = document.getElementById('auth-status-msg');
   msg.textContent = authStatus.authenticated ? 'Gmail connected' : 'Not connected';
@@ -32,7 +207,111 @@ async function loadSettings() {
   document.getElementById('sync-interval').textContent = syncStatus.sync_interval_hours;
   document.getElementById('last-sync').textContent = syncStatus.last_synced_at
     ? new Date(syncStatus.last_synced_at).toLocaleString('en-IN') : 'Never';
+
+  // Email filter
+  _currentFilter = syncStatus.email_filter || 'all';
+  _applyFilterUI(_currentFilter);
+
+  // LLM status
+  const wrap = document.getElementById('llm-status-wrap');
+  if (llmStatus.providers && llmStatus.providers.length) {
+    // Separate available vs unavailable to assign display rank only among available
+    const available = llmStatus.providers.filter(p => p.available);
+    const rows = llmStatus.providers.map(p => {
+      const rank = available.indexOf(p);   // -1 if unavailable
+      const dispRank = rank + 1;           // 1-based; 0 means unavailable
+
+      // Priority badge
+      const badgeClass = !p.available ? 'unavail' : dispRank === 1 ? 'p1' : dispRank === 2 ? 'p2' : 'pn';
+      const badgeText  = !p.available ? '—' : dispRank;
+      const badge = `<span class="priority-badge ${badgeClass}">${badgeText}</span>`;
+
+      // Status pill
+      const dotClass = !p.available ? 'off' : p.rate_limit_count > 0 ? 'limited' : 'ok';
+      const statusText = p.rate_limited_secs > 0
+        ? `<span style="color:#f0a500;font-size:12px">Rate limited ${p.rate_limited_secs}s</span>`
+        : p.available
+          ? `<span style="color:#5db87d;font-size:12px">Available</span>`
+          : `<span style="color:#3a3a5a;font-size:12px">No key</span>`;
+
+      // Score bar (max useful score ~2.0 for display)
+      const scoreBarPct = Math.min(100, Math.round(p.priority_score / 2 * 100));
+      const scoreBar = p.priority_score > 0
+        ? `<div style="display:inline-flex;align-items:center;gap:6px">
+             <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${scoreBarPct}%"></div></div>
+             <span style="font-size:11px;color:#f0a500">${p.priority_score.toFixed(2)}</span>
+           </div>`
+        : `<span style="font-size:11px;color:#3a3a5a">0.00</span>`;
+
+      const rlBadge = p.rate_limit_count > 0
+        ? `<span style="font-size:11px;color:#f0a500;background:#2a1a00;border:1px solid #4a3000;border-radius:4px;padding:1px 6px">${p.rate_limit_count}× rate limited</span>`
+        : `<span style="font-size:11px;color:#3a3a5a">—</span>`;
+
+      const stats = `<span style="font-size:12px;color:#555">${p.success} ok&nbsp;/&nbsp;${p.fail} fail</span>`;
+
+      return `<tr class="${p.available ? '' : 'unavailable'}">
+        <td>${badge}</td>
+        <td><span class="llm-dot ${dotClass}" style="margin-right:6px"></span><strong style="color:#ccc">${p.name}</strong></td>
+        <td>${statusText}</td>
+        <td>${scoreBar}</td>
+        <td>${rlBadge}</td>
+        <td>${stats}</td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `<table class="llm-table">
+      <thead><tr>
+        <th style="width:44px">Priority</th>
+        <th>Provider</th>
+        <th>Status</th>
+        <th>Penalty score</th>
+        <th>Rate limits</th>
+        <th>Calls</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="font-size:11px;color:#3a3a5a;margin-top:8px;padding:0 4px">
+      Priority 1 is tried first on every call. Each rate-limit hit adds +0.25 to the penalty score, permanently lowering that provider's rank.
+    </p>`;
+  } else {
+    wrap.innerHTML = '<p style="color:#555;font-size:13px">No providers configured.</p>';
+  }
 }
+
+function _applyFilterUI(filter) {
+  ['all','unread','read'].forEach(f => {
+    document.getElementById('filter-' + f)?.classList.toggle('active', f === filter);
+  });
+}
+
+async function setFilter(filter) {
+  const resp = await fetch('/api/sync/settings', {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ email_filter: filter }),
+  });
+  if (resp.ok) {
+    _currentFilter = filter;
+    _applyFilterUI(filter);
+    showToast('Filter saved', 'success');
+  }
+}
+
+async function refreshLLMStatus() {
+  const wrap = document.getElementById('llm-status-wrap');
+  const llmStatus = await fetch('/api/llm/status').then(r => r.json());
+  // Reuse the same render logic by calling loadSettings would re-fetch everything;
+  // instead inline just the LLM section re-render
+  const available = (llmStatus.providers || []).filter(p => p.available);
+  if (!available.length && !(llmStatus.providers || []).length) {
+    wrap.innerHTML = '<p style="color:#555;font-size:13px">No providers configured.</p>';
+    return;
+  }
+  // Trigger full settings reload which re-renders LLM table
+  await loadSettings();
+}
+
 loadSettings();
+loadRules();
 </script>
 {% endblock %}
