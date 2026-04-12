@@ -304,11 +304,16 @@ function openEditModal(btn) {
                  'Entertainment','Healthcare','Education','UPI Payment','Bank Transfer','Income','Other'];
   const chipsEl = document.getElementById('em-chips');
   chipsEl.innerHTML = cats.map(c =>
-    `<button type="button" onclick="_emSelectCat('${c}')"
+    `<button type="button" data-cat="${_esc(c)}"
       style="padding:3px 9px;border-radius:20px;border:1px solid #2a2a4a;background:transparent;color:#555;font-size:11px;cursor:pointer"
-      data-cat="${c}">${c}</button>`
-  ).join('') + `<input id="em-custom-cat" placeholder="Custom…" oninput="_emSelectCat(this.value)"
+      >${_esc(c)}</button>`
+  ).join('') + `<input id="em-custom-cat" placeholder="Custom…"
       style="width:80px;padding:3px 8px;background:#111;border:1px solid #1a1a2a;color:#888;border-radius:20px;font-size:11px">`;
+  chipsEl.querySelectorAll('[data-cat]').forEach(btn => {
+    btn.addEventListener('click', () => _emSelectCat(btn.dataset.cat));
+  });
+  const customCat = document.getElementById('em-custom-cat');
+  if (customCat) customCat.addEventListener('input', () => _emSelectCat(customCat.value));
 
   const editLabel = (label === 'needs_review' ? 'expense' : label) || 'expense';
   _emSelectLabel(editLabel);
@@ -449,31 +454,34 @@ async function _showTooltip(row) {
     <div class="tip-subject">${_escTip(subject)}</div>
     <div class="tip-meta">
       <span>${_escTip(sender)}${dateStr ? ' · ' + dateStr : ''}</span>
-      <a href="${_escTip(gmailLink)}" target="_blank" style="color:#7c83fd;font-size:11px;white-space:nowrap;margin-left:10px">Gmail ↗</a>
+      <a href="${/^https?:\/\//.test(gmailLink) ? gmailLink : '#'}" target="_blank" rel="noopener noreferrer" style="color:#7c83fd;font-size:11px;white-space:nowrap;margin-left:10px">Gmail ↗</a>
     </div>
     <div class="tip-body">${_escTip(bodyClean) || '<span style="color:#444">No body text available.</span>'}</div>`;
 
   tip.addEventListener('mouseenter', () => clearTimeout(_tooltipDismissTimer));
   tip.addEventListener('mouseleave', _removeTooltip);
 
+  // Append hidden first so offsetHeight is measurable
+  tip.style.visibility = 'hidden';
   document.body.appendChild(tip);
 
   const rect = row.getBoundingClientRect();
   const tipW = 420;
-  const tipH = tip.offsetHeight || 200;
+  const tipH = tip.offsetHeight;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  let left = rect.left + window.scrollX;
-  let top  = rect.bottom + window.scrollY + 6;
+  let left = rect.left;
+  let top  = rect.bottom + 6;
 
   if (left + tipW > vw - 10) left = vw - tipW - 10;
   if (left < 10) left = 10;
-  if (top + tipH > vh + window.scrollY - 10) {
-    top = rect.top + window.scrollY - tipH - 6;
+  if (top + tipH > vh - 10) {
+    top = rect.top - tipH - 6;
   }
   tip.style.left = left + 'px';
   tip.style.top  = top  + 'px';
+  tip.style.visibility = '';
 }
 
 function _removeTooltip() {

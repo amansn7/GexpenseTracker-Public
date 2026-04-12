@@ -9,10 +9,10 @@
   </select>
   <select id="filter-category" onchange="loadTxns()">
     <option value="">All categories</option>
-    <option>Food</option><option>Groceries</option><option>Shopping</option>
-    <option>Travel</option><option>Transport</option><option>Utilities</option>
-    <option>Entertainment</option><option>Healthcare</option><option>Education</option>
-    <option>UPI Payment</option><option>Bank Transfer</option><option>Income</option><option>Other</option>
+    <option value="Food">Food</option><option value="Groceries">Groceries</option><option value="Shopping">Shopping</option>
+    <option value="Travel">Travel</option><option value="Transport">Transport</option><option value="Utilities">Utilities</option>
+    <option value="Entertainment">Entertainment</option><option value="Healthcare">Healthcare</option><option value="Education">Education</option>
+    <option value="UPI Payment">UPI Payment</option><option value="Bank Transfer">Bank Transfer</option><option value="Income">Income</option><option value="Other">Other</option>
   </select>
   <select id="filter-status" onchange="loadTxns()">
     <option value="">All statuses</option>
@@ -103,9 +103,6 @@ const LABEL_BORDER = { expense:'#e07070', income:'#5db87d', ignore:'#2a2a3a', ne
 const LABEL_COLOR  = { expense:'#e07070', income:'#5db87d', ignore:'#555',    needs_review:'#7c83fd' };
 const LABEL_BG     = { expense:'#2a1a1a', income:'#1a2a1a', ignore:'#1a1a1a', needs_review:'#1a1a2a' };
 
-function _esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 async function loadTxns() {
   const params = new URLSearchParams();
