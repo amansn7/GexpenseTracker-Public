@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="display:flex;gap:12px;margin-bottom:20px;align-items:center">
+<div style="display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap">
   <select id="filter-label" onchange="loadTxns()">
     <option value="">All labels</option>
     <option value="expense">Expense</option>
     <option value="income">Income</option>
     <option value="ignore">Ignore</option>
+  </select>
+  <select id="filter-category" onchange="loadTxns()">
+    <option value="">All categories</option>
+    <option>Food</option><option>Groceries</option><option>Shopping</option>
+    <option>Travel</option><option>Transport</option><option>Utilities</option>
+    <option>Entertainment</option><option>Healthcare</option><option>Education</option>
+    <option>UPI Payment</option><option>Bank Transfer</option><option>Income</option><option>Other</option>
   </select>
   <select id="filter-status" onchange="loadTxns()">
     <option value="">All statuses</option>
@@ -15,43 +22,133 @@
   </select>
   <input type="date" id="filter-from" onchange="loadTxns()">
   <input type="date" id="filter-to" onchange="loadTxns()">
+  <span id="txn-count" style="margin-left:auto;font-size:13px;color:#555"></span>
 </div>
 
-<div class="card">
-  <div class="card-header"><span id="txn-count">Loading...</span></div>
+<div class="card" style="padding:0;overflow:hidden">
   <table>
-    <thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th>Label</th><th>Amount</th><th>Source</th><th>Status</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th style="width:80px">Date</th>
+        <th>Merchant</th>
+        <th>Category</th>
+        <th style="text-align:right">Amount</th>
+        <th style="width:90px">Label</th>
+        <th style="width:28px"></th>
+      </tr>
+    </thead>
     <tbody id="txn-body"></tbody>
   </table>
 </div>
 
+<style>
+  tr.lbl-expense  { border-left: 3px solid #e07070; }
+  tr.lbl-income   { border-left: 3px solid #5db87d; }
+  tr.lbl-ignore   { border-left: 3px solid #2a2a3a; }
+  tr.lbl-needs_review { border-left: 3px solid #7c83fd; }
+
+  .edit-btn {
+    background: none;
+    border: none;
+    color: #3a3a5a;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color .15s;
+  }
+  .edit-btn:hover { color: #7c83fd; }
+
+  #email-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: #0e0e1a;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
+    padding: 14px 16px;
+    max-width: 420px;
+    min-width: 280px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    pointer-events: auto;
+  }
+  #email-tooltip .tip-subject {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ccc;
+    margin-bottom: 3px;
+  }
+  #email-tooltip .tip-meta {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #email-tooltip .tip-body {
+    font-size: 12px;
+    color: #888;
+    line-height: 1.6;
+    max-height: 160px;
+    overflow-y: auto;
+    border-top: 1px solid #1a1a2a;
+    padding-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+</style>
+
 <script>
-async function loadTxns() {
-  const label = document.getElementById('filter-label').value;
-  const status = document.getElementById('filter-status').value;
-  const from = document.getElementById('filter-from').value;
-  const to = document.getElementById('filter-to').value;
-  const params = new URLSearchParams();
-  if (label) params.set('label', label);
-  if (status) params.set('status', status);
-  if (from) params.set('date_from', from);
-  if (to) params.set('date_to', to);
-  const txns = await fetch('/api/transactions?' + params).then(r => r.json());
-  document.getElementById('txn-count').textContent = txns.length + ' transactions';
-  const tbody = document.getElementById('txn-body');
-  tbody.innerHTML = txns.map(t => `
-    <tr id="row-${t.id}">
-      <td>${t.txn_date || (t.email.received_at ? t.email.received_at.slice(0,10) : '\u2014')}</td>
-      <td>${t.merchant || '\u2014'}</td>
-      <td>${t.category || '\u2014'}</td>
-      <td><span class="badge ${t.label}">${t.label}</span></td>
-      <td style="color:${t.label==='expense'?'#e07070':'#5db87d'}">${t.amount != null ? '\u20B9' + Number(t.amount).toLocaleString('en-IN') : '\u2014'}</td>
-      <td><a href="${t.email.gmail_link}" target="_blank" class="link">Email</a></td>
-      <td style="font-size:11px">${t.status}</td>
-      <td><button class="btn-ghost" style="padding:3px 10px;font-size:11px" onclick="openCorrect('${t.id}','${t.label}','${t.category||''}')">Edit</button></td>
-    </tr>
-  `).join('') || '<tr><td colspan="8" style="color:#555;padding:20px;text-align:center">No transactions</td></tr>';
+const LABEL_BORDER = { expense:'#e07070', income:'#5db87d', ignore:'#2a2a3a', needs_review:'#7c83fd' };
+const LABEL_COLOR  = { expense:'#e07070', income:'#5db87d', ignore:'#555',    needs_review:'#7c83fd' };
+const LABEL_BG     = { expense:'#2a1a1a', income:'#1a2a1a', ignore:'#1a1a1a', needs_review:'#1a1a2a' };
+
+function _esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+async function loadTxns() {
+  const params = new URLSearchParams();
+  const label    = document.getElementById('filter-label').value;
+  const category = document.getElementById('filter-category').value;
+  const status   = document.getElementById('filter-status').value;
+  const from     = document.getElementById('filter-from').value;
+  const to       = document.getElementById('filter-to').value;
+  if (label)    params.set('label', label);
+  if (category) params.set('category', category);
+  if (status)   params.set('status', status);
+  if (from)     params.set('date_from', from);
+  if (to)       params.set('date_to', to);
+
+  const txns = await fetch('/api/transactions?' + params).then(r => r.json());
+  document.getElementById('txn-count').textContent = txns.length + ' transaction' + (txns.length !== 1 ? 's' : '');
+
+  const lbl = (t) => t.status === 'needs_review' ? 'needs_review' : (t.label || 'ignore');
+  const tbody = document.getElementById('txn-body');
+  tbody.innerHTML = txns.map(t => {
+    const l = lbl(t);
+    const amtColor = LABEL_COLOR[l] || '#888';
+    const badgeBg  = LABEL_BG[l]   || '#1a1a1a';
+    const badgeLabel = l === 'needs_review' ? 'review' : l;
+    return `<tr class="lbl-${l}"
+      data-id="${_esc(t.id)}"
+      data-label="${_esc(t.label)}"
+      data-category="${_esc(t.category||'')}"
+      data-amount="${t.amount ?? ''}"
+      data-notes="${_esc(t.user_notes||'')}"
+    >
+      <td>${_esc(t.txn_date || (t.email?.received_at ? t.email.received_at.slice(0,10) : '\u2014'))}</td>
+      <td style="font-weight:500">${_esc(t.merchant || '\u2014')}</td>
+      <td style="color:#666">${_esc(t.category || '\u2014')}</td>
+      <td style="text-align:right;color:${amtColor};font-weight:${t.amount != null ? '600' : '400'}">${t.amount != null ? '\u20B9' + Number(t.amount).toLocaleString('en-IN') : '\u2014'}</td>
+      <td><span style="background:${badgeBg};color:${amtColor};padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:.3px">${badgeLabel}</span></td>
+      <td><button class="edit-btn" onclick="openEditModal(this)" title="Edit">\u270E</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:#555;padding:20px;text-align:center">No transactions</td></tr>';
+
+  _attachHoverListeners();
+}
+
 loadTxns();
 </script>
 {% endblock %}
