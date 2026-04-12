@@ -1,3 +1,43 @@
+/* ── Design system utilities ─────────────────────────────────── */
+
+// Count-up animation for stat numbers
+function countUp(el, target, duration) {
+  duration = duration || 600;
+  var start = performance.now();
+  var prefix = el.dataset.prefix || '';
+  function tick(now) {
+    var t = Math.min((now - start) / duration, 1);
+    var ease = t * (2 - t);
+    var cur = Math.round(target * ease);
+    el.textContent = prefix + cur.toLocaleString('en-IN');
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// Toast notification
+function showToast(msg, type) {
+  type = type || 'success';
+  var container = document.getElementById('toast-container');
+  if (!container) return;
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.classList.add('toast-out');
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+// Skeleton rows for table loading state
+function _skeletonRows(n, cols) {
+  var row = '<tr>' + Array(cols).fill('<td><div class="skeleton" style="height:13px;width:80%">&nbsp;</div></td>').join('') + '</tr>';
+  return Array(n).fill(row).join('');
+}
+
+/* ── End utilities ───────────────────────────────────────────── */
+
 // ── Sync progress panel ──────────────────────────────────────────────────────
 
 let _syncPollTimer  = null;
@@ -93,6 +133,7 @@ function _renderProgress(p) {
     doneEl.style.display = 'block';
     doneEl.style.color   = '#5db87d';
     doneEl.textContent   = `Done — ${p.result.processed} new transactions from ${p.result.total_fetched} emails`;
+    showToast('Sync complete', 'success');
     if (navBtn) { navBtn.textContent = 'Sync Now'; navBtn.disabled = false; }
     _hideSyncPanel(4000);
     setTimeout(() => window.location.reload(), 4200);
