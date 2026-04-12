@@ -42,6 +42,7 @@ class Email(Base):
     sender_domain: Mapped[Optional[str]] = mapped_column(String(255))
     received_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     body_snippet: Mapped[Optional[str]] = mapped_column(Text)
+    body_text: Mapped[Optional[str]] = mapped_column(Text)
     gmail_link: Mapped[Optional[str]] = mapped_column(String(500))
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
