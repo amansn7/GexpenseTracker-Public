@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block page_name %}recurring{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <h2 style="font-size:18px">Recurring Expenses</h2>
+  <div id="monthly-total" style="font-size:15px;color:#e07070;font-weight:700"></div>
+</div>
+
+<!-- Add form -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">Add Recurring Expense</div>
+  <div style="padding:16px 20px">
+    <form id="rec-form" onsubmit="addRecurring(event)" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Name</label>
+        <input id="rec-name" type="text" placeholder="e.g. Rent" style="width:180px" required>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Amount (₹)</label>
+        <input id="rec-amount" type="number" step="0.01" min="0" placeholder="0.00" style="width:130px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Category</label>
+        <input id="rec-category" type="text" placeholder="e.g. Housing" style="width:140px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Frequency</label>
+        <select id="rec-freq">
+          <option value="monthly">Monthly</option>
+          <option value="weekly">Weekly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Day of Month</label>
+        <input id="rec-day" type="number" min="1" max="31" placeholder="e.g. 1" style="width:90px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <label style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.4px">Notes</label>
+        <input id="rec-notes" type="text" placeholder="Optional" style="width:160px">
+      </div>
+      <button type="submit" class="btn-primary" style="height:34px">Add</button>
+    </form>
+  </div>
+</div>
+
+<!-- List -->
+<div class="glass">
+  <div class="glass-header">All Recurring Expenses</div>
+  <div id="rec-list" style="padding:0">
+    <p style="color:#555;padding:20px;text-align:center">Loading…</p>
+  </div>
+</div>
+
+<style>
+  .rec-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .rec-table th { color:var(--muted); text-align:left; padding:8px 14px; border-bottom:1px solid var(--border); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  .rec-table td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .rec-table tr:last-child td { border-bottom:none; }
+  .rec-table tbody tr:hover td { background:rgba(255,255,255,0.03); }
+  .freq-badge { font-size:11px; padding:2px 9px; border-radius:20px; font-weight:600; }
+  .freq-badge.monthly { background:var(--accent-soft); color:var(--accent); }
+  .freq-badge.weekly  { background:rgba(93,184,125,0.12); color:var(--green); }
+  .freq-badge.yearly  { background:rgba(224,112,112,0.1); color:var(--red); }
+  .inactive-row td { opacity:.4; }
+  .del-btn { background:none; border:none; color:var(--dim); cursor:pointer; font-size:16px; padding:2px 6px; border-radius:4px; }
+  .del-btn:hover { background:rgba(224,112,112,0.1); color:var(--red); }
+</style>
+
+<script>
+function _esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function loadRecurring() {
+  const data = await fetch('/api/recurring').then(r => r.json());
+  const { items, monthly_total } = data;
+
+  const totEl = document.getElementById('monthly-total');
+  totEl.textContent = '~₹' + monthly_total.toLocaleString('en-IN', {minimumFractionDigits:2}) + ' / mo';
+
+  const wrap = document.getElementById('rec-list');
+  if (!items.length) {
+    wrap.innerHTML = '<p style="color:#555;padding:20px;text-align:center">No recurring expenses yet.</p>';
+    return;
+  }
+
+  wrap.innerHTML = `<table class="rec-table">
+    <thead><tr>
+      <th>Name</th><th>Amount</th><th>Category</th><th>Frequency</th>
+      <th>Day</th><th>Notes</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody>${items.map(r => `
+      <tr class="${r.active ? '' : 'inactive-row'}" id="rec-row-${r.id}">
+        <td style="font-weight:600;color:#ccc">${_esc(r.name)}</td>
+        <td style="color:#e07070">${r.amount != null ? '₹' + Number(r.amount).toLocaleString('en-IN') : '—'}</td>
+        <td style="color:#888">${_esc(r.category || '—')}</td>
+        <td><span class="freq-badge ${r.frequency}">${r.frequency}</span></td>
+        <td style="color:#666">${r.day_of_month || '—'}</td>
+        <td style="color:#555;font-size:12px">${_esc(r.notes || '')}</td>
+        <td>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" ${r.active ? 'checked' : ''} onchange="toggleActive('${r.id}',this.checked,${JSON.stringify(r)})">
+            <span style="font-size:12px;color:${r.active?'#5db87d':'#555'}">${r.active?'Active':'Paused'}</span>
+          </label>
+        </td>
+        <td style="text-align:right">
+          <button class="del-btn" onclick="deleteRecurring('${r.id}','${_esc(r.name)}')">×</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function addRecurring(e) {
+  e.preventDefault();
+  const body = {
+    name:       document.getElementById('rec-name').value.trim(),
+    amount:     parseFloat(document.getElementById('rec-amount').value) || null,
+    category:   document.getElementById('rec-category').value.trim() || null,
+    frequency:  document.getElementById('rec-freq').value,
+    day_of_month: parseInt(document.getElementById('rec-day').value) || null,
+    notes:      document.getElementById('rec-notes').value.trim() || null,
+    active:     true,
+  };
+  const resp = await fetch('/api/recurring', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (resp.ok) {
+    showToast('Added!', 'success');
+    e.target.reset();
+    await loadRecurring();
+  } else {
+    const err = await resp.json();
+    showToast(err.detail || 'Error', 'error');
+  }
+}
+
+async function toggleActive(id, active, r) {
+  await fetch('/api/recurring/' + id, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ ...r, active }),
+  });
+  await loadRecurring();
+}
+
+async function deleteRecurring(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  await fetch('/api/recurring/' + id, { method: 'DELETE' });
+  await loadRecurring();
+}
+
+loadRecurring();
+</script>
+{% endblock %}

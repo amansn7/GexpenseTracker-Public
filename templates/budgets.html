@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block page_name %}budgets{% endblock %}
 {% block content %}
 
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
@@ -7,7 +8,7 @@
 </div>
 
 <!-- Add form (hidden by default) -->
-<div id="add-form" class="card" style="display:none;margin-bottom:20px;padding:16px">
+<div id="add-form" class="glass" style="display:none;margin-bottom:20px;padding:16px">
   <div style="display:flex;gap:12px;align-items:flex-end">
     <div style="flex:1">
       <label style="font-size:11px;color:#888;display:block;margin-bottom:4px">Category</label>
@@ -24,7 +25,7 @@
 </div>
 
 <!-- Table -->
-<div class="card">
+<div class="glass">
   <table>
     <thead>
       <tr>
@@ -55,31 +56,32 @@ async function loadBudgets() {
 function renderTable() {
   var tbody = document.getElementById('budgets-body');
   if (!_budgets.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:#555;padding:24px;text-align:center">No budgets yet. Click &ldquo;Add budget&rdquo; to create one.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);padding:24px;text-align:center">No budgets yet.</td></tr>';
     return;
   }
   tbody.innerHTML = _budgets.map(function(b) {
-    var color = b.pct >= 100 ? '#e07070' : b.pct >= 70 ? '#f0a500' : '#5db87d';
+    var color = b.pct >= 100 ? 'var(--red)' : b.pct >= 70 ? 'var(--amber)' : 'var(--green)';
+    var pctW = Math.min(b.pct, 100).toFixed(1);
     return '<tr id="row-' + b.id + '">' +
-      '<td style="font-weight:500">' + _esc(b.category) + '</td>' +
+      '<td style="font-weight:500;color:var(--text)">' + _esc(b.category) + '</td>' +
       '<td>' +
-        '<span id="limit-display-' + b.id + '">\u20B9' + b.monthly_limit.toLocaleString('en-IN') + '</span>' +
+        '<span id="limit-display-' + b.id + '">₹' + b.monthly_limit.toLocaleString('en-IN') + '</span>' +
         '<input id="limit-input-' + b.id + '" type="number" min="1"' +
-        ' style="display:none;width:100px;background:#111;color:#ccc;border:1px solid #7c83fd;border-radius:4px;padding:3px 6px;font-size:13px"' +
+        ' style="display:none;width:100px"' +
         ' value="' + b.monthly_limit + '"' +
         ' onkeydown="if(event.key===\'Enter\')saveBudget(' + b.id + ')"' +
         ' onblur="saveBudget(' + b.id + ')">' +
       '</td>' +
-      '<td style="color:' + color + '">\u20B9' + b.spent_this_month.toLocaleString('en-IN') + '</td>' +
-      '<td>' +
-        '<span style="color:' + color + ';font-weight:600">' + b.pct.toFixed(1) + '%</span>' +
-        '<div style="margin-top:4px;height:4px;background:#2a2a4a;border-radius:2px;width:80px">' +
-          '<div style="width:' + Math.min(b.pct,100).toFixed(1) + '%;height:4px;background:' + color + ';border-radius:2px"></div>' +
+      '<td style="color:' + color + ';font-weight:600">₹' + b.spent_this_month.toLocaleString('en-IN') + '</td>' +
+      '<td style="min-width:120px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span style="color:' + color + ';font-weight:700;width:38px">' + b.pct.toFixed(1) + '%</span>' +
+          '<div class="budget-bar-track" style="flex:1"><div class="budget-bar-fill" style="--pct:' + pctW + '%;background:' + color + '"></div></div>' +
         '</div>' +
       '</td>' +
       '<td>' +
         '<button onclick="editBudget(' + b.id + ')" class="btn-ghost" style="padding:3px 10px;font-size:12px;margin-right:6px">Edit</button>' +
-        '<button onclick="deleteBudget(' + b.id + ')" style="background:none;border:none;color:#e07070;cursor:pointer;font-size:12px;padding:3px 6px">Delete</button>' +
+        '<button onclick="deleteBudget(' + b.id + ')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:3px 6px">Delete</button>' +
       '</td>' +
     '</tr>';
   }).join('');
