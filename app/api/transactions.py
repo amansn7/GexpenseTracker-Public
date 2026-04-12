@@ -70,6 +70,7 @@ async def get_transaction(transaction_id: str, db: AsyncSession = Depends(get_db
     result = _fmt(t, e)
     result["email"]["sender_domain"] = e.sender_domain
     result["email"]["body_snippet"] = e.body_snippet
+    result["email"]["body_text"] = e.body_text
     return result
 
 @router.patch("/transactions/{transaction_id}")

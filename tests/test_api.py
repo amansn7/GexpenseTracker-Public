@@ -216,3 +216,50 @@ async def test_update_budget(db_session):
             assert resp.json()["monthly_limit"] == 5000.0
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_get_transaction_detail_includes_body_text(db_session):
+    from app.models import Email, Transaction
+    import uuid
+    from datetime import datetime, timezone
+
+    # Insert an Email + Transaction directly
+    email = Email(
+        gmail_id="test_gmail_id_body",
+        subject="Test Subject",
+        sender="test@example.com",
+        sender_domain="example.com",
+        received_at=datetime.now(timezone.utc),
+        body_snippet="short snippet",
+        body_text="Full body text here.",
+        gmail_link="https://mail.google.com/mail/u/0/#inbox/test_gmail_id_body",
+    )
+    db_session.add(email)
+    await db_session.flush()
+
+    txn = Transaction(
+        email_id=email.id,
+        label="expense",
+        amount=100.0,
+        currency="INR",
+        status="auto",
+        classifier_method="rule",
+        confidence=0.9,
+    )
+    db_session.add(txn)
+    await db_session.commit()
+    await db_session.refresh(txn)
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.get(f"/api/transactions/{txn.id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["email"]["body_text"] == "Full body text here."
+    finally:
+        app.dependency_overrides.pop(get_db, None)
