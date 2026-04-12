@@ -4,103 +4,59 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Expense Tracker</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; }
-    nav { background: #1a1a2e; border-bottom: 1px solid #2a2a4a; padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 56px; }
-    nav .brand { color: #7c83fd; font-weight: 700; font-size: 18px; text-decoration: none; }
-    nav a { color: #aaa; text-decoration: none; font-size: 14px; padding: 4px 0; border-bottom: 2px solid transparent; }
-    nav a:hover, nav a.active { color: #fff; border-bottom-color: #7c83fd; }
-    nav .spacer { flex: 1; }
-    .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
-    .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
-    .stat-card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; padding: 16px 20px; }
-    .stat-card .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-    .stat-card .value { font-size: 26px; font-weight: 700; }
-    .stat-card .value.expense { color: #e07070; }
-    .stat-card .value.income { color: #5db87d; }
-    .stat-card .value.warn { color: #f0a500; }
-    .stat-card .value.muted { color: #ccc; font-size: 16px; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { color: #666; text-align: left; padding: 8px 12px; border-bottom: 1px solid #2a2a4a; font-weight: 500; }
-    td { padding: 10px 12px; border-bottom: 1px solid #1e1e2e; }
-    tr:hover td { background: #1a1a2e; }
-    .badge { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 500; }
-    .badge.expense { background: #2a1a1a; color: #e07070; }
-    .badge.income { background: #1a2a1a; color: #5db87d; }
-    .badge.ignore { background: #222; color: #888; }
-    .badge.review { background: #2a2a1a; color: #f0a500; }
-    .card { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 10px; overflow: hidden; }
-    .card-header { padding: 12px 16px; border-bottom: 1px solid #2a2a4a; font-size: 13px; color: #888; display: flex; justify-content: space-between; align-items: center; }
-    .btn-primary { background: #7c83fd; color: #fff; cursor: pointer; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; }
-    .btn-ghost { background: transparent; color: #7c83fd; border: 1px solid #7c83fd; cursor: pointer; border-radius: 6px; padding: 6px 16px; font-size: 13px; }
-    a.link { color: #7c83fd; text-decoration: none; }
-    a.link:hover { text-decoration: underline; }
-    select, input { background: #111; color: #ccc; border: 1px solid #333; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
-
-    /* Sync progress panel */
-    #sync-panel { position: fixed; bottom: 24px; right: 24px; width: 420px; background: #13131f; border: 1px solid #2e2e4a; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.6); z-index: 1000; overflow: hidden; transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s; transform: translateY(24px); opacity: 0; pointer-events: none; }
-    #sync-panel.visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
-
-    /* Header */
-    #sync-panel-header { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: flex-start; }
-    #sync-panel-title { font-size: 14px; font-weight: 700; color: #e8e8f0; letter-spacing: -.2px; }
-    #sync-panel-phase { font-size: 12px; color: #6a6a8a; margin-top: 3px; }
-    #sync-panel-spinner { font-size: 16px; color: #7c83fd; margin-top: 2px; flex-shrink: 0; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #sync-panel-spinner.spinning { display: inline-block; animation: spin 1.2s linear infinite; }
-
-    /* Progress bar */
-    .sync-bar-wrap { padding: 4px 16px 0; }
-    .sync-bar-track { height: 6px; background: #1e1e32; border-radius: 3px; overflow: hidden; }
-    .sync-bar-fill { height: 6px; background: linear-gradient(90deg, #7c83fd, #a78bfa); border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); width: 0%; }
-    .sync-bar-meta { display: flex; justify-content: space-between; padding: 5px 0 0; font-size: 11px; color: #4a4a6a; }
-    .sync-bar-meta .pct { color: #7c83fd; font-weight: 600; }
-
-    /* Tally row */
-    #sync-tally { display: flex; gap: 16px; padding: 8px 16px 10px; border-bottom: 1px solid #1e1e32; }
-    .tally-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
-    .tally-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .tally-dot.expense { background: #e07070; }
-    .tally-dot.income  { background: #5db87d; }
-    .tally-dot.ignore  { background: #3a3a5a; }
-    .tally-num { font-weight: 700; color: #ccc; }
-    .tally-lbl { color: #4a4a6a; }
-
-    /* Email preview list — no scrollbar, fixed 6 rows max */
-    #sync-previews { overflow: hidden; }
-    .sp-item { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 7px 16px; border-top: 1px solid #1a1a2e; align-items: center; animation: slideDown .2s ease; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-    .sp-subject { font-size: 12px; color: #c8c8d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sp-sender  { font-size: 11px; color: #3e3e5e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-    .sp-right   { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
-    .sp-amount  { font-size: 12px; font-weight: 600; min-width: 52px; text-align: right; }
-    .sp-amount.expense { color: #e07070; }
-    .sp-amount.income  { color: #5db87d; }
-    .sp-amount.ignore  { color: #2e2e4e; }
-    .sp-badge   { font-size: 10px; font-weight: 600; border-radius: 3px; padding: 1px 6px; text-transform: uppercase; letter-spacing: .4px; }
-    .sp-badge.expense { background: #2a1a1a; color: #e07070; }
-    .sp-badge.income  { background: #1a2a1a; color: #5db87d; }
-    .sp-badge.ignore  { background: #1a1a28; color: #3a3a5a; }
-
-    /* Done / error footer */
-    #sync-panel-done { padding: 10px 16px 14px; font-size: 12px; text-align: center; display: none; border-top: 1px solid #1e1e32; }
-  </style>
+  <link rel="stylesheet" href="/static/styles.css">
+  {% block extra_head %}{% endblock %}
 </head>
-<body>
-<nav>
-  <a href="/" class="brand">ExpenseTracker</a>
-  <a href="/" id="nav-home">Dashboard</a>
-  <a href="/transactions" id="nav-txn">Transactions</a>
-  <a href="/review" id="nav-review">Needs Review <span id="review-count" style="display:none;background:#e07070;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px"></span></a>
-  <a href="/recurring" id="nav-recurring">Recurring</a>
-  <a href="/budgets" id="nav-budgets">Budgets</a>
-  <a href="/settings" id="nav-settings">Settings</a>
-  <div class="spacer"></div>
-  <button class="btn-primary" onclick="triggerSync()">Sync Now</button>
-</nav>
-<div class="container">
-  {% block content %}{% endblock %}
+<body class="page-{% block page_name %}dashboard{% endblock %}">
+
+<!-- Ambient glow orbs -->
+<div class="glow-orb" id="glow1"></div>
+<div class="glow-orb" id="glow2"></div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <a href="/" class="sidebar-brand">ExpenseTracker</a>
+
+    <nav class="sidebar-nav">
+      <a href="/" class="nav-item" data-page="dashboard">
+        <span class="nav-icon">⬛</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="/transactions" class="nav-item" data-page="transactions">
+        <span class="nav-icon">≡</span>
+        <span>Transactions</span>
+      </a>
+      <a href="/review" class="nav-item" data-page="review">
+        <span class="nav-icon">◉</span>
+        <span>Review</span>
+        <span id="review-count" style="display:none" class="nav-badge"></span>
+      </a>
+      <a href="/recurring" class="nav-item" data-page="recurring">
+        <span class="nav-icon">↺</span>
+        <span>Recurring</span>
+      </a>
+      <a href="/budgets" class="nav-item" data-page="budgets">
+        <span class="nav-icon">◎</span>
+        <span>Budgets</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <a href="/settings" class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙</span>
+        <span>Settings</span>
+      </a>
+      <button class="sync-btn" onclick="triggerSync()">↻ Sync Now</button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+    <div class="container">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
 </div>
 
 <!-- Sync progress panel -->
@@ -129,15 +85,16 @@
   <div id="sync-panel-done"></div>
 </div>
 
+<!-- Toast container -->
+<div id="toast-container"></div>
+
 <script src="/static/app.js"></script>
 <script>
-  const path = window.location.pathname;
-  if (path === '/') document.getElementById('nav-home').classList.add('active');
-  else if (path.startsWith('/transactions')) document.getElementById('nav-txn').classList.add('active');
-  else if (path.startsWith('/review')) document.getElementById('nav-review').classList.add('active');
-  else if (path.startsWith('/recurring')) document.getElementById('nav-recurring').classList.add('active');
-  else if (path.startsWith('/budgets')) document.getElementById('nav-budgets').classList.add('active');
-  else if (path.startsWith('/settings')) document.getElementById('nav-settings').classList.add('active');
+  // Sidebar active state
+  const _page = window.location.pathname.replace(/^\//, '').split('/')[0] || 'dashboard';
+  document.querySelectorAll('.nav-item[data-page]').forEach(function(a) {
+    a.classList.toggle('active', a.dataset.page === _page);
+  });
 </script>
 </body>
 </html>
