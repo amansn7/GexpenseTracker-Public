@@ -29,7 +29,8 @@ def _extract_body_text(payload: dict) -> str:
             data = part.get("body", {}).get("data", "")
             if data:
                 # Gmail uses URL-safe base64; pad to multiple of 4
-                return base64.urlsafe_b64decode(data + "==").decode("utf-8", errors="replace")
+                padding = (4 - len(data) % 4) % 4
+                return base64.urlsafe_b64decode(data + "=" * padding).decode("utf-8", errors="replace")
         for subpart in part.get("parts", []):
             result = _find_plain(subpart)
             if result:

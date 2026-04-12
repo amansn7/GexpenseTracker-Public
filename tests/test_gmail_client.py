@@ -91,3 +91,13 @@ def test_extract_body_caps_at_4000():
         "parts": [],
     }
     assert len(_extract_body_text(payload)) == 4000
+
+def test_extract_body_already_padded_base64():
+    """Base64 input whose length is already a multiple of 4 — no extra padding needed."""
+    # "Hello" base64url-encodes to "SGVsbG8=" (8 chars, multiple of 4)
+    payload = {
+        "mimeType": "text/plain",
+        "body": {"data": "SGVsbG8="},
+        "parts": [],
+    }
+    assert _extract_body_text(payload) == "Hello"
