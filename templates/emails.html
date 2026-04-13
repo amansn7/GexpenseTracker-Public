@@ -38,6 +38,7 @@
     <option value="year">This year</option>
   </select>
   <span id="filter-count" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
+  <button class="btn-ghost" id="btn-backfill" onclick="backfillBodies()" style="padding:5px 14px;font-size:12px;margin-left:4px" title="Fetch full email bodies from Gmail for emails that only have snippets">⬇ Fetch Bodies</button>
 </div>
 
 <!-- Table -->
@@ -570,6 +571,24 @@ function _tlog(container, msg, cls) {
   line.textContent = msg;
   container.appendChild(line);
   container.scrollTop = container.scrollHeight;
+}
+
+async function backfillBodies() {
+  const btn = document.getElementById('btn-backfill');
+  btn.disabled = true;
+  btn.textContent = '⬇ Fetching…';
+  try {
+    const r = await fetch('/api/sync/backfill-bodies', { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || r.status);
+    showToast(`Fetched ${d.updated} full email bod${d.updated === 1 ? 'y' : 'ies'}${d.errors ? ` (${d.errors} errors)` : ''}`, 'success');
+    if (d.updated > 0) await loadEmails();
+  } catch(e) {
+    showToast('Backfill failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ Fetch Bodies';
+  }
 }
 
 loadEmails();

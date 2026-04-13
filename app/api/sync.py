@@ -76,6 +76,51 @@ async def trigger_sync():
     return {"message": "Sync triggered"}
 
 
+@router.post("/sync/backfill-bodies")
+async def backfill_bodies(db: AsyncSession = Depends(get_db)):
+    """
+    Fetch full body_text from Gmail for emails that only have body_snippet.
+    Runs synchronously (batched) — returns count of emails updated.
+    """
+    import asyncio
+    from sqlalchemy import update
+    from app.models import Email
+    from app.gmail.client import _build_service, _extract_body_text
+
+    result = await db.execute(
+        select(Email).where(Email.body_text.is_(None)).where(Email.body_snippet.isnot(None))
+    )
+    emails = result.scalars().all()
+    if not emails:
+        return {"updated": 0, "message": "All emails already have body text"}
+
+    try:
+        service = await asyncio.to_thread(_build_service)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Gmail not authenticated: {exc}")
+
+    updated = 0
+    errors = 0
+    for email in emails:
+        try:
+            msg = await asyncio.to_thread(
+                lambda eid=email.gmail_id: service.users().messages().get(
+                    userId="me", id=eid, format="full"
+                ).execute()
+            )
+            body = _extract_body_text(msg.get("payload", {}))
+            if body:
+                email.body_text = body
+                updated += 1
+        except Exception as exc:
+            logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
+            errors += 1
+
+    await db.commit()
+    logger.info("backfill-bodies: updated=%d errors=%d", updated, errors)
+    return {"updated": updated, "errors": errors, "total": len(emails)}
+
+
 @router.get("/alerts")
 async def get_alerts():
     from app.alerts import get_alerts as _get
@@ -92,4 +137,11 @@ async def clear_alerts():
 @router.get("/llm/status")
 async def llm_status():
     from app.classifier.llm_client import llm_client
-    return {"providers": llm_client.get_status()}
+    from app.config import settings
+    return {
+        "providers": llm_client.get_status(),
+        "config": {
+            "confidence_threshold": settings.LLM_CONFIDENCE_THRESHOLD,
+            "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,
+        },
+    }
