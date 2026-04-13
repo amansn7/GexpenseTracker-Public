@@ -1,8 +1,70 @@
+"""
+Multi-provider LLM client with automatic rate-limit fallback.
+
+Priority order (best error-rate first, then configured order):
+  OpenRouter → Google Gemini → Grok (xAI) → Scaleway
+
+When a provider returns 429 it is marked rate-limited for `Retry-After`
+seconds (default 60 s).  The next available provider is tried automatically.
+If all providers are exhausted, an alert is added and an exception is raised.
+"""
 import json
+import logging
+import time
+from dataclasses import dataclass, field
+from typing import List, Optional
+
 import httpx
-from dataclasses import dataclass
-from typing import Optional
+
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# ── Prompts ───────────────────────────────────────────────────────────────────
+
+_SYSTEM = (
+    "You are classifying financial emails for an Indian user. "
+    "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
+)
+
+# Full classify + extract — used during initial sync
+_USER_TEMPLATE = """Classify this email as: expense, income, or ignore.
+Extract: amount (INR as number), merchant name, category, transaction date.
+
+From: {sender}
+Subject: {subject}
+Body: {body_snippet}
+
+Indian context: UPI, bank debit/credit alerts, GST invoices. Merchants include
+Zomato, Swiggy, Flipkart, Amazon.in, Jio, Airtel, PhonePe, Google Pay, Paytm,
+CRED, IRCTC, Ola, Rapido.
+
+Categories: Food, Groceries, Shopping, Travel, Transport, Utilities,
+Entertainment, Healthcare, Education, UPI Payment, Bank Transfer, Income, Other
+
+JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
+
+# Extraction-only — used when we already know the label (e.g. rule confirmed expense)
+# Skips the classify step; LLM focuses entirely on pulling out the financial details.
+_EXTRACT_TEMPLATE = """This email is a confirmed {label}.
+Extract the financial details accurately.
+
+From: {sender}
+Subject: {subject}
+Body: {body_snippet}
+
+Indian context: bank debit/credit alerts, UPI confirmations, GST invoices, OTP payment confirmations.
+Amount is always in INR. Look for: debited, credited, paid, charged, transaction of, INR, Rs., ₹.
+Merchant is the payee/store/service name (not the bank).
+Transaction date: the actual payment date (not email received date).
+
+Categories: Food, Groceries, Shopping, Travel, Transport, Utilities,
+Entertainment, Healthcare, Education, UPI Payment, Bank Transfer, Income, Other
+
+JSON only: {{"label":"{label}","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
+
+
+# ── Data classes ──────────────────────────────────────────────────────────────
 
 @dataclass
 class LLMClassification:
@@ -13,83 +75,334 @@ class LLMClassification:
     txn_date: Optional[str]
     confidence: float
 
-_SYSTEM = (
-    "You are classifying financial emails for an Indian user. "
-    "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
-)
 
-_USER_TEMPLATE = """Classify this email as: expense, income, or ignore.
-Extract: amount (INR as number), merchant name, category, transaction date.
+@dataclass
+class _Provider:
+    name: str
+    base_url: str
+    api_key: str
+    model: str
+    extra_headers: dict = field(default_factory=dict)
+    rate_limited_until: float = field(default=0.0)
+    rate_limit_count: int = field(default=0)   # cumulative hits — used for persistent demotion
+    success_count: int = field(default=0)
+    fail_count: int = field(default=0)
 
-From: {sender}
-Subject: {subject}
-Body: {body_snippet}
+    @property
+    def available(self) -> bool:
+        return bool(self.api_key) and time.time() >= self.rate_limited_until
 
-Indian context: UPI, bank debit/credit alerts, GST invoices. Merchants include
-Zomato, Swiggy, Swiggy instamart, Flipkart, Amazon.in, Jio, Airtel, PhonePe,
-Google Pay, Paytm, CRED, IRCTC, Ola, Rapido.
+    def mark_rate_limited(self, retry_after: int = 60) -> None:
+        self.rate_limit_count += 1
+        self.rate_limited_until = time.time() + retry_after
+        logger.warning(
+            "LLM provider '%s' rate limited (hit #%d) — backing off %ds",
+            self.name, self.rate_limit_count, retry_after,
+        )
+        from app.alerts import add_alert
+        add_alert(
+            "warning",
+            f"LLM provider '{self.name}' hit rate limit (#{self.rate_limit_count}). "
+            f"Priority lowered. Switching to next provider for {retry_after}s.",
+            source="llm",
+        )
 
-Categories: Food, Groceries, Shopping, Travel, Transport, Utilities,
-Entertainment, Healthcare, Education, UPI Payment, Bank Transfer, Income, Other
+    @property
+    def priority_score(self) -> float:
+        """Lower score = higher priority.
+        Each rate-limit hit adds 0.25 to the score, persistently demoting the provider.
+        Ties broken by error rate.
+        """
+        return self.rate_limit_count * 0.25 + self.error_rate
 
-JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
+    @property
+    def error_rate(self) -> float:
+        total = self.success_count + self.fail_count
+        return self.fail_count / total if total > 0 else 0.0
 
 
-class LLMClient:
+# ── Parser ────────────────────────────────────────────────────────────────────
+
+def _parse_response(raw: str) -> LLMClassification:
+    if raw.startswith("```"):
+        parts = raw.split("```")
+        raw = parts[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+    data = json.loads(raw)
+    return LLMClassification(
+        label=data.get("label", "ignore"),
+        amount=float(data["amount"]) if data.get("amount") is not None else None,
+        merchant=data.get("merchant"),
+        category=data.get("category"),
+        txn_date=data.get("txn_date"),
+        confidence=float(data.get("confidence", 0.5)),
+    )
+
+
+# ── Multi-provider client ─────────────────────────────────────────────────────
+
+class MultiLLMClient:
     def __init__(self):
-        if settings.LLM_PROVIDER == "openrouter":
-            self._base_url = "https://openrouter.ai/api/v1"
-            self._api_key = settings.OPENROUTER_API_KEY
-            self._extra_headers = {
-                "HTTP-Referer": "http://localhost:8000",
-                "X-Title": "Expense Tracker",
-            }
-        else:
-            self._base_url = "https://api.anthropic.com/v1"
-            self._api_key = settings.ANTHROPIC_API_KEY
-            self._extra_headers = {}
-        self._model = settings.LLM_MODEL
+        self._providers: List[_Provider] = []
+        self._build_providers()
 
-    async def classify(self, sender: str, subject: str, body_snippet: str) -> LLMClassification:
+    def _build_providers(self) -> None:
+        """
+        Register providers in default priority order (lowest score = tried first).
+        Default order: Google → Grok → Scaleway → OpenRouter.
+        OpenRouter starts last because it has the tightest free-tier rate limits.
+        At runtime _ranked_providers() re-sorts by priority_score so any provider
+        that accumulates rate-limit hits falls further down automatically.
+        """
+        if settings.GOOGLE_AI_API_KEY:
+            self._providers.append(_Provider(
+                name="google",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+                api_key=settings.GOOGLE_AI_API_KEY,
+                model="gemini-2.0-flash-exp",
+            ))
+        if settings.GROK_API_KEY:
+            self._providers.append(_Provider(
+                name="grok",
+                base_url="https://api.x.ai/v1",
+                api_key=settings.GROK_API_KEY,
+                model="grok-3-mini",
+            ))
+        if settings.SCALEWAY_API_KEY:
+            self._providers.append(_Provider(
+                name="scaleway",
+                base_url="https://api.scaleway.ai/v1",
+                api_key=settings.SCALEWAY_API_KEY,
+                model="llama-3.3-70b-instruct",
+            ))
+        if settings.OPENROUTER_API_KEY:
+            self._providers.append(_Provider(
+                name="openrouter",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.OPENROUTER_API_KEY,
+                model=settings.LLM_MODEL,
+                extra_headers={
+                    "HTTP-Referer": "http://localhost:8000",
+                    "X-Title": "Expense Tracker",
+                },
+            ))
+
+    def _ranked_providers(self) -> List[_Provider]:
+        """
+        Available providers sorted by priority_score ascending (best first).
+        priority_score = (rate_limit_count * 0.25) + error_rate
+        — each rate-limit hit persistently demotes the provider by 0.25 points.
+        """
+        return sorted(
+            [p for p in self._providers if p.available],
+            key=lambda p: p.priority_score,
+        )
+
+    def get_status(self) -> List[dict]:
+        now = time.time()
+        # Return sorted by current priority so UI shows actual dispatch order
+        ranked_names = [p.name for p in self._ranked_providers()]
+        all_providers = sorted(
+            self._providers,
+            key=lambda p: ranked_names.index(p.name) if p.name in ranked_names else 999,
+        )
+        return [
+            {
+                "name": p.name,
+                "available": p.available,
+                "rate_limited_secs": max(0, round(p.rate_limited_until - now)) if p.rate_limited_until > now else 0,
+                "rate_limit_count": p.rate_limit_count,
+                "priority_score": round(p.priority_score, 3),
+                "success": p.success_count,
+                "fail": p.fail_count,
+                "error_rate": round(p.error_rate, 3),
+            }
+            for p in all_providers
+        ]
+
+    async def extract(
+        self, label: str, sender: str, subject: str, body_snippet: str
+    ) -> LLMClassification:
+        """
+        Extraction-only call: we already know the label, just extract
+        amount / merchant / category / txn_date from the email body.
+        """
+        ranked = self._ranked_providers()
+        if not ranked:
+            from app.alerts import add_alert
+            add_alert("error", "All LLM providers unavailable. Cannot extract expense details.", "llm")
+            raise RuntimeError("No LLM providers available")
+
+        prompt = _EXTRACT_TEMPLATE.format(
+            label=label, sender=sender, subject=subject, body_snippet=body_snippet
+        )
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            try:
+                result = await self._call_provider_raw(provider, prompt)
+                provider.success_count += 1
+                return result
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                    provider.mark_rate_limited(retry_after)
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                last_error = exc
+                continue
+            except Exception as exc:
+                provider.fail_count += 1
+                logger.error("Provider '%s' extract error: %s", provider.name, exc)
+                last_error = exc
+                continue
+
+        raise last_error or RuntimeError("All LLM providers failed")
+
+    async def classify(
+        self, sender: str, subject: str, body_snippet: str
+    ) -> LLMClassification:
+        ranked = self._ranked_providers()
+        if not ranked:
+            from app.alerts import add_alert
+            add_alert(
+                "error",
+                "All LLM providers unavailable (rate limited or unconfigured). "
+                "Classification falling back to rules only.",
+                source="llm",
+            )
+            raise RuntimeError("No LLM providers available")
+
+        prompt = _USER_TEMPLATE.format(
+            sender=sender, subject=subject, body_snippet=body_snippet
+        )
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            try:
+                result = await self._call_provider_raw(provider, prompt)
+                provider.success_count += 1
+                return result
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                    provider.mark_rate_limited(retry_after)
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                logger.error(
+                    "Provider '%s' HTTP %d: %s",
+                    provider.name, exc.response.status_code, exc.response.text[:200],
+                )
+                last_error = exc
+                continue
+            except Exception as exc:
+                provider.fail_count += 1
+                logger.error("Provider '%s' error: %s", provider.name, exc)
+                last_error = exc
+                continue
+
+        raise last_error or RuntimeError("All LLM providers failed")
+
+    async def _call_provider_raw(
+        self, provider: _Provider, user_prompt: str
+    ) -> LLMClassification:
+        result, _ = await self._call_provider_verbose(provider, user_prompt)
+        return result
+
+    async def _call_provider_verbose(
+        self, provider: _Provider, user_prompt: str
+    ) -> tuple:
+        """Returns (LLMClassification, raw_response_str)."""
         payload = {
-            "model": self._model,
+            "model": provider.model,
             "messages": [
                 {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": _USER_TEMPLATE.format(
-                    sender=sender, subject=subject, body_snippet=body_snippet
-                )},
+                {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.1,
             "max_tokens": 200,
         }
         headers = {
-            "Authorization": f"Bearer {self._api_key}",
+            "Authorization": f"Bearer {provider.api_key}",
             "Content-Type": "application/json",
-            **self._extra_headers,
+            **provider.extra_headers,
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{self._base_url}/chat/completions", json=payload, headers=headers
+                f"{provider.base_url}/chat/completions",
+                json=payload,
+                headers=headers,
             )
             response.raise_for_status()
 
         raw = response.json()["choices"][0]["message"]["content"].strip()
-        if raw.startswith("```"):
-            parts = raw.split("```")
-            raw = parts[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        raw = raw.strip()
+        return _parse_response(raw), raw
 
-        data = json.loads(raw)
-        return LLMClassification(
-            label=data.get("label", "ignore"),
-            amount=float(data["amount"]) if data.get("amount") is not None else None,
-            merchant=data.get("merchant"),
-            category=data.get("category"),
-            txn_date=data.get("txn_date"),
-            confidence=float(data.get("confidence", 0.5)),
+    async def classify_verbose(
+        self, sender: str, subject: str, body_snippet: str
+    ) -> dict:
+        """Like classify() but also returns prompt, raw response, and provider name."""
+        ranked = self._ranked_providers()
+        if not ranked:
+            raise RuntimeError("No LLM providers available")
+
+        prompt = _USER_TEMPLATE.format(
+            sender=sender, subject=subject, body_snippet=body_snippet
         )
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            try:
+                result, raw = await self._call_provider_verbose(provider, prompt)
+                provider.success_count += 1
+                return {"result": result, "provider": provider.name, "model": provider.model,
+                        "prompt": prompt, "raw_response": raw}
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                last_error = exc
+                continue
+            except Exception as exc:
+                provider.fail_count += 1
+                last_error = exc
+                continue
+        raise last_error or RuntimeError("All LLM providers failed")
+
+    async def extract_verbose(
+        self, label: str, sender: str, subject: str, body_snippet: str
+    ) -> dict:
+        """Like extract() but also returns prompt, raw response, and provider name."""
+        ranked = self._ranked_providers()
+        if not ranked:
+            raise RuntimeError("No LLM providers available")
+
+        prompt = _EXTRACT_TEMPLATE.format(
+            label=label, sender=sender, subject=subject, body_snippet=body_snippet
+        )
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            try:
+                result, raw = await self._call_provider_verbose(provider, prompt)
+                provider.success_count += 1
+                return {"result": result, "provider": provider.name, "model": provider.model,
+                        "prompt": prompt, "raw_response": raw}
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                last_error = exc
+                continue
+            except Exception as exc:
+                provider.fail_count += 1
+                last_error = exc
+                continue
+        raise last_error or RuntimeError("All LLM providers failed")
 
 
-llm_client = LLMClient()
+llm_client = MultiLLMClient()

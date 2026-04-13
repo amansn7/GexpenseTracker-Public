@@ -1,71 +1,152 @@
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models import Email, Transaction, SyncState, SenderRule, Label
 from app.gmail.client import fetch_new_messages
-from app.classifier.classifier import classify_email
+from app.classifier.classifier import classify_email, ClassificationResult
 
 logger = logging.getLogger(__name__)
+
+# Max concurrent LLM calls (emails that need LLM go in parallel, capped here)
+_LLM_CONCURRENCY = 8
+
+# Global sync progress — read by /api/sync/progress polling endpoint
+_sync_progress: Dict[str, Any] = {
+    "running": False,
+    "phase": "idle",      # idle | fetching | classifying | done | error
+    "current": 0,
+    "total": 0,
+    "tally": {"expense": 0, "income": 0, "ignore": 0},
+    "previews": [],       # last 8 classified emails (newest first)
+    "result": None,
+    "error": None,
+}
+
+
+def get_sync_progress() -> dict:
+    return dict(_sync_progress)
+
+
+def _reset_progress():
+    _sync_progress.update({
+        "running": True,
+        "phase": "fetching",
+        "current": 0,
+        "total": 0,
+        "tally": {"expense": 0, "income": 0, "ignore": 0},
+        "previews": [],
+        "result": None,
+        "error": None,
+    })
+
+
+def _add_preview(msg: dict, label: str, category: Optional[str], amount: Optional[float]):
+    subject = (msg.get("subject") or "").strip() or "(no subject)"
+    sender = msg.get("sender") or ""
+    m = re.search(r"<([^>]+)>", sender)
+    sender_short = m.group(1) if m else sender
+    _sync_progress["previews"] = ([{
+        "subject": subject[:72],
+        "sender": sender_short[:48],
+        "label": label,
+        "category": category,
+        "amount": float(amount) if amount is not None else None,
+    }] + _sync_progress["previews"])[:8]
+    _sync_progress["tally"][label] = _sync_progress["tally"].get(label, 0) + 1
+
 
 async def _load_db_rules(session: AsyncSession) -> dict:
     result = await session.execute(select(SenderRule))
     return {r.sender_domain: (Label(r.label), r.category) for r in result.scalars().all()}
 
+
 async def run_sync() -> dict:
+    _reset_progress()
+    logger.info("Gmail sync starting")
+    try:
+        return await _run_sync_inner()
+    except Exception as exc:
+        logger.error("Sync crashed: %s", exc, exc_info=True)
+        _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
+        raise
+
+
+async def _run_sync_inner() -> dict:
     async with AsyncSessionLocal() as session:
         state_result = await session.execute(select(SyncState))
         sync_state = state_result.scalar_one_or_none()
         last_history_id = sync_state.last_history_id if sync_state else None
+        email_filter = getattr(sync_state, "email_filter", "all") or "all"
 
-        new_history_id = last_history_id  # fallback if fetch raises
+        # ── Phase 1: fetch from Gmail ──────────────────────────────────────────
+        new_history_id = last_history_id
+        logger.info("Fetching messages with filter=%s", email_filter)
         try:
             messages, new_history_id = await asyncio.to_thread(
-                fetch_new_messages, last_history_id
+                fetch_new_messages, last_history_id, email_filter
             )
         except Exception as exc:
             logger.error("Gmail fetch failed: %s", exc)
+            _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
             return {"error": str(exc), "processed": 0}
 
+        total = len(messages)
+        logger.info("Fetched %d messages, classifying...", total)
+
+        # ── Phase 2: deduplicate + insert Email rows ───────────────────────────
+        _sync_progress.update({"phase": "classifying", "total": total, "current": 0})
+
         db_rules = await _load_db_rules(session)
-        processed = 0
+        new_pairs: List[Tuple[Email, dict]] = []  # (email_orm, raw_msg)
+        skipped = 0
 
         for msg in messages:
             existing = await session.execute(
                 select(Email).where(Email.gmail_id == msg["gmail_id"])
             )
             if existing.scalar_one_or_none():
+                skipped += 1
                 continue
-
             email = Email(**msg)
             session.add(email)
-            await session.flush()
+            new_pairs.append((email, msg))
 
-            try:
-                classification = await classify_email(
+        await session.flush()  # assign IDs to all new Email rows at once
+
+        # ── Phase 3: classify all new emails concurrently ─────────────────────
+        sem = asyncio.Semaphore(_LLM_CONCURRENCY)
+        done_counter = 0
+
+        async def _classify_one(email: Email, msg: dict) -> ClassificationResult:
+            nonlocal done_counter
+            async with sem:
+                result = await classify_email(
                     sender=msg["sender"],
                     sender_domain=msg["sender_domain"],
                     subject=msg["subject"] or "",
                     body_snippet=msg["body_snippet"] or "",
                     db_rules=db_rules,
                 )
-                session.add(Transaction(
-                    email_id=email.id,
-                    label=classification.label.value,
-                    amount=classification.amount,
-                    currency="INR",
-                    merchant=classification.merchant,
-                    category=classification.category,
-                    txn_date=classification.txn_date,
-                    confidence=classification.confidence,
-                    status=classification.status.value,
-                    classifier_method=classification.classifier_method.value,
-                ))
-                processed += 1
-            except Exception as exc:
-                logger.error("Classification failed for %s: %s", msg["gmail_id"], exc)
+            done_counter += 1
+            _sync_progress["current"] = skipped + done_counter
+            _add_preview(msg, result.label.value, result.category, result.amount)
+            return result
+
+        classifications = await asyncio.gather(
+            *[_classify_one(e, m) for e, m in new_pairs],
+            return_exceptions=True,
+        )
+
+        # ── Phase 4: write Transaction rows ───────────────────────────────────
+        processed = 0
+        for (email, msg), cls in zip(new_pairs, classifications):
+            if isinstance(cls, Exception):
+                logger.error("Classification failed for %s: %s", msg["gmail_id"], cls)
                 session.add(Transaction(
                     email_id=email.id,
                     label=Label.ignore.value,
@@ -74,7 +155,22 @@ async def run_sync() -> dict:
                     classifier_method="rule",
                     confidence=0.0,
                 ))
+            else:
+                session.add(Transaction(
+                    email_id=email.id,
+                    label=cls.label.value,
+                    amount=cls.amount,
+                    currency="INR",
+                    merchant=cls.merchant,
+                    category=cls.category,
+                    txn_date=cls.txn_date,
+                    confidence=cls.confidence,
+                    status=cls.status.value,
+                    classifier_method=cls.classifier_method.value,
+                ))
+                processed += 1
 
+        # ── Phase 5: update SyncState + commit ────────────────────────────────
         if sync_state is None:
             session.add(SyncState(id=1, last_history_id=new_history_id,
                                   last_synced_at=datetime.now(timezone.utc)))
@@ -83,4 +179,8 @@ async def run_sync() -> dict:
             sync_state.last_synced_at = datetime.now(timezone.utc)
 
         await session.commit()
-        return {"processed": processed, "total_fetched": len(messages)}
+
+    result = {"processed": processed, "total_fetched": total, "skipped": skipped}
+    _sync_progress.update({"running": False, "phase": "done", "result": result})
+    logger.info("Sync complete: %s", result)
+    return result

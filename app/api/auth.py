@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
 from app.gmail.auth import get_oauth_flow, save_credentials, is_authenticated
@@ -22,10 +23,10 @@ async def auth_callback(code: str, state: str):
         return {"error": "No pending auth flow. Visit /api/auth/gmail first."}
     if state != _pending.get("state"):
         return {"error": "State mismatch. Possible CSRF attack."}
-    flow.fetch_token(code=code)
+    await asyncio.to_thread(flow.fetch_token, code=code)
     save_credentials(flow.credentials)
     _pending.clear()
-    return RedirectResponse("/")
+    return RedirectResponse("/", status_code=302)
 
 
 @router.get("/auth/status")

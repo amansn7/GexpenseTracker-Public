@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
 
+    # Additional free-tier LLM providers (OpenAI-compatible)
+    GROK_API_KEY: str = ""          # xAI Grok  — https://api.x.ai/v1
+    GOOGLE_AI_API_KEY: str = ""     # Gemini     — https://generativelanguage.googleapis.com/v1beta/openai
+    SCALEWAY_API_KEY: str = ""      # Scaleway   — https://api.scaleway.ai/v1
+
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75
 

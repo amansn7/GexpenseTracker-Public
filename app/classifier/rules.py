@@ -114,3 +114,36 @@ def apply_rules(
                           matched_domain=False, matched_keywords=income_matched)
 
     return RuleResult(label=None, category=None, confidence=0.0, matched_domain=False)
+
+
+def diagnose_email(
+    sender_domain: str,
+    subject: str,
+    body_snippet: str,
+    db_rules: Optional[dict] = None,
+) -> dict:
+    """Return a full rule-engine diagnostic without side-effects."""
+    all_rules = {**BUILTIN_SENDER_RULES, **(db_rules or {})}
+    domain_match = all_rules.get(sender_domain)
+    text = f"{subject or ''} {body_snippet or ''}"
+    expense_count, expense_matched = _score(text, EXPENSE_KEYWORDS)
+    income_count,  income_matched  = _score(text, INCOME_KEYWORDS)
+    ignore_count,  ignore_matched  = _score(text, IGNORE_KEYWORDS)
+    return {
+        "domain": sender_domain,
+        "domain_rule": {
+            "matched": bool(domain_match),
+            "label": domain_match[0].value if domain_match else None,
+            "category": domain_match[1] if domain_match else None,
+            "source": "user" if (db_rules and sender_domain in db_rules) else "builtin" if domain_match else None,
+        },
+        "text_checked": text[:300],
+        "expense":  {"count": expense_count,  "matched": expense_matched},
+        "income":   {"count": income_count,   "matched": income_matched},
+        "ignore":   {"count": ignore_count,   "matched": ignore_matched},
+        "thresholds": {
+            "domain_confidence": 0.95,
+            "keyword_min_hits": 2,
+            "ignore_min_hits": 2,
+        },
+    }

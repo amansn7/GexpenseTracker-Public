@@ -12,6 +12,7 @@ router = APIRouter()
 class TransactionPatch(BaseModel):
     label: Optional[str] = None
     category: Optional[str] = None
+    merchant: Optional[str] = None
     amount: Optional[float] = None
     user_notes: Optional[str] = None
 
@@ -108,6 +109,8 @@ async def patch_transaction(
                 ))
     if patch.category is not None:
         t.category = patch.category
+    if patch.merchant is not None:
+        t.merchant = patch.merchant
     if patch.amount is not None:
         t.amount = patch.amount
     if patch.user_notes is not None:
