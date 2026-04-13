@@ -288,6 +288,7 @@ function updateSelUI() {
   const chkAll = document.getElementById('chk-all');
   chkAll.indeterminate = n > 0 && n < _visible.length;
   chkAll.checked = _visible.length > 0 && n === _visible.length;
+  updateBackfillBtn();
 }
 
 /* ── Classifier runner ────────────────────────────────────── */
@@ -575,20 +576,36 @@ function _tlog(container, msg, cls) {
 
 async function backfillBodies() {
   const btn = document.getElementById('btn-backfill');
+  const ids = [..._selected];
   btn.disabled = true;
   btn.textContent = '⬇ Fetching…';
   try {
-    const r = await fetch('/api/sync/backfill-bodies', { method: 'POST' });
+    const r = await fetch('/api/sync/backfill-bodies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_ids: ids }),
+    });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || r.status);
-    showToast(`Fetched ${d.updated} full email bod${d.updated === 1 ? 'y' : 'ies'}${d.errors ? ` (${d.errors} errors)` : ''}`, 'success');
-    if (d.updated > 0) await loadEmails();
+    const scope = ids.length ? `${ids.length} selected` : 'all missing';
+    showToast(`Fetched ${d.updated} bod${d.updated === 1 ? 'y' : 'ies'} (${scope})${d.errors ? ` · ${d.errors} errors` : ''}`, 'success');
+    if (d.updated > 0) {
+      _selected.clear();
+      await loadEmails();
+    }
   } catch(e) {
     showToast('Backfill failed: ' + e.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '⬇ Fetch Bodies';
+    updateBackfillBtn();
   }
+}
+
+function updateBackfillBtn() {
+  const btn = document.getElementById('btn-backfill');
+  if (!btn) return;
+  const n = _selected.size;
+  btn.textContent = n ? `⬇ Fetch Bodies (${n})` : '⬇ Fetch Bodies';
 }
 
 loadEmails();

@@ -76,23 +76,32 @@ async def trigger_sync():
     return {"message": "Sync triggered"}
 
 
+class BackfillBody(BaseModel):
+    email_ids: list[str] = []   # empty = backfill all missing
+
+
 @router.post("/sync/backfill-bodies")
-async def backfill_bodies(db: AsyncSession = Depends(get_db)):
+async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db)):
     """
-    Fetch full body_text from Gmail for emails that only have body_snippet.
-    Runs synchronously (batched) — returns count of emails updated.
+    Fetch full body_text from Gmail.
+    email_ids supplied → only those rows (regardless of current body_text).
+    email_ids empty   → all emails with null or empty body_text.
     """
     import asyncio
-    from sqlalchemy import update
+    from sqlalchemy import or_
     from app.models import Email
     from app.gmail.client import _build_service, _extract_body_text
 
-    from sqlalchemy import or_
-    result = await db.execute(
-        select(Email).where(
-            or_(Email.body_text.is_(None), Email.body_text == "")
+    if payload.email_ids:
+        result = await db.execute(
+            select(Email).where(Email.id.in_(payload.email_ids))
         )
-    )
+    else:
+        result = await db.execute(
+            select(Email).where(
+                or_(Email.body_text.is_(None), Email.body_text == "")
+            )
+        )
     emails = result.scalars().all()
     if not emails:
         return {"updated": 0, "message": "All emails already have body text"}
@@ -148,3 +157,9 @@ async def llm_status():
             "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,
         },
     }
+
+
+@router.get("/ml/status")
+async def ml_status():
+    from app.classifier.feature_classifier import get_model_status
+    return get_model_status()
