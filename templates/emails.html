@@ -31,6 +31,12 @@
     <option value="needs_review">Needs review</option>
   </select>
   <input type="text" id="f-search" placeholder="Search subject / sender…" oninput="applyFilter()" style="width:220px">
+  <select id="f-range" onchange="applyFilter()">
+    <option value="">All time</option>
+    <option value="week">This week</option>
+    <option value="month">This month</option>
+    <option value="year">This year</option>
+  </select>
   <span id="filter-count" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
 </div>
 
@@ -80,7 +86,7 @@
   }
   .expand-key { color: var(--muted); text-transform: uppercase; letter-spacing: .4px; font-size: 10px; padding-top: 2px; }
   .expand-val { color: var(--text); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-  .snippet-box { background: rgba(255,255,255,0.03); border-left: 3px solid var(--border); border-radius: var(--r-sm); padding: 8px 10px; font-size: 11px; color: var(--muted); line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; }
+  .snippet-box { background: rgba(255,255,255,0.03); border-left: 3px solid var(--border); border-radius: var(--r-sm); padding: 8px 10px; font-size: 11px; color: var(--muted); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
   input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; width: 14px; height: 14px; }
   .status-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
   .status-pill.linked   { background: rgba(93,184,125,0.12); color: var(--green); }
@@ -148,11 +154,23 @@ function applyFilter() {
   const fLabel  = document.getElementById('f-label').value;
   const fSearch = document.getElementById('f-search').value.toLowerCase();
 
+  const fRange = document.getElementById('f-range').value;
+  const now = new Date();
+  let rangeStart = null;
+  if (fRange === 'week') {
+    rangeStart = new Date(now); rangeStart.setDate(now.getDate() - 7);
+  } else if (fRange === 'month') {
+    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (fRange === 'year') {
+    rangeStart = new Date(now.getFullYear(), 0, 1);
+  }
+
   _visible = _all.filter(e => {
     if (fStatus === 'linked'   && !e.txn_id) return false;
     if (fStatus === 'unlinked' && e.txn_id)  return false;
     if (fLabel && e.label !== fLabel)         return false;
     if (fSearch && !((e.subject||'').toLowerCase().includes(fSearch) || (e.sender||'').toLowerCase().includes(fSearch))) return false;
+    if (rangeStart && e.received_at && new Date(e.received_at) < rangeStart) return false;
     return true;
   });
 
@@ -205,8 +223,15 @@ function renderTable() {
   updateSelUI();
 }
 
+function _htmlDecode(s) {
+  const d = document.createElement('div');
+  d.innerHTML = s;
+  return d.textContent;
+}
+
 function _expandedRow(e) {
-  const body = e.body_text || e.body_snippet || '—';
+  // body_text is clean plain text; body_snippet is HTML-encoded by Gmail — decode it
+  const rawBody = e.body_text || (e.body_snippet ? _htmlDecode(e.body_snippet) : '') || '—';
   const txnBlock = e.txn_id ? `
     <div class="expand-key">Label</div><div class="expand-val"><span class="badge ${e.label === 'needs_review' ? 'review' : e.label}">${e.label}</span></div>
     <div class="expand-key">Amount</div><div class="expand-val">${e.amount != null ? '₹' + Number(e.amount).toLocaleString('en-IN') : '—'}</div>
@@ -222,7 +247,7 @@ function _expandedRow(e) {
         <div class="expand-key">Sender</div><div class="expand-val">${_esc(e.sender || '—')}</div>
         <div class="expand-key">Received</div><div class="expand-val">${e.received_at ? e.received_at.replace('T',' ').slice(0,19) : '—'}</div>
         ${txnBlock}
-        <div class="expand-key">Body</div><div class="expand-val"><div class="snippet-box">${_esc(body)}</div></div>
+        <div class="expand-key">Body</div><div class="expand-val"><div class="snippet-box">${_esc(rawBody)}</div></div>
         ${e.gmail_link ? `<div class="expand-key">Gmail</div><div class="expand-val"><a href="${_esc(e.gmail_link)}" target="_blank" class="link">Open in Gmail ↗</a></div>` : ''}
       </div>
     </td>
@@ -324,8 +349,10 @@ async function runClassifier(method) {
       }
     }
 
-    // Reload emails to reflect new labels
+    // Reload emails + clear selection + refresh review badge
+    _selected.clear();
     await loadEmails();
+    if (typeof refreshReviewBadge === 'function') refreshReviewBadge();
 
   } catch (err) {
     tlog('✗ ' + err.message, 'error');
@@ -380,6 +407,7 @@ async function retrainRules() {
 
     _tlog(body, `\n✓ Done — ${data.saved?.length || 0} rule(s) saved.`, 'complete');
     showToast(`${data.saved?.length || 0} rule(s) saved`, 'success');
+    if (typeof refreshReviewBadge === 'function') refreshReviewBadge();
 
   } catch(e) {
     _tlog(body, '✗ ' + e.message, 'error');
@@ -465,6 +493,8 @@ async function applyLabelFix(btn) {
       const parts = [label, cat, merchant, amount != null ? '₹' + amount : null].filter(Boolean);
       status.textContent = `→ ${parts.join(' / ')} + domain rule saved`;
       showToast(`Saved: ${label}`, 'success');
+      if (typeof refreshReviewBadge === 'function') refreshReviewBadge();
+      _selected.clear();
       loadEmails();
     } else {
       throw new Error((await r.json()).detail || r.status);
@@ -523,6 +553,7 @@ async function rerunWithHint(btn) {
         } catch {}
       }
     }
+    if (typeof refreshReviewBadge === 'function') refreshReviewBadge();
     loadEmails();
   } catch(e) {
     _tlog(termBody, '✗ ' + e.message, 'error');
