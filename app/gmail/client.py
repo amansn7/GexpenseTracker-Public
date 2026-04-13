@@ -22,25 +22,64 @@ def _build_service():
     return build("gmail", "v1", credentials=creds)
 
 
+def _decode_part(part: dict) -> str:
+    """Base64-decode a Gmail MIME part body."""
+    data = part.get("body", {}).get("data", "")
+    if not data:
+        return ""
+    padding = (4 - len(data) % 4) % 4
+    return base64.urlsafe_b64decode(data + "=" * padding).decode("utf-8", errors="replace")
+
+
+def _strip_html(html: str) -> str:
+    """Very lightweight HTML → plain text: strip tags, decode entities."""
+    # Remove style/script blocks entirely
+    html = re.sub(r'<(style|script)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
+    # Replace block-level tags with newlines
+    html = re.sub(r'<(br|p|div|tr|li|h[1-6])[^>]*>', '\n', html, flags=re.IGNORECASE)
+    # Strip remaining tags
+    html = re.sub(r'<[^>]+>', ' ', html)
+    # Decode common HTML entities
+    for ent, ch in [('&amp;', '&'), ('&lt;', '<'), ('&gt;', '>'),
+                    ('&nbsp;', ' '), ('&#39;', "'"), ('&quot;', '"')]:
+        html = html.replace(ent, ch)
+    return html
+
+
 def _extract_body_text(payload: dict) -> str:
-    """Extract plain text from a Gmail message payload. Walks MIME parts recursively."""
-    def _find_plain(part: dict) -> str:
-        if part.get("mimeType") == "text/plain":
-            data = part.get("body", {}).get("data", "")
-            if data:
-                # Gmail uses URL-safe base64; pad to multiple of 4
-                padding = (4 - len(data) % 4) % 4
-                return base64.urlsafe_b64decode(data + "=" * padding).decode("utf-8", errors="replace")
+    """
+    Extract readable text from a Gmail message payload.
+    Prefers text/plain; falls back to text/html (stripped) for HTML-only emails.
+    Walks MIME parts recursively.
+    """
+    plain_parts: list[str] = []
+    html_parts: list[str] = []
+
+    def _walk(part: dict) -> None:
+        mime = part.get("mimeType", "")
+        if mime == "text/plain":
+            t = _decode_part(part)
+            if t.strip():
+                plain_parts.append(t)
+        elif mime == "text/html":
+            t = _decode_part(part)
+            if t.strip():
+                html_parts.append(t)
         for subpart in part.get("parts", []):
-            result = _find_plain(subpart)
-            if result:
-                return result
+            _walk(subpart)
+
+    _walk(payload)
+
+    if plain_parts:
+        text = "\n\n".join(plain_parts)
+    elif html_parts:
+        text = _strip_html("\n\n".join(html_parts))
+    else:
         return ""
 
-    text = _find_plain(payload)
-    text = re.sub(r'\n{3,}', '\n\n', text)   # collapse blank lines
-    text = re.sub(r'[ \t]+', ' ', text)        # collapse horizontal whitespace
-    return text.strip()[:4000]
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    return text.strip()[:8000]
 
 
 def _passes_filter(msg: dict, email_filter: str) -> bool:

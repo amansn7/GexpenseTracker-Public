@@ -87,8 +87,11 @@ async def backfill_bodies(db: AsyncSession = Depends(get_db)):
     from app.models import Email
     from app.gmail.client import _build_service, _extract_body_text
 
+    from sqlalchemy import or_
     result = await db.execute(
-        select(Email).where(Email.body_text.is_(None)).where(Email.body_snippet.isnot(None))
+        select(Email).where(
+            or_(Email.body_text.is_(None), Email.body_text == "")
+        )
     )
     emails = result.scalars().all()
     if not emails:
