@@ -34,18 +34,23 @@ async def classify_email(
     body_snippet: str,
     db_rules: Optional[Dict[str, Tuple[Label, str]]] = None,
     force_extraction: bool = False,
+    force_llm: bool = False,
 ) -> ClassificationResult:
     """
     Classify an email and extract financial details.
 
     force_extraction=True: if the final label is expense or income, always call
     LLM with the focused extraction prompt to get amount / merchant / category /
-    txn_date — even when the rule engine already determined the label with high
-    confidence (rules don't extract these fields).
+    txn_date — even when the rule engine already determined the label.
+
+    force_llm=True: bypass rule-engine gating entirely and always call LLM for
+    the full classify+extract pass. Used when the user explicitly triggers LLM
+    from the UI — prevents high-confidence rule results (e.g. ignore) from
+    silently overriding the user's intent.
     """
     rule_result = apply_rules(sender_domain, subject, body_snippet, db_rules)
 
-    if rule_result.confidence >= settings.LLM_CONFIDENCE_THRESHOLD:
+    if not force_llm and rule_result.confidence >= settings.LLM_CONFIDENCE_THRESHOLD:
         label = rule_result.label
         category = rule_result.category
         amount = None
@@ -73,7 +78,7 @@ async def classify_email(
             except Exception:
                 pass  # extraction failure is non-fatal; label is already confirmed
 
-    elif rule_result.confidence == 0.0:
+    elif not force_llm and rule_result.confidence == 0.0:
         # No rule signal at all — skip LLM, mark as ignore pending review
         return ClassificationResult(
             label=Label.ignore,

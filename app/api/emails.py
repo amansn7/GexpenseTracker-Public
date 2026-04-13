@@ -278,6 +278,7 @@ async def reclassify_emails(payload: ReclassifyPayload):
                         body_snippet=effective_body_for_cls,
                         db_rules=db_rules,
                         force_extraction=(payload.method == "llm"),
+                        force_llm=(payload.method == "llm"),
                     )
 
                     txn_q = await db.execute(
