@@ -54,7 +54,7 @@ async def classify_email(
         label = rule_result.label
         category = rule_result.category
         amount = None
-        merchant = None
+        merchant = rule_result.merchant
         txn_date = None
         confidence = rule_result.confidence
         method = ClassifierMethod.rule

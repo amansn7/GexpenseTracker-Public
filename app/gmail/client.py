@@ -49,11 +49,10 @@ def _strip_html(html: str) -> str:
 def _extract_body_text(payload: dict) -> str:
     """
     Extract readable text from a Gmail message payload.
-    Prefers text/plain; falls back to text/html (stripped) for HTML-only emails.
+    Prefers text/plain only.
     Walks MIME parts recursively.
     """
     plain_parts: list[str] = []
-    html_parts: list[str] = []
 
     def _walk(part: dict) -> None:
         mime = part.get("mimeType", "")
@@ -61,10 +60,6 @@ def _extract_body_text(payload: dict) -> str:
             t = _decode_part(part)
             if t.strip():
                 plain_parts.append(t)
-        elif mime == "text/html":
-            t = _decode_part(part)
-            if t.strip():
-                html_parts.append(t)
         for subpart in part.get("parts", []):
             _walk(subpart)
 
@@ -72,14 +67,12 @@ def _extract_body_text(payload: dict) -> str:
 
     if plain_parts:
         text = "\n\n".join(plain_parts)
-    elif html_parts:
-        text = _strip_html("\n\n".join(html_parts))
     else:
         return ""
 
     text = re.sub(r'\n{3,}', '\n\n', text)
     text = re.sub(r'[ \t]+', ' ', text)
-    return text.strip()[:8000]
+    return text.strip()[:4000]
 
 
 def _passes_filter(msg: dict, email_filter: str) -> bool:

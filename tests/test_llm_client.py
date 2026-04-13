@@ -2,6 +2,10 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from app.classifier.llm_client import LLMClient, LLMClassification
 
+def test_llm_client_compat_alias():
+    from app.classifier.llm_client import MultiLLMClient
+    assert LLMClient is MultiLLMClient
+
 @pytest.mark.asyncio
 async def test_classify_returns_classification(monkeypatch):
     fake_response = MagicMock()

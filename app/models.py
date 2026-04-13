@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, date
+from datetime import UTC, datetime, date
 from enum import Enum as PyEnum
 from typing import Optional
 from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, Boolean, ForeignKey
@@ -32,6 +32,10 @@ def _uuid_col():
     # SQLite-compatible UUID: store as String(36)
     return mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
 
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
 class Email(Base):
     __tablename__ = "emails"
 
@@ -44,7 +48,7 @@ class Email(Base):
     body_snippet: Mapped[Optional[str]] = mapped_column(Text)
     body_text: Mapped[Optional[str]] = mapped_column(Text)
     gmail_link: Mapped[Optional[str]] = mapped_column(String(500))
-    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     transaction: Mapped[Optional["Transaction"]] = relationship(back_populates="email", uselist=False)
 
@@ -63,7 +67,7 @@ class Transaction(Base):
     status: Mapped[str] = mapped_column(String(20), default=TransactionStatus.needs_review)
     classifier_method: Mapped[Optional[str]] = mapped_column(String(10))
     user_notes: Mapped[Optional[str]] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     email: Mapped[Optional["Email"]] = relationship(back_populates="transaction")
 
@@ -84,7 +88,7 @@ class SenderRule(Base):
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[Optional[str]] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(20), default=RuleSource.builtin)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class RecurringExpense(Base):
@@ -99,7 +103,7 @@ class RecurringExpense(Base):
     day_of_month: Mapped[Optional[int]] = mapped_column(Integer)   # 1-31, for monthly
     notes: Mapped[Optional[str]] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 class Budget(Base):
     __tablename__ = "budgets"
@@ -107,7 +111,7 @@ class Budget(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     category: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class MerchantAlias(Base):
@@ -119,7 +123,7 @@ class MerchantAlias(Base):
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     source: Mapped[str] = mapped_column(String(20), default="fuzzy_learned")  # seed | fuzzy_learned | user
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class PatternRule(Base):
@@ -133,4 +137,4 @@ class PatternRule(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.88)
     hit_count: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(String(20), default="llm_generated")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

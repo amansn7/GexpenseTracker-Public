@@ -19,6 +19,19 @@ async def test_high_confidence_rule_skips_llm():
     assert result.status == TransactionStatus.auto
 
 @pytest.mark.asyncio
+async def test_high_confidence_rule_preserves_detected_merchant():
+    result = await classify_email(
+        sender="alerts@bank.com",
+        sender_domain="bank.com",
+        subject="Debit alert",
+        body_snippet="Rs.488 debited towards WWW SWIGGY IN",
+    )
+    assert result.label == Label.expense
+    assert result.classifier_method == ClassifierMethod.rule
+    assert result.merchant == "Swiggy"
+    assert result.category == "Food"
+
+@pytest.mark.asyncio
 async def test_low_confidence_calls_llm():
     mock_result = LLMClassification(
         label="expense", amount=150.0, merchant="Café",

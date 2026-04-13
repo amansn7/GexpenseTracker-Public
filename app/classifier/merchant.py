@@ -148,6 +148,16 @@ def normalize_merchant(raw: str) -> tuple[str, float]:
     if cleaned in _alias_cache:
         return (_alias_cache[cleaned], 1.0)
 
+    # Stage 2c: exact cleaned canonical merchant
+    try:
+        from app.classifier.rules import MERCHANT_MAP
+
+        exact_known = set(MERCHANT_MAP.keys()) | set(MERCHANT_ALIASES.values())
+        if cleaned in exact_known:
+            return (cleaned, 1.0)
+    except Exception as exc:
+        log.warning("merchant: exact-match lookup error: %s", exc)
+
     # Stage 3: fuzzy match
     try:
         from rapidfuzz import process, fuzz

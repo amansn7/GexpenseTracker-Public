@@ -23,43 +23,61 @@ logger = logging.getLogger(__name__)
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
 _SYSTEM = (
-    "You are classifying financial emails for an Indian user. "
-    "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
+    "You are a financial email classifier for an Indian user. "
+    "Respond ONLY with a single valid JSON object. No explanation, no markdown, no code blocks."
 )
 
-# Full classify + extract — used during initial sync
-_USER_TEMPLATE = """Classify this email as: expense, income, or ignore.
-Extract: amount (INR as number), merchant name, category, transaction date.
+# Full classify + extract — used during initial sync / reclassify
+_USER_TEMPLATE = """Classify this financial email and extract transaction details.
+
+CLASSIFICATION RULES:
+- "expense"  = money going OUT: debited, charged, paid, purchase, bill payment, subscription, EMI, fee
+- "income"   = money coming IN: credited, received, salary, cashback, refund, reversal, reward points redeemed
+- "ignore"   = no real transaction: OTP, login alert, low-balance warning, statement ready, promotional offer,
+               delivery/shipment status, password reset, newsletter, KYC reminder
+
+REFUND / REVERSAL → always "income" (money returning to you)
 
 From: {sender}
 Subject: {subject}
 Body: {body_snippet}
 
-Indian context: UPI, bank debit/credit alerts, GST invoices. Merchants include
-Zomato, Swiggy, Flipkart, Amazon.in, Jio, Airtel, PhonePe, Google Pay, Paytm,
-CRED, IRCTC, Ola, Rapido.
+EXTRACTION RULES:
+- amount    : INR number, no currency symbols or commas. Found in subject ("Rs.488.00") or body. null if absent.
+- merchant  : payee / store / service — NOT the bank itself. Clean raw merchant codes:
+              "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
+              "NETFLIX.COM" → "Netflix", "SPOTIFY" → "Spotify". null if no identifiable payee.
+- category  : one of — Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment,
+              Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other
+- txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
+- confidence: 0.9–1.0 for clear bank/UPI alerts · 0.7–0.9 for merchant emails · 0.5–0.7 for ambiguous
 
-Categories: Food, Groceries, Shopping, Travel, Transport, Utilities,
-Entertainment, Healthcare, Education, UPI Payment, Bank Transfer, Income, Other
+COMMON INDIAN BANK PATTERNS:
+  "Rs.X debited from your account/card ... towards MERCHANT" → expense
+  "INR X credited to your account" → income
+  "Rs.X refunded / reversed to your account" → income, category=Refund
+  "You have paid Rs.X to MERCHANT via UPI" → expense, category=UPI Payment
+  "X debited from a/c XXXX" → expense (find merchant in body)
+  "Cashback of Rs.X credited" → income, category=Income
 
 JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
 
-# Extraction-only — used when we already know the label (e.g. rule confirmed expense)
-# Skips the classify step; LLM focuses entirely on pulling out the financial details.
-_EXTRACT_TEMPLATE = """This email is a confirmed {label}.
-Extract the financial details accurately.
+# Extraction-only — label already confirmed by rule engine; LLM just pulls out the numbers.
+_EXTRACT_TEMPLATE = """This email is a confirmed {label} transaction. Extract the financial details precisely.
 
 From: {sender}
 Subject: {subject}
 Body: {body_snippet}
 
-Indian context: bank debit/credit alerts, UPI confirmations, GST invoices, OTP payment confirmations.
-Amount is always in INR. Look for: debited, credited, paid, charged, transaction of, INR, Rs., ₹.
-Merchant is the payee/store/service name (not the bank).
-Transaction date: the actual payment date (not email received date).
-
-Categories: Food, Groceries, Shopping, Travel, Transport, Utilities,
-Entertainment, Healthcare, Education, UPI Payment, Bank Transfer, Income, Other
+EXTRACTION RULES:
+- amount    : INR number only — strip Rs., ₹, INR, commas. Check subject line first, then body. Required.
+- merchant  : payee / store / service name — NOT the bank. Clean raw codes:
+              "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
+              "NETFLIX.COM" → "Netflix". null if no identifiable payee.
+- category  : one of — Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment,
+              Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other
+- txn_date  : actual payment date (YYYY-MM-DD) from body — NOT the email received date. null if absent.
+- confidence: 0.85–1.0 for clear bank alerts · 0.65–0.85 for ambiguous body
 
 JSON only: {{"label":"{label}","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
 
@@ -406,3 +424,4 @@ class MultiLLMClient:
 
 
 llm_client = MultiLLMClient()
+LLMClient = MultiLLMClient

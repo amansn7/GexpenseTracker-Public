@@ -399,9 +399,7 @@ def classify_transaction(text: str, sender: str = "") -> Dict[str, Any]:
 
     # Final fallback
     if not result["label"]:
-        result["label"] = "ignore"
-        result["confidence"] = 0.5
-        result["matched_layer"] = "fallback"
+        result["matched_layer"] = "none"
 
     return result
 
