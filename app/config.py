@@ -21,6 +21,12 @@ class Settings(BaseSettings):
 
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75
+    ML_CONFIDENCE_THRESHOLD: float = 0.55
+    ML_MARGIN_THRESHOLD: float = 0.03
+    ML_AUTO_LEARN_THRESHOLD: float = 0.90
+    ML_MIN_SAMPLES: int = 3
+    ML_MODEL_PATH: str = "data/ml_classifier.json"
+    LEARNING_STATS_PATH: str = "data/learning_stats.json"
 
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
