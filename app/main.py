@@ -18,6 +18,15 @@ from app.api import auth, transactions, review, sync as sync_api, rules as rules
 async def lifespan(app: FastAPI):
     if not os.getenv("TESTING"):
         setup_scheduler()
+        try:
+            from app.database import AsyncSessionLocal
+            from app.classifier.pattern_gen import load_pattern_cache_from_db
+            from app.classifier.merchant import load_alias_cache_from_db
+            async with AsyncSessionLocal() as db:
+                await load_pattern_cache_from_db(db)
+                await load_alias_cache_from_db(db)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("startup cache load failed: %s", exc)
     yield
     if not os.getenv("TESTING") and scheduler.running:
         scheduler.shutdown(wait=False)

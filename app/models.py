@@ -108,3 +108,29 @@ class Budget(Base):
     category: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class MerchantAlias(Base):
+    __tablename__ = "merchant_aliases"
+
+    id: Mapped[str] = _uuid_col()
+    raw: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    canonical: Mapped[str] = mapped_column(String(255), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    source: Mapped[str] = mapped_column(String(20), default="fuzzy_learned")  # seed | fuzzy_learned | user
+    hit_count: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class PatternRule(Base):
+    __tablename__ = "pattern_rules"
+
+    id: Mapped[str] = _uuid_col()
+    regex_pattern: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    label: Mapped[str] = mapped_column(String(20), nullable=False)      # expense | income
+    merchant: Mapped[Optional[str]] = mapped_column(String(255))
+    category: Mapped[Optional[str]] = mapped_column(String(100))
+    confidence: Mapped[float] = mapped_column(Float, default=0.88)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(20), default="llm_generated")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

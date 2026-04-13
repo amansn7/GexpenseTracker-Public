@@ -1,6 +1,9 @@
 import json
+import logging
 from typing import List, Dict, Optional
 from fastapi import APIRouter, Depends
+
+log = logging.getLogger(__name__)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +13,18 @@ from app.models import Email, Transaction, SenderRule, Label
 from app.classifier.classifier import classify_email
 from app.classifier.rules import diagnose_email
 from app.classifier.llm_client import llm_client
+from app.classifier.text_utils import clean_body
+
+
+def _body(email: Email) -> str:
+    """Return cleaned body text for classification.
+
+    Prefers body_text (full MIME plain-text) over body_snippet
+    (Gmail's HTML-encoded ~160-char snippet), then strips tags,
+    decodes entities, and removes noise.
+    """
+    raw = email.body_text or email.body_snippet or ""
+    return clean_body(raw)
 
 router = APIRouter()
 
@@ -147,22 +162,60 @@ async def reclassify_emails(payload: ReclassifyPayload):
                 diag = diagnose_email(
                     sender_domain=email.sender_domain or "",
                     subject=email.subject or "",
-                    body_snippet=email.body_snippet or "",
+                    body_snippet=_body(email),
                     db_rules=db_rules,
                 )
 
                 yield _sse({"type": "section", "message": "  ── Rule Engine ──"})
-                dr = diag["domain_rule"]
+                dr  = diag["domain_rule"]
+                rx  = diag.get("regex", {})
+                mch = diag.get("merchant", {})
 
+                # Layer 0: domain
                 if dr["matched"]:
                     src = f"[{dr['source']}]"
                     yield _sse({"type": "match",
-                                "message": f"  ✓ Domain match {src}: {dr['label']} / {dr['category']} (conf 0.95)"})
+                                "message": f"  ✓ L0 Domain {src}: {dr['label']} / {dr['category']} (conf 0.95)"})
                 else:
                     yield _sse({"type": "dim",
-                                "message": f"  ✗ No domain rule for '{diag['domain']}'"})
+                                "message": f"  ✗ L0 No domain rule for '{diag['domain']}'"})
+
+                    # Layer 1: regex
+                    if rx.get("ignore_match"):
+                        yield _sse({"type": "dim",
+                                    "message": f"  ✓ L1 Regex IGNORE  : \"{rx['ignore_match']}\" (conf 0.90)"})
+                    elif rx.get("debit_match"):
+                        yield _sse({"type": "match",
+                                    "message": f"  ✓ L1 Regex EXPENSE : \"{rx['debit_match']}\" (conf 0.90)"})
+                    elif rx.get("credit_match"):
+                        yield _sse({"type": "income",
+                                    "message": f"  ✓ L1 Regex INCOME  : \"{rx['credit_match']}\" (conf 0.90)"})
+                    else:
+                        yield _sse({"type": "dim", "message": "  ✗ L1 No regex match"})
+
+                    # Layer 2: sender intel
+                    if rx.get("is_bank_sender"):
+                        upi_note = "UPI pattern found" if rx.get("has_upi") else "no UPI pattern"
+                        yield _sse({"type": "dim",
+                                    "message": f"  ✓ L2 Bank sender + {upi_note}"})
+                    else:
+                        yield _sse({"type": "dim", "message": "  ✗ L2 Not a bank sender"})
+
+                    if rx.get("amount_found") is not None:
+                        yield _sse({"type": "dim",
+                                    "message": f"  ✓    Amount found in text: ₹{rx['amount_found']:,.2f}"})
+
+                    # Layer 3: merchant
+                    if mch.get("detected"):
+                        yield _sse({"type": "match",
+                                    "message": f"  ✓ L3 Merchant: {mch['detected']} → {mch['category']} (conf 0.92)"})
+                    else:
+                        yield _sse({"type": "dim", "message": "  ✗ L3 No known merchant"})
+
+                    # Layer 4: keywords
+                    yield _sse({"type": "section", "message": "  ── L4 Keyword Scoring ──"})
                     text_prev = diag["text_checked"][:140].replace("\n", " ")
-                    yield _sse({"type": "dim", "message": f"  Text   : \"{text_prev}…\""})
+                    yield _sse({"type": "dim", "message": f"  Text : \"{text_prev}…\""})
 
                     for bucket, color in [("expense", "match"), ("income", "income"), ("ignore", "dim")]:
                         bkt = diag[bucket]
@@ -178,8 +231,7 @@ async def reclassify_emails(payload: ReclassifyPayload):
                 # ── LLM path ────────────────────────────────────────────
                 if payload.method == "llm":
                     yield _sse({"type": "section", "message": "  ── LLM ──"})
-                    # Inject hint into body snippet if provided
-                    effective_body = (email.body_snippet or "")
+                    effective_body = _body(email)
                     if hint:
                         effective_body += f"\n\n[User note: {hint}]"
 
@@ -215,7 +267,7 @@ async def reclassify_emails(payload: ReclassifyPayload):
 
                 # ── Classify + persist ───────────────────────────────────
                 try:
-                    effective_body_for_cls = (email.body_snippet or "")
+                    effective_body_for_cls = _body(email)
                     if hint:
                         effective_body_for_cls += f"\n\n[User note: {hint}]"
 
@@ -262,14 +314,78 @@ async def reclassify_emails(payload: ReclassifyPayload):
                         label_changed = True
 
                     await db.flush()
-                    # refresh to get assigned id if new
                     if not txn.id:
                         await db.refresh(txn)
+
+                    # ── Auto-train rule for high-confidence LLM results ──
+                    rule_saved_msg = ""
+                    domain = email.sender_domain or ""
+                    if (
+                        domain
+                        and payload.method == "llm"
+                        and cls.classifier_method.value == "llm"
+                        and cls.confidence >= 0.75
+                        and not diag["domain_rule"]["matched"]   # not already a known domain
+                    ):
+                        from app.models import RuleSource
+                        existing_rule = (await db.execute(
+                            select(SenderRule).where(SenderRule.sender_domain == domain)
+                        )).scalar_one_or_none()
+                        if existing_rule:
+                            existing_rule.label = cls.label.value
+                            existing_rule.category = cls.category or existing_rule.category
+                            existing_rule.source = RuleSource.user_trained.value
+                            rule_saved_msg = f"  ✦ domain rule updated: {domain} → {cls.label.value}"
+                        else:
+                            db.add(SenderRule(
+                                sender_domain=domain,
+                                label=cls.label.value,
+                                category=cls.category,
+                                source=RuleSource.user_trained.value,
+                            ))
+                            rule_saved_msg = f"  ✦ domain rule created: {domain} → {cls.label.value}"
+                        db_rules[domain] = (Label(cls.label.value), cls.category)  # update local cache
+
+                    # ── Auto-generate pattern rule from LLM result ──────────
+                    pattern_msg = ""
+                    if (
+                        payload.method == "llm"
+                        and cls.classifier_method.value == "llm"
+                        and cls.confidence >= 0.75
+                        and cls.merchant
+                        and cls.label.value in ("expense", "income")
+                    ):
+                        try:
+                            from app.classifier.pattern_gen import save_pattern_rule
+                            trigger_text = f"{email.subject or ''} {effective_body_for_cls}"
+                            saved_pattern = await save_pattern_rule(
+                                db=db,
+                                merchant=cls.merchant,
+                                label=cls.label.value,
+                                category=cls.category,
+                                confidence=round(cls.confidence * 0.95, 2),  # slight discount vs LLM
+                                trigger_text=trigger_text,
+                            )
+                            if saved_pattern:
+                                pattern_msg = f"  ✦ pattern rule saved: {cls.merchant} → {cls.label.value}"
+                        except Exception as _pe:
+                            log.warning("pattern_gen failed: %s", _pe)
+
+                    # ── Flush fuzzy-learned merchant aliases ────────────────
+                    try:
+                        from app.classifier.merchant import learn_pending_aliases
+                        await learn_pending_aliases(db)
+                    except Exception as _me:
+                        log.warning("merchant alias flush failed: %s", _me)
 
                     amt_str = f"₹{cls.amount:,.2f}" if cls.amount else "—"
                     change_note = f"  (was: {old_label})" if label_changed and old_label else ""
 
                     yield _sse({"type": "section", "message": "  ── Result ──"})
+                    if rule_saved_msg:
+                        yield _sse({"type": "match", "message": rule_saved_msg})
+                    if pattern_msg:
+                        yield _sse({"type": "match", "message": pattern_msg})
                     yield _sse({
                         "type": "result",
                         "email_id": email_id,
