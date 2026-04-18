@@ -141,6 +141,7 @@ class PatternRule(Base):
 
 
 class ClassificationLog(Base):
+    # Audit log — always queried directly, no ORM relationship needed
     __tablename__ = "classification_log"
 
     id: Mapped[str] = _uuid_col()
