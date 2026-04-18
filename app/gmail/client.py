@@ -87,16 +87,19 @@ def _passes_filter(msg: dict, email_filter: str) -> bool:
     return True
 
 
+_FETCH_CONCURRENCY = 40  # Gmail quota: messages.get is 5 units; stay well under 250/sec burst
+
 def fetch_new_messages(last_history_id, email_filter: str = "all"):
     """
     Returns (messages, new_history_id).
-    last_history_id=None triggers full 90-day fetch.
+    last_history_id=None triggers full 90-day fetch with pagination.
 
     email_filter: "all" | "unread" | "read"
 
     Each message dict keys:
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
     """
+    import time
     service = _build_service()
 
     if last_history_id is None:
@@ -106,10 +109,19 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
         elif email_filter == "read":
             query += " is:read"
 
-        results = service.users().messages().list(
-            userId="me", q=query, maxResults=500
-        ).execute()
-        message_ids = [m["id"] for m in results.get("messages", [])]
+        # Paginate through all results, not just the first 500
+        message_ids = []
+        page_token = None
+        while True:
+            kwargs = {"userId": "me", "q": query, "maxResults": 500}
+            if page_token:
+                kwargs["pageToken"] = page_token
+            results = service.users().messages().list(**kwargs).execute()
+            message_ids.extend(m["id"] for m in results.get("messages", []))
+            page_token = results.get("nextPageToken")
+            if not page_token:
+                break
+
         profile = service.users().getProfile(userId="me").execute()
         new_history_id = str(profile["historyId"])
     else:
@@ -119,7 +131,6 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
                 startHistoryId=last_history_id,
                 historyTypes=["messageAdded"],
             ).execute()
-            # Filter by read/unread via labelIds on each added message
             message_ids = [
                 msg["message"]["id"]
                 for record in history.get("history", [])
@@ -127,24 +138,30 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
                 if _passes_filter(msg["message"], email_filter)
             ]
             new_history_id = str(history.get("historyId", last_history_id))
-        except Exception:
-            # History expired — fall back to full fetch
-            return fetch_new_messages(None, email_filter)
+        except HttpError as e:
+            # 404 = historyId too old (expired), 410 = Gone — both warrant a full re-fetch
+            if e.resp.status in (404, 410):
+                logger.warning("History ID expired (status %s), falling back to full fetch", e.resp.status)
+                return fetch_new_messages(None, email_filter)
+            raise
 
     messages = []
     skipped = 0
-    for msg_id in message_ids:
+    for i, msg_id in enumerate(message_ids):
+        # Throttle to avoid exceeding Gmail's 250 quota-units/sec burst limit
+        if i > 0 and i % _FETCH_CONCURRENCY == 0:
+            time.sleep(1)
+
         try:
             msg = service.users().messages().get(
                 userId="me", id=msg_id, format="full",
             ).execute()
         except HttpError as e:
             if e.resp.status == 404:
-                # Message was deleted / moved to trash between list and get — skip it
                 logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
                 skipped += 1
                 continue
-            raise  # re-raise unexpected errors
+            raise
 
         headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
         sender = headers.get("From", "")
@@ -164,4 +181,5 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
     if skipped:
         logger.info("Skipped %d message(s) that were deleted/trashed since listing", skipped)
 
+    logger.info("Fetched %d messages (%d skipped)", len(messages), skipped)
     return messages, new_history_id

@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "ExpenseTracker" [ref=e3] [cursor=pointer]:
+      - /url: /
+    - link "Dashboard" [ref=e4] [cursor=pointer]:
+      - /url: /
+    - link "Transactions" [ref=e5] [cursor=pointer]:
+      - /url: /transactions
+    - link "Needs Review" [ref=e6] [cursor=pointer]:
+      - /url: /review
+    - link "Recurring" [ref=e7] [cursor=pointer]:
+      - /url: /recurring
+    - link "Budgets" [ref=e8] [cursor=pointer]:
+      - /url: /budgets
+    - link "Settings" [ref=e9] [cursor=pointer]:
+      - /url: /settings
+    - button "Sync Now" [ref=e10] [cursor=pointer]
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - combobox [ref=e13]:
+        - option "All labels" [selected]
+        - option "Expense"
+        - option "Income"
+        - option "Ignore"
+      - combobox [ref=e14]:
+        - option "All categories" [selected]
+        - option "Food"
+        - option "Groceries"
+        - option "Shopping"
+        - option "Travel"
+        - option "Transport"
+        - option "Utilities"
+        - option "Entertainment"
+        - option "Healthcare"
+        - option "Education"
+        - option "UPI Payment"
+        - option "Bank Transfer"
+        - option "Income"
+        - option "Other"
+      - combobox [ref=e15]:
+        - option "All statuses" [selected]
+        - option "Auto"
+        - option "Corrected"
+        - option "Needs Review"
+      - textbox [ref=e16]
+      - textbox [ref=e17]
+    - table [ref=e19]:
+      - rowgroup [ref=e20]:
+        - row "Date Merchant Category Amount Label" [ref=e21]:
+          - columnheader "Date" [ref=e22]
+          - columnheader "Merchant" [ref=e23]
+          - columnheader "Category" [ref=e24]
+          - columnheader "Amount" [ref=e25]
+          - columnheader "Label" [ref=e26]
+          - columnheader [ref=e27]
+      - rowgroup
+  - generic:
+    - generic:
+      - generic:
+        - generic: Syncing Gmail
+        - generic: Connecting...
+      - generic: ↻
+    - generic:
+      - generic:
+        - generic: "0"
+        - generic: expense
+      - generic:
+        - generic: "0"
+        - generic: income
+      - generic:
+        - generic: "0"
+        - generic: ignore

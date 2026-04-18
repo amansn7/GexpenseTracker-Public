@@ -1,0 +1,4313 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "ExpenseTracker" [ref=e3] [cursor=pointer]:
+      - /url: /
+    - link "Dashboard" [ref=e4] [cursor=pointer]:
+      - /url: /
+    - link "Transactions" [ref=e5] [cursor=pointer]:
+      - /url: /transactions
+    - link "Needs Review" [ref=e6] [cursor=pointer]:
+      - /url: /review
+    - link "Recurring" [ref=e7] [cursor=pointer]:
+      - /url: /recurring
+    - link "Budgets" [ref=e8] [cursor=pointer]:
+      - /url: /budgets
+    - link "Settings" [ref=e9] [cursor=pointer]:
+      - /url: /settings
+    - button "Sync Now" [ref=e10] [cursor=pointer]
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - combobox [ref=e13]:
+        - option "All labels" [selected]
+        - option "Expense"
+        - option "Income"
+        - option "Ignore"
+      - combobox [ref=e14]:
+        - option "All categories" [selected]
+        - option "Food"
+        - option "Groceries"
+        - option "Shopping"
+        - option "Travel"
+        - option "Transport"
+        - option "Utilities"
+        - option "Entertainment"
+        - option "Healthcare"
+        - option "Education"
+        - option "UPI Payment"
+        - option "Bank Transfer"
+        - option "Income"
+        - option "Other"
+      - combobox [ref=e15]:
+        - option "All statuses" [selected]
+        - option "Auto"
+        - option "Corrected"
+        - option "Needs Review"
+      - textbox [ref=e16]
+      - textbox [ref=e17]
+      - generic [ref=e28]: 530 transactions
+    - table [ref=e19]:
+      - rowgroup [ref=e20]:
+        - row "Date Merchant Category Amount Label" [ref=e21]:
+          - columnheader "Date" [ref=e22]
+          - columnheader "Merchant" [ref=e23]
+          - columnheader "Category" [ref=e24]
+          - columnheader "Amount" [ref=e25]
+          - columnheader "Label" [ref=e26]
+          - columnheader [ref=e27]
+      - rowgroup [ref=e29]:
+        - row "2026-04-12 — — — ignore ✎" [ref=e30]:
+          - cell "2026-04-12" [ref=e31]
+          - cell "—" [ref=e32]
+          - cell "—" [ref=e33]
+          - cell "—" [ref=e34]
+          - cell "ignore" [ref=e35]
+          - cell "✎" [ref=e36]:
+            - button "✎" [ref=e37] [cursor=pointer]
+        - row "2026-04-12 — — — ignore ✎" [ref=e38]:
+          - cell "2026-04-12" [ref=e39]
+          - cell "—" [ref=e40]
+          - cell "—" [ref=e41]
+          - cell "—" [ref=e42]
+          - cell "ignore" [ref=e43]
+          - cell "✎" [ref=e44]:
+            - button "✎" [ref=e45] [cursor=pointer]
+        - row "2026-04-12 — — — ignore ✎" [ref=e46]:
+          - cell "2026-04-12" [ref=e47]
+          - cell "—" [ref=e48]
+          - cell "—" [ref=e49]
+          - cell "—" [ref=e50]
+          - cell "ignore" [ref=e51]
+          - cell "✎" [ref=e52]:
+            - button "✎" [ref=e53] [cursor=pointer]
+        - row "2026-04-12 — — — ignore ✎" [ref=e54]:
+          - cell "2026-04-12" [ref=e55]
+          - cell "—" [ref=e56]
+          - cell "—" [ref=e57]
+          - cell "—" [ref=e58]
+          - cell "ignore" [ref=e59]
+          - cell "✎" [ref=e60]:
+            - button "✎" [ref=e61] [cursor=pointer]
+        - row "2026-04-12 — Income — income ✎" [ref=e62]:
+          - cell "2026-04-12" [ref=e63]
+          - cell "—" [ref=e64]
+          - cell "Income" [ref=e65]
+          - cell "—" [ref=e66]
+          - cell "income" [ref=e67]
+          - cell "✎" [ref=e68]:
+            - button "✎" [ref=e69] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e70]:
+          - cell "2026-04-11" [ref=e71]
+          - cell "—" [ref=e72]
+          - cell "—" [ref=e73]
+          - cell "—" [ref=e74]
+          - cell "ignore" [ref=e75]
+          - cell "✎" [ref=e76]:
+            - button "✎" [ref=e77] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e78]:
+          - cell "2026-04-11" [ref=e79]
+          - cell "—" [ref=e80]
+          - cell "—" [ref=e81]
+          - cell "—" [ref=e82]
+          - cell "ignore" [ref=e83]
+          - cell "✎" [ref=e84]:
+            - button "✎" [ref=e85] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e86]:
+          - cell "2026-04-11" [ref=e87]
+          - cell "—" [ref=e88]
+          - cell "—" [ref=e89]
+          - cell "—" [ref=e90]
+          - cell "ignore" [ref=e91]
+          - cell "✎" [ref=e92]:
+            - button "✎" [ref=e93] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e94]:
+          - cell "2026-04-11" [ref=e95]
+          - cell "—" [ref=e96]
+          - cell "—" [ref=e97]
+          - cell "—" [ref=e98]
+          - cell "ignore" [ref=e99]
+          - cell "✎" [ref=e100]:
+            - button "✎" [ref=e101] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e102]:
+          - cell "2026-04-11" [ref=e103]
+          - cell "—" [ref=e104]
+          - cell "—" [ref=e105]
+          - cell "—" [ref=e106]
+          - cell "ignore" [ref=e107]
+          - cell "✎" [ref=e108]:
+            - button "✎" [ref=e109] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e110]:
+          - cell "2026-04-11" [ref=e111]
+          - cell "—" [ref=e112]
+          - cell "—" [ref=e113]
+          - cell "—" [ref=e114]
+          - cell "ignore" [ref=e115]
+          - cell "✎" [ref=e116]:
+            - button "✎" [ref=e117] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e118]:
+          - cell "2026-04-11" [ref=e119]
+          - cell "—" [ref=e120]
+          - cell "—" [ref=e121]
+          - cell "—" [ref=e122]
+          - cell "ignore" [ref=e123]
+          - cell "✎" [ref=e124]:
+            - button "✎" [ref=e125] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e126]:
+          - cell "2026-04-11" [ref=e127]
+          - cell "—" [ref=e128]
+          - cell "—" [ref=e129]
+          - cell "—" [ref=e130]
+          - cell "ignore" [ref=e131]
+          - cell "✎" [ref=e132]:
+            - button "✎" [ref=e133] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e134]:
+          - cell "2026-04-11" [ref=e135]
+          - cell "—" [ref=e136]
+          - cell "—" [ref=e137]
+          - cell "—" [ref=e138]
+          - cell "ignore" [ref=e139]
+          - cell "✎" [ref=e140]:
+            - button "✎" [ref=e141] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e142]:
+          - cell "2026-04-11" [ref=e143]
+          - cell "—" [ref=e144]
+          - cell "—" [ref=e145]
+          - cell "—" [ref=e146]
+          - cell "ignore" [ref=e147]
+          - cell "✎" [ref=e148]:
+            - button "✎" [ref=e149] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e150]:
+          - cell "2026-04-11" [ref=e151]
+          - cell "—" [ref=e152]
+          - cell "—" [ref=e153]
+          - cell "—" [ref=e154]
+          - cell "ignore" [ref=e155]
+          - cell "✎" [ref=e156]:
+            - button "✎" [ref=e157] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e158]:
+          - cell "2026-04-11" [ref=e159]
+          - cell "—" [ref=e160]
+          - cell "—" [ref=e161]
+          - cell "—" [ref=e162]
+          - cell "ignore" [ref=e163]
+          - cell "✎" [ref=e164]:
+            - button "✎" [ref=e165] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e166]:
+          - cell "2026-04-11" [ref=e167]
+          - cell "—" [ref=e168]
+          - cell "—" [ref=e169]
+          - cell "—" [ref=e170]
+          - cell "ignore" [ref=e171]
+          - cell "✎" [ref=e172]:
+            - button "✎" [ref=e173] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e174]:
+          - cell "2026-04-11" [ref=e175]
+          - cell "—" [ref=e176]
+          - cell "—" [ref=e177]
+          - cell "—" [ref=e178]
+          - cell "ignore" [ref=e179]
+          - cell "✎" [ref=e180]:
+            - button "✎" [ref=e181] [cursor=pointer]
+        - row "2026-04-11 — Subscriptions ₹279 expense ✎" [ref=e182]:
+          - cell "2026-04-11" [ref=e183]
+          - cell "—" [ref=e184]
+          - cell "Subscriptions" [ref=e185]
+          - cell "₹279" [ref=e186]
+          - cell "expense" [ref=e187]
+          - cell "✎" [ref=e188]:
+            - button "✎" [ref=e189] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e190]:
+          - cell "2026-04-11" [ref=e191]
+          - cell "—" [ref=e192]
+          - cell "—" [ref=e193]
+          - cell "—" [ref=e194]
+          - cell "ignore" [ref=e195]
+          - cell "✎" [ref=e196]:
+            - button "✎" [ref=e197] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e198]:
+          - cell "2026-04-11" [ref=e199]
+          - cell "—" [ref=e200]
+          - cell "—" [ref=e201]
+          - cell "—" [ref=e202]
+          - cell "ignore" [ref=e203]
+          - cell "✎" [ref=e204]:
+            - button "✎" [ref=e205] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e206]:
+          - cell "2026-04-11" [ref=e207]
+          - cell "—" [ref=e208]
+          - cell "—" [ref=e209]
+          - cell "—" [ref=e210]
+          - cell "ignore" [ref=e211]
+          - cell "✎" [ref=e212]:
+            - button "✎" [ref=e213] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e214]:
+          - cell "2026-04-11" [ref=e215]
+          - cell "—" [ref=e216]
+          - cell "—" [ref=e217]
+          - cell "—" [ref=e218]
+          - cell "ignore" [ref=e219]
+          - cell "✎" [ref=e220]:
+            - button "✎" [ref=e221] [cursor=pointer]
+        - row "2026-04-11 — Food ₹18 expense ✎" [ref=e222]:
+          - cell "2026-04-11" [ref=e223]
+          - cell "—" [ref=e224]
+          - cell "Food" [ref=e225]
+          - cell "₹18" [ref=e226]
+          - cell "expense" [ref=e227]
+          - cell "✎" [ref=e228]:
+            - button "✎" [ref=e229] [cursor=pointer]
+        - row "2026-04-11 — Food ₹60 expense ✎" [ref=e230]:
+          - cell "2026-04-11" [ref=e231]
+          - cell "—" [ref=e232]
+          - cell "Food" [ref=e233]
+          - cell "₹60" [ref=e234]
+          - cell "expense" [ref=e235]
+          - cell "✎" [ref=e236]:
+            - button "✎" [ref=e237] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e238]:
+          - cell "2026-04-11" [ref=e239]
+          - cell "—" [ref=e240]
+          - cell "—" [ref=e241]
+          - cell "—" [ref=e242]
+          - cell "ignore" [ref=e243]
+          - cell "✎" [ref=e244]:
+            - button "✎" [ref=e245] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e246]:
+          - cell "2026-04-11" [ref=e247]
+          - cell "—" [ref=e248]
+          - cell "—" [ref=e249]
+          - cell "—" [ref=e250]
+          - cell "ignore" [ref=e251]
+          - cell "✎" [ref=e252]:
+            - button "✎" [ref=e253] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e254]:
+          - cell "2026-04-11" [ref=e255]
+          - cell "—" [ref=e256]
+          - cell "—" [ref=e257]
+          - cell "—" [ref=e258]
+          - cell "ignore" [ref=e259]
+          - cell "✎" [ref=e260]:
+            - button "✎" [ref=e261] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e262]:
+          - cell "2026-04-11" [ref=e263]
+          - cell "—" [ref=e264]
+          - cell "—" [ref=e265]
+          - cell "—" [ref=e266]
+          - cell "ignore" [ref=e267]
+          - cell "✎" [ref=e268]:
+            - button "✎" [ref=e269] [cursor=pointer]
+        - row "2026-02-17 — Credit Card Payment ₹899 expense ✎" [ref=e270]:
+          - cell "2026-02-17" [ref=e271]
+          - cell "—" [ref=e272]
+          - cell "Credit Card Payment" [ref=e273]
+          - cell "₹899" [ref=e274]
+          - cell "expense" [ref=e275]
+          - cell "✎" [ref=e276]:
+            - button "✎" [ref=e277] [cursor=pointer]
+        - row "2026-02-17 — Credit Card Payment ₹228 expense ✎" [ref=e278]:
+          - cell "2026-02-17" [ref=e279]
+          - cell "—" [ref=e280]
+          - cell "Credit Card Payment" [ref=e281]
+          - cell "₹228" [ref=e282]
+          - cell "expense" [ref=e283]
+          - cell "✎" [ref=e284]:
+            - button "✎" [ref=e285] [cursor=pointer]
+        - row "2026-02-17 — Credit Card Payment ₹2,195 expense ✎" [ref=e286]:
+          - cell "2026-02-17" [ref=e287]
+          - cell "—" [ref=e288]
+          - cell "Credit Card Payment" [ref=e289]
+          - cell "₹2,195" [ref=e290]
+          - cell "expense" [ref=e291]
+          - cell "✎" [ref=e292]:
+            - button "✎" [ref=e293] [cursor=pointer]
+        - row "2026-02-17 — Travel ₹9,509 expense ✎" [ref=e294]:
+          - cell "2026-02-17" [ref=e295]
+          - cell "—" [ref=e296]
+          - cell "Travel" [ref=e297]
+          - cell "₹9,509" [ref=e298]
+          - cell "expense" [ref=e299]
+          - cell "✎" [ref=e300]:
+            - button "✎" [ref=e301] [cursor=pointer]
+        - row "2026-02-17 — — — ignore ✎" [ref=e302]:
+          - cell "2026-02-17" [ref=e303]
+          - cell "—" [ref=e304]
+          - cell "—" [ref=e305]
+          - cell "—" [ref=e306]
+          - cell "ignore" [ref=e307]
+          - cell "✎" [ref=e308]:
+            - button "✎" [ref=e309] [cursor=pointer]
+        - row "2026-02-17 — Shopping — expense ✎" [ref=e310]:
+          - cell "2026-02-17" [ref=e311]
+          - cell "—" [ref=e312]
+          - cell "Shopping" [ref=e313]
+          - cell "—" [ref=e314]
+          - cell "expense" [ref=e315]
+          - cell "✎" [ref=e316]:
+            - button "✎" [ref=e317] [cursor=pointer]
+        - row "2026-02-17 — — — ignore ✎" [ref=e318]:
+          - cell "2026-02-17" [ref=e319]
+          - cell "—" [ref=e320]
+          - cell "—" [ref=e321]
+          - cell "—" [ref=e322]
+          - cell "ignore" [ref=e323]
+          - cell "✎" [ref=e324]:
+            - button "✎" [ref=e325] [cursor=pointer]
+        - row "2026-02-28 Airtel Utilities ₹1,885.64 expense ✎" [ref=e326]:
+          - cell "2026-02-28" [ref=e327]
+          - cell "Airtel" [ref=e328]
+          - cell "Utilities" [ref=e329]
+          - cell "₹1,885.64" [ref=e330]
+          - cell "expense" [ref=e331]
+          - cell "✎" [ref=e332]:
+            - button "✎" [ref=e333] [cursor=pointer]
+        - row "2026-02-18 — — — ignore ✎" [ref=e334]:
+          - cell "2026-02-18" [ref=e335]
+          - cell "—" [ref=e336]
+          - cell "—" [ref=e337]
+          - cell "—" [ref=e338]
+          - cell "ignore" [ref=e339]
+          - cell "✎" [ref=e340]:
+            - button "✎" [ref=e341] [cursor=pointer]
+        - row "2026-02-19 — — — ignore ✎" [ref=e342]:
+          - cell "2026-02-19" [ref=e343]
+          - cell "—" [ref=e344]
+          - cell "—" [ref=e345]
+          - cell "—" [ref=e346]
+          - cell "ignore" [ref=e347]
+          - cell "✎" [ref=e348]:
+            - button "✎" [ref=e349] [cursor=pointer]
+        - row "2026-02-19 — Travel ₹3,000 expense ✎" [ref=e350]:
+          - cell "2026-02-19" [ref=e351]
+          - cell "—" [ref=e352]
+          - cell "Travel" [ref=e353]
+          - cell "₹3,000" [ref=e354]
+          - cell "expense" [ref=e355]
+          - cell "✎" [ref=e356]:
+            - button "✎" [ref=e357] [cursor=pointer]
+        - row "2026-02-19 Swiggy Food Food ₹511 expense ✎" [ref=e358]:
+          - cell "2026-02-19" [ref=e359]
+          - cell "Swiggy Food" [ref=e360]
+          - cell "Food" [ref=e361]
+          - cell "₹511" [ref=e362]
+          - cell "expense" [ref=e363]
+          - cell "✎" [ref=e364]:
+            - button "✎" [ref=e365] [cursor=pointer]
+        - row "2026-02-20 — — — ignore ✎" [ref=e366]:
+          - cell "2026-02-20" [ref=e367]
+          - cell "—" [ref=e368]
+          - cell "—" [ref=e369]
+          - cell "—" [ref=e370]
+          - cell "ignore" [ref=e371]
+          - cell "✎" [ref=e372]:
+            - button "✎" [ref=e373] [cursor=pointer]
+        - row "2026-02-20 — — — ignore ✎" [ref=e374]:
+          - cell "2026-02-20" [ref=e375]
+          - cell "—" [ref=e376]
+          - cell "—" [ref=e377]
+          - cell "—" [ref=e378]
+          - cell "ignore" [ref=e379]
+          - cell "✎" [ref=e380]:
+            - button "✎" [ref=e381] [cursor=pointer]
+        - row "2026-02-20 — — — ignore ✎" [ref=e382]:
+          - cell "2026-02-20" [ref=e383]
+          - cell "—" [ref=e384]
+          - cell "—" [ref=e385]
+          - cell "—" [ref=e386]
+          - cell "ignore" [ref=e387]
+          - cell "✎" [ref=e388]:
+            - button "✎" [ref=e389] [cursor=pointer]
+        - row "2026-02-20 — — — ignore ✎" [ref=e390]:
+          - cell "2026-02-20" [ref=e391]
+          - cell "—" [ref=e392]
+          - cell "—" [ref=e393]
+          - cell "—" [ref=e394]
+          - cell "ignore" [ref=e395]
+          - cell "✎" [ref=e396]:
+            - button "✎" [ref=e397] [cursor=pointer]
+        - row "2026-02-20 — — — ignore ✎" [ref=e398]:
+          - cell "2026-02-20" [ref=e399]
+          - cell "—" [ref=e400]
+          - cell "—" [ref=e401]
+          - cell "—" [ref=e402]
+          - cell "ignore" [ref=e403]
+          - cell "✎" [ref=e404]:
+            - button "✎" [ref=e405] [cursor=pointer]
+        - row "2026-02-20 MAKEMYTRIP Travel ₹9,558.97 expense ✎" [ref=e406]:
+          - cell "2026-02-20" [ref=e407]
+          - cell "MAKEMYTRIP" [ref=e408]
+          - cell "Travel" [ref=e409]
+          - cell "₹9,558.97" [ref=e410]
+          - cell "expense" [ref=e411]
+          - cell "✎" [ref=e412]:
+            - button "✎" [ref=e413] [cursor=pointer]
+        - row "2026-02-20 — Travel — expense ✎" [ref=e414]:
+          - cell "2026-02-20" [ref=e415]
+          - cell "—" [ref=e416]
+          - cell "Travel" [ref=e417]
+          - cell "—" [ref=e418]
+          - cell "expense" [ref=e419]
+          - cell "✎" [ref=e420]:
+            - button "✎" [ref=e421] [cursor=pointer]
+        - row "2026-02-20 — Travel — expense ✎" [ref=e422]:
+          - cell "2026-02-20" [ref=e423]
+          - cell "—" [ref=e424]
+          - cell "Travel" [ref=e425]
+          - cell "—" [ref=e426]
+          - cell "expense" [ref=e427]
+          - cell "✎" [ref=e428]:
+            - button "✎" [ref=e429] [cursor=pointer]
+        - row "2026-02-20 — Travel — expense ✎" [ref=e430]:
+          - cell "2026-02-20" [ref=e431]
+          - cell "—" [ref=e432]
+          - cell "Travel" [ref=e433]
+          - cell "—" [ref=e434]
+          - cell "expense" [ref=e435]
+          - cell "✎" [ref=e436]:
+            - button "✎" [ref=e437] [cursor=pointer]
+        - row "2026-02-21 — — — ignore ✎" [ref=e438]:
+          - cell "2026-02-21" [ref=e439]
+          - cell "—" [ref=e440]
+          - cell "—" [ref=e441]
+          - cell "—" [ref=e442]
+          - cell "ignore" [ref=e443]
+          - cell "✎" [ref=e444]:
+            - button "✎" [ref=e445] [cursor=pointer]
+        - row "2026-02-21 — — — ignore ✎" [ref=e446]:
+          - cell "2026-02-21" [ref=e447]
+          - cell "—" [ref=e448]
+          - cell "—" [ref=e449]
+          - cell "—" [ref=e450]
+          - cell "ignore" [ref=e451]
+          - cell "✎" [ref=e452]:
+            - button "✎" [ref=e453] [cursor=pointer]
+        - row "2026-02-21 JAI BABA SAHAJ NATH PHARMACY Healthcare ₹860 expense ✎" [ref=e454]:
+          - cell "2026-02-21" [ref=e455]
+          - cell "JAI BABA SAHAJ NATH PHARMACY" [ref=e456]
+          - cell "Healthcare" [ref=e457]
+          - cell "₹860" [ref=e458]
+          - cell "expense" [ref=e459]
+          - cell "✎" [ref=e460]:
+            - button "✎" [ref=e461] [cursor=pointer]
+        - row "2026-02-21 — — — ignore ✎" [ref=e462]:
+          - cell "2026-02-21" [ref=e463]
+          - cell "—" [ref=e464]
+          - cell "—" [ref=e465]
+          - cell "—" [ref=e466]
+          - cell "ignore" [ref=e467]
+          - cell "✎" [ref=e468]:
+            - button "✎" [ref=e469] [cursor=pointer]
+        - row "2026-02-22 — — — ignore ✎" [ref=e470]:
+          - cell "2026-02-22" [ref=e471]
+          - cell "—" [ref=e472]
+          - cell "—" [ref=e473]
+          - cell "—" [ref=e474]
+          - cell "ignore" [ref=e475]
+          - cell "✎" [ref=e476]:
+            - button "✎" [ref=e477] [cursor=pointer]
+        - row "2026-02-22 KFC Times square Dina Nagar Food ₹1,014.01 expense ✎" [ref=e478]:
+          - cell "2026-02-22" [ref=e479]
+          - cell "KFC Times square Dina Nagar" [ref=e480]
+          - cell "Food" [ref=e481]
+          - cell "₹1,014.01" [ref=e482]
+          - cell "expense" [ref=e483]
+          - cell "✎" [ref=e484]:
+            - button "✎" [ref=e485] [cursor=pointer]
+        - row "2026-02-22 CONNAUGHT PLAZA REST Food ₹210 expense ✎" [ref=e486]:
+          - cell "2026-02-22" [ref=e487]
+          - cell "CONNAUGHT PLAZA REST" [ref=e488]
+          - cell "Food" [ref=e489]
+          - cell "₹210" [ref=e490]
+          - cell "expense" [ref=e491]
+          - cell "✎" [ref=e492]:
+            - button "✎" [ref=e493] [cursor=pointer]
+        - row "2026-02-22 — — — ignore ✎" [ref=e494]:
+          - cell "2026-02-22" [ref=e495]
+          - cell "—" [ref=e496]
+          - cell "—" [ref=e497]
+          - cell "—" [ref=e498]
+          - cell "ignore" [ref=e499]
+          - cell "✎" [ref=e500]:
+            - button "✎" [ref=e501] [cursor=pointer]
+        - row "2026-02-22 — — — ignore ✎" [ref=e502]:
+          - cell "2026-02-22" [ref=e503]
+          - cell "—" [ref=e504]
+          - cell "—" [ref=e505]
+          - cell "—" [ref=e506]
+          - cell "ignore" [ref=e507]
+          - cell "✎" [ref=e508]:
+            - button "✎" [ref=e509] [cursor=pointer]
+        - row "2026-02-24 — Food — expense ✎" [ref=e510]:
+          - cell "2026-02-24" [ref=e511]
+          - cell "—" [ref=e512]
+          - cell "Food" [ref=e513]
+          - cell "—" [ref=e514]
+          - cell "expense" [ref=e515]
+          - cell "✎" [ref=e516]:
+            - button "✎" [ref=e517] [cursor=pointer]
+        - row "2026-02-24 — — — ignore ✎" [ref=e518]:
+          - cell "2026-02-24" [ref=e519]
+          - cell "—" [ref=e520]
+          - cell "—" [ref=e521]
+          - cell "—" [ref=e522]
+          - cell "ignore" [ref=e523]
+          - cell "✎" [ref=e524]:
+            - button "✎" [ref=e525] [cursor=pointer]
+        - row "2026-02-24 — Travel ₹0 expense ✎" [ref=e526]:
+          - cell "2026-02-24" [ref=e527]
+          - cell "—" [ref=e528]
+          - cell "Travel" [ref=e529]
+          - cell "₹0" [ref=e530]
+          - cell "expense" [ref=e531]
+          - cell "✎" [ref=e532]:
+            - button "✎" [ref=e533] [cursor=pointer]
+        - row "2026-02-24 — Bank Transfer ₹4,000 expense ✎" [ref=e534]:
+          - cell "2026-02-24" [ref=e535]
+          - cell "—" [ref=e536]
+          - cell "Bank Transfer" [ref=e537]
+          - cell "₹4,000" [ref=e538]
+          - cell "expense" [ref=e539]
+          - cell "✎" [ref=e540]:
+            - button "✎" [ref=e541] [cursor=pointer]
+        - row "2026-02-25 — — — ignore ✎" [ref=e542]:
+          - cell "2026-02-25" [ref=e543]
+          - cell "—" [ref=e544]
+          - cell "—" [ref=e545]
+          - cell "—" [ref=e546]
+          - cell "ignore" [ref=e547]
+          - cell "✎" [ref=e548]:
+            - button "✎" [ref=e549] [cursor=pointer]
+        - row "2026-02-25 — — — ignore ✎" [ref=e550]:
+          - cell "2026-02-25" [ref=e551]
+          - cell "—" [ref=e552]
+          - cell "—" [ref=e553]
+          - cell "—" [ref=e554]
+          - cell "ignore" [ref=e555]
+          - cell "✎" [ref=e556]:
+            - button "✎" [ref=e557] [cursor=pointer]
+        - row "2026-02-25 Bharti Airtel Utilities ₹1,885.64 expense ✎" [ref=e558]:
+          - cell "2026-02-25" [ref=e559]
+          - cell "Bharti Airtel" [ref=e560]
+          - cell "Utilities" [ref=e561]
+          - cell "₹1,885.64" [ref=e562]
+          - cell "expense" [ref=e563]
+          - cell "✎" [ref=e564]:
+            - button "✎" [ref=e565] [cursor=pointer]
+        - row "2026-02-25 — Mobile & Internet ₹0 expense ✎" [ref=e566]:
+          - cell "2026-02-25" [ref=e567]
+          - cell "—" [ref=e568]
+          - cell "Mobile & Internet" [ref=e569]
+          - cell "₹0" [ref=e570]
+          - cell "expense" [ref=e571]
+          - cell "✎" [ref=e572]:
+            - button "✎" [ref=e573] [cursor=pointer]
+        - row "2026-02-25 JAI BABA SAHAJ NATH PHARMACY Healthcare ₹250 expense ✎" [ref=e574]:
+          - cell "2026-02-25" [ref=e575]
+          - cell "JAI BABA SAHAJ NATH PHARMACY" [ref=e576]
+          - cell "Healthcare" [ref=e577]
+          - cell "₹250" [ref=e578]
+          - cell "expense" [ref=e579]
+          - cell "✎" [ref=e580]:
+            - button "✎" [ref=e581] [cursor=pointer]
+        - row "2026-02-25 — — — ignore ✎" [ref=e582]:
+          - cell "2026-02-25" [ref=e583]
+          - cell "—" [ref=e584]
+          - cell "—" [ref=e585]
+          - cell "—" [ref=e586]
+          - cell "ignore" [ref=e587]
+          - cell "✎" [ref=e588]:
+            - button "✎" [ref=e589] [cursor=pointer]
+        - row "2026-02-26 — Bank Transfer ₹5,000 expense ✎" [ref=e590]:
+          - cell "2026-02-26" [ref=e591]
+          - cell "—" [ref=e592]
+          - cell "Bank Transfer" [ref=e593]
+          - cell "₹5,000" [ref=e594]
+          - cell "expense" [ref=e595]
+          - cell "✎" [ref=e596]:
+            - button "✎" [ref=e597] [cursor=pointer]
+        - row "2026-02-26 — Travel ₹650 expense ✎" [ref=e598]:
+          - cell "2026-02-26" [ref=e599]
+          - cell "—" [ref=e600]
+          - cell "Travel" [ref=e601]
+          - cell "₹650" [ref=e602]
+          - cell "expense" [ref=e603]
+          - cell "✎" [ref=e604]:
+            - button "✎" [ref=e605] [cursor=pointer]
+        - row "2026-02-26 — Income ₹4,000 expense ✎" [ref=e606]:
+          - cell "2026-02-26" [ref=e607]
+          - cell "—" [ref=e608]
+          - cell "Income" [ref=e609]
+          - cell "₹4,000" [ref=e610]
+          - cell "expense" [ref=e611]
+          - cell "✎" [ref=e612]:
+            - button "✎" [ref=e613] [cursor=pointer]
+        - row "2026-02-26 — Income ₹4,000 income ✎" [ref=e614]:
+          - cell "2026-02-26" [ref=e615]
+          - cell "—" [ref=e616]
+          - cell "Income" [ref=e617]
+          - cell "₹4,000" [ref=e618]
+          - cell "income" [ref=e619]
+          - cell "✎" [ref=e620]:
+            - button "✎" [ref=e621] [cursor=pointer]
+        - row "2026-02-26 — — — ignore ✎" [ref=e622]:
+          - cell "2026-02-26" [ref=e623]
+          - cell "—" [ref=e624]
+          - cell "—" [ref=e625]
+          - cell "—" [ref=e626]
+          - cell "ignore" [ref=e627]
+          - cell "✎" [ref=e628]:
+            - button "✎" [ref=e629] [cursor=pointer]
+        - row "2026-02-26 — — — ignore ✎" [ref=e630]:
+          - cell "2026-02-26" [ref=e631]
+          - cell "—" [ref=e632]
+          - cell "—" [ref=e633]
+          - cell "—" [ref=e634]
+          - cell "ignore" [ref=e635]
+          - cell "✎" [ref=e636]:
+            - button "✎" [ref=e637] [cursor=pointer]
+        - row "2026-02-26 TENZIN TSULTRIM Other ₹740 expense ✎" [ref=e638]:
+          - cell "2026-02-26" [ref=e639]
+          - cell "TENZIN TSULTRIM" [ref=e640]
+          - cell "Other" [ref=e641]
+          - cell "₹740" [ref=e642]
+          - cell "expense" [ref=e643]
+          - cell "✎" [ref=e644]:
+            - button "✎" [ref=e645] [cursor=pointer]
+        - row "2026-02-27 — Income ₹77,697 expense ✎" [ref=e646]:
+          - cell "2026-02-27" [ref=e647]
+          - cell "—" [ref=e648]
+          - cell "Income" [ref=e649]
+          - cell "₹77,697" [ref=e650]
+          - cell "expense" [ref=e651]
+          - cell "✎" [ref=e652]:
+            - button "✎" [ref=e653] [cursor=pointer]
+        - row "2026-02-27 MISTY MOUNTAIN RETREAT Travel ₹582 expense ✎" [ref=e654]:
+          - cell "2026-02-27" [ref=e655]
+          - cell "MISTY MOUNTAIN RETREAT" [ref=e656]
+          - cell "Travel" [ref=e657]
+          - cell "₹582" [ref=e658]
+          - cell "expense" [ref=e659]
+          - cell "✎" [ref=e660]:
+            - button "✎" [ref=e661] [cursor=pointer]
+        - row "2026-02-27 MAX LIFE CYBS SI Healthcare ₹2,259.13 expense ✎" [ref=e662]:
+          - cell "2026-02-27" [ref=e663]
+          - cell "MAX LIFE CYBS SI" [ref=e664]
+          - cell "Healthcare" [ref=e665]
+          - cell "₹2,259.13" [ref=e666]
+          - cell "expense" [ref=e667]
+          - cell "✎" [ref=e668]:
+            - button "✎" [ref=e669] [cursor=pointer]
+        - row "2026-02-28 Axis Max Life Healthcare ₹2,259.13 expense ✎" [ref=e670]:
+          - cell "2026-02-28" [ref=e671]
+          - cell "Axis Max Life" [ref=e672]
+          - cell "Healthcare" [ref=e673]
+          - cell "₹2,259.13" [ref=e674]
+          - cell "expense" [ref=e675]
+          - cell "✎" [ref=e676]:
+            - button "✎" [ref=e677] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹404 expense ✎" [ref=e678]:
+          - cell "2026-02-28" [ref=e679]
+          - cell "—" [ref=e680]
+          - cell "Travel" [ref=e681]
+          - cell "₹404" [ref=e682]
+          - cell "expense" [ref=e683]
+          - cell "✎" [ref=e684]:
+            - button "✎" [ref=e685] [cursor=pointer]
+        - row "2026-02-27 — — — ignore ✎" [ref=e686]:
+          - cell "2026-02-27" [ref=e687]
+          - cell "—" [ref=e688]
+          - cell "—" [ref=e689]
+          - cell "—" [ref=e690]
+          - cell "ignore" [ref=e691]
+          - cell "✎" [ref=e692]:
+            - button "✎" [ref=e693] [cursor=pointer]
+        - row "2026-02-28 — — — ignore ✎" [ref=e694]:
+          - cell "2026-02-28" [ref=e695]
+          - cell "—" [ref=e696]
+          - cell "—" [ref=e697]
+          - cell "—" [ref=e698]
+          - cell "ignore" [ref=e699]
+          - cell "✎" [ref=e700]:
+            - button "✎" [ref=e701] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹24,500 expense ✎" [ref=e702]:
+          - cell "2026-02-28" [ref=e703]
+          - cell "—" [ref=e704]
+          - cell "Travel" [ref=e705]
+          - cell "₹24,500" [ref=e706]
+          - cell "expense" [ref=e707]
+          - cell "✎" [ref=e708]:
+            - button "✎" [ref=e709] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹30,000 expense ✎" [ref=e710]:
+          - cell "2026-02-28" [ref=e711]
+          - cell "—" [ref=e712]
+          - cell "Travel" [ref=e713]
+          - cell "₹30,000" [ref=e714]
+          - cell "expense" [ref=e715]
+          - cell "✎" [ref=e716]:
+            - button "✎" [ref=e717] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹2,400 expense ✎" [ref=e718]:
+          - cell "2026-02-28" [ref=e719]
+          - cell "—" [ref=e720]
+          - cell "Travel" [ref=e721]
+          - cell "₹2,400" [ref=e722]
+          - cell "expense" [ref=e723]
+          - cell "✎" [ref=e724]:
+            - button "✎" [ref=e725] [cursor=pointer]
+        - row "2026-02-28 — — — ignore ✎" [ref=e726]:
+          - cell "2026-02-28" [ref=e727]
+          - cell "—" [ref=e728]
+          - cell "—" [ref=e729]
+          - cell "—" [ref=e730]
+          - cell "ignore" [ref=e731]
+          - cell "✎" [ref=e732]:
+            - button "✎" [ref=e733] [cursor=pointer]
+        - row "2026-02-28 — — — ignore ✎" [ref=e734]:
+          - cell "2026-02-28" [ref=e735]
+          - cell "—" [ref=e736]
+          - cell "—" [ref=e737]
+          - cell "—" [ref=e738]
+          - cell "ignore" [ref=e739]
+          - cell "✎" [ref=e740]:
+            - button "✎" [ref=e741] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹520 expense ✎" [ref=e742]:
+          - cell "2026-02-28" [ref=e743]
+          - cell "—" [ref=e744]
+          - cell "Travel" [ref=e745]
+          - cell "₹520" [ref=e746]
+          - cell "expense" [ref=e747]
+          - cell "✎" [ref=e748]:
+            - button "✎" [ref=e749] [cursor=pointer]
+        - row "2026-02-28 Sonam Fesion Wear Shopping ₹700 expense ✎" [ref=e750]:
+          - cell "2026-02-28" [ref=e751]
+          - cell "Sonam Fesion Wear" [ref=e752]
+          - cell "Shopping" [ref=e753]
+          - cell "₹700" [ref=e754]
+          - cell "expense" [ref=e755]
+          - cell "✎" [ref=e756]:
+            - button "✎" [ref=e757] [cursor=pointer]
+        - row "2026-02-28 — Travel ₹590 expense ✎" [ref=e758]:
+          - cell "2026-02-28" [ref=e759]
+          - cell "—" [ref=e760]
+          - cell "Travel" [ref=e761]
+          - cell "₹590" [ref=e762]
+          - cell "expense" [ref=e763]
+          - cell "✎" [ref=e764]:
+            - button "✎" [ref=e765] [cursor=pointer]
+        - row "2026-02-27 Axis Max Life Healthcare ₹2,259.13 expense ✎" [ref=e766]:
+          - cell "2026-02-27" [ref=e767]
+          - cell "Axis Max Life" [ref=e768]
+          - cell "Healthcare" [ref=e769]
+          - cell "₹2,259.13" [ref=e770]
+          - cell "expense" [ref=e771]
+          - cell "✎" [ref=e772]:
+            - button "✎" [ref=e773] [cursor=pointer]
+        - row "2026-03-01 — Shopping — expense ✎" [ref=e774]:
+          - cell "2026-03-01" [ref=e775]
+          - cell "—" [ref=e776]
+          - cell "Shopping" [ref=e777]
+          - cell "—" [ref=e778]
+          - cell "expense" [ref=e779]
+          - cell "✎" [ref=e780]:
+            - button "✎" [ref=e781] [cursor=pointer]
+        - row "2026-03-01 — — — ignore ✎" [ref=e782]:
+          - cell "2026-03-01" [ref=e783]
+          - cell "—" [ref=e784]
+          - cell "—" [ref=e785]
+          - cell "—" [ref=e786]
+          - cell "ignore" [ref=e787]
+          - cell "✎" [ref=e788]:
+            - button "✎" [ref=e789] [cursor=pointer]
+        - row "2026-03-01 SHAADI COM Shopping ₹15,000 expense ✎" [ref=e790]:
+          - cell "2026-03-01" [ref=e791]
+          - cell "SHAADI COM" [ref=e792]
+          - cell "Shopping" [ref=e793]
+          - cell "₹15,000" [ref=e794]
+          - cell "expense" [ref=e795]
+          - cell "✎" [ref=e796]:
+            - button "✎" [ref=e797] [cursor=pointer]
+        - row "2026-03-02 — — — ignore ✎" [ref=e798]:
+          - cell "2026-03-02" [ref=e799]
+          - cell "—" [ref=e800]
+          - cell "—" [ref=e801]
+          - cell "—" [ref=e802]
+          - cell "ignore" [ref=e803]
+          - cell "✎" [ref=e804]:
+            - button "✎" [ref=e805] [cursor=pointer]
+        - row "2026-03-02 — Travel ₹977.96 expense ✎" [ref=e806]:
+          - cell "2026-03-02" [ref=e807]
+          - cell "—" [ref=e808]
+          - cell "Travel" [ref=e809]
+          - cell "₹977.96" [ref=e810]
+          - cell "expense" [ref=e811]
+          - cell "✎" [ref=e812]:
+            - button "✎" [ref=e813] [cursor=pointer]
+        - row "2026-03-02 Tilak Raj Other ₹100 expense ✎" [ref=e814]:
+          - cell "2026-03-02" [ref=e815]
+          - cell "Tilak Raj" [ref=e816]
+          - cell "Other" [ref=e817]
+          - cell "₹100" [ref=e818]
+          - cell "expense" [ref=e819]
+          - cell "✎" [ref=e820]:
+            - button "✎" [ref=e821] [cursor=pointer]
+        - row "2026-03-02 — — — ignore ✎" [ref=e822]:
+          - cell "2026-03-02" [ref=e823]
+          - cell "—" [ref=e824]
+          - cell "—" [ref=e825]
+          - cell "—" [ref=e826]
+          - cell "ignore" [ref=e827]
+          - cell "✎" [ref=e828]:
+            - button "✎" [ref=e829] [cursor=pointer]
+        - row "2026-03-02 — — — ignore ✎" [ref=e830]:
+          - cell "2026-03-02" [ref=e831]
+          - cell "—" [ref=e832]
+          - cell "—" [ref=e833]
+          - cell "—" [ref=e834]
+          - cell "ignore" [ref=e835]
+          - cell "✎" [ref=e836]:
+            - button "✎" [ref=e837] [cursor=pointer]
+        - row "2026-03-03 — — — ignore ✎" [ref=e838]:
+          - cell "2026-03-03" [ref=e839]
+          - cell "—" [ref=e840]
+          - cell "—" [ref=e841]
+          - cell "—" [ref=e842]
+          - cell "ignore" [ref=e843]
+          - cell "✎" [ref=e844]:
+            - button "✎" [ref=e845] [cursor=pointer]
+        - row "2026-03-03 — Travel ₹60 expense ✎" [ref=e846]:
+          - cell "2026-03-03" [ref=e847]
+          - cell "—" [ref=e848]
+          - cell "Travel" [ref=e849]
+          - cell "₹60" [ref=e850]
+          - cell "expense" [ref=e851]
+          - cell "✎" [ref=e852]:
+            - button "✎" [ref=e853] [cursor=pointer]
+        - row "2026-03-03 — Travel ₹2,000 expense ✎" [ref=e854]:
+          - cell "2026-03-03" [ref=e855]
+          - cell "—" [ref=e856]
+          - cell "Travel" [ref=e857]
+          - cell "₹2,000" [ref=e858]
+          - cell "expense" [ref=e859]
+          - cell "✎" [ref=e860]:
+            - button "✎" [ref=e861] [cursor=pointer]
+        - row "2026-03-03 VAROSA Other ₹730 expense ✎" [ref=e862]:
+          - cell "2026-03-03" [ref=e863]
+          - cell "VAROSA" [ref=e864]
+          - cell "Other" [ref=e865]
+          - cell "₹730" [ref=e866]
+          - cell "expense" [ref=e867]
+          - cell "✎" [ref=e868]:
+            - button "✎" [ref=e869] [cursor=pointer]
+        - row "2026-03-04 Tilak Raj Other ₹250 expense ✎" [ref=e870]:
+          - cell "2026-03-04" [ref=e871]
+          - cell "Tilak Raj" [ref=e872]
+          - cell "Other" [ref=e873]
+          - cell "₹250" [ref=e874]
+          - cell "expense" [ref=e875]
+          - cell "✎" [ref=e876]:
+            - button "✎" [ref=e877] [cursor=pointer]
+        - row "2026-03-04 SILVER LININGS Other ₹1,730 expense ✎" [ref=e878]:
+          - cell "2026-03-04" [ref=e879]
+          - cell "SILVER LININGS" [ref=e880]
+          - cell "Other" [ref=e881]
+          - cell "₹1,730" [ref=e882]
+          - cell "expense" [ref=e883]
+          - cell "✎" [ref=e884]:
+            - button "✎" [ref=e885] [cursor=pointer]
+        - row "2026-03-04 Tilak Raj Other ₹20 expense ✎" [ref=e886]:
+          - cell "2026-03-04" [ref=e887]
+          - cell "Tilak Raj" [ref=e888]
+          - cell "Other" [ref=e889]
+          - cell "₹20" [ref=e890]
+          - cell "expense" [ref=e891]
+          - cell "✎" [ref=e892]:
+            - button "✎" [ref=e893] [cursor=pointer]
+        - row "2026-03-04 — Travel ₹692 expense ✎" [ref=e894]:
+          - cell "2026-03-04" [ref=e895]
+          - cell "—" [ref=e896]
+          - cell "Travel" [ref=e897]
+          - cell "₹692" [ref=e898]
+          - cell "expense" [ref=e899]
+          - cell "✎" [ref=e900]:
+            - button "✎" [ref=e901] [cursor=pointer]
+        - row "2026-03-05 — Shopping — expense ✎" [ref=e902]:
+          - cell "2026-03-05" [ref=e903]
+          - cell "—" [ref=e904]
+          - cell "Shopping" [ref=e905]
+          - cell "—" [ref=e906]
+          - cell "expense" [ref=e907]
+          - cell "✎" [ref=e908]:
+            - button "✎" [ref=e909] [cursor=pointer]
+        - row "2026-03-05 — Travel ₹260 expense ✎" [ref=e910]:
+          - cell "2026-03-05" [ref=e911]
+          - cell "—" [ref=e912]
+          - cell "Travel" [ref=e913]
+          - cell "₹260" [ref=e914]
+          - cell "expense" [ref=e915]
+          - cell "✎" [ref=e916]:
+            - button "✎" [ref=e917] [cursor=pointer]
+        - row "2026-03-05 — Shopping — expense ✎" [ref=e918]:
+          - cell "2026-03-05" [ref=e919]
+          - cell "—" [ref=e920]
+          - cell "Shopping" [ref=e921]
+          - cell "—" [ref=e922]
+          - cell "expense" [ref=e923]
+          - cell "✎" [ref=e924]:
+            - button "✎" [ref=e925] [cursor=pointer]
+        - row "2026-03-05 — Income ₹74,244 income ✎" [ref=e926]:
+          - cell "2026-03-05" [ref=e927]
+          - cell "—" [ref=e928]
+          - cell "Income" [ref=e929]
+          - cell "₹74,244" [ref=e930]
+          - cell "income" [ref=e931]
+          - cell "✎" [ref=e932]:
+            - button "✎" [ref=e933] [cursor=pointer]
+        - row "2026-03-05 — Travel ₹4,248 expense ✎" [ref=e934]:
+          - cell "2026-03-05" [ref=e935]
+          - cell "—" [ref=e936]
+          - cell "Travel" [ref=e937]
+          - cell "₹4,248" [ref=e938]
+          - cell "expense" [ref=e939]
+          - cell "✎" [ref=e940]:
+            - button "✎" [ref=e941] [cursor=pointer]
+        - row "2026-03-05 — Travel ₹5,396 expense ✎" [ref=e942]:
+          - cell "2026-03-05" [ref=e943]
+          - cell "—" [ref=e944]
+          - cell "Travel" [ref=e945]
+          - cell "₹5,396" [ref=e946]
+          - cell "expense" [ref=e947]
+          - cell "✎" [ref=e948]:
+            - button "✎" [ref=e949] [cursor=pointer]
+        - row "2026-03-05 — Travel ₹977.96 expense ✎" [ref=e950]:
+          - cell "2026-03-05" [ref=e951]
+          - cell "—" [ref=e952]
+          - cell "Travel" [ref=e953]
+          - cell "₹977.96" [ref=e954]
+          - cell "expense" [ref=e955]
+          - cell "✎" [ref=e956]:
+            - button "✎" [ref=e957] [cursor=pointer]
+        - row "2026-03-05 — Travel ₹12,788 expense ✎" [ref=e958]:
+          - cell "2026-03-05" [ref=e959]
+          - cell "—" [ref=e960]
+          - cell "Travel" [ref=e961]
+          - cell "₹12,788" [ref=e962]
+          - cell "expense" [ref=e963]
+          - cell "✎" [ref=e964]:
+            - button "✎" [ref=e965] [cursor=pointer]
+        - row "2026-03-05 MAHIRA KARYANA STORE Groceries ₹120 expense ✎" [ref=e966]:
+          - cell "2026-03-05" [ref=e967]
+          - cell "MAHIRA KARYANA STORE" [ref=e968]
+          - cell "Groceries" [ref=e969]
+          - cell "₹120" [ref=e970]
+          - cell "expense" [ref=e971]
+          - cell "✎" [ref=e972]:
+            - button "✎" [ref=e973] [cursor=pointer]
+        - row "2026-03-06 — Travel ₹160 expense ✎" [ref=e974]:
+          - cell "2026-03-06" [ref=e975]
+          - cell "—" [ref=e976]
+          - cell "Travel" [ref=e977]
+          - cell "₹160" [ref=e978]
+          - cell "expense" [ref=e979]
+          - cell "✎" [ref=e980]:
+            - button "✎" [ref=e981] [cursor=pointer]
+        - row "2026-03-06 VAIRGI CAFE Food ₹190 expense ✎" [ref=e982]:
+          - cell "2026-03-06" [ref=e983]
+          - cell "VAIRGI CAFE" [ref=e984]
+          - cell "Food" [ref=e985]
+          - cell "₹190" [ref=e986]
+          - cell "expense" [ref=e987]
+          - cell "✎" [ref=e988]:
+            - button "✎" [ref=e989] [cursor=pointer]
+        - row "2026-03-06 ASHISH PAUL Other ₹70 expense ✎" [ref=e990]:
+          - cell "2026-03-06" [ref=e991]
+          - cell "ASHISH PAUL" [ref=e992]
+          - cell "Other" [ref=e993]
+          - cell "₹70" [ref=e994]
+          - cell "expense" [ref=e995]
+          - cell "✎" [ref=e996]:
+            - button "✎" [ref=e997] [cursor=pointer]
+        - row "2026-03-06 Tilak Raj Other ₹290 expense ✎" [ref=e998]:
+          - cell "2026-03-06" [ref=e999]
+          - cell "Tilak Raj" [ref=e1000]
+          - cell "Other" [ref=e1001]
+          - cell "₹290" [ref=e1002]
+          - cell "expense" [ref=e1003]
+          - cell "✎" [ref=e1004]:
+            - button "✎" [ref=e1005] [cursor=pointer]
+        - row "2026-03-07 AKASH KUMAR UPI Payment ₹390 expense ✎" [ref=e1006]:
+          - cell "2026-03-07" [ref=e1007]
+          - cell "AKASH KUMAR" [ref=e1008]
+          - cell "UPI Payment" [ref=e1009]
+          - cell "₹390" [ref=e1010]
+          - cell "expense" [ref=e1011]
+          - cell "✎" [ref=e1012]:
+            - button "✎" [ref=e1013] [cursor=pointer]
+        - row "2026-03-07 — Travel ₹300 expense ✎" [ref=e1014]:
+          - cell "2026-03-07" [ref=e1015]
+          - cell "—" [ref=e1016]
+          - cell "Travel" [ref=e1017]
+          - cell "₹300" [ref=e1018]
+          - cell "expense" [ref=e1019]
+          - cell "✎" [ref=e1020]:
+            - button "✎" [ref=e1021] [cursor=pointer]
+        - row "2026-03-07 — Travel ₹120 expense ✎" [ref=e1022]:
+          - cell "2026-03-07" [ref=e1023]
+          - cell "—" [ref=e1024]
+          - cell "Travel" [ref=e1025]
+          - cell "₹120" [ref=e1026]
+          - cell "expense" [ref=e1027]
+          - cell "✎" [ref=e1028]:
+            - button "✎" [ref=e1029] [cursor=pointer]
+        - row "2026-03-07 — Travel ₹370 expense ✎" [ref=e1030]:
+          - cell "2026-03-07" [ref=e1031]
+          - cell "—" [ref=e1032]
+          - cell "Travel" [ref=e1033]
+          - cell "₹370" [ref=e1034]
+          - cell "expense" [ref=e1035]
+          - cell "✎" [ref=e1036]:
+            - button "✎" [ref=e1037] [cursor=pointer]
+        - row "2026-03-07 MISTY MOUNTAIN RETREAT Travel ₹548 expense ✎" [ref=e1038]:
+          - cell "2026-03-07" [ref=e1039]
+          - cell "MISTY MOUNTAIN RETREAT" [ref=e1040]
+          - cell "Travel" [ref=e1041]
+          - cell "₹548" [ref=e1042]
+          - cell "expense" [ref=e1043]
+          - cell "✎" [ref=e1044]:
+            - button "✎" [ref=e1045] [cursor=pointer]
+        - row "2026-03-08 Swiggy Food Food ₹417 expense ✎" [ref=e1046]:
+          - cell "2026-03-08" [ref=e1047]
+          - cell "Swiggy Food" [ref=e1048]
+          - cell "Food" [ref=e1049]
+          - cell "₹417" [ref=e1050]
+          - cell "expense" [ref=e1051]
+          - cell "✎" [ref=e1052]:
+            - button "✎" [ref=e1053] [cursor=pointer]
+        - row "2026-03-08 — Travel ₹27,500 expense ✎" [ref=e1054]:
+          - cell "2026-03-08" [ref=e1055]
+          - cell "—" [ref=e1056]
+          - cell "Travel" [ref=e1057]
+          - cell "₹27,500" [ref=e1058]
+          - cell "expense" [ref=e1059]
+          - cell "✎" [ref=e1060]:
+            - button "✎" [ref=e1061] [cursor=pointer]
+        - row "2026-03-08 SILVER LININGS Other ₹710 expense ✎" [ref=e1062]:
+          - cell "2026-03-08" [ref=e1063]
+          - cell "SILVER LININGS" [ref=e1064]
+          - cell "Other" [ref=e1065]
+          - cell "₹710" [ref=e1066]
+          - cell "expense" [ref=e1067]
+          - cell "✎" [ref=e1068]:
+            - button "✎" [ref=e1069] [cursor=pointer]
+        - row "2026-03-08 Vairagi Collection Other ₹200 expense ✎" [ref=e1070]:
+          - cell "2026-03-08" [ref=e1071]
+          - cell "Vairagi Collection" [ref=e1072]
+          - cell "Other" [ref=e1073]
+          - cell "₹200" [ref=e1074]
+          - cell "expense" [ref=e1075]
+          - cell "✎" [ref=e1076]:
+            - button "✎" [ref=e1077] [cursor=pointer]
+        - row "2026-03-08 — — — ignore ✎" [ref=e1078]:
+          - cell "2026-03-08" [ref=e1079]
+          - cell "—" [ref=e1080]
+          - cell "—" [ref=e1081]
+          - cell "—" [ref=e1082]
+          - cell "ignore" [ref=e1083]
+          - cell "✎" [ref=e1084]:
+            - button "✎" [ref=e1085] [cursor=pointer]
+        - row "2026-03-08 — — — ignore ✎" [ref=e1086]:
+          - cell "2026-03-08" [ref=e1087]
+          - cell "—" [ref=e1088]
+          - cell "—" [ref=e1089]
+          - cell "—" [ref=e1090]
+          - cell "ignore" [ref=e1091]
+          - cell "✎" [ref=e1092]:
+            - button "✎" [ref=e1093] [cursor=pointer]
+        - row "2026-03-08 MANYAVAR Shopping ₹4,999 expense ✎" [ref=e1094]:
+          - cell "2026-03-08" [ref=e1095]
+          - cell "MANYAVAR" [ref=e1096]
+          - cell "Shopping" [ref=e1097]
+          - cell "₹4,999" [ref=e1098]
+          - cell "expense" [ref=e1099]
+          - cell "✎" [ref=e1100]:
+            - button "✎" [ref=e1101] [cursor=pointer]
+        - row "2026-03-08 — Travel ₹260 expense ✎" [ref=e1102]:
+          - cell "2026-03-08" [ref=e1103]
+          - cell "—" [ref=e1104]
+          - cell "Travel" [ref=e1105]
+          - cell "₹260" [ref=e1106]
+          - cell "expense" [ref=e1107]
+          - cell "✎" [ref=e1108]:
+            - button "✎" [ref=e1109] [cursor=pointer]
+        - row "2026-03-08 — Travel ₹60 expense ✎" [ref=e1110]:
+          - cell "2026-03-08" [ref=e1111]
+          - cell "—" [ref=e1112]
+          - cell "Travel" [ref=e1113]
+          - cell "₹60" [ref=e1114]
+          - cell "expense" [ref=e1115]
+          - cell "✎" [ref=e1116]:
+            - button "✎" [ref=e1117] [cursor=pointer]
+        - row "2026-03-08 — Travel ₹20 expense ✎" [ref=e1118]:
+          - cell "2026-03-08" [ref=e1119]
+          - cell "—" [ref=e1120]
+          - cell "Travel" [ref=e1121]
+          - cell "₹20" [ref=e1122]
+          - cell "expense" [ref=e1123]
+          - cell "✎" [ref=e1124]:
+            - button "✎" [ref=e1125] [cursor=pointer]
+        - row "2026-03-09 JUALU RAM S OM BIHARI LAL Other ₹300 expense ✎" [ref=e1126]:
+          - cell "2026-03-09" [ref=e1127]
+          - cell "JUALU RAM S OM BIHARI LAL" [ref=e1128]
+          - cell "Other" [ref=e1129]
+          - cell "₹300" [ref=e1130]
+          - cell "expense" [ref=e1131]
+          - cell "✎" [ref=e1132]:
+            - button "✎" [ref=e1133] [cursor=pointer]
+        - row "2026-03-09 — — — ignore ✎" [ref=e1134]:
+          - cell "2026-03-09" [ref=e1135]
+          - cell "—" [ref=e1136]
+          - cell "—" [ref=e1137]
+          - cell "—" [ref=e1138]
+          - cell "ignore" [ref=e1139]
+          - cell "✎" [ref=e1140]:
+            - button "✎" [ref=e1141] [cursor=pointer]
+        - row "2026-03-10 — Investment ₹0 expense ✎" [ref=e1142]:
+          - cell "2026-03-10" [ref=e1143]
+          - cell "—" [ref=e1144]
+          - cell "Investment" [ref=e1145]
+          - cell "₹0" [ref=e1146]
+          - cell "expense" [ref=e1147]
+          - cell "✎" [ref=e1148]:
+            - button "✎" [ref=e1149] [cursor=pointer]
+        - row "2026-03-11 — Travel ₹701.64 expense ✎" [ref=e1150]:
+          - cell "2026-03-11" [ref=e1151]
+          - cell "—" [ref=e1152]
+          - cell "Travel" [ref=e1153]
+          - cell "₹701.64" [ref=e1154]
+          - cell "expense" [ref=e1155]
+          - cell "✎" [ref=e1156]:
+            - button "✎" [ref=e1157] [cursor=pointer]
+        - row "2026-03-11 Mannat Fashion Shopping ₹1,090 expense ✎" [ref=e1158]:
+          - cell "2026-03-11" [ref=e1159]
+          - cell "Mannat Fashion" [ref=e1160]
+          - cell "Shopping" [ref=e1161]
+          - cell "₹1,090" [ref=e1162]
+          - cell "expense" [ref=e1163]
+          - cell "✎" [ref=e1164]:
+            - button "✎" [ref=e1165] [cursor=pointer]
+        - row "2026-03-11 — — — ignore ✎" [ref=e1166]:
+          - cell "2026-03-11" [ref=e1167]
+          - cell "—" [ref=e1168]
+          - cell "—" [ref=e1169]
+          - cell "—" [ref=e1170]
+          - cell "ignore" [ref=e1171]
+          - cell "✎" [ref=e1172]:
+            - button "✎" [ref=e1173] [cursor=pointer]
+        - row "2026-03-11 Paytm UPI Payment ₹150 expense ✎" [ref=e1174]:
+          - cell "2026-03-11" [ref=e1175]
+          - cell "Paytm" [ref=e1176]
+          - cell "UPI Payment" [ref=e1177]
+          - cell "₹150" [ref=e1178]
+          - cell "expense" [ref=e1179]
+          - cell "✎" [ref=e1180]:
+            - button "✎" [ref=e1181] [cursor=pointer]
+        - row "2026-03-11 — — — ignore ✎" [ref=e1182]:
+          - cell "2026-03-11" [ref=e1183]
+          - cell "—" [ref=e1184]
+          - cell "—" [ref=e1185]
+          - cell "—" [ref=e1186]
+          - cell "ignore" [ref=e1187]
+          - cell "✎" [ref=e1188]:
+            - button "✎" [ref=e1189] [cursor=pointer]
+        - row "2026-03-11 — Travel ₹705.64 expense ✎" [ref=e1190]:
+          - cell "2026-03-11" [ref=e1191]
+          - cell "—" [ref=e1192]
+          - cell "Travel" [ref=e1193]
+          - cell "₹705.64" [ref=e1194]
+          - cell "expense" [ref=e1195]
+          - cell "✎" [ref=e1196]:
+            - button "✎" [ref=e1197] [cursor=pointer]
+        - row "2026-03-12 — Travel — expense ✎" [ref=e1198]:
+          - cell "2026-03-12" [ref=e1199]
+          - cell "—" [ref=e1200]
+          - cell "Travel" [ref=e1201]
+          - cell "—" [ref=e1202]
+          - cell "expense" [ref=e1203]
+          - cell "✎" [ref=e1204]:
+            - button "✎" [ref=e1205] [cursor=pointer]
+        - row "2026-03-12 — — — ignore ✎" [ref=e1206]:
+          - cell "2026-03-12" [ref=e1207]
+          - cell "—" [ref=e1208]
+          - cell "—" [ref=e1209]
+          - cell "—" [ref=e1210]
+          - cell "ignore" [ref=e1211]
+          - cell "✎" [ref=e1212]:
+            - button "✎" [ref=e1213] [cursor=pointer]
+        - row "2026-03-13 — — ₹500 expense ✎" [ref=e1214]:
+          - cell "2026-03-13" [ref=e1215]
+          - cell "—" [ref=e1216]
+          - cell "—" [ref=e1217]
+          - cell "₹500" [ref=e1218]
+          - cell "expense" [ref=e1219]
+          - cell "✎" [ref=e1220]:
+            - button "✎" [ref=e1221] [cursor=pointer]
+        - row "2026-03-13 IDISHA INFO LABS PRIVATE LIMITED Other ₹500 expense ✎" [ref=e1222]:
+          - cell "2026-03-13" [ref=e1223]
+          - cell "IDISHA INFO LABS PRIVATE LIMITED" [ref=e1224]
+          - cell "Other" [ref=e1225]
+          - cell "₹500" [ref=e1226]
+          - cell "expense" [ref=e1227]
+          - cell "✎" [ref=e1228]:
+            - button "✎" [ref=e1229] [cursor=pointer]
+        - row "2026-03-13 IDISHA INFO LABS PRIVATE LIMITED Other ₹500 expense ✎" [ref=e1230]:
+          - cell "2026-03-13" [ref=e1231]
+          - cell "IDISHA INFO LABS PRIVATE LIMITED" [ref=e1232]
+          - cell "Other" [ref=e1233]
+          - cell "₹500" [ref=e1234]
+          - cell "expense" [ref=e1235]
+          - cell "✎" [ref=e1236]:
+            - button "✎" [ref=e1237] [cursor=pointer]
+        - row "2026-03-13 — Travel ₹500 expense ✎" [ref=e1238]:
+          - cell "2026-03-13" [ref=e1239]
+          - cell "—" [ref=e1240]
+          - cell "Travel" [ref=e1241]
+          - cell "₹500" [ref=e1242]
+          - cell "expense" [ref=e1243]
+          - cell "✎" [ref=e1244]:
+            - button "✎" [ref=e1245] [cursor=pointer]
+        - row "2026-03-13 — Travel ₹500 expense ✎" [ref=e1246]:
+          - cell "2026-03-13" [ref=e1247]
+          - cell "—" [ref=e1248]
+          - cell "Travel" [ref=e1249]
+          - cell "₹500" [ref=e1250]
+          - cell "expense" [ref=e1251]
+          - cell "✎" [ref=e1252]:
+            - button "✎" [ref=e1253] [cursor=pointer]
+        - row "2026-03-13 Quick Ride Transport ₹0 expense ✎" [ref=e1254]:
+          - cell "2026-03-13" [ref=e1255]
+          - cell "Quick Ride" [ref=e1256]
+          - cell "Transport" [ref=e1257]
+          - cell "₹0" [ref=e1258]
+          - cell "expense" [ref=e1259]
+          - cell "✎" [ref=e1260]:
+            - button "✎" [ref=e1261] [cursor=pointer]
+        - row "2026-03-13 — Travel ₹105 expense ✎" [ref=e1262]:
+          - cell "2026-03-13" [ref=e1263]
+          - cell "—" [ref=e1264]
+          - cell "Travel" [ref=e1265]
+          - cell "₹105" [ref=e1266]
+          - cell "expense" [ref=e1267]
+          - cell "✎" [ref=e1268]:
+            - button "✎" [ref=e1269] [cursor=pointer]
+        - row "2026-03-13 — — — ignore ✎" [ref=e1270]:
+          - cell "2026-03-13" [ref=e1271]
+          - cell "—" [ref=e1272]
+          - cell "—" [ref=e1273]
+          - cell "—" [ref=e1274]
+          - cell "ignore" [ref=e1275]
+          - cell "✎" [ref=e1276]:
+            - button "✎" [ref=e1277] [cursor=pointer]
+        - row "2026-03-13 Paytm UPI Payment ₹60 expense ✎" [ref=e1278]:
+          - cell "2026-03-13" [ref=e1279]
+          - cell "Paytm" [ref=e1280]
+          - cell "UPI Payment" [ref=e1281]
+          - cell "₹60" [ref=e1282]
+          - cell "expense" [ref=e1283]
+          - cell "✎" [ref=e1284]:
+            - button "✎" [ref=e1285] [cursor=pointer]
+        - row "2026-03-14 PYU*Instamart Grocery Groceries ₹1,361 expense ✎" [ref=e1286]:
+          - cell "2026-03-14" [ref=e1287]
+          - cell "PYU*Instamart Grocery" [ref=e1288]
+          - cell "Groceries" [ref=e1289]
+          - cell "₹1,361" [ref=e1290]
+          - cell "expense" [ref=e1291]
+          - cell "✎" [ref=e1292]:
+            - button "✎" [ref=e1293] [cursor=pointer]
+        - row "2026-03-14 Swiggy Food Food ₹308 expense ✎" [ref=e1294]:
+          - cell "2026-03-14" [ref=e1295]
+          - cell "Swiggy Food" [ref=e1296]
+          - cell "Food" [ref=e1297]
+          - cell "₹308" [ref=e1298]
+          - cell "expense" [ref=e1299]
+          - cell "✎" [ref=e1300]:
+            - button "✎" [ref=e1301] [cursor=pointer]
+        - row "2026-03-14 — Food — expense ✎" [ref=e1302]:
+          - cell "2026-03-14" [ref=e1303]
+          - cell "—" [ref=e1304]
+          - cell "Food" [ref=e1305]
+          - cell "—" [ref=e1306]
+          - cell "expense" [ref=e1307]
+          - cell "✎" [ref=e1308]:
+            - button "✎" [ref=e1309] [cursor=pointer]
+        - row "2026-03-14 — Food — expense ✎" [ref=e1310]:
+          - cell "2026-03-14" [ref=e1311]
+          - cell "—" [ref=e1312]
+          - cell "Food" [ref=e1313]
+          - cell "—" [ref=e1314]
+          - cell "expense" [ref=e1315]
+          - cell "✎" [ref=e1316]:
+            - button "✎" [ref=e1317] [cursor=pointer]
+        - row "2026-03-14 — Transport — expense ✎" [ref=e1318]:
+          - cell "2026-03-14" [ref=e1319]
+          - cell "—" [ref=e1320]
+          - cell "Transport" [ref=e1321]
+          - cell "—" [ref=e1322]
+          - cell "expense" [ref=e1323]
+          - cell "✎" [ref=e1324]:
+            - button "✎" [ref=e1325] [cursor=pointer]
+        - row "2026-03-14 PUNITH KUMAR Other ₹260 expense ✎" [ref=e1326]:
+          - cell "2026-03-14" [ref=e1327]
+          - cell "PUNITH KUMAR" [ref=e1328]
+          - cell "Other" [ref=e1329]
+          - cell "₹260" [ref=e1330]
+          - cell "expense" [ref=e1331]
+          - cell "✎" [ref=e1332]:
+            - button "✎" [ref=e1333] [cursor=pointer]
+        - row "2026-03-14 CAKEWALA Food ₹120 expense ✎" [ref=e1334]:
+          - cell "2026-03-14" [ref=e1335]
+          - cell "CAKEWALA" [ref=e1336]
+          - cell "Food" [ref=e1337]
+          - cell "₹120" [ref=e1338]
+          - cell "expense" [ref=e1339]
+          - cell "✎" [ref=e1340]:
+            - button "✎" [ref=e1341] [cursor=pointer]
+        - row "2026-03-14 MR ABHISHEK RAMAPPA TOTAGER Other ₹53 expense ✎" [ref=e1342]:
+          - cell "2026-03-14" [ref=e1343]
+          - cell "MR ABHISHEK RAMAPPA TOTAGER" [ref=e1344]
+          - cell "Other" [ref=e1345]
+          - cell "₹53" [ref=e1346]
+          - cell "expense" [ref=e1347]
+          - cell "✎" [ref=e1348]:
+            - button "✎" [ref=e1349] [cursor=pointer]
+        - row "2026-03-14 — Transport — expense ✎" [ref=e1350]:
+          - cell "2026-03-14" [ref=e1351]
+          - cell "—" [ref=e1352]
+          - cell "Transport" [ref=e1353]
+          - cell "—" [ref=e1354]
+          - cell "expense" [ref=e1355]
+          - cell "✎" [ref=e1356]:
+            - button "✎" [ref=e1357] [cursor=pointer]
+        - row "2026-03-14 — Travel ₹280 expense ✎" [ref=e1358]:
+          - cell "2026-03-14" [ref=e1359]
+          - cell "—" [ref=e1360]
+          - cell "Travel" [ref=e1361]
+          - cell "₹280" [ref=e1362]
+          - cell "expense" [ref=e1363]
+          - cell "✎" [ref=e1364]:
+            - button "✎" [ref=e1365] [cursor=pointer]
+        - row "2026-03-14 — Transport — expense ✎" [ref=e1366]:
+          - cell "2026-03-14" [ref=e1367]
+          - cell "—" [ref=e1368]
+          - cell "Transport" [ref=e1369]
+          - cell "—" [ref=e1370]
+          - cell "expense" [ref=e1371]
+          - cell "✎" [ref=e1372]:
+            - button "✎" [ref=e1373] [cursor=pointer]
+        - row "2026-03-15 — — — ignore ✎" [ref=e1374]:
+          - cell "2026-03-15" [ref=e1375]
+          - cell "—" [ref=e1376]
+          - cell "—" [ref=e1377]
+          - cell "—" [ref=e1378]
+          - cell "ignore" [ref=e1379]
+          - cell "✎" [ref=e1380]:
+            - button "✎" [ref=e1381] [cursor=pointer]
+        - row "2026-03-15 — Travel ₹50 expense ✎" [ref=e1382]:
+          - cell "2026-03-15" [ref=e1383]
+          - cell "—" [ref=e1384]
+          - cell "Travel" [ref=e1385]
+          - cell "₹50" [ref=e1386]
+          - cell "expense" [ref=e1387]
+          - cell "✎" [ref=e1388]:
+            - button "✎" [ref=e1389] [cursor=pointer]
+        - row "2026-03-15 Amazon.in Shopping ₹377 expense ✎" [ref=e1390]:
+          - cell "2026-03-15" [ref=e1391]
+          - cell "Amazon.in" [ref=e1392]
+          - cell "Shopping" [ref=e1393]
+          - cell "₹377" [ref=e1394]
+          - cell "expense" [ref=e1395]
+          - cell "✎" [ref=e1396]:
+            - button "✎" [ref=e1397] [cursor=pointer]
+        - row "2026-03-15 — Shopping — expense ✎" [ref=e1398]:
+          - cell "2026-03-15" [ref=e1399]
+          - cell "—" [ref=e1400]
+          - cell "Shopping" [ref=e1401]
+          - cell "—" [ref=e1402]
+          - cell "expense" [ref=e1403]
+          - cell "✎" [ref=e1404]:
+            - button "✎" [ref=e1405] [cursor=pointer]
+        - row "2026-03-15 LAGOM UNISEX SALON Other ₹450 expense ✎" [ref=e1406]:
+          - cell "2026-03-15" [ref=e1407]
+          - cell "LAGOM UNISEX SALON" [ref=e1408]
+          - cell "Other" [ref=e1409]
+          - cell "₹450" [ref=e1410]
+          - cell "expense" [ref=e1411]
+          - cell "✎" [ref=e1412]:
+            - button "✎" [ref=e1413] [cursor=pointer]
+        - row "2026-03-15 — Transport — expense ✎" [ref=e1414]:
+          - cell "2026-03-15" [ref=e1415]
+          - cell "—" [ref=e1416]
+          - cell "Transport" [ref=e1417]
+          - cell "—" [ref=e1418]
+          - cell "expense" [ref=e1419]
+          - cell "✎" [ref=e1420]:
+            - button "✎" [ref=e1421] [cursor=pointer]
+        - row "2026-03-15 — Travel ₹45 expense ✎" [ref=e1422]:
+          - cell "2026-03-15" [ref=e1423]
+          - cell "—" [ref=e1424]
+          - cell "Travel" [ref=e1425]
+          - cell "₹45" [ref=e1426]
+          - cell "expense" [ref=e1427]
+          - cell "✎" [ref=e1428]:
+            - button "✎" [ref=e1429] [cursor=pointer]
+        - row "2026-03-15 q522615963@ybl GOPAL NM Other ₹157 expense ✎" [ref=e1430]:
+          - cell "2026-03-15" [ref=e1431]
+          - cell "q522615963@ybl GOPAL NM" [ref=e1432]
+          - cell "Other" [ref=e1433]
+          - cell "₹157" [ref=e1434]
+          - cell "expense" [ref=e1435]
+          - cell "✎" [ref=e1436]:
+            - button "✎" [ref=e1437] [cursor=pointer]
+        - row "2026-03-15 — Transport — expense ✎" [ref=e1438]:
+          - cell "2026-03-15" [ref=e1439]
+          - cell "—" [ref=e1440]
+          - cell "Transport" [ref=e1441]
+          - cell "—" [ref=e1442]
+          - cell "expense" [ref=e1443]
+          - cell "✎" [ref=e1444]:
+            - button "✎" [ref=e1445] [cursor=pointer]
+        - row "2026-03-15 — Shopping — expense ✎" [ref=e1446]:
+          - cell "2026-03-15" [ref=e1447]
+          - cell "—" [ref=e1448]
+          - cell "Shopping" [ref=e1449]
+          - cell "—" [ref=e1450]
+          - cell "expense" [ref=e1451]
+          - cell "✎" [ref=e1452]:
+            - button "✎" [ref=e1453] [cursor=pointer]
+        - row "2026-03-15 — — — ignore ✎" [ref=e1454]:
+          - cell "2026-03-15" [ref=e1455]
+          - cell "—" [ref=e1456]
+          - cell "—" [ref=e1457]
+          - cell "—" [ref=e1458]
+          - cell "ignore" [ref=e1459]
+          - cell "✎" [ref=e1460]:
+            - button "✎" [ref=e1461] [cursor=pointer]
+        - row "2026-03-15 SOWBHAGYA ASHWATHAPPA Other ₹150 expense ✎" [ref=e1462]:
+          - cell "2026-03-15" [ref=e1463]
+          - cell "SOWBHAGYA ASHWATHAPPA" [ref=e1464]
+          - cell "Other" [ref=e1465]
+          - cell "₹150" [ref=e1466]
+          - cell "expense" [ref=e1467]
+          - cell "✎" [ref=e1468]:
+            - button "✎" [ref=e1469] [cursor=pointer]
+        - row "2026-03-16 Swiggy Food Food ₹265 expense ✎" [ref=e1470]:
+          - cell "2026-03-16" [ref=e1471]
+          - cell "Swiggy Food" [ref=e1472]
+          - cell "Food" [ref=e1473]
+          - cell "₹265" [ref=e1474]
+          - cell "expense" [ref=e1475]
+          - cell "✎" [ref=e1476]:
+            - button "✎" [ref=e1477] [cursor=pointer]
+        - row "2026-03-15 — — — ignore ✎" [ref=e1478]:
+          - cell "2026-03-15" [ref=e1479]
+          - cell "—" [ref=e1480]
+          - cell "—" [ref=e1481]
+          - cell "—" [ref=e1482]
+          - cell "ignore" [ref=e1483]
+          - cell "✎" [ref=e1484]:
+            - button "✎" [ref=e1485] [cursor=pointer]
+        - row "2026-03-15 — — — ignore ✎" [ref=e1486]:
+          - cell "2026-03-15" [ref=e1487]
+          - cell "—" [ref=e1488]
+          - cell "—" [ref=e1489]
+          - cell "—" [ref=e1490]
+          - cell "ignore" [ref=e1491]
+          - cell "✎" [ref=e1492]:
+            - button "✎" [ref=e1493] [cursor=pointer]
+        - row "2026-03-16 — Travel ₹195 expense ✎" [ref=e1494]:
+          - cell "2026-03-16" [ref=e1495]
+          - cell "—" [ref=e1496]
+          - cell "Travel" [ref=e1497]
+          - cell "₹195" [ref=e1498]
+          - cell "expense" [ref=e1499]
+          - cell "✎" [ref=e1500]:
+            - button "✎" [ref=e1501] [cursor=pointer]
+        - row "2026-03-15 — Transport — expense ✎" [ref=e1502]:
+          - cell "2026-03-15" [ref=e1503]
+          - cell "—" [ref=e1504]
+          - cell "Transport" [ref=e1505]
+          - cell "—" [ref=e1506]
+          - cell "expense" [ref=e1507]
+          - cell "✎" [ref=e1508]:
+            - button "✎" [ref=e1509] [cursor=pointer]
+        - row "2026-03-15 — Food — expense ✎" [ref=e1510]:
+          - cell "2026-03-15" [ref=e1511]
+          - cell "—" [ref=e1512]
+          - cell "Food" [ref=e1513]
+          - cell "—" [ref=e1514]
+          - cell "expense" [ref=e1515]
+          - cell "✎" [ref=e1516]:
+            - button "✎" [ref=e1517] [cursor=pointer]
+        - row "2026-03-15 — Shopping — expense ✎" [ref=e1518]:
+          - cell "2026-03-15" [ref=e1519]
+          - cell "—" [ref=e1520]
+          - cell "Shopping" [ref=e1521]
+          - cell "—" [ref=e1522]
+          - cell "expense" [ref=e1523]
+          - cell "✎" [ref=e1524]:
+            - button "✎" [ref=e1525] [cursor=pointer]
+        - row "2026-03-15 Amazon.in Shopping ₹189 expense ✎" [ref=e1526]:
+          - cell "2026-03-15" [ref=e1527]
+          - cell "Amazon.in" [ref=e1528]
+          - cell "Shopping" [ref=e1529]
+          - cell "₹189" [ref=e1530]
+          - cell "expense" [ref=e1531]
+          - cell "✎" [ref=e1532]:
+            - button "✎" [ref=e1533] [cursor=pointer]
+        - row "2026-03-16 — Shopping — expense ✎" [ref=e1534]:
+          - cell "2026-03-16" [ref=e1535]
+          - cell "—" [ref=e1536]
+          - cell "Shopping" [ref=e1537]
+          - cell "—" [ref=e1538]
+          - cell "expense" [ref=e1539]
+          - cell "✎" [ref=e1540]:
+            - button "✎" [ref=e1541] [cursor=pointer]
+        - row "2026-03-16 Swiggy Food Food ₹242 expense ✎" [ref=e1542]:
+          - cell "2026-03-16" [ref=e1543]
+          - cell "Swiggy Food" [ref=e1544]
+          - cell "Food" [ref=e1545]
+          - cell "₹242" [ref=e1546]
+          - cell "expense" [ref=e1547]
+          - cell "✎" [ref=e1548]:
+            - button "✎" [ref=e1549] [cursor=pointer]
+        - row "2026-03-16 — Food — expense ✎" [ref=e1550]:
+          - cell "2026-03-16" [ref=e1551]
+          - cell "—" [ref=e1552]
+          - cell "Food" [ref=e1553]
+          - cell "—" [ref=e1554]
+          - cell "expense" [ref=e1555]
+          - cell "✎" [ref=e1556]:
+            - button "✎" [ref=e1557] [cursor=pointer]
+        - row "2026-03-16 — Shopping — expense ✎" [ref=e1558]:
+          - cell "2026-03-16" [ref=e1559]
+          - cell "—" [ref=e1560]
+          - cell "Shopping" [ref=e1561]
+          - cell "—" [ref=e1562]
+          - cell "expense" [ref=e1563]
+          - cell "✎" [ref=e1564]:
+            - button "✎" [ref=e1565] [cursor=pointer]
+        - row "2026-03-16 — — — ignore ✎" [ref=e1566]:
+          - cell "2026-03-16" [ref=e1567]
+          - cell "—" [ref=e1568]
+          - cell "—" [ref=e1569]
+          - cell "—" [ref=e1570]
+          - cell "ignore" [ref=e1571]
+          - cell "✎" [ref=e1572]:
+            - button "✎" [ref=e1573] [cursor=pointer]
+        - row "2026-03-16 — Shopping — expense ✎" [ref=e1574]:
+          - cell "2026-03-16" [ref=e1575]
+          - cell "—" [ref=e1576]
+          - cell "Shopping" [ref=e1577]
+          - cell "—" [ref=e1578]
+          - cell "expense" [ref=e1579]
+          - cell "✎" [ref=e1580]:
+            - button "✎" [ref=e1581] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1582]:
+          - cell "2026-03-17" [ref=e1583]
+          - cell "—" [ref=e1584]
+          - cell "—" [ref=e1585]
+          - cell "—" [ref=e1586]
+          - cell "ignore" [ref=e1587]
+          - cell "✎" [ref=e1588]:
+            - button "✎" [ref=e1589] [cursor=pointer]
+        - row "2026-03-17 Swiggy Food ₹568 expense ✎" [ref=e1590]:
+          - cell "2026-03-17" [ref=e1591]
+          - cell "Swiggy" [ref=e1592]
+          - cell "Food" [ref=e1593]
+          - cell "₹568" [ref=e1594]
+          - cell "expense" [ref=e1595]
+          - cell "✎" [ref=e1596]:
+            - button "✎" [ref=e1597] [cursor=pointer]
+        - row "2026-03-17 — Food — expense ✎" [ref=e1598]:
+          - cell "2026-03-17" [ref=e1599]
+          - cell "—" [ref=e1600]
+          - cell "Food" [ref=e1601]
+          - cell "—" [ref=e1602]
+          - cell "expense" [ref=e1603]
+          - cell "✎" [ref=e1604]:
+            - button "✎" [ref=e1605] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1606]:
+          - cell "2026-03-17" [ref=e1607]
+          - cell "—" [ref=e1608]
+          - cell "—" [ref=e1609]
+          - cell "—" [ref=e1610]
+          - cell "ignore" [ref=e1611]
+          - cell "✎" [ref=e1612]:
+            - button "✎" [ref=e1613] [cursor=pointer]
+        - row "2026-03-17 — Travel ₹4,999 expense ✎" [ref=e1614]:
+          - cell "2026-03-17" [ref=e1615]
+          - cell "—" [ref=e1616]
+          - cell "Travel" [ref=e1617]
+          - cell "₹4,999" [ref=e1618]
+          - cell "expense" [ref=e1619]
+          - cell "✎" [ref=e1620]:
+            - button "✎" [ref=e1621] [cursor=pointer]
+        - row "2026-03-17 Swiggy Food ₹593 expense ✎" [ref=e1622]:
+          - cell "2026-03-17" [ref=e1623]
+          - cell "Swiggy" [ref=e1624]
+          - cell "Food" [ref=e1625]
+          - cell "₹593" [ref=e1626]
+          - cell "expense" [ref=e1627]
+          - cell "✎" [ref=e1628]:
+            - button "✎" [ref=e1629] [cursor=pointer]
+        - row "2026-03-17 — Food — expense ✎" [ref=e1630]:
+          - cell "2026-03-17" [ref=e1631]
+          - cell "—" [ref=e1632]
+          - cell "Food" [ref=e1633]
+          - cell "—" [ref=e1634]
+          - cell "expense" [ref=e1635]
+          - cell "✎" [ref=e1636]:
+            - button "✎" [ref=e1637] [cursor=pointer]
+        - row "2026-03-17 Amazon Shopping ₹404 expense ✎" [ref=e1638]:
+          - cell "2026-03-17" [ref=e1639]
+          - cell "Amazon" [ref=e1640]
+          - cell "Shopping" [ref=e1641]
+          - cell "₹404" [ref=e1642]
+          - cell "expense" [ref=e1643]
+          - cell "✎" [ref=e1644]:
+            - button "✎" [ref=e1645] [cursor=pointer]
+        - row "2026-03-17 — Shopping — expense ✎" [ref=e1646]:
+          - cell "2026-03-17" [ref=e1647]
+          - cell "—" [ref=e1648]
+          - cell "Shopping" [ref=e1649]
+          - cell "—" [ref=e1650]
+          - cell "expense" [ref=e1651]
+          - cell "✎" [ref=e1652]:
+            - button "✎" [ref=e1653] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1654]:
+          - cell "2026-03-17" [ref=e1655]
+          - cell "—" [ref=e1656]
+          - cell "—" [ref=e1657]
+          - cell "—" [ref=e1658]
+          - cell "ignore" [ref=e1659]
+          - cell "✎" [ref=e1660]:
+            - button "✎" [ref=e1661] [cursor=pointer]
+        - row "2026-03-17 — Shopping — expense ✎" [ref=e1662]:
+          - cell "2026-03-17" [ref=e1663]
+          - cell "—" [ref=e1664]
+          - cell "Shopping" [ref=e1665]
+          - cell "—" [ref=e1666]
+          - cell "expense" [ref=e1667]
+          - cell "✎" [ref=e1668]:
+            - button "✎" [ref=e1669] [cursor=pointer]
+        - row "2026-03-17 — Shopping — expense ✎" [ref=e1670]:
+          - cell "2026-03-17" [ref=e1671]
+          - cell "—" [ref=e1672]
+          - cell "Shopping" [ref=e1673]
+          - cell "—" [ref=e1674]
+          - cell "expense" [ref=e1675]
+          - cell "✎" [ref=e1676]:
+            - button "✎" [ref=e1677] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1678]:
+          - cell "2026-03-17" [ref=e1679]
+          - cell "—" [ref=e1680]
+          - cell "—" [ref=e1681]
+          - cell "—" [ref=e1682]
+          - cell "ignore" [ref=e1683]
+          - cell "✎" [ref=e1684]:
+            - button "✎" [ref=e1685] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1686]:
+          - cell "2026-03-17" [ref=e1687]
+          - cell "—" [ref=e1688]
+          - cell "—" [ref=e1689]
+          - cell "—" [ref=e1690]
+          - cell "ignore" [ref=e1691]
+          - cell "✎" [ref=e1692]:
+            - button "✎" [ref=e1693] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1694]:
+          - cell "2026-03-17" [ref=e1695]
+          - cell "—" [ref=e1696]
+          - cell "—" [ref=e1697]
+          - cell "—" [ref=e1698]
+          - cell "ignore" [ref=e1699]
+          - cell "✎" [ref=e1700]:
+            - button "✎" [ref=e1701] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1702]:
+          - cell "2026-03-17" [ref=e1703]
+          - cell "—" [ref=e1704]
+          - cell "—" [ref=e1705]
+          - cell "—" [ref=e1706]
+          - cell "ignore" [ref=e1707]
+          - cell "✎" [ref=e1708]:
+            - button "✎" [ref=e1709] [cursor=pointer]
+        - row "2026-03-17 — — — ignore ✎" [ref=e1710]:
+          - cell "2026-03-17" [ref=e1711]
+          - cell "—" [ref=e1712]
+          - cell "—" [ref=e1713]
+          - cell "—" [ref=e1714]
+          - cell "ignore" [ref=e1715]
+          - cell "✎" [ref=e1716]:
+            - button "✎" [ref=e1717] [cursor=pointer]
+        - row "2026-03-28 Airtel Utilities ₹1,885.64 expense ✎" [ref=e1718]:
+          - cell "2026-03-28" [ref=e1719]
+          - cell "Airtel" [ref=e1720]
+          - cell "Utilities" [ref=e1721]
+          - cell "₹1,885.64" [ref=e1722]
+          - cell "expense" [ref=e1723]
+          - cell "✎" [ref=e1724]:
+            - button "✎" [ref=e1725] [cursor=pointer]
+        - row "2026-03-18 — Food — expense ✎" [ref=e1726]:
+          - cell "2026-03-18" [ref=e1727]
+          - cell "—" [ref=e1728]
+          - cell "Food" [ref=e1729]
+          - cell "—" [ref=e1730]
+          - cell "expense" [ref=e1731]
+          - cell "✎" [ref=e1732]:
+            - button "✎" [ref=e1733] [cursor=pointer]
+        - row "2026-03-18 — — — ignore ✎" [ref=e1734]:
+          - cell "2026-03-18" [ref=e1735]
+          - cell "—" [ref=e1736]
+          - cell "—" [ref=e1737]
+          - cell "—" [ref=e1738]
+          - cell "ignore" [ref=e1739]
+          - cell "✎" [ref=e1740]:
+            - button "✎" [ref=e1741] [cursor=pointer]
+        - row "2026-03-18 Amazon Shopping ₹539 expense ✎" [ref=e1742]:
+          - cell "2026-03-18" [ref=e1743]
+          - cell "Amazon" [ref=e1744]
+          - cell "Shopping" [ref=e1745]
+          - cell "₹539" [ref=e1746]
+          - cell "expense" [ref=e1747]
+          - cell "✎" [ref=e1748]:
+            - button "✎" [ref=e1749] [cursor=pointer]
+        - row "2026-03-18 — Shopping — expense ✎" [ref=e1750]:
+          - cell "2026-03-18" [ref=e1751]
+          - cell "—" [ref=e1752]
+          - cell "Shopping" [ref=e1753]
+          - cell "—" [ref=e1754]
+          - cell "expense" [ref=e1755]
+          - cell "✎" [ref=e1756]:
+            - button "✎" [ref=e1757] [cursor=pointer]
+        - row "2026-03-18 Swiggy Food Food ₹426 expense ✎" [ref=e1758]:
+          - cell "2026-03-18" [ref=e1759]
+          - cell "Swiggy Food" [ref=e1760]
+          - cell "Food" [ref=e1761]
+          - cell "₹426" [ref=e1762]
+          - cell "expense" [ref=e1763]
+          - cell "✎" [ref=e1764]:
+            - button "✎" [ref=e1765] [cursor=pointer]
+        - row "2026-03-18 — Food — expense ✎" [ref=e1766]:
+          - cell "2026-03-18" [ref=e1767]
+          - cell "—" [ref=e1768]
+          - cell "Food" [ref=e1769]
+          - cell "—" [ref=e1770]
+          - cell "expense" [ref=e1771]
+          - cell "✎" [ref=e1772]:
+            - button "✎" [ref=e1773] [cursor=pointer]
+        - row "2026-03-18 — Entertainment ₹678.04 expense ✎" [ref=e1774]:
+          - cell "2026-03-18" [ref=e1775]
+          - cell "—" [ref=e1776]
+          - cell "Entertainment" [ref=e1777]
+          - cell "₹678.04" [ref=e1778]
+          - cell "expense" [ref=e1779]
+          - cell "✎" [ref=e1780]:
+            - button "✎" [ref=e1781] [cursor=pointer]
+        - row "2026-03-18 — Travel ₹860 expense ✎" [ref=e1782]:
+          - cell "2026-03-18" [ref=e1783]
+          - cell "—" [ref=e1784]
+          - cell "Travel" [ref=e1785]
+          - cell "₹860" [ref=e1786]
+          - cell "expense" [ref=e1787]
+          - cell "✎" [ref=e1788]:
+            - button "✎" [ref=e1789] [cursor=pointer]
+        - row "2026-03-19 — — — ignore ✎" [ref=e1790]:
+          - cell "2026-03-19" [ref=e1791]
+          - cell "—" [ref=e1792]
+          - cell "—" [ref=e1793]
+          - cell "—" [ref=e1794]
+          - cell "ignore" [ref=e1795]
+          - cell "✎" [ref=e1796]:
+            - button "✎" [ref=e1797] [cursor=pointer]
+        - row "2026-03-18 — — — ignore ✎" [ref=e1798]:
+          - cell "2026-03-18" [ref=e1799]
+          - cell "—" [ref=e1800]
+          - cell "—" [ref=e1801]
+          - cell "—" [ref=e1802]
+          - cell "ignore" [ref=e1803]
+          - cell "✎" [ref=e1804]:
+            - button "✎" [ref=e1805] [cursor=pointer]
+        - row "2026-03-19 — — — ignore ✎" [ref=e1806]:
+          - cell "2026-03-19" [ref=e1807]
+          - cell "—" [ref=e1808]
+          - cell "—" [ref=e1809]
+          - cell "—" [ref=e1810]
+          - cell "ignore" [ref=e1811]
+          - cell "✎" [ref=e1812]:
+            - button "✎" [ref=e1813] [cursor=pointer]
+        - row "2026-03-19 — — — ignore ✎" [ref=e1814]:
+          - cell "2026-03-19" [ref=e1815]
+          - cell "—" [ref=e1816]
+          - cell "—" [ref=e1817]
+          - cell "—" [ref=e1818]
+          - cell "ignore" [ref=e1819]
+          - cell "✎" [ref=e1820]:
+            - button "✎" [ref=e1821] [cursor=pointer]
+        - row "2026-03-19 — — — ignore ✎" [ref=e1822]:
+          - cell "2026-03-19" [ref=e1823]
+          - cell "—" [ref=e1824]
+          - cell "—" [ref=e1825]
+          - cell "—" [ref=e1826]
+          - cell "ignore" [ref=e1827]
+          - cell "✎" [ref=e1828]:
+            - button "✎" [ref=e1829] [cursor=pointer]
+        - row "2026-03-20 ADYAR ANANDA BHAVAN SWEETS INDIA PRIVATE LIMITED Food ₹241.5 expense ✎" [ref=e1830]:
+          - cell "2026-03-20" [ref=e1831]
+          - cell "ADYAR ANANDA BHAVAN SWEETS INDIA PRIVATE LIMITED" [ref=e1832]
+          - cell "Food" [ref=e1833]
+          - cell "₹241.5" [ref=e1834]
+          - cell "expense" [ref=e1835]
+          - cell "✎" [ref=e1836]:
+            - button "✎" [ref=e1837] [cursor=pointer]
+        - row "2026-03-20 — Shopping — expense ✎" [ref=e1838]:
+          - cell "2026-03-20" [ref=e1839]
+          - cell "—" [ref=e1840]
+          - cell "Shopping" [ref=e1841]
+          - cell "—" [ref=e1842]
+          - cell "expense" [ref=e1843]
+          - cell "✎" [ref=e1844]:
+            - button "✎" [ref=e1845] [cursor=pointer]
+        - row "2026-03-20 Lulu Bangalore Groceries ₹2,355.6 expense ✎" [ref=e1846]:
+          - cell "2026-03-20" [ref=e1847]
+          - cell "Lulu Bangalore" [ref=e1848]
+          - cell "Groceries" [ref=e1849]
+          - cell "₹2,355.6" [ref=e1850]
+          - cell "expense" [ref=e1851]
+          - cell "✎" [ref=e1852]:
+            - button "✎" [ref=e1853] [cursor=pointer]
+        - row "2026-03-20 MAHENDRA 5IVEPILLARS LLP Other ₹100 expense ✎" [ref=e1854]:
+          - cell "2026-03-20" [ref=e1855]
+          - cell "MAHENDRA 5IVEPILLARS LLP" [ref=e1856]
+          - cell "Other" [ref=e1857]
+          - cell "₹100" [ref=e1858]
+          - cell "expense" [ref=e1859]
+          - cell "✎" [ref=e1860]:
+            - button "✎" [ref=e1861] [cursor=pointer]
+        - row "2026-03-20 Swiggy Food Food ₹506 expense ✎" [ref=e1862]:
+          - cell "2026-03-20" [ref=e1863]
+          - cell "Swiggy Food" [ref=e1864]
+          - cell "Food" [ref=e1865]
+          - cell "₹506" [ref=e1866]
+          - cell "expense" [ref=e1867]
+          - cell "✎" [ref=e1868]:
+            - button "✎" [ref=e1869] [cursor=pointer]
+        - row "2026-03-20 — Travel ₹2,000 expense ✎" [ref=e1870]:
+          - cell "2026-03-20" [ref=e1871]
+          - cell "—" [ref=e1872]
+          - cell "Travel" [ref=e1873]
+          - cell "₹2,000" [ref=e1874]
+          - cell "expense" [ref=e1875]
+          - cell "✎" [ref=e1876]:
+            - button "✎" [ref=e1877] [cursor=pointer]
+        - row "2026-03-20 — Food — expense ✎" [ref=e1878]:
+          - cell "2026-03-20" [ref=e1879]
+          - cell "—" [ref=e1880]
+          - cell "Food" [ref=e1881]
+          - cell "—" [ref=e1882]
+          - cell "expense" [ref=e1883]
+          - cell "✎" [ref=e1884]:
+            - button "✎" [ref=e1885] [cursor=pointer]
+        - row "2026-03-20 — — — ignore ✎" [ref=e1886]:
+          - cell "2026-03-20" [ref=e1887]
+          - cell "—" [ref=e1888]
+          - cell "—" [ref=e1889]
+          - cell "—" [ref=e1890]
+          - cell "ignore" [ref=e1891]
+          - cell "✎" [ref=e1892]:
+            - button "✎" [ref=e1893] [cursor=pointer]
+        - row "2026-03-21 Amazon Shopping ₹2,004 expense ✎" [ref=e1894]:
+          - cell "2026-03-21" [ref=e1895]
+          - cell "Amazon" [ref=e1896]
+          - cell "Shopping" [ref=e1897]
+          - cell "₹2,004" [ref=e1898]
+          - cell "expense" [ref=e1899]
+          - cell "✎" [ref=e1900]:
+            - button "✎" [ref=e1901] [cursor=pointer]
+        - row "2026-03-21 — Shopping — expense ✎" [ref=e1902]:
+          - cell "2026-03-21" [ref=e1903]
+          - cell "—" [ref=e1904]
+          - cell "Shopping" [ref=e1905]
+          - cell "—" [ref=e1906]
+          - cell "expense" [ref=e1907]
+          - cell "✎" [ref=e1908]:
+            - button "✎" [ref=e1909] [cursor=pointer]
+        - row "2026-03-21 — — — ignore ✎" [ref=e1910]:
+          - cell "2026-03-21" [ref=e1911]
+          - cell "—" [ref=e1912]
+          - cell "—" [ref=e1913]
+          - cell "—" [ref=e1914]
+          - cell "ignore" [ref=e1915]
+          - cell "✎" [ref=e1916]:
+            - button "✎" [ref=e1917] [cursor=pointer]
+        - row "2026-03-21 LE KENE Other ₹1,353 expense ✎" [ref=e1918]:
+          - cell "2026-03-21" [ref=e1919]
+          - cell "LE KENE" [ref=e1920]
+          - cell "Other" [ref=e1921]
+          - cell "₹1,353" [ref=e1922]
+          - cell "expense" [ref=e1923]
+          - cell "✎" [ref=e1924]:
+            - button "✎" [ref=e1925] [cursor=pointer]
+        - row "2026-03-21 ec1-ec-l06@icici Attibele Electronic City Other ₹25 expense ✎" [ref=e1926]:
+          - cell "2026-03-21" [ref=e1927]
+          - cell "ec1-ec-l06@icici Attibele Electronic City" [ref=e1928]
+          - cell "Other" [ref=e1929]
+          - cell "₹25" [ref=e1930]
+          - cell "expense" [ref=e1931]
+          - cell "✎" [ref=e1932]:
+            - button "✎" [ref=e1933] [cursor=pointer]
+        - row "2026-03-22 — — — ignore ✎" [ref=e1934]:
+          - cell "2026-03-22" [ref=e1935]
+          - cell "—" [ref=e1936]
+          - cell "—" [ref=e1937]
+          - cell "—" [ref=e1938]
+          - cell "ignore" [ref=e1939]
+          - cell "✎" [ref=e1940]:
+            - button "✎" [ref=e1941] [cursor=pointer]
+        - row "2026-03-22 Juices Food ₹90 expense ✎" [ref=e1942]:
+          - cell "2026-03-22" [ref=e1943]
+          - cell "Juices" [ref=e1944]
+          - cell "Food" [ref=e1945]
+          - cell "₹90" [ref=e1946]
+          - cell "expense" [ref=e1947]
+          - cell "✎" [ref=e1948]:
+            - button "✎" [ref=e1949] [cursor=pointer]
+        - row "2026-03-22 Swiggy Food Food ₹211 expense ✎" [ref=e1950]:
+          - cell "2026-03-22" [ref=e1951]
+          - cell "Swiggy Food" [ref=e1952]
+          - cell "Food" [ref=e1953]
+          - cell "₹211" [ref=e1954]
+          - cell "expense" [ref=e1955]
+          - cell "✎" [ref=e1956]:
+            - button "✎" [ref=e1957] [cursor=pointer]
+        - row "2026-03-22 — Food — expense ✎" [ref=e1958]:
+          - cell "2026-03-22" [ref=e1959]
+          - cell "—" [ref=e1960]
+          - cell "Food" [ref=e1961]
+          - cell "—" [ref=e1962]
+          - cell "expense" [ref=e1963]
+          - cell "✎" [ref=e1964]:
+            - button "✎" [ref=e1965] [cursor=pointer]
+        - row "2026-03-23 BUNDL TECHNOLOGIES Other ₹886 expense ✎" [ref=e1966]:
+          - cell "2026-03-23" [ref=e1967]
+          - cell "BUNDL TECHNOLOGIES" [ref=e1968]
+          - cell "Other" [ref=e1969]
+          - cell "₹886" [ref=e1970]
+          - cell "expense" [ref=e1971]
+          - cell "✎" [ref=e1972]:
+            - button "✎" [ref=e1973] [cursor=pointer]
+        - row "2026-03-23 — Food — expense ✎" [ref=e1974]:
+          - cell "2026-03-23" [ref=e1975]
+          - cell "—" [ref=e1976]
+          - cell "Food" [ref=e1977]
+          - cell "—" [ref=e1978]
+          - cell "expense" [ref=e1979]
+          - cell "✎" [ref=e1980]:
+            - button "✎" [ref=e1981] [cursor=pointer]
+        - row "2026-03-23 — — — ignore ✎" [ref=e1982]:
+          - cell "2026-03-23" [ref=e1983]
+          - cell "—" [ref=e1984]
+          - cell "—" [ref=e1985]
+          - cell "—" [ref=e1986]
+          - cell "ignore" [ref=e1987]
+          - cell "✎" [ref=e1988]:
+            - button "✎" [ref=e1989] [cursor=pointer]
+        - row "2026-03-23 — — — ignore ✎" [ref=e1990]:
+          - cell "2026-03-23" [ref=e1991]
+          - cell "—" [ref=e1992]
+          - cell "—" [ref=e1993]
+          - cell "—" [ref=e1994]
+          - cell "ignore" [ref=e1995]
+          - cell "✎" [ref=e1996]:
+            - button "✎" [ref=e1997] [cursor=pointer]
+        - row "2026-03-23 — — — ignore ✎" [ref=e1998]:
+          - cell "2026-03-23" [ref=e1999]
+          - cell "—" [ref=e2000]
+          - cell "—" [ref=e2001]
+          - cell "—" [ref=e2002]
+          - cell "ignore" [ref=e2003]
+          - cell "✎" [ref=e2004]:
+            - button "✎" [ref=e2005] [cursor=pointer]
+        - row "2026-03-23 SNABBIT Shopping ₹99 expense ✎" [ref=e2006]:
+          - cell "2026-03-23" [ref=e2007]
+          - cell "SNABBIT" [ref=e2008]
+          - cell "Shopping" [ref=e2009]
+          - cell "₹99" [ref=e2010]
+          - cell "expense" [ref=e2011]
+          - cell "✎" [ref=e2012]:
+            - button "✎" [ref=e2013] [cursor=pointer]
+        - row "2026-03-23 — — — ignore ✎" [ref=e2014]:
+          - cell "2026-03-23" [ref=e2015]
+          - cell "—" [ref=e2016]
+          - cell "—" [ref=e2017]
+          - cell "—" [ref=e2018]
+          - cell "ignore" [ref=e2019]
+          - cell "✎" [ref=e2020]:
+            - button "✎" [ref=e2021] [cursor=pointer]
+        - row "2026-03-23 Swiggy Food ₹706 expense ✎" [ref=e2022]:
+          - cell "2026-03-23" [ref=e2023]
+          - cell "Swiggy" [ref=e2024]
+          - cell "Food" [ref=e2025]
+          - cell "₹706" [ref=e2026]
+          - cell "expense" [ref=e2027]
+          - cell "✎" [ref=e2028]:
+            - button "✎" [ref=e2029] [cursor=pointer]
+        - row "2026-03-23 — Food — expense ✎" [ref=e2030]:
+          - cell "2026-03-23" [ref=e2031]
+          - cell "—" [ref=e2032]
+          - cell "Food" [ref=e2033]
+          - cell "—" [ref=e2034]
+          - cell "expense" [ref=e2035]
+          - cell "✎" [ref=e2036]:
+            - button "✎" [ref=e2037] [cursor=pointer]
+        - row "2026-03-24 — Investment ₹5,000 expense ✎" [ref=e2038]:
+          - cell "2026-03-24" [ref=e2039]
+          - cell "—" [ref=e2040]
+          - cell "Investment" [ref=e2041]
+          - cell "₹5,000" [ref=e2042]
+          - cell "expense" [ref=e2043]
+          - cell "✎" [ref=e2044]:
+            - button "✎" [ref=e2045] [cursor=pointer]
+        - row "2026-03-24 — Investment ₹5,000 expense ✎" [ref=e2046]:
+          - cell "2026-03-24" [ref=e2047]
+          - cell "—" [ref=e2048]
+          - cell "Investment" [ref=e2049]
+          - cell "₹5,000" [ref=e2050]
+          - cell "expense" [ref=e2051]
+          - cell "✎" [ref=e2052]:
+            - button "✎" [ref=e2053] [cursor=pointer]
+        - row "2026-03-24 — — — ignore ✎" [ref=e2054]:
+          - cell "2026-03-24" [ref=e2055]
+          - cell "—" [ref=e2056]
+          - cell "—" [ref=e2057]
+          - cell "—" [ref=e2058]
+          - cell "ignore" [ref=e2059]
+          - cell "✎" [ref=e2060]:
+            - button "✎" [ref=e2061] [cursor=pointer]
+        - row "2026-03-24 — Other ₹27 expense ✎" [ref=e2062]:
+          - cell "2026-03-24" [ref=e2063]
+          - cell "—" [ref=e2064]
+          - cell "Other" [ref=e2065]
+          - cell "₹27" [ref=e2066]
+          - cell "expense" [ref=e2067]
+          - cell "✎" [ref=e2068]:
+            - button "✎" [ref=e2069] [cursor=pointer]
+        - row "2026-03-24 — Bank Transfer ₹300 expense ✎" [ref=e2070]:
+          - cell "2026-03-24" [ref=e2071]
+          - cell "—" [ref=e2072]
+          - cell "Bank Transfer" [ref=e2073]
+          - cell "₹300" [ref=e2074]
+          - cell "expense" [ref=e2075]
+          - cell "✎" [ref=e2076]:
+            - button "✎" [ref=e2077] [cursor=pointer]
+        - row "2026-03-24 — Other ₹27 expense ✎" [ref=e2078]:
+          - cell "2026-03-24" [ref=e2079]
+          - cell "—" [ref=e2080]
+          - cell "Other" [ref=e2081]
+          - cell "₹27" [ref=e2082]
+          - cell "expense" [ref=e2083]
+          - cell "✎" [ref=e2084]:
+            - button "✎" [ref=e2085] [cursor=pointer]
+        - row "2026-03-24 — — — ignore ✎" [ref=e2086]:
+          - cell "2026-03-24" [ref=e2087]
+          - cell "—" [ref=e2088]
+          - cell "—" [ref=e2089]
+          - cell "—" [ref=e2090]
+          - cell "ignore" [ref=e2091]
+          - cell "✎" [ref=e2092]:
+            - button "✎" [ref=e2093] [cursor=pointer]
+        - row "2026-03-24 — — — ignore ✎" [ref=e2094]:
+          - cell "2026-03-24" [ref=e2095]
+          - cell "—" [ref=e2096]
+          - cell "—" [ref=e2097]
+          - cell "—" [ref=e2098]
+          - cell "ignore" [ref=e2099]
+          - cell "✎" [ref=e2100]:
+            - button "✎" [ref=e2101] [cursor=pointer]
+        - row "2026-03-24 — — — ignore ✎" [ref=e2102]:
+          - cell "2026-03-24" [ref=e2103]
+          - cell "—" [ref=e2104]
+          - cell "—" [ref=e2105]
+          - cell "—" [ref=e2106]
+          - cell "ignore" [ref=e2107]
+          - cell "✎" [ref=e2108]:
+            - button "✎" [ref=e2109] [cursor=pointer]
+        - row "2026-03-24 — Shopping — expense ✎" [ref=e2110]:
+          - cell "2026-03-24" [ref=e2111]
+          - cell "—" [ref=e2112]
+          - cell "Shopping" [ref=e2113]
+          - cell "—" [ref=e2114]
+          - cell "expense" [ref=e2115]
+          - cell "✎" [ref=e2116]:
+            - button "✎" [ref=e2117] [cursor=pointer]
+        - row "2026-03-24 AMAZON PAY Shopping ₹8,325.02 expense ✎" [ref=e2118]:
+          - cell "2026-03-24" [ref=e2119]
+          - cell "AMAZON PAY" [ref=e2120]
+          - cell "Shopping" [ref=e2121]
+          - cell "₹8,325.02" [ref=e2122]
+          - cell "expense" [ref=e2123]
+          - cell "✎" [ref=e2124]:
+            - button "✎" [ref=e2125] [cursor=pointer]
+        - row "2026-03-24 — — — ignore ✎" [ref=e2126]:
+          - cell "2026-03-24" [ref=e2127]
+          - cell "—" [ref=e2128]
+          - cell "—" [ref=e2129]
+          - cell "—" [ref=e2130]
+          - cell "ignore" [ref=e2131]
+          - cell "✎" [ref=e2132]:
+            - button "✎" [ref=e2133] [cursor=pointer]
+        - row "2026-03-24 — Shopping — expense ✎" [ref=e2134]:
+          - cell "2026-03-24" [ref=e2135]
+          - cell "—" [ref=e2136]
+          - cell "Shopping" [ref=e2137]
+          - cell "—" [ref=e2138]
+          - cell "expense" [ref=e2139]
+          - cell "✎" [ref=e2140]:
+            - button "✎" [ref=e2141] [cursor=pointer]
+        - row "2026-03-25 — — — ignore ✎" [ref=e2142]:
+          - cell "2026-03-25" [ref=e2143]
+          - cell "—" [ref=e2144]
+          - cell "—" [ref=e2145]
+          - cell "—" [ref=e2146]
+          - cell "ignore" [ref=e2147]
+          - cell "✎" [ref=e2148]:
+            - button "✎" [ref=e2149] [cursor=pointer]
+        - row "2026-03-25 Paytm Money Investment ₹5,000 expense ✎" [ref=e2150]:
+          - cell "2026-03-25" [ref=e2151]
+          - cell "Paytm Money" [ref=e2152]
+          - cell "Investment" [ref=e2153]
+          - cell "₹5,000" [ref=e2154]
+          - cell "expense" [ref=e2155]
+          - cell "✎" [ref=e2156]:
+            - button "✎" [ref=e2157] [cursor=pointer]
+        - row "2026-03-25 — — — ignore ✎" [ref=e2158]:
+          - cell "2026-03-25" [ref=e2159]
+          - cell "—" [ref=e2160]
+          - cell "—" [ref=e2161]
+          - cell "—" [ref=e2162]
+          - cell "ignore" [ref=e2163]
+          - cell "✎" [ref=e2164]:
+            - button "✎" [ref=e2165] [cursor=pointer]
+        - row "2026-03-25 — — — ignore ✎" [ref=e2166]:
+          - cell "2026-03-25" [ref=e2167]
+          - cell "—" [ref=e2168]
+          - cell "—" [ref=e2169]
+          - cell "—" [ref=e2170]
+          - cell "ignore" [ref=e2171]
+          - cell "✎" [ref=e2172]:
+            - button "✎" [ref=e2173] [cursor=pointer]
+        - row "2026-03-25 — — — ignore ✎" [ref=e2174]:
+          - cell "2026-03-25" [ref=e2175]
+          - cell "—" [ref=e2176]
+          - cell "—" [ref=e2177]
+          - cell "—" [ref=e2178]
+          - cell "ignore" [ref=e2179]
+          - cell "✎" [ref=e2180]:
+            - button "✎" [ref=e2181] [cursor=pointer]
+        - row "2026-03-25 Paytm Money Investment ₹5,000 expense ✎" [ref=e2182]:
+          - cell "2026-03-25" [ref=e2183]
+          - cell "Paytm Money" [ref=e2184]
+          - cell "Investment" [ref=e2185]
+          - cell "₹5,000" [ref=e2186]
+          - cell "expense" [ref=e2187]
+          - cell "✎" [ref=e2188]:
+            - button "✎" [ref=e2189] [cursor=pointer]
+        - row "2026-03-25 Swiggy Food Food ₹155 expense ✎" [ref=e2190]:
+          - cell "2026-03-25" [ref=e2191]
+          - cell "Swiggy Food" [ref=e2192]
+          - cell "Food" [ref=e2193]
+          - cell "₹155" [ref=e2194]
+          - cell "expense" [ref=e2195]
+          - cell "✎" [ref=e2196]:
+            - button "✎" [ref=e2197] [cursor=pointer]
+        - row "2026-03-25 — Food — expense ✎" [ref=e2198]:
+          - cell "2026-03-25" [ref=e2199]
+          - cell "—" [ref=e2200]
+          - cell "Food" [ref=e2201]
+          - cell "—" [ref=e2202]
+          - cell "expense" [ref=e2203]
+          - cell "✎" [ref=e2204]:
+            - button "✎" [ref=e2205] [cursor=pointer]
+        - row "2026-03-25 — — — ignore ✎" [ref=e2206]:
+          - cell "2026-03-25" [ref=e2207]
+          - cell "—" [ref=e2208]
+          - cell "—" [ref=e2209]
+          - cell "—" [ref=e2210]
+          - cell "ignore" [ref=e2211]
+          - cell "✎" [ref=e2212]:
+            - button "✎" [ref=e2213] [cursor=pointer]
+        - row "2026-03-26 — Travel ₹40 expense ✎" [ref=e2214]:
+          - cell "2026-03-26" [ref=e2215]
+          - cell "—" [ref=e2216]
+          - cell "Travel" [ref=e2217]
+          - cell "₹40" [ref=e2218]
+          - cell "expense" [ref=e2219]
+          - cell "✎" [ref=e2220]:
+            - button "✎" [ref=e2221] [cursor=pointer]
+        - row "2026-03-26 — Travel ₹56 expense ✎" [ref=e2222]:
+          - cell "2026-03-26" [ref=e2223]
+          - cell "—" [ref=e2224]
+          - cell "Travel" [ref=e2225]
+          - cell "₹56" [ref=e2226]
+          - cell "expense" [ref=e2227]
+          - cell "✎" [ref=e2228]:
+            - button "✎" [ref=e2229] [cursor=pointer]
+        - row "2026-03-26 — Transport — expense ✎" [ref=e2230]:
+          - cell "2026-03-26" [ref=e2231]
+          - cell "—" [ref=e2232]
+          - cell "Transport" [ref=e2233]
+          - cell "—" [ref=e2234]
+          - cell "expense" [ref=e2235]
+          - cell "✎" [ref=e2236]:
+            - button "✎" [ref=e2237] [cursor=pointer]
+        - row "2026-03-26 — — — ignore ✎" [ref=e2238]:
+          - cell "2026-03-26" [ref=e2239]
+          - cell "—" [ref=e2240]
+          - cell "—" [ref=e2241]
+          - cell "—" [ref=e2242]
+          - cell "ignore" [ref=e2243]
+          - cell "✎" [ref=e2244]:
+            - button "✎" [ref=e2245] [cursor=pointer]
+        - row "2026-03-26 — — — ignore ✎" [ref=e2246]:
+          - cell "2026-03-26" [ref=e2247]
+          - cell "—" [ref=e2248]
+          - cell "—" [ref=e2249]
+          - cell "—" [ref=e2250]
+          - cell "ignore" [ref=e2251]
+          - cell "✎" [ref=e2252]:
+            - button "✎" [ref=e2253] [cursor=pointer]
+        - row "2026-03-26 Swiggy Food ₹306 expense ✎" [ref=e2254]:
+          - cell "2026-03-26" [ref=e2255]
+          - cell "Swiggy" [ref=e2256]
+          - cell "Food" [ref=e2257]
+          - cell "₹306" [ref=e2258]
+          - cell "expense" [ref=e2259]
+          - cell "✎" [ref=e2260]:
+            - button "✎" [ref=e2261] [cursor=pointer]
+        - row "2026-03-26 — Food — expense ✎" [ref=e2262]:
+          - cell "2026-03-26" [ref=e2263]
+          - cell "—" [ref=e2264]
+          - cell "Food" [ref=e2265]
+          - cell "—" [ref=e2266]
+          - cell "expense" [ref=e2267]
+          - cell "✎" [ref=e2268]:
+            - button "✎" [ref=e2269] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2270]:
+          - cell "2026-03-27" [ref=e2271]
+          - cell "—" [ref=e2272]
+          - cell "—" [ref=e2273]
+          - cell "—" [ref=e2274]
+          - cell "ignore" [ref=e2275]
+          - cell "✎" [ref=e2276]:
+            - button "✎" [ref=e2277] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2278]:
+          - cell "2026-03-27" [ref=e2279]
+          - cell "—" [ref=e2280]
+          - cell "—" [ref=e2281]
+          - cell "—" [ref=e2282]
+          - cell "ignore" [ref=e2283]
+          - cell "✎" [ref=e2284]:
+            - button "✎" [ref=e2285] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2286]:
+          - cell "2026-03-27" [ref=e2287]
+          - cell "—" [ref=e2288]
+          - cell "—" [ref=e2289]
+          - cell "—" [ref=e2290]
+          - cell "ignore" [ref=e2291]
+          - cell "✎" [ref=e2292]:
+            - button "✎" [ref=e2293] [cursor=pointer]
+        - row "2026-03-27 Claude Pro Other ₹0 expense ✎" [ref=e2294]:
+          - cell "2026-03-27" [ref=e2295]
+          - cell "Claude Pro" [ref=e2296]
+          - cell "Other" [ref=e2297]
+          - cell "₹0" [ref=e2298]
+          - cell "expense" [ref=e2299]
+          - cell "✎" [ref=e2300]:
+            - button "✎" [ref=e2301] [cursor=pointer]
+        - row "2026-03-27 — — — expense ✎" [ref=e2302]:
+          - cell "2026-03-27" [ref=e2303]
+          - cell "—" [ref=e2304]
+          - cell "—" [ref=e2305]
+          - cell "—" [ref=e2306]
+          - cell "expense" [ref=e2307]
+          - cell "✎" [ref=e2308]:
+            - button "✎" [ref=e2309] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2310]:
+          - cell "2026-03-27" [ref=e2311]
+          - cell "—" [ref=e2312]
+          - cell "—" [ref=e2313]
+          - cell "—" [ref=e2314]
+          - cell "ignore" [ref=e2315]
+          - cell "✎" [ref=e2316]:
+            - button "✎" [ref=e2317] [cursor=pointer]
+        - row "2026-03-27 Swiggy Food Food ₹244 expense ✎" [ref=e2318]:
+          - cell "2026-03-27" [ref=e2319]
+          - cell "Swiggy Food" [ref=e2320]
+          - cell "Food" [ref=e2321]
+          - cell "₹244" [ref=e2322]
+          - cell "expense" [ref=e2323]
+          - cell "✎" [ref=e2324]:
+            - button "✎" [ref=e2325] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2326]:
+          - cell "2026-03-27" [ref=e2327]
+          - cell "—" [ref=e2328]
+          - cell "—" [ref=e2329]
+          - cell "—" [ref=e2330]
+          - cell "ignore" [ref=e2331]
+          - cell "✎" [ref=e2332]:
+            - button "✎" [ref=e2333] [cursor=pointer]
+        - row "2026-03-27 — Food — expense ✎" [ref=e2334]:
+          - cell "2026-03-27" [ref=e2335]
+          - cell "—" [ref=e2336]
+          - cell "Food" [ref=e2337]
+          - cell "—" [ref=e2338]
+          - cell "expense" [ref=e2339]
+          - cell "✎" [ref=e2340]:
+            - button "✎" [ref=e2341] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2342]:
+          - cell "2026-03-27" [ref=e2343]
+          - cell "—" [ref=e2344]
+          - cell "—" [ref=e2345]
+          - cell "—" [ref=e2346]
+          - cell "ignore" [ref=e2347]
+          - cell "✎" [ref=e2348]:
+            - button "✎" [ref=e2349] [cursor=pointer]
+        - row "2026-03-27 Juices Food ₹240 expense ✎" [ref=e2350]:
+          - cell "2026-03-27" [ref=e2351]
+          - cell "Juices" [ref=e2352]
+          - cell "Food" [ref=e2353]
+          - cell "₹240" [ref=e2354]
+          - cell "expense" [ref=e2355]
+          - cell "✎" [ref=e2356]:
+            - button "✎" [ref=e2357] [cursor=pointer]
+        - row "2026-03-27 — — — ignore ✎" [ref=e2358]:
+          - cell "2026-03-27" [ref=e2359]
+          - cell "—" [ref=e2360]
+          - cell "—" [ref=e2361]
+          - cell "—" [ref=e2362]
+          - cell "ignore" [ref=e2363]
+          - cell "✎" [ref=e2364]:
+            - button "✎" [ref=e2365] [cursor=pointer]
+        - row "2026-03-27 — Travel ₹169 expense ✎" [ref=e2366]:
+          - cell "2026-03-27" [ref=e2367]
+          - cell "—" [ref=e2368]
+          - cell "Travel" [ref=e2369]
+          - cell "₹169" [ref=e2370]
+          - cell "expense" [ref=e2371]
+          - cell "✎" [ref=e2372]:
+            - button "✎" [ref=e2373] [cursor=pointer]
+        - row "2026-03-27 Mr NAGARAJ Other ₹60 expense ✎" [ref=e2374]:
+          - cell "2026-03-27" [ref=e2375]
+          - cell "Mr NAGARAJ" [ref=e2376]
+          - cell "Other" [ref=e2377]
+          - cell "₹60" [ref=e2378]
+          - cell "expense" [ref=e2379]
+          - cell "✎" [ref=e2380]:
+            - button "✎" [ref=e2381] [cursor=pointer]
+        - row "2026-03-27 Mr NAGARAJ Other ₹10 expense ✎" [ref=e2382]:
+          - cell "2026-03-27" [ref=e2383]
+          - cell "Mr NAGARAJ" [ref=e2384]
+          - cell "Other" [ref=e2385]
+          - cell "₹10" [ref=e2386]
+          - cell "expense" [ref=e2387]
+          - cell "✎" [ref=e2388]:
+            - button "✎" [ref=e2389] [cursor=pointer]
+        - row "2026-03-27 Swiggy Food Food ₹303 expense ✎" [ref=e2390]:
+          - cell "2026-03-27" [ref=e2391]
+          - cell "Swiggy Food" [ref=e2392]
+          - cell "Food" [ref=e2393]
+          - cell "₹303" [ref=e2394]
+          - cell "expense" [ref=e2395]
+          - cell "✎" [ref=e2396]:
+            - button "✎" [ref=e2397] [cursor=pointer]
+        - row "2026-03-27 — — ₹0 ignore ✎" [ref=e2398]:
+          - cell "2026-03-27" [ref=e2399]
+          - cell "—" [ref=e2400]
+          - cell "—" [ref=e2401]
+          - cell "₹0" [ref=e2402]
+          - cell "ignore" [ref=e2403]
+          - cell "✎" [ref=e2404]:
+            - button "✎" [ref=e2405] [cursor=pointer]
+        - row "2026-03-27 — — ₹0 ignore ✎" [ref=e2406]:
+          - cell "2026-03-27" [ref=e2407]
+          - cell "—" [ref=e2408]
+          - cell "—" [ref=e2409]
+          - cell "₹0" [ref=e2410]
+          - cell "ignore" [ref=e2411]
+          - cell "✎" [ref=e2412]:
+            - button "✎" [ref=e2413] [cursor=pointer]
+        - row "2026-03-27 — — ₹0 ignore ✎" [ref=e2414]:
+          - cell "2026-03-27" [ref=e2415]
+          - cell "—" [ref=e2416]
+          - cell "—" [ref=e2417]
+          - cell "₹0" [ref=e2418]
+          - cell "ignore" [ref=e2419]
+          - cell "✎" [ref=e2420]:
+            - button "✎" [ref=e2421] [cursor=pointer]
+        - row "2026-03-28 — Shopping — expense ✎" [ref=e2422]:
+          - cell "2026-03-28" [ref=e2423]
+          - cell "—" [ref=e2424]
+          - cell "Shopping" [ref=e2425]
+          - cell "—" [ref=e2426]
+          - cell "expense" [ref=e2427]
+          - cell "✎" [ref=e2428]:
+            - button "✎" [ref=e2429] [cursor=pointer]
+        - row "2024-01-28 Uber India Transport ₹331.26 expense ✎" [ref=e2430]:
+          - cell "2024-01-28" [ref=e2431]
+          - cell "Uber India" [ref=e2432]
+          - cell "Transport" [ref=e2433]
+          - cell "₹331.26" [ref=e2434]
+          - cell "expense" [ref=e2435]
+          - cell "✎" [ref=e2436]:
+            - button "✎" [ref=e2437] [cursor=pointer]
+        - row "2026-03-28 — Transport — expense ✎" [ref=e2438]:
+          - cell "2026-03-28" [ref=e2439]
+          - cell "—" [ref=e2440]
+          - cell "Transport" [ref=e2441]
+          - cell "—" [ref=e2442]
+          - cell "expense" [ref=e2443]
+          - cell "✎" [ref=e2444]:
+            - button "✎" [ref=e2445] [cursor=pointer]
+        - row "2026-03-28 HIVEMIND CAFE AND STUD Food ₹1,254 expense ✎" [ref=e2446]:
+          - cell "2026-03-28" [ref=e2447]
+          - cell "HIVEMIND CAFE AND STUD" [ref=e2448]
+          - cell "Food" [ref=e2449]
+          - cell "₹1,254" [ref=e2450]
+          - cell "expense" [ref=e2451]
+          - cell "✎" [ref=e2452]:
+            - button "✎" [ref=e2453] [cursor=pointer]
+        - row "2026-03-28 MOORTHI ANGAMUTHU Other ₹124 expense ✎" [ref=e2454]:
+          - cell "2026-03-28" [ref=e2455]
+          - cell "MOORTHI ANGAMUTHU" [ref=e2456]
+          - cell "Other" [ref=e2457]
+          - cell "₹124" [ref=e2458]
+          - cell "expense" [ref=e2459]
+          - cell "✎" [ref=e2460]:
+            - button "✎" [ref=e2461] [cursor=pointer]
+        - row "2026-03-28 — Transport — expense ✎" [ref=e2462]:
+          - cell "2026-03-28" [ref=e2463]
+          - cell "—" [ref=e2464]
+          - cell "Transport" [ref=e2465]
+          - cell "—" [ref=e2466]
+          - cell "expense" [ref=e2467]
+          - cell "✎" [ref=e2468]:
+            - button "✎" [ref=e2469] [cursor=pointer]
+        - row "2026-03-28 — Mobile & Internet ₹1,885.64 expense ✎" [ref=e2470]:
+          - cell "2026-03-28" [ref=e2471]
+          - cell "—" [ref=e2472]
+          - cell "Mobile & Internet" [ref=e2473]
+          - cell "₹1,885.64" [ref=e2474]
+          - cell "expense" [ref=e2475]
+          - cell "✎" [ref=e2476]:
+            - button "✎" [ref=e2477] [cursor=pointer]
+        - row "2026-03-28 — — — ignore ✎" [ref=e2478]:
+          - cell "2026-03-28" [ref=e2479]
+          - cell "—" [ref=e2480]
+          - cell "—" [ref=e2481]
+          - cell "—" [ref=e2482]
+          - cell "ignore" [ref=e2483]
+          - cell "✎" [ref=e2484]:
+            - button "✎" [ref=e2485] [cursor=pointer]
+        - row "2026-03-28 — Travel ₹0 expense ✎" [ref=e2486]:
+          - cell "2026-03-28" [ref=e2487]
+          - cell "—" [ref=e2488]
+          - cell "Travel" [ref=e2489]
+          - cell "₹0" [ref=e2490]
+          - cell "expense" [ref=e2491]
+          - cell "✎" [ref=e2492]:
+            - button "✎" [ref=e2493] [cursor=pointer]
+        - row "2026-03-28 — — — ignore ✎" [ref=e2494]:
+          - cell "2026-03-28" [ref=e2495]
+          - cell "—" [ref=e2496]
+          - cell "—" [ref=e2497]
+          - cell "—" [ref=e2498]
+          - cell "ignore" [ref=e2499]
+          - cell "✎" [ref=e2500]:
+            - button "✎" [ref=e2501] [cursor=pointer]
+        - row "2026-03-28 PYU*Swiggy Food Food ₹422 expense ✎" [ref=e2502]:
+          - cell "2026-03-28" [ref=e2503]
+          - cell "PYU*Swiggy Food" [ref=e2504]
+          - cell "Food" [ref=e2505]
+          - cell "₹422" [ref=e2506]
+          - cell "expense" [ref=e2507]
+          - cell "✎" [ref=e2508]:
+            - button "✎" [ref=e2509] [cursor=pointer]
+        - row "2026-03-28 — Food — expense ✎" [ref=e2510]:
+          - cell "2026-03-28" [ref=e2511]
+          - cell "—" [ref=e2512]
+          - cell "Food" [ref=e2513]
+          - cell "—" [ref=e2514]
+          - cell "expense" [ref=e2515]
+          - cell "✎" [ref=e2516]:
+            - button "✎" [ref=e2517] [cursor=pointer]
+        - row "2026-03-29 RSP*INSTAMART Groceries ₹782 expense ✎" [ref=e2518]:
+          - cell "2026-03-29" [ref=e2519]
+          - cell "RSP*INSTAMART" [ref=e2520]
+          - cell "Groceries" [ref=e2521]
+          - cell "₹782" [ref=e2522]
+          - cell "expense" [ref=e2523]
+          - cell "✎" [ref=e2524]:
+            - button "✎" [ref=e2525] [cursor=pointer]
+        - row "2026-03-29 — Food — expense ✎" [ref=e2526]:
+          - cell "2026-03-29" [ref=e2527]
+          - cell "—" [ref=e2528]
+          - cell "Food" [ref=e2529]
+          - cell "—" [ref=e2530]
+          - cell "expense" [ref=e2531]
+          - cell "✎" [ref=e2532]:
+            - button "✎" [ref=e2533] [cursor=pointer]
+        - row "2026-03-29 — — — ignore ✎" [ref=e2534]:
+          - cell "2026-03-29" [ref=e2535]
+          - cell "—" [ref=e2536]
+          - cell "—" [ref=e2537]
+          - cell "—" [ref=e2538]
+          - cell "ignore" [ref=e2539]
+          - cell "✎" [ref=e2540]:
+            - button "✎" [ref=e2541] [cursor=pointer]
+        - row "2026-03-29 Swiggy Food Food ₹269 expense ✎" [ref=e2542]:
+          - cell "2026-03-29" [ref=e2543]
+          - cell "Swiggy Food" [ref=e2544]
+          - cell "Food" [ref=e2545]
+          - cell "₹269" [ref=e2546]
+          - cell "expense" [ref=e2547]
+          - cell "✎" [ref=e2548]:
+            - button "✎" [ref=e2549] [cursor=pointer]
+        - row "2026-03-29 — Food — expense ✎" [ref=e2550]:
+          - cell "2026-03-29" [ref=e2551]
+          - cell "—" [ref=e2552]
+          - cell "Food" [ref=e2553]
+          - cell "—" [ref=e2554]
+          - cell "expense" [ref=e2555]
+          - cell "✎" [ref=e2556]:
+            - button "✎" [ref=e2557] [cursor=pointer]
+        - row "2026-03-30 — — — ignore ✎" [ref=e2558]:
+          - cell "2026-03-30" [ref=e2559]
+          - cell "—" [ref=e2560]
+          - cell "—" [ref=e2561]
+          - cell "—" [ref=e2562]
+          - cell "ignore" [ref=e2563]
+          - cell "✎" [ref=e2564]:
+            - button "✎" [ref=e2565] [cursor=pointer]
+        - row "2026-03-30 — — — ignore ✎" [ref=e2566]:
+          - cell "2026-03-30" [ref=e2567]
+          - cell "—" [ref=e2568]
+          - cell "—" [ref=e2569]
+          - cell "—" [ref=e2570]
+          - cell "ignore" [ref=e2571]
+          - cell "✎" [ref=e2572]:
+            - button "✎" [ref=e2573] [cursor=pointer]
+        - row "2026-03-30 — — — ignore ✎" [ref=e2574]:
+          - cell "2026-03-30" [ref=e2575]
+          - cell "—" [ref=e2576]
+          - cell "—" [ref=e2577]
+          - cell "—" [ref=e2578]
+          - cell "ignore" [ref=e2579]
+          - cell "✎" [ref=e2580]:
+            - button "✎" [ref=e2581] [cursor=pointer]
+        - row "2026-03-30 — — — ignore ✎" [ref=e2582]:
+          - cell "2026-03-30" [ref=e2583]
+          - cell "—" [ref=e2584]
+          - cell "—" [ref=e2585]
+          - cell "—" [ref=e2586]
+          - cell "ignore" [ref=e2587]
+          - cell "✎" [ref=e2588]:
+            - button "✎" [ref=e2589] [cursor=pointer]
+        - row "2026-03-30 — Income ₹1,52,030 income ✎" [ref=e2590]:
+          - cell "2026-03-30" [ref=e2591]
+          - cell "—" [ref=e2592]
+          - cell "Income" [ref=e2593]
+          - cell "₹1,52,030" [ref=e2594]
+          - cell "income" [ref=e2595]
+          - cell "✎" [ref=e2596]:
+            - button "✎" [ref=e2597] [cursor=pointer]
+        - row "2026-03-30 Swiggy Food ₹460 expense ✎" [ref=e2598]:
+          - cell "2026-03-30" [ref=e2599]
+          - cell "Swiggy" [ref=e2600]
+          - cell "Food" [ref=e2601]
+          - cell "₹460" [ref=e2602]
+          - cell "expense" [ref=e2603]
+          - cell "✎" [ref=e2604]:
+            - button "✎" [ref=e2605] [cursor=pointer]
+        - row "2026-03-30 — Food — expense ✎" [ref=e2606]:
+          - cell "2026-03-30" [ref=e2607]
+          - cell "—" [ref=e2608]
+          - cell "Food" [ref=e2609]
+          - cell "—" [ref=e2610]
+          - cell "expense" [ref=e2611]
+          - cell "✎" [ref=e2612]:
+            - button "✎" [ref=e2613] [cursor=pointer]
+        - row "2026-03-31 — — — ignore ✎" [ref=e2614]:
+          - cell "2026-03-31" [ref=e2615]
+          - cell "—" [ref=e2616]
+          - cell "—" [ref=e2617]
+          - cell "—" [ref=e2618]
+          - cell "ignore" [ref=e2619]
+          - cell "✎" [ref=e2620]:
+            - button "✎" [ref=e2621] [cursor=pointer]
+        - row "2026-03-31 WWW SWIGGY IN Food ₹1,244 expense ✎" [ref=e2622]:
+          - cell "2026-03-31" [ref=e2623]
+          - cell "WWW SWIGGY IN" [ref=e2624]
+          - cell "Food" [ref=e2625]
+          - cell "₹1,244" [ref=e2626]
+          - cell "expense" [ref=e2627]
+          - cell "✎" [ref=e2628]:
+            - button "✎" [ref=e2629] [cursor=pointer]
+        - row "2026-03-31 — Food — expense ✎" [ref=e2630]:
+          - cell "2026-03-31" [ref=e2631]
+          - cell "—" [ref=e2632]
+          - cell "Food" [ref=e2633]
+          - cell "—" [ref=e2634]
+          - cell "expense" [ref=e2635]
+          - cell "✎" [ref=e2636]:
+            - button "✎" [ref=e2637] [cursor=pointer]
+        - row "2026-03-31 — Travel ₹24,500 expense ✎" [ref=e2638]:
+          - cell "2026-03-31" [ref=e2639]
+          - cell "—" [ref=e2640]
+          - cell "Travel" [ref=e2641]
+          - cell "₹24,500" [ref=e2642]
+          - cell "expense" [ref=e2643]
+          - cell "✎" [ref=e2644]:
+            - button "✎" [ref=e2645] [cursor=pointer]
+        - row "2026-03-31 — Travel ₹2,259.13 expense ✎" [ref=e2646]:
+          - cell "2026-03-31" [ref=e2647]
+          - cell "—" [ref=e2648]
+          - cell "Travel" [ref=e2649]
+          - cell "₹2,259.13" [ref=e2650]
+          - cell "expense" [ref=e2651]
+          - cell "✎" [ref=e2652]:
+            - button "✎" [ref=e2653] [cursor=pointer]
+        - row "2026-03-31 — — — ignore ✎" [ref=e2654]:
+          - cell "2026-03-31" [ref=e2655]
+          - cell "—" [ref=e2656]
+          - cell "—" [ref=e2657]
+          - cell "—" [ref=e2658]
+          - cell "ignore" [ref=e2659]
+          - cell "✎" [ref=e2660]:
+            - button "✎" [ref=e2661] [cursor=pointer]
+        - row "2026-03-31 — Travel ₹590 expense ✎" [ref=e2662]:
+          - cell "2026-03-31" [ref=e2663]
+          - cell "—" [ref=e2664]
+          - cell "Travel" [ref=e2665]
+          - cell "₹590" [ref=e2666]
+          - cell "expense" [ref=e2667]
+          - cell "✎" [ref=e2668]:
+            - button "✎" [ref=e2669] [cursor=pointer]
+        - row "2026-03-31 — — — ignore ✎" [ref=e2670]:
+          - cell "2026-03-31" [ref=e2671]
+          - cell "—" [ref=e2672]
+          - cell "—" [ref=e2673]
+          - cell "—" [ref=e2674]
+          - cell "ignore" [ref=e2675]
+          - cell "✎" [ref=e2676]:
+            - button "✎" [ref=e2677] [cursor=pointer]
+        - row "2026-03-31 — Travel ₹20,000 expense ✎" [ref=e2678]:
+          - cell "2026-03-31" [ref=e2679]
+          - cell "—" [ref=e2680]
+          - cell "Travel" [ref=e2681]
+          - cell "₹20,000" [ref=e2682]
+          - cell "expense" [ref=e2683]
+          - cell "✎" [ref=e2684]:
+            - button "✎" [ref=e2685] [cursor=pointer]
+        - row "2026-03-31 Mr M Chethana Other ₹200 expense ✎" [ref=e2686]:
+          - cell "2026-03-31" [ref=e2687]
+          - cell "Mr M Chethana" [ref=e2688]
+          - cell "Other" [ref=e2689]
+          - cell "₹200" [ref=e2690]
+          - cell "expense" [ref=e2691]
+          - cell "✎" [ref=e2692]:
+            - button "✎" [ref=e2693] [cursor=pointer]
+        - row "2026-03-31 sbipmopad UPI Payment ₹746 expense ✎" [ref=e2694]:
+          - cell "2026-03-31" [ref=e2695]
+          - cell "sbipmopad" [ref=e2696]
+          - cell "UPI Payment" [ref=e2697]
+          - cell "₹746" [ref=e2698]
+          - cell "expense" [ref=e2699]
+          - cell "✎" [ref=e2700]:
+            - button "✎" [ref=e2701] [cursor=pointer]
+        - row "2026-04-01 Swiggy Instamart Groceries ₹238 expense ✎" [ref=e2702]:
+          - cell "2026-04-01" [ref=e2703]
+          - cell "Swiggy Instamart" [ref=e2704]
+          - cell "Groceries" [ref=e2705]
+          - cell "₹238" [ref=e2706]
+          - cell "expense" [ref=e2707]
+          - cell "✎" [ref=e2708]:
+            - button "✎" [ref=e2709] [cursor=pointer]
+        - row "2026-04-01 — Food — expense ✎" [ref=e2710]:
+          - cell "2026-04-01" [ref=e2711]
+          - cell "—" [ref=e2712]
+          - cell "Food" [ref=e2713]
+          - cell "—" [ref=e2714]
+          - cell "expense" [ref=e2715]
+          - cell "✎" [ref=e2716]:
+            - button "✎" [ref=e2717] [cursor=pointer]
+        - row "2026-03-31 Axis Max Life Healthcare ₹2,259.13 expense ✎" [ref=e2718]:
+          - cell "2026-03-31" [ref=e2719]
+          - cell "Axis Max Life" [ref=e2720]
+          - cell "Healthcare" [ref=e2721]
+          - cell "₹2,259.13" [ref=e2722]
+          - cell "expense" [ref=e2723]
+          - cell "✎" [ref=e2724]:
+            - button "✎" [ref=e2725] [cursor=pointer]
+        - row "2026-04-01 Swiggy Food Food ₹238 expense ✎" [ref=e2726]:
+          - cell "2026-04-01" [ref=e2727]
+          - cell "Swiggy Food" [ref=e2728]
+          - cell "Food" [ref=e2729]
+          - cell "₹238" [ref=e2730]
+          - cell "expense" [ref=e2731]
+          - cell "✎" [ref=e2732]:
+            - button "✎" [ref=e2733] [cursor=pointer]
+        - row "2026-04-01 — Travel ₹11,578.36 expense ✎" [ref=e2734]:
+          - cell "2026-04-01" [ref=e2735]
+          - cell "—" [ref=e2736]
+          - cell "Travel" [ref=e2737]
+          - cell "₹11,578.36" [ref=e2738]
+          - cell "expense" [ref=e2739]
+          - cell "✎" [ref=e2740]:
+            - button "✎" [ref=e2741] [cursor=pointer]
+        - row "2026-04-01 — Food — expense ✎" [ref=e2742]:
+          - cell "2026-04-01" [ref=e2743]
+          - cell "—" [ref=e2744]
+          - cell "Food" [ref=e2745]
+          - cell "—" [ref=e2746]
+          - cell "expense" [ref=e2747]
+          - cell "✎" [ref=e2748]:
+            - button "✎" [ref=e2749] [cursor=pointer]
+        - row "2026-04-01 Swiggy Food Food ₹176 expense ✎" [ref=e2750]:
+          - cell "2026-04-01" [ref=e2751]
+          - cell "Swiggy Food" [ref=e2752]
+          - cell "Food" [ref=e2753]
+          - cell "₹176" [ref=e2754]
+          - cell "expense" [ref=e2755]
+          - cell "✎" [ref=e2756]:
+            - button "✎" [ref=e2757] [cursor=pointer]
+        - row "2026-04-01 — Food — expense ✎" [ref=e2758]:
+          - cell "2026-04-01" [ref=e2759]
+          - cell "—" [ref=e2760]
+          - cell "Food" [ref=e2761]
+          - cell "—" [ref=e2762]
+          - cell "expense" [ref=e2763]
+          - cell "✎" [ref=e2764]:
+            - button "✎" [ref=e2765] [cursor=pointer]
+        - row "2026-04-01 — Food — expense ✎" [ref=e2766]:
+          - cell "2026-04-01" [ref=e2767]
+          - cell "—" [ref=e2768]
+          - cell "Food" [ref=e2769]
+          - cell "—" [ref=e2770]
+          - cell "expense" [ref=e2771]
+          - cell "✎" [ref=e2772]:
+            - button "✎" [ref=e2773] [cursor=pointer]
+        - row "2026-04-01 — — — ignore ✎" [ref=e2774]:
+          - cell "2026-04-01" [ref=e2775]
+          - cell "—" [ref=e2776]
+          - cell "—" [ref=e2777]
+          - cell "—" [ref=e2778]
+          - cell "ignore" [ref=e2779]
+          - cell "✎" [ref=e2780]:
+            - button "✎" [ref=e2781] [cursor=pointer]
+        - row "2026-04-02 — Travel ₹13,782 expense ✎" [ref=e2782]:
+          - cell "2026-04-02" [ref=e2783]
+          - cell "—" [ref=e2784]
+          - cell "Travel" [ref=e2785]
+          - cell "₹13,782" [ref=e2786]
+          - cell "expense" [ref=e2787]
+          - cell "✎" [ref=e2788]:
+            - button "✎" [ref=e2789] [cursor=pointer]
+        - row "2026-04-02 — UPI Payment ₹10,909 expense ✎" [ref=e2790]:
+          - cell "2026-04-02" [ref=e2791]
+          - cell "—" [ref=e2792]
+          - cell "UPI Payment" [ref=e2793]
+          - cell "₹10,909" [ref=e2794]
+          - cell "expense" [ref=e2795]
+          - cell "✎" [ref=e2796]:
+            - button "✎" [ref=e2797] [cursor=pointer]
+        - row "2026-04-02 — — — ignore ✎" [ref=e2798]:
+          - cell "2026-04-02" [ref=e2799]
+          - cell "—" [ref=e2800]
+          - cell "—" [ref=e2801]
+          - cell "—" [ref=e2802]
+          - cell "ignore" [ref=e2803]
+          - cell "✎" [ref=e2804]:
+            - button "✎" [ref=e2805] [cursor=pointer]
+        - row "2026-04-02 — — — ignore ✎" [ref=e2806]:
+          - cell "2026-04-02" [ref=e2807]
+          - cell "—" [ref=e2808]
+          - cell "—" [ref=e2809]
+          - cell "—" [ref=e2810]
+          - cell "ignore" [ref=e2811]
+          - cell "✎" [ref=e2812]:
+            - button "✎" [ref=e2813] [cursor=pointer]
+        - row "2026-04-02 — Investment ₹5,000 expense ✎" [ref=e2814]:
+          - cell "2026-04-02" [ref=e2815]
+          - cell "—" [ref=e2816]
+          - cell "Investment" [ref=e2817]
+          - cell "₹5,000" [ref=e2818]
+          - cell "expense" [ref=e2819]
+          - cell "✎" [ref=e2820]:
+            - button "✎" [ref=e2821] [cursor=pointer]
+        - row "2026-04-02 — Income ₹10,909 income ✎" [ref=e2822]:
+          - cell "2026-04-02" [ref=e2823]
+          - cell "—" [ref=e2824]
+          - cell "Income" [ref=e2825]
+          - cell "₹10,909" [ref=e2826]
+          - cell "income" [ref=e2827]
+          - cell "✎" [ref=e2828]:
+            - button "✎" [ref=e2829] [cursor=pointer]
+        - row "2026-04-02 Swiggy Food ₹337 expense ✎" [ref=e2830]:
+          - cell "2026-04-02" [ref=e2831]
+          - cell "Swiggy" [ref=e2832]
+          - cell "Food" [ref=e2833]
+          - cell "₹337" [ref=e2834]
+          - cell "expense" [ref=e2835]
+          - cell "✎" [ref=e2836]:
+            - button "✎" [ref=e2837] [cursor=pointer]
+        - row "2026-04-02 — Food — expense ✎" [ref=e2838]:
+          - cell "2026-04-02" [ref=e2839]
+          - cell "—" [ref=e2840]
+          - cell "Food" [ref=e2841]
+          - cell "—" [ref=e2842]
+          - cell "expense" [ref=e2843]
+          - cell "✎" [ref=e2844]:
+            - button "✎" [ref=e2845] [cursor=pointer]
+        - row "2026-04-02 — — — ignore ✎" [ref=e2846]:
+          - cell "2026-04-02" [ref=e2847]
+          - cell "—" [ref=e2848]
+          - cell "—" [ref=e2849]
+          - cell "—" [ref=e2850]
+          - cell "ignore" [ref=e2851]
+          - cell "✎" [ref=e2852]:
+            - button "✎" [ref=e2853] [cursor=pointer]
+        - row "2026-04-02 — — — ignore ✎" [ref=e2854]:
+          - cell "2026-04-02" [ref=e2855]
+          - cell "—" [ref=e2856]
+          - cell "—" [ref=e2857]
+          - cell "—" [ref=e2858]
+          - cell "ignore" [ref=e2859]
+          - cell "✎" [ref=e2860]:
+            - button "✎" [ref=e2861] [cursor=pointer]
+        - row "2026-04-02 — — — ignore ✎" [ref=e2862]:
+          - cell "2026-04-02" [ref=e2863]
+          - cell "—" [ref=e2864]
+          - cell "—" [ref=e2865]
+          - cell "—" [ref=e2866]
+          - cell "ignore" [ref=e2867]
+          - cell "✎" [ref=e2868]:
+            - button "✎" [ref=e2869] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2870]:
+          - cell "2026-04-03" [ref=e2871]
+          - cell "—" [ref=e2872]
+          - cell "—" [ref=e2873]
+          - cell "—" [ref=e2874]
+          - cell "ignore" [ref=e2875]
+          - cell "✎" [ref=e2876]:
+            - button "✎" [ref=e2877] [cursor=pointer]
+        - row "2026-04-03 Instamart Groceries ₹948 expense ✎" [ref=e2878]:
+          - cell "2026-04-03" [ref=e2879]
+          - cell "Instamart" [ref=e2880]
+          - cell "Groceries" [ref=e2881]
+          - cell "₹948" [ref=e2882]
+          - cell "expense" [ref=e2883]
+          - cell "✎" [ref=e2884]:
+            - button "✎" [ref=e2885] [cursor=pointer]
+        - row "2026-04-03 — Travel ₹2,947 expense ✎" [ref=e2886]:
+          - cell "2026-04-03" [ref=e2887]
+          - cell "—" [ref=e2888]
+          - cell "Travel" [ref=e2889]
+          - cell "₹2,947" [ref=e2890]
+          - cell "expense" [ref=e2891]
+          - cell "✎" [ref=e2892]:
+            - button "✎" [ref=e2893] [cursor=pointer]
+        - row "2026-04-03 — UPI Payment ₹2,000 expense ✎" [ref=e2894]:
+          - cell "2026-04-03" [ref=e2895]
+          - cell "—" [ref=e2896]
+          - cell "UPI Payment" [ref=e2897]
+          - cell "₹2,000" [ref=e2898]
+          - cell "expense" [ref=e2899]
+          - cell "✎" [ref=e2900]:
+            - button "✎" [ref=e2901] [cursor=pointer]
+        - row "2026-04-03 — Food — expense ✎" [ref=e2902]:
+          - cell "2026-04-03" [ref=e2903]
+          - cell "—" [ref=e2904]
+          - cell "Food" [ref=e2905]
+          - cell "—" [ref=e2906]
+          - cell "expense" [ref=e2907]
+          - cell "✎" [ref=e2908]:
+            - button "✎" [ref=e2909] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2910]:
+          - cell "2026-04-03" [ref=e2911]
+          - cell "—" [ref=e2912]
+          - cell "—" [ref=e2913]
+          - cell "—" [ref=e2914]
+          - cell "ignore" [ref=e2915]
+          - cell "✎" [ref=e2916]:
+            - button "✎" [ref=e2917] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2918]:
+          - cell "2026-04-03" [ref=e2919]
+          - cell "—" [ref=e2920]
+          - cell "—" [ref=e2921]
+          - cell "—" [ref=e2922]
+          - cell "ignore" [ref=e2923]
+          - cell "✎" [ref=e2924]:
+            - button "✎" [ref=e2925] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2926]:
+          - cell "2026-04-03" [ref=e2927]
+          - cell "—" [ref=e2928]
+          - cell "—" [ref=e2929]
+          - cell "—" [ref=e2930]
+          - cell "ignore" [ref=e2931]
+          - cell "✎" [ref=e2932]:
+            - button "✎" [ref=e2933] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2934]:
+          - cell "2026-04-03" [ref=e2935]
+          - cell "—" [ref=e2936]
+          - cell "—" [ref=e2937]
+          - cell "—" [ref=e2938]
+          - cell "ignore" [ref=e2939]
+          - cell "✎" [ref=e2940]:
+            - button "✎" [ref=e2941] [cursor=pointer]
+        - row "2026-04-03 — Shopping ₹587 income ✎" [ref=e2942]:
+          - cell "2026-04-03" [ref=e2943]
+          - cell "—" [ref=e2944]
+          - cell "Shopping" [ref=e2945]
+          - cell "₹587" [ref=e2946]
+          - cell "income" [ref=e2947]
+          - cell "✎" [ref=e2948]:
+            - button "✎" [ref=e2949] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2950]:
+          - cell "2026-04-03" [ref=e2951]
+          - cell "—" [ref=e2952]
+          - cell "—" [ref=e2953]
+          - cell "—" [ref=e2954]
+          - cell "ignore" [ref=e2955]
+          - cell "✎" [ref=e2956]:
+            - button "✎" [ref=e2957] [cursor=pointer]
+        - row "2026-04-03 — UPI Payment ₹5,396 expense ✎" [ref=e2958]:
+          - cell "2026-04-03" [ref=e2959]
+          - cell "—" [ref=e2960]
+          - cell "UPI Payment" [ref=e2961]
+          - cell "₹5,396" [ref=e2962]
+          - cell "expense" [ref=e2963]
+          - cell "✎" [ref=e2964]:
+            - button "✎" [ref=e2965] [cursor=pointer]
+        - row "2026-04-03 Samsung Shopping ₹72,039 expense ✎" [ref=e2966]:
+          - cell "2026-04-03" [ref=e2967]
+          - cell "Samsung" [ref=e2968]
+          - cell "Shopping" [ref=e2969]
+          - cell "₹72,039" [ref=e2970]
+          - cell "expense" [ref=e2971]
+          - cell "✎" [ref=e2972]:
+            - button "✎" [ref=e2973] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2974]:
+          - cell "2026-04-03" [ref=e2975]
+          - cell "—" [ref=e2976]
+          - cell "—" [ref=e2977]
+          - cell "—" [ref=e2978]
+          - cell "ignore" [ref=e2979]
+          - cell "✎" [ref=e2980]:
+            - button "✎" [ref=e2981] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2982]:
+          - cell "2026-04-03" [ref=e2983]
+          - cell "—" [ref=e2984]
+          - cell "—" [ref=e2985]
+          - cell "—" [ref=e2986]
+          - cell "ignore" [ref=e2987]
+          - cell "✎" [ref=e2988]:
+            - button "✎" [ref=e2989] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e2990]:
+          - cell "2026-04-03" [ref=e2991]
+          - cell "—" [ref=e2992]
+          - cell "—" [ref=e2993]
+          - cell "—" [ref=e2994]
+          - cell "ignore" [ref=e2995]
+          - cell "✎" [ref=e2996]:
+            - button "✎" [ref=e2997] [cursor=pointer]
+        - row "2026-04-03 — UPI Payment ₹500 expense ✎" [ref=e2998]:
+          - cell "2026-04-03" [ref=e2999]
+          - cell "—" [ref=e3000]
+          - cell "UPI Payment" [ref=e3001]
+          - cell "₹500" [ref=e3002]
+          - cell "expense" [ref=e3003]
+          - cell "✎" [ref=e3004]:
+            - button "✎" [ref=e3005] [cursor=pointer]
+        - row "2026-04-03 Samsung Shopping ₹72,039 expense ✎" [ref=e3006]:
+          - cell "2026-04-03" [ref=e3007]
+          - cell "Samsung" [ref=e3008]
+          - cell "Shopping" [ref=e3009]
+          - cell "₹72,039" [ref=e3010]
+          - cell "expense" [ref=e3011]
+          - cell "✎" [ref=e3012]:
+            - button "✎" [ref=e3013] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e3014]:
+          - cell "2026-04-03" [ref=e3015]
+          - cell "—" [ref=e3016]
+          - cell "—" [ref=e3017]
+          - cell "—" [ref=e3018]
+          - cell "ignore" [ref=e3019]
+          - cell "✎" [ref=e3020]:
+            - button "✎" [ref=e3021] [cursor=pointer]
+        - row "2026-04-03 — — — ignore ✎" [ref=e3022]:
+          - cell "2026-04-03" [ref=e3023]
+          - cell "—" [ref=e3024]
+          - cell "—" [ref=e3025]
+          - cell "—" [ref=e3026]
+          - cell "ignore" [ref=e3027]
+          - cell "✎" [ref=e3028]:
+            - button "✎" [ref=e3029] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3030]:
+          - cell "2026-04-04" [ref=e3031]
+          - cell "—" [ref=e3032]
+          - cell "—" [ref=e3033]
+          - cell "—" [ref=e3034]
+          - cell "ignore" [ref=e3035]
+          - cell "✎" [ref=e3036]:
+            - button "✎" [ref=e3037] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3038]:
+          - cell "2026-04-04" [ref=e3039]
+          - cell "—" [ref=e3040]
+          - cell "—" [ref=e3041]
+          - cell "—" [ref=e3042]
+          - cell "ignore" [ref=e3043]
+          - cell "✎" [ref=e3044]:
+            - button "✎" [ref=e3045] [cursor=pointer]
+        - row "2026-04-04 — Travel ₹150 expense ✎" [ref=e3046]:
+          - cell "2026-04-04" [ref=e3047]
+          - cell "—" [ref=e3048]
+          - cell "Travel" [ref=e3049]
+          - cell "₹150" [ref=e3050]
+          - cell "expense" [ref=e3051]
+          - cell "✎" [ref=e3052]:
+            - button "✎" [ref=e3053] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3054]:
+          - cell "2026-04-04" [ref=e3055]
+          - cell "—" [ref=e3056]
+          - cell "—" [ref=e3057]
+          - cell "—" [ref=e3058]
+          - cell "ignore" [ref=e3059]
+          - cell "✎" [ref=e3060]:
+            - button "✎" [ref=e3061] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3062]:
+          - cell "2026-04-04" [ref=e3063]
+          - cell "—" [ref=e3064]
+          - cell "—" [ref=e3065]
+          - cell "—" [ref=e3066]
+          - cell "ignore" [ref=e3067]
+          - cell "✎" [ref=e3068]:
+            - button "✎" [ref=e3069] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3070]:
+          - cell "2026-04-04" [ref=e3071]
+          - cell "—" [ref=e3072]
+          - cell "—" [ref=e3073]
+          - cell "—" [ref=e3074]
+          - cell "ignore" [ref=e3075]
+          - cell "✎" [ref=e3076]:
+            - button "✎" [ref=e3077] [cursor=pointer]
+        - row "2026-04-04 — — — ignore ✎" [ref=e3078]:
+          - cell "2026-04-04" [ref=e3079]
+          - cell "—" [ref=e3080]
+          - cell "—" [ref=e3081]
+          - cell "—" [ref=e3082]
+          - cell "ignore" [ref=e3083]
+          - cell "✎" [ref=e3084]:
+            - button "✎" [ref=e3085] [cursor=pointer]
+        - row "2026-04-04 Swiggy Food ₹408 expense ✎" [ref=e3086]:
+          - cell "2026-04-04" [ref=e3087]
+          - cell "Swiggy" [ref=e3088]
+          - cell "Food" [ref=e3089]
+          - cell "₹408" [ref=e3090]
+          - cell "expense" [ref=e3091]
+          - cell "✎" [ref=e3092]:
+            - button "✎" [ref=e3093] [cursor=pointer]
+        - row "2026-04-04 — Food — expense ✎" [ref=e3094]:
+          - cell "2026-04-04" [ref=e3095]
+          - cell "—" [ref=e3096]
+          - cell "Food" [ref=e3097]
+          - cell "—" [ref=e3098]
+          - cell "expense" [ref=e3099]
+          - cell "✎" [ref=e3100]:
+            - button "✎" [ref=e3101] [cursor=pointer]
+        - row "2026-04-05 — — — ignore ✎" [ref=e3102]:
+          - cell "2026-04-05" [ref=e3103]
+          - cell "—" [ref=e3104]
+          - cell "—" [ref=e3105]
+          - cell "—" [ref=e3106]
+          - cell "ignore" [ref=e3107]
+          - cell "✎" [ref=e3108]:
+            - button "✎" [ref=e3109] [cursor=pointer]
+        - row "2026-04-05 Swiggy Food Food ₹176 expense ✎" [ref=e3110]:
+          - cell "2026-04-05" [ref=e3111]
+          - cell "Swiggy Food" [ref=e3112]
+          - cell "Food" [ref=e3113]
+          - cell "₹176" [ref=e3114]
+          - cell "expense" [ref=e3115]
+          - cell "✎" [ref=e3116]:
+            - button "✎" [ref=e3117] [cursor=pointer]
+        - row "2026-04-05 — Food — expense ✎" [ref=e3118]:
+          - cell "2026-04-05" [ref=e3119]
+          - cell "—" [ref=e3120]
+          - cell "Food" [ref=e3121]
+          - cell "—" [ref=e3122]
+          - cell "expense" [ref=e3123]
+          - cell "✎" [ref=e3124]:
+            - button "✎" [ref=e3125] [cursor=pointer]
+        - row "2026-04-06 Swiggy Food ₹870 expense ✎" [ref=e3126]:
+          - cell "2026-04-06" [ref=e3127]
+          - cell "Swiggy" [ref=e3128]
+          - cell "Food" [ref=e3129]
+          - cell "₹870" [ref=e3130]
+          - cell "expense" [ref=e3131]
+          - cell "✎" [ref=e3132]:
+            - button "✎" [ref=e3133] [cursor=pointer]
+        - row "2026-04-06 — Food — expense ✎" [ref=e3134]:
+          - cell "2026-04-06" [ref=e3135]
+          - cell "—" [ref=e3136]
+          - cell "Food" [ref=e3137]
+          - cell "—" [ref=e3138]
+          - cell "expense" [ref=e3139]
+          - cell "✎" [ref=e3140]:
+            - button "✎" [ref=e3141] [cursor=pointer]
+        - row "2026-04-06 — — — ignore ✎" [ref=e3142]:
+          - cell "2026-04-06" [ref=e3143]
+          - cell "—" [ref=e3144]
+          - cell "—" [ref=e3145]
+          - cell "—" [ref=e3146]
+          - cell "ignore" [ref=e3147]
+          - cell "✎" [ref=e3148]:
+            - button "✎" [ref=e3149] [cursor=pointer]
+        - row "2026-04-06 — — — ignore ✎" [ref=e3150]:
+          - cell "2026-04-06" [ref=e3151]
+          - cell "—" [ref=e3152]
+          - cell "—" [ref=e3153]
+          - cell "—" [ref=e3154]
+          - cell "ignore" [ref=e3155]
+          - cell "✎" [ref=e3156]:
+            - button "✎" [ref=e3157] [cursor=pointer]
+        - row "2026-04-06 — Travel ₹0 expense ✎" [ref=e3158]:
+          - cell "2026-04-06" [ref=e3159]
+          - cell "—" [ref=e3160]
+          - cell "Travel" [ref=e3161]
+          - cell "₹0" [ref=e3162]
+          - cell "expense" [ref=e3163]
+          - cell "✎" [ref=e3164]:
+            - button "✎" [ref=e3165] [cursor=pointer]
+        - row "2026-04-06 — UPI Payment ₹1 expense ✎" [ref=e3166]:
+          - cell "2026-04-06" [ref=e3167]
+          - cell "—" [ref=e3168]
+          - cell "UPI Payment" [ref=e3169]
+          - cell "₹1" [ref=e3170]
+          - cell "expense" [ref=e3171]
+          - cell "✎" [ref=e3172]:
+            - button "✎" [ref=e3173] [cursor=pointer]
+        - row "2026-04-06 — UPI Payment ₹16,199 expense ✎" [ref=e3174]:
+          - cell "2026-04-06" [ref=e3175]
+          - cell "—" [ref=e3176]
+          - cell "UPI Payment" [ref=e3177]
+          - cell "₹16,199" [ref=e3178]
+          - cell "expense" [ref=e3179]
+          - cell "✎" [ref=e3180]:
+            - button "✎" [ref=e3181] [cursor=pointer]
+        - row "2026-04-06 — UPI Payment ₹5,000 expense ✎" [ref=e3182]:
+          - cell "2026-04-06" [ref=e3183]
+          - cell "—" [ref=e3184]
+          - cell "UPI Payment" [ref=e3185]
+          - cell "₹5,000" [ref=e3186]
+          - cell "expense" [ref=e3187]
+          - cell "✎" [ref=e3188]:
+            - button "✎" [ref=e3189] [cursor=pointer]
+        - row "2026-04-06 — Travel ₹0 expense ✎" [ref=e3190]:
+          - cell "2026-04-06" [ref=e3191]
+          - cell "—" [ref=e3192]
+          - cell "Travel" [ref=e3193]
+          - cell "₹0" [ref=e3194]
+          - cell "expense" [ref=e3195]
+          - cell "✎" [ref=e3196]:
+            - button "✎" [ref=e3197] [cursor=pointer]
+        - row "2026-04-06 FOODBAE Restaurant Food ₹40 expense ✎" [ref=e3198]:
+          - cell "2026-04-06" [ref=e3199]
+          - cell "FOODBAE Restaurant" [ref=e3200]
+          - cell "Food" [ref=e3201]
+          - cell "₹40" [ref=e3202]
+          - cell "expense" [ref=e3203]
+          - cell "✎" [ref=e3204]:
+            - button "✎" [ref=e3205] [cursor=pointer]
+        - row "2026-04-07 — — — ignore ✎" [ref=e3206]:
+          - cell "2026-04-07" [ref=e3207]
+          - cell "—" [ref=e3208]
+          - cell "—" [ref=e3209]
+          - cell "—" [ref=e3210]
+          - cell "ignore" [ref=e3211]
+          - cell "✎" [ref=e3212]:
+            - button "✎" [ref=e3213] [cursor=pointer]
+        - row "2026-04-07 — — — ignore ✎" [ref=e3214]:
+          - cell "2026-04-07" [ref=e3215]
+          - cell "—" [ref=e3216]
+          - cell "—" [ref=e3217]
+          - cell "—" [ref=e3218]
+          - cell "ignore" [ref=e3219]
+          - cell "✎" [ref=e3220]:
+            - button "✎" [ref=e3221] [cursor=pointer]
+        - row "2026-04-07 — Travel ₹500 expense ✎" [ref=e3222]:
+          - cell "2026-04-07" [ref=e3223]
+          - cell "—" [ref=e3224]
+          - cell "Travel" [ref=e3225]
+          - cell "₹500" [ref=e3226]
+          - cell "expense" [ref=e3227]
+          - cell "✎" [ref=e3228]:
+            - button "✎" [ref=e3229] [cursor=pointer]
+        - row "2026-04-07 — — — ignore ✎" [ref=e3230]:
+          - cell "2026-04-07" [ref=e3231]
+          - cell "—" [ref=e3232]
+          - cell "—" [ref=e3233]
+          - cell "—" [ref=e3234]
+          - cell "ignore" [ref=e3235]
+          - cell "✎" [ref=e3236]:
+            - button "✎" [ref=e3237] [cursor=pointer]
+        - row "2026-04-07 — — — ignore ✎" [ref=e3238]:
+          - cell "2026-04-07" [ref=e3239]
+          - cell "—" [ref=e3240]
+          - cell "—" [ref=e3241]
+          - cell "—" [ref=e3242]
+          - cell "ignore" [ref=e3243]
+          - cell "✎" [ref=e3244]:
+            - button "✎" [ref=e3245] [cursor=pointer]
+        - row "2026-04-07 — Food ₹0 expense ✎" [ref=e3246]:
+          - cell "2026-04-07" [ref=e3247]
+          - cell "—" [ref=e3248]
+          - cell "Food" [ref=e3249]
+          - cell "₹0" [ref=e3250]
+          - cell "expense" [ref=e3251]
+          - cell "✎" [ref=e3252]:
+            - button "✎" [ref=e3253] [cursor=pointer]
+        - row "2026-04-07 — Travel ₹19,707 expense ✎" [ref=e3254]:
+          - cell "2026-04-07" [ref=e3255]
+          - cell "—" [ref=e3256]
+          - cell "Travel" [ref=e3257]
+          - cell "₹19,707" [ref=e3258]
+          - cell "expense" [ref=e3259]
+          - cell "✎" [ref=e3260]:
+            - button "✎" [ref=e3261] [cursor=pointer]
+        - row "2026-04-07 Swiggy Food ₹488 expense ✎" [ref=e3262]:
+          - cell "2026-04-07" [ref=e3263]
+          - cell "Swiggy" [ref=e3264]
+          - cell "Food" [ref=e3265]
+          - cell "₹488" [ref=e3266]
+          - cell "expense" [ref=e3267]
+          - cell "✎" [ref=e3268]:
+            - button "✎" [ref=e3269] [cursor=pointer]
+        - row "2026-04-07 — Food — expense ✎" [ref=e3270]:
+          - cell "2026-04-07" [ref=e3271]
+          - cell "—" [ref=e3272]
+          - cell "Food" [ref=e3273]
+          - cell "—" [ref=e3274]
+          - cell "expense" [ref=e3275]
+          - cell "✎" [ref=e3276]:
+            - button "✎" [ref=e3277] [cursor=pointer]
+        - row "2026-04-07 Swiggy Food Food ₹209 expense ✎" [ref=e3278]:
+          - cell "2026-04-07" [ref=e3279]
+          - cell "Swiggy Food" [ref=e3280]
+          - cell "Food" [ref=e3281]
+          - cell "₹209" [ref=e3282]
+          - cell "expense" [ref=e3283]
+          - cell "✎" [ref=e3284]:
+            - button "✎" [ref=e3285] [cursor=pointer]
+        - row "2026-04-07 — Food — expense ✎" [ref=e3286]:
+          - cell "2026-04-07" [ref=e3287]
+          - cell "—" [ref=e3288]
+          - cell "Food" [ref=e3289]
+          - cell "—" [ref=e3290]
+          - cell "expense" [ref=e3291]
+          - cell "✎" [ref=e3292]:
+            - button "✎" [ref=e3293] [cursor=pointer]
+        - row "2026-04-08 Swiggy Food ₹558 expense ✎" [ref=e3294]:
+          - cell "2026-04-08" [ref=e3295]
+          - cell "Swiggy" [ref=e3296]
+          - cell "Food" [ref=e3297]
+          - cell "₹558" [ref=e3298]
+          - cell "expense" [ref=e3299]
+          - cell "✎" [ref=e3300]:
+            - button "✎" [ref=e3301] [cursor=pointer]
+        - row "2026-04-08 — Food — expense ✎" [ref=e3302]:
+          - cell "2026-04-08" [ref=e3303]
+          - cell "—" [ref=e3304]
+          - cell "Food" [ref=e3305]
+          - cell "—" [ref=e3306]
+          - cell "expense" [ref=e3307]
+          - cell "✎" [ref=e3308]:
+            - button "✎" [ref=e3309] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3310]:
+          - cell "2026-04-08" [ref=e3311]
+          - cell "—" [ref=e3312]
+          - cell "—" [ref=e3313]
+          - cell "—" [ref=e3314]
+          - cell "ignore" [ref=e3315]
+          - cell "✎" [ref=e3316]:
+            - button "✎" [ref=e3317] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3318]:
+          - cell "2026-04-08" [ref=e3319]
+          - cell "—" [ref=e3320]
+          - cell "—" [ref=e3321]
+          - cell "—" [ref=e3322]
+          - cell "ignore" [ref=e3323]
+          - cell "✎" [ref=e3324]:
+            - button "✎" [ref=e3325] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3326]:
+          - cell "2026-04-08" [ref=e3327]
+          - cell "—" [ref=e3328]
+          - cell "—" [ref=e3329]
+          - cell "—" [ref=e3330]
+          - cell "ignore" [ref=e3331]
+          - cell "✎" [ref=e3332]:
+            - button "✎" [ref=e3333] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3334]:
+          - cell "2026-04-08" [ref=e3335]
+          - cell "—" [ref=e3336]
+          - cell "—" [ref=e3337]
+          - cell "—" [ref=e3338]
+          - cell "ignore" [ref=e3339]
+          - cell "✎" [ref=e3340]:
+            - button "✎" [ref=e3341] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3342]:
+          - cell "2026-04-08" [ref=e3343]
+          - cell "—" [ref=e3344]
+          - cell "—" [ref=e3345]
+          - cell "—" [ref=e3346]
+          - cell "ignore" [ref=e3347]
+          - cell "✎" [ref=e3348]:
+            - button "✎" [ref=e3349] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3350]:
+          - cell "2026-04-08" [ref=e3351]
+          - cell "—" [ref=e3352]
+          - cell "—" [ref=e3353]
+          - cell "—" [ref=e3354]
+          - cell "ignore" [ref=e3355]
+          - cell "✎" [ref=e3356]:
+            - button "✎" [ref=e3357] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3358]:
+          - cell "2026-04-08" [ref=e3359]
+          - cell "—" [ref=e3360]
+          - cell "—" [ref=e3361]
+          - cell "—" [ref=e3362]
+          - cell "ignore" [ref=e3363]
+          - cell "✎" [ref=e3364]:
+            - button "✎" [ref=e3365] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3366]:
+          - cell "2026-04-08" [ref=e3367]
+          - cell "—" [ref=e3368]
+          - cell "—" [ref=e3369]
+          - cell "—" [ref=e3370]
+          - cell "ignore" [ref=e3371]
+          - cell "✎" [ref=e3372]:
+            - button "✎" [ref=e3373] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3374]:
+          - cell "2026-04-08" [ref=e3375]
+          - cell "—" [ref=e3376]
+          - cell "—" [ref=e3377]
+          - cell "—" [ref=e3378]
+          - cell "ignore" [ref=e3379]
+          - cell "✎" [ref=e3380]:
+            - button "✎" [ref=e3381] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3382]:
+          - cell "2026-04-08" [ref=e3383]
+          - cell "—" [ref=e3384]
+          - cell "—" [ref=e3385]
+          - cell "—" [ref=e3386]
+          - cell "ignore" [ref=e3387]
+          - cell "✎" [ref=e3388]:
+            - button "✎" [ref=e3389] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3390]:
+          - cell "2026-04-08" [ref=e3391]
+          - cell "—" [ref=e3392]
+          - cell "—" [ref=e3393]
+          - cell "—" [ref=e3394]
+          - cell "ignore" [ref=e3395]
+          - cell "✎" [ref=e3396]:
+            - button "✎" [ref=e3397] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3398]:
+          - cell "2026-04-08" [ref=e3399]
+          - cell "—" [ref=e3400]
+          - cell "—" [ref=e3401]
+          - cell "—" [ref=e3402]
+          - cell "ignore" [ref=e3403]
+          - cell "✎" [ref=e3404]:
+            - button "✎" [ref=e3405] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3406]:
+          - cell "2026-04-08" [ref=e3407]
+          - cell "—" [ref=e3408]
+          - cell "—" [ref=e3409]
+          - cell "—" [ref=e3410]
+          - cell "ignore" [ref=e3411]
+          - cell "✎" [ref=e3412]:
+            - button "✎" [ref=e3413] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3414]:
+          - cell "2026-04-08" [ref=e3415]
+          - cell "—" [ref=e3416]
+          - cell "—" [ref=e3417]
+          - cell "—" [ref=e3418]
+          - cell "ignore" [ref=e3419]
+          - cell "✎" [ref=e3420]:
+            - button "✎" [ref=e3421] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3422]:
+          - cell "2026-04-08" [ref=e3423]
+          - cell "—" [ref=e3424]
+          - cell "—" [ref=e3425]
+          - cell "—" [ref=e3426]
+          - cell "ignore" [ref=e3427]
+          - cell "✎" [ref=e3428]:
+            - button "✎" [ref=e3429] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3430]:
+          - cell "2026-04-08" [ref=e3431]
+          - cell "—" [ref=e3432]
+          - cell "—" [ref=e3433]
+          - cell "—" [ref=e3434]
+          - cell "ignore" [ref=e3435]
+          - cell "✎" [ref=e3436]:
+            - button "✎" [ref=e3437] [cursor=pointer]
+        - row "2026-04-08 — — — ignore ✎" [ref=e3438]:
+          - cell "2026-04-08" [ref=e3439]
+          - cell "—" [ref=e3440]
+          - cell "—" [ref=e3441]
+          - cell "—" [ref=e3442]
+          - cell "ignore" [ref=e3443]
+          - cell "✎" [ref=e3444]:
+            - button "✎" [ref=e3445] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3446]:
+          - cell "2026-04-09" [ref=e3447]
+          - cell "—" [ref=e3448]
+          - cell "—" [ref=e3449]
+          - cell "—" [ref=e3450]
+          - cell "ignore" [ref=e3451]
+          - cell "✎" [ref=e3452]:
+            - button "✎" [ref=e3453] [cursor=pointer]
+        - row "2026-04-09 FLEXIRIDE SOLUTIONS PRIVATE LIMITED Transport ₹1 expense ✎" [ref=e3454]:
+          - cell "2026-04-09" [ref=e3455]
+          - cell "FLEXIRIDE SOLUTIONS PRIVATE LIMITED" [ref=e3456]
+          - cell "Transport" [ref=e3457]
+          - cell "₹1" [ref=e3458]
+          - cell "expense" [ref=e3459]
+          - cell "✎" [ref=e3460]:
+            - button "✎" [ref=e3461] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3462]:
+          - cell "2026-04-09" [ref=e3463]
+          - cell "—" [ref=e3464]
+          - cell "—" [ref=e3465]
+          - cell "—" [ref=e3466]
+          - cell "ignore" [ref=e3467]
+          - cell "✎" [ref=e3468]:
+            - button "✎" [ref=e3469] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3470]:
+          - cell "2026-04-09" [ref=e3471]
+          - cell "—" [ref=e3472]
+          - cell "—" [ref=e3473]
+          - cell "—" [ref=e3474]
+          - cell "ignore" [ref=e3475]
+          - cell "✎" [ref=e3476]:
+            - button "✎" [ref=e3477] [cursor=pointer]
+        - row "2026-04-09 FLEXIRIDE SOLUTIONS PRIVATE LIMITED Transport ₹88 expense ✎" [ref=e3478]:
+          - cell "2026-04-09" [ref=e3479]
+          - cell "FLEXIRIDE SOLUTIONS PRIVATE LIMITED" [ref=e3480]
+          - cell "Transport" [ref=e3481]
+          - cell "₹88" [ref=e3482]
+          - cell "expense" [ref=e3483]
+          - cell "✎" [ref=e3484]:
+            - button "✎" [ref=e3485] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3486]:
+          - cell "2026-04-09" [ref=e3487]
+          - cell "—" [ref=e3488]
+          - cell "—" [ref=e3489]
+          - cell "—" [ref=e3490]
+          - cell "ignore" [ref=e3491]
+          - cell "✎" [ref=e3492]:
+            - button "✎" [ref=e3493] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3494]:
+          - cell "2026-04-09" [ref=e3495]
+          - cell "—" [ref=e3496]
+          - cell "—" [ref=e3497]
+          - cell "—" [ref=e3498]
+          - cell "ignore" [ref=e3499]
+          - cell "✎" [ref=e3500]:
+            - button "✎" [ref=e3501] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3502]:
+          - cell "2026-04-09" [ref=e3503]
+          - cell "—" [ref=e3504]
+          - cell "—" [ref=e3505]
+          - cell "—" [ref=e3506]
+          - cell "ignore" [ref=e3507]
+          - cell "✎" [ref=e3508]:
+            - button "✎" [ref=e3509] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3510]:
+          - cell "2026-04-09" [ref=e3511]
+          - cell "—" [ref=e3512]
+          - cell "—" [ref=e3513]
+          - cell "—" [ref=e3514]
+          - cell "ignore" [ref=e3515]
+          - cell "✎" [ref=e3516]:
+            - button "✎" [ref=e3517] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3518]:
+          - cell "2026-04-09" [ref=e3519]
+          - cell "—" [ref=e3520]
+          - cell "—" [ref=e3521]
+          - cell "—" [ref=e3522]
+          - cell "ignore" [ref=e3523]
+          - cell "✎" [ref=e3524]:
+            - button "✎" [ref=e3525] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3526]:
+          - cell "2026-04-09" [ref=e3527]
+          - cell "—" [ref=e3528]
+          - cell "—" [ref=e3529]
+          - cell "—" [ref=e3530]
+          - cell "ignore" [ref=e3531]
+          - cell "✎" [ref=e3532]:
+            - button "✎" [ref=e3533] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3534]:
+          - cell "2026-04-09" [ref=e3535]
+          - cell "—" [ref=e3536]
+          - cell "—" [ref=e3537]
+          - cell "—" [ref=e3538]
+          - cell "ignore" [ref=e3539]
+          - cell "✎" [ref=e3540]:
+            - button "✎" [ref=e3541] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3542]:
+          - cell "2026-04-09" [ref=e3543]
+          - cell "—" [ref=e3544]
+          - cell "—" [ref=e3545]
+          - cell "—" [ref=e3546]
+          - cell "ignore" [ref=e3547]
+          - cell "✎" [ref=e3548]:
+            - button "✎" [ref=e3549] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3550]:
+          - cell "2026-04-09" [ref=e3551]
+          - cell "—" [ref=e3552]
+          - cell "—" [ref=e3553]
+          - cell "—" [ref=e3554]
+          - cell "ignore" [ref=e3555]
+          - cell "✎" [ref=e3556]:
+            - button "✎" [ref=e3557] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3558]:
+          - cell "2026-04-09" [ref=e3559]
+          - cell "—" [ref=e3560]
+          - cell "—" [ref=e3561]
+          - cell "—" [ref=e3562]
+          - cell "ignore" [ref=e3563]
+          - cell "✎" [ref=e3564]:
+            - button "✎" [ref=e3565] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3566]:
+          - cell "2026-04-09" [ref=e3567]
+          - cell "—" [ref=e3568]
+          - cell "—" [ref=e3569]
+          - cell "—" [ref=e3570]
+          - cell "ignore" [ref=e3571]
+          - cell "✎" [ref=e3572]:
+            - button "✎" [ref=e3573] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3574]:
+          - cell "2026-04-09" [ref=e3575]
+          - cell "—" [ref=e3576]
+          - cell "—" [ref=e3577]
+          - cell "—" [ref=e3578]
+          - cell "ignore" [ref=e3579]
+          - cell "✎" [ref=e3580]:
+            - button "✎" [ref=e3581] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3582]:
+          - cell "2026-04-09" [ref=e3583]
+          - cell "—" [ref=e3584]
+          - cell "—" [ref=e3585]
+          - cell "—" [ref=e3586]
+          - cell "ignore" [ref=e3587]
+          - cell "✎" [ref=e3588]:
+            - button "✎" [ref=e3589] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3590]:
+          - cell "2026-04-09" [ref=e3591]
+          - cell "—" [ref=e3592]
+          - cell "—" [ref=e3593]
+          - cell "—" [ref=e3594]
+          - cell "ignore" [ref=e3595]
+          - cell "✎" [ref=e3596]:
+            - button "✎" [ref=e3597] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3598]:
+          - cell "2026-04-09" [ref=e3599]
+          - cell "—" [ref=e3600]
+          - cell "—" [ref=e3601]
+          - cell "—" [ref=e3602]
+          - cell "ignore" [ref=e3603]
+          - cell "✎" [ref=e3604]:
+            - button "✎" [ref=e3605] [cursor=pointer]
+        - row "2026-04-09 Swiggy Food Food ₹598 expense ✎" [ref=e3606]:
+          - cell "2026-04-09" [ref=e3607]
+          - cell "Swiggy Food" [ref=e3608]
+          - cell "Food" [ref=e3609]
+          - cell "₹598" [ref=e3610]
+          - cell "expense" [ref=e3611]
+          - cell "✎" [ref=e3612]:
+            - button "✎" [ref=e3613] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3614]:
+          - cell "2026-04-09" [ref=e3615]
+          - cell "—" [ref=e3616]
+          - cell "—" [ref=e3617]
+          - cell "—" [ref=e3618]
+          - cell "ignore" [ref=e3619]
+          - cell "✎" [ref=e3620]:
+            - button "✎" [ref=e3621] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3622]:
+          - cell "2026-04-09" [ref=e3623]
+          - cell "—" [ref=e3624]
+          - cell "—" [ref=e3625]
+          - cell "—" [ref=e3626]
+          - cell "ignore" [ref=e3627]
+          - cell "✎" [ref=e3628]:
+            - button "✎" [ref=e3629] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3630]:
+          - cell "2026-04-09" [ref=e3631]
+          - cell "—" [ref=e3632]
+          - cell "—" [ref=e3633]
+          - cell "—" [ref=e3634]
+          - cell "ignore" [ref=e3635]
+          - cell "✎" [ref=e3636]:
+            - button "✎" [ref=e3637] [cursor=pointer]
+        - row "2026-04-09 — Food — expense ✎" [ref=e3638]:
+          - cell "2026-04-09" [ref=e3639]
+          - cell "—" [ref=e3640]
+          - cell "Food" [ref=e3641]
+          - cell "—" [ref=e3642]
+          - cell "expense" [ref=e3643]
+          - cell "✎" [ref=e3644]:
+            - button "✎" [ref=e3645] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3646]:
+          - cell "2026-04-09" [ref=e3647]
+          - cell "—" [ref=e3648]
+          - cell "—" [ref=e3649]
+          - cell "—" [ref=e3650]
+          - cell "ignore" [ref=e3651]
+          - cell "✎" [ref=e3652]:
+            - button "✎" [ref=e3653] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3654]:
+          - cell "2026-04-09" [ref=e3655]
+          - cell "—" [ref=e3656]
+          - cell "—" [ref=e3657]
+          - cell "—" [ref=e3658]
+          - cell "ignore" [ref=e3659]
+          - cell "✎" [ref=e3660]:
+            - button "✎" [ref=e3661] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3662]:
+          - cell "2026-04-09" [ref=e3663]
+          - cell "—" [ref=e3664]
+          - cell "—" [ref=e3665]
+          - cell "—" [ref=e3666]
+          - cell "ignore" [ref=e3667]
+          - cell "✎" [ref=e3668]:
+            - button "✎" [ref=e3669] [cursor=pointer]
+        - row "2026-04-09 — — — ignore ✎" [ref=e3670]:
+          - cell "2026-04-09" [ref=e3671]
+          - cell "—" [ref=e3672]
+          - cell "—" [ref=e3673]
+          - cell "—" [ref=e3674]
+          - cell "ignore" [ref=e3675]
+          - cell "✎" [ref=e3676]:
+            - button "✎" [ref=e3677] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3678]:
+          - cell "2026-04-10" [ref=e3679]
+          - cell "—" [ref=e3680]
+          - cell "—" [ref=e3681]
+          - cell "—" [ref=e3682]
+          - cell "ignore" [ref=e3683]
+          - cell "✎" [ref=e3684]:
+            - button "✎" [ref=e3685] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3686]:
+          - cell "2026-04-10" [ref=e3687]
+          - cell "—" [ref=e3688]
+          - cell "—" [ref=e3689]
+          - cell "—" [ref=e3690]
+          - cell "ignore" [ref=e3691]
+          - cell "✎" [ref=e3692]:
+            - button "✎" [ref=e3693] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3694]:
+          - cell "2026-04-10" [ref=e3695]
+          - cell "—" [ref=e3696]
+          - cell "—" [ref=e3697]
+          - cell "—" [ref=e3698]
+          - cell "ignore" [ref=e3699]
+          - cell "✎" [ref=e3700]:
+            - button "✎" [ref=e3701] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3702]:
+          - cell "2026-04-10" [ref=e3703]
+          - cell "—" [ref=e3704]
+          - cell "—" [ref=e3705]
+          - cell "—" [ref=e3706]
+          - cell "ignore" [ref=e3707]
+          - cell "✎" [ref=e3708]:
+            - button "✎" [ref=e3709] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3710]:
+          - cell "2026-04-10" [ref=e3711]
+          - cell "—" [ref=e3712]
+          - cell "—" [ref=e3713]
+          - cell "—" [ref=e3714]
+          - cell "ignore" [ref=e3715]
+          - cell "✎" [ref=e3716]:
+            - button "✎" [ref=e3717] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3718]:
+          - cell "2026-04-10" [ref=e3719]
+          - cell "—" [ref=e3720]
+          - cell "—" [ref=e3721]
+          - cell "—" [ref=e3722]
+          - cell "ignore" [ref=e3723]
+          - cell "✎" [ref=e3724]:
+            - button "✎" [ref=e3725] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3726]:
+          - cell "2026-04-10" [ref=e3727]
+          - cell "—" [ref=e3728]
+          - cell "—" [ref=e3729]
+          - cell "—" [ref=e3730]
+          - cell "ignore" [ref=e3731]
+          - cell "✎" [ref=e3732]:
+            - button "✎" [ref=e3733] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3734]:
+          - cell "2026-04-10" [ref=e3735]
+          - cell "—" [ref=e3736]
+          - cell "—" [ref=e3737]
+          - cell "—" [ref=e3738]
+          - cell "ignore" [ref=e3739]
+          - cell "✎" [ref=e3740]:
+            - button "✎" [ref=e3741] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3742]:
+          - cell "2026-04-10" [ref=e3743]
+          - cell "—" [ref=e3744]
+          - cell "—" [ref=e3745]
+          - cell "—" [ref=e3746]
+          - cell "ignore" [ref=e3747]
+          - cell "✎" [ref=e3748]:
+            - button "✎" [ref=e3749] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3750]:
+          - cell "2026-04-10" [ref=e3751]
+          - cell "—" [ref=e3752]
+          - cell "—" [ref=e3753]
+          - cell "—" [ref=e3754]
+          - cell "ignore" [ref=e3755]
+          - cell "✎" [ref=e3756]:
+            - button "✎" [ref=e3757] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3758]:
+          - cell "2026-04-10" [ref=e3759]
+          - cell "—" [ref=e3760]
+          - cell "—" [ref=e3761]
+          - cell "—" [ref=e3762]
+          - cell "ignore" [ref=e3763]
+          - cell "✎" [ref=e3764]:
+            - button "✎" [ref=e3765] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3766]:
+          - cell "2026-04-10" [ref=e3767]
+          - cell "—" [ref=e3768]
+          - cell "—" [ref=e3769]
+          - cell "—" [ref=e3770]
+          - cell "ignore" [ref=e3771]
+          - cell "✎" [ref=e3772]:
+            - button "✎" [ref=e3773] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3774]:
+          - cell "2026-04-10" [ref=e3775]
+          - cell "—" [ref=e3776]
+          - cell "—" [ref=e3777]
+          - cell "—" [ref=e3778]
+          - cell "ignore" [ref=e3779]
+          - cell "✎" [ref=e3780]:
+            - button "✎" [ref=e3781] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3782]:
+          - cell "2026-04-10" [ref=e3783]
+          - cell "—" [ref=e3784]
+          - cell "—" [ref=e3785]
+          - cell "—" [ref=e3786]
+          - cell "ignore" [ref=e3787]
+          - cell "✎" [ref=e3788]:
+            - button "✎" [ref=e3789] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3790]:
+          - cell "2026-04-10" [ref=e3791]
+          - cell "—" [ref=e3792]
+          - cell "—" [ref=e3793]
+          - cell "—" [ref=e3794]
+          - cell "ignore" [ref=e3795]
+          - cell "✎" [ref=e3796]:
+            - button "✎" [ref=e3797] [cursor=pointer]
+        - row "2026-04-10 — Bank Transfer — ignore ✎" [ref=e3798]:
+          - cell "2026-04-10" [ref=e3799]
+          - cell "—" [ref=e3800]
+          - cell "Bank Transfer" [ref=e3801]
+          - cell "—" [ref=e3802]
+          - cell "ignore" [ref=e3803]
+          - cell "✎" [ref=e3804]:
+            - button "✎" [ref=e3805] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3806]:
+          - cell "2026-04-10" [ref=e3807]
+          - cell "—" [ref=e3808]
+          - cell "—" [ref=e3809]
+          - cell "—" [ref=e3810]
+          - cell "ignore" [ref=e3811]
+          - cell "✎" [ref=e3812]:
+            - button "✎" [ref=e3813] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3814]:
+          - cell "2026-04-10" [ref=e3815]
+          - cell "—" [ref=e3816]
+          - cell "—" [ref=e3817]
+          - cell "—" [ref=e3818]
+          - cell "ignore" [ref=e3819]
+          - cell "✎" [ref=e3820]:
+            - button "✎" [ref=e3821] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3822]:
+          - cell "2026-04-10" [ref=e3823]
+          - cell "—" [ref=e3824]
+          - cell "—" [ref=e3825]
+          - cell "—" [ref=e3826]
+          - cell "ignore" [ref=e3827]
+          - cell "✎" [ref=e3828]:
+            - button "✎" [ref=e3829] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3830]:
+          - cell "2026-04-10" [ref=e3831]
+          - cell "—" [ref=e3832]
+          - cell "—" [ref=e3833]
+          - cell "—" [ref=e3834]
+          - cell "ignore" [ref=e3835]
+          - cell "✎" [ref=e3836]:
+            - button "✎" [ref=e3837] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3838]:
+          - cell "2026-04-10" [ref=e3839]
+          - cell "—" [ref=e3840]
+          - cell "—" [ref=e3841]
+          - cell "—" [ref=e3842]
+          - cell "ignore" [ref=e3843]
+          - cell "✎" [ref=e3844]:
+            - button "✎" [ref=e3845] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3846]:
+          - cell "2026-04-10" [ref=e3847]
+          - cell "—" [ref=e3848]
+          - cell "—" [ref=e3849]
+          - cell "—" [ref=e3850]
+          - cell "ignore" [ref=e3851]
+          - cell "✎" [ref=e3852]:
+            - button "✎" [ref=e3853] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3854]:
+          - cell "2026-04-10" [ref=e3855]
+          - cell "—" [ref=e3856]
+          - cell "—" [ref=e3857]
+          - cell "—" [ref=e3858]
+          - cell "ignore" [ref=e3859]
+          - cell "✎" [ref=e3860]:
+            - button "✎" [ref=e3861] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3862]:
+          - cell "2026-04-10" [ref=e3863]
+          - cell "—" [ref=e3864]
+          - cell "—" [ref=e3865]
+          - cell "—" [ref=e3866]
+          - cell "ignore" [ref=e3867]
+          - cell "✎" [ref=e3868]:
+            - button "✎" [ref=e3869] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3870]:
+          - cell "2026-04-10" [ref=e3871]
+          - cell "—" [ref=e3872]
+          - cell "—" [ref=e3873]
+          - cell "—" [ref=e3874]
+          - cell "ignore" [ref=e3875]
+          - cell "✎" [ref=e3876]:
+            - button "✎" [ref=e3877] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3878]:
+          - cell "2026-04-10" [ref=e3879]
+          - cell "—" [ref=e3880]
+          - cell "—" [ref=e3881]
+          - cell "—" [ref=e3882]
+          - cell "ignore" [ref=e3883]
+          - cell "✎" [ref=e3884]:
+            - button "✎" [ref=e3885] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3886]:
+          - cell "2026-04-10" [ref=e3887]
+          - cell "—" [ref=e3888]
+          - cell "—" [ref=e3889]
+          - cell "—" [ref=e3890]
+          - cell "ignore" [ref=e3891]
+          - cell "✎" [ref=e3892]:
+            - button "✎" [ref=e3893] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3894]:
+          - cell "2026-04-10" [ref=e3895]
+          - cell "—" [ref=e3896]
+          - cell "—" [ref=e3897]
+          - cell "—" [ref=e3898]
+          - cell "ignore" [ref=e3899]
+          - cell "✎" [ref=e3900]:
+            - button "✎" [ref=e3901] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3902]:
+          - cell "2026-04-10" [ref=e3903]
+          - cell "—" [ref=e3904]
+          - cell "—" [ref=e3905]
+          - cell "—" [ref=e3906]
+          - cell "ignore" [ref=e3907]
+          - cell "✎" [ref=e3908]:
+            - button "✎" [ref=e3909] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3910]:
+          - cell "2026-04-10" [ref=e3911]
+          - cell "—" [ref=e3912]
+          - cell "—" [ref=e3913]
+          - cell "—" [ref=e3914]
+          - cell "ignore" [ref=e3915]
+          - cell "✎" [ref=e3916]:
+            - button "✎" [ref=e3917] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3918]:
+          - cell "2026-04-10" [ref=e3919]
+          - cell "—" [ref=e3920]
+          - cell "—" [ref=e3921]
+          - cell "—" [ref=e3922]
+          - cell "ignore" [ref=e3923]
+          - cell "✎" [ref=e3924]:
+            - button "✎" [ref=e3925] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3926]:
+          - cell "2026-04-10" [ref=e3927]
+          - cell "—" [ref=e3928]
+          - cell "—" [ref=e3929]
+          - cell "—" [ref=e3930]
+          - cell "ignore" [ref=e3931]
+          - cell "✎" [ref=e3932]:
+            - button "✎" [ref=e3933] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3934]:
+          - cell "2026-04-10" [ref=e3935]
+          - cell "—" [ref=e3936]
+          - cell "—" [ref=e3937]
+          - cell "—" [ref=e3938]
+          - cell "ignore" [ref=e3939]
+          - cell "✎" [ref=e3940]:
+            - button "✎" [ref=e3941] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3942]:
+          - cell "2026-04-10" [ref=e3943]
+          - cell "—" [ref=e3944]
+          - cell "—" [ref=e3945]
+          - cell "—" [ref=e3946]
+          - cell "ignore" [ref=e3947]
+          - cell "✎" [ref=e3948]:
+            - button "✎" [ref=e3949] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3950]:
+          - cell "2026-04-10" [ref=e3951]
+          - cell "—" [ref=e3952]
+          - cell "—" [ref=e3953]
+          - cell "—" [ref=e3954]
+          - cell "ignore" [ref=e3955]
+          - cell "✎" [ref=e3956]:
+            - button "✎" [ref=e3957] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3958]:
+          - cell "2026-04-10" [ref=e3959]
+          - cell "—" [ref=e3960]
+          - cell "—" [ref=e3961]
+          - cell "—" [ref=e3962]
+          - cell "ignore" [ref=e3963]
+          - cell "✎" [ref=e3964]:
+            - button "✎" [ref=e3965] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3966]:
+          - cell "2026-04-10" [ref=e3967]
+          - cell "—" [ref=e3968]
+          - cell "—" [ref=e3969]
+          - cell "—" [ref=e3970]
+          - cell "ignore" [ref=e3971]
+          - cell "✎" [ref=e3972]:
+            - button "✎" [ref=e3973] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3974]:
+          - cell "2026-04-10" [ref=e3975]
+          - cell "—" [ref=e3976]
+          - cell "—" [ref=e3977]
+          - cell "—" [ref=e3978]
+          - cell "ignore" [ref=e3979]
+          - cell "✎" [ref=e3980]:
+            - button "✎" [ref=e3981] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3982]:
+          - cell "2026-04-10" [ref=e3983]
+          - cell "—" [ref=e3984]
+          - cell "—" [ref=e3985]
+          - cell "—" [ref=e3986]
+          - cell "ignore" [ref=e3987]
+          - cell "✎" [ref=e3988]:
+            - button "✎" [ref=e3989] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3990]:
+          - cell "2026-04-10" [ref=e3991]
+          - cell "—" [ref=e3992]
+          - cell "—" [ref=e3993]
+          - cell "—" [ref=e3994]
+          - cell "ignore" [ref=e3995]
+          - cell "✎" [ref=e3996]:
+            - button "✎" [ref=e3997] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e3998]:
+          - cell "2026-04-10" [ref=e3999]
+          - cell "—" [ref=e4000]
+          - cell "—" [ref=e4001]
+          - cell "—" [ref=e4002]
+          - cell "ignore" [ref=e4003]
+          - cell "✎" [ref=e4004]:
+            - button "✎" [ref=e4005] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4006]:
+          - cell "2026-04-10" [ref=e4007]
+          - cell "—" [ref=e4008]
+          - cell "—" [ref=e4009]
+          - cell "—" [ref=e4010]
+          - cell "ignore" [ref=e4011]
+          - cell "✎" [ref=e4012]:
+            - button "✎" [ref=e4013] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4014]:
+          - cell "2026-04-10" [ref=e4015]
+          - cell "—" [ref=e4016]
+          - cell "—" [ref=e4017]
+          - cell "—" [ref=e4018]
+          - cell "ignore" [ref=e4019]
+          - cell "✎" [ref=e4020]:
+            - button "✎" [ref=e4021] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4022]:
+          - cell "2026-04-10" [ref=e4023]
+          - cell "—" [ref=e4024]
+          - cell "—" [ref=e4025]
+          - cell "—" [ref=e4026]
+          - cell "ignore" [ref=e4027]
+          - cell "✎" [ref=e4028]:
+            - button "✎" [ref=e4029] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4030]:
+          - cell "2026-04-10" [ref=e4031]
+          - cell "—" [ref=e4032]
+          - cell "—" [ref=e4033]
+          - cell "—" [ref=e4034]
+          - cell "ignore" [ref=e4035]
+          - cell "✎" [ref=e4036]:
+            - button "✎" [ref=e4037] [cursor=pointer]
+        - row "2026-04-10 Zerodha Other ₹88.5 expense ✎" [ref=e4038]:
+          - cell "2026-04-10" [ref=e4039]
+          - cell "Zerodha" [ref=e4040]
+          - cell "Other" [ref=e4041]
+          - cell "₹88.5" [ref=e4042]
+          - cell "expense" [ref=e4043]
+          - cell "✎" [ref=e4044]:
+            - button "✎" [ref=e4045] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4046]:
+          - cell "2026-04-10" [ref=e4047]
+          - cell "—" [ref=e4048]
+          - cell "—" [ref=e4049]
+          - cell "—" [ref=e4050]
+          - cell "ignore" [ref=e4051]
+          - cell "✎" [ref=e4052]:
+            - button "✎" [ref=e4053] [cursor=pointer]
+        - row "2026-04-10 Swiggy Food Food ₹303 expense ✎" [ref=e4054]:
+          - cell "2026-04-10" [ref=e4055]
+          - cell "Swiggy Food" [ref=e4056]
+          - cell "Food" [ref=e4057]
+          - cell "₹303" [ref=e4058]
+          - cell "expense" [ref=e4059]
+          - cell "✎" [ref=e4060]:
+            - button "✎" [ref=e4061] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4062]:
+          - cell "2026-04-10" [ref=e4063]
+          - cell "—" [ref=e4064]
+          - cell "—" [ref=e4065]
+          - cell "—" [ref=e4066]
+          - cell "ignore" [ref=e4067]
+          - cell "✎" [ref=e4068]:
+            - button "✎" [ref=e4069] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4070]:
+          - cell "2026-04-10" [ref=e4071]
+          - cell "—" [ref=e4072]
+          - cell "—" [ref=e4073]
+          - cell "—" [ref=e4074]
+          - cell "ignore" [ref=e4075]
+          - cell "✎" [ref=e4076]:
+            - button "✎" [ref=e4077] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4078]:
+          - cell "2026-04-10" [ref=e4079]
+          - cell "—" [ref=e4080]
+          - cell "—" [ref=e4081]
+          - cell "—" [ref=e4082]
+          - cell "ignore" [ref=e4083]
+          - cell "✎" [ref=e4084]:
+            - button "✎" [ref=e4085] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4086]:
+          - cell "2026-04-10" [ref=e4087]
+          - cell "—" [ref=e4088]
+          - cell "—" [ref=e4089]
+          - cell "—" [ref=e4090]
+          - cell "ignore" [ref=e4091]
+          - cell "✎" [ref=e4092]:
+            - button "✎" [ref=e4093] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4094]:
+          - cell "2026-04-10" [ref=e4095]
+          - cell "—" [ref=e4096]
+          - cell "—" [ref=e4097]
+          - cell "—" [ref=e4098]
+          - cell "ignore" [ref=e4099]
+          - cell "✎" [ref=e4100]:
+            - button "✎" [ref=e4101] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4102]:
+          - cell "2026-04-10" [ref=e4103]
+          - cell "—" [ref=e4104]
+          - cell "—" [ref=e4105]
+          - cell "—" [ref=e4106]
+          - cell "ignore" [ref=e4107]
+          - cell "✎" [ref=e4108]:
+            - button "✎" [ref=e4109] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4110]:
+          - cell "2026-04-11" [ref=e4111]
+          - cell "—" [ref=e4112]
+          - cell "—" [ref=e4113]
+          - cell "—" [ref=e4114]
+          - cell "ignore" [ref=e4115]
+          - cell "✎" [ref=e4116]:
+            - button "✎" [ref=e4117] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4118]:
+          - cell "2026-04-11" [ref=e4119]
+          - cell "—" [ref=e4120]
+          - cell "—" [ref=e4121]
+          - cell "—" [ref=e4122]
+          - cell "ignore" [ref=e4123]
+          - cell "✎" [ref=e4124]:
+            - button "✎" [ref=e4125] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4126]:
+          - cell "2026-04-11" [ref=e4127]
+          - cell "—" [ref=e4128]
+          - cell "—" [ref=e4129]
+          - cell "—" [ref=e4130]
+          - cell "ignore" [ref=e4131]
+          - cell "✎" [ref=e4132]:
+            - button "✎" [ref=e4133] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4134]:
+          - cell "2026-04-10" [ref=e4135]
+          - cell "—" [ref=e4136]
+          - cell "—" [ref=e4137]
+          - cell "—" [ref=e4138]
+          - cell "ignore" [ref=e4139]
+          - cell "✎" [ref=e4140]:
+            - button "✎" [ref=e4141] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4142]:
+          - cell "2026-04-11" [ref=e4143]
+          - cell "—" [ref=e4144]
+          - cell "—" [ref=e4145]
+          - cell "—" [ref=e4146]
+          - cell "ignore" [ref=e4147]
+          - cell "✎" [ref=e4148]:
+            - button "✎" [ref=e4149] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4150]:
+          - cell "2026-04-11" [ref=e4151]
+          - cell "—" [ref=e4152]
+          - cell "—" [ref=e4153]
+          - cell "—" [ref=e4154]
+          - cell "ignore" [ref=e4155]
+          - cell "✎" [ref=e4156]:
+            - button "✎" [ref=e4157] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4158]:
+          - cell "2026-04-11" [ref=e4159]
+          - cell "—" [ref=e4160]
+          - cell "—" [ref=e4161]
+          - cell "—" [ref=e4162]
+          - cell "ignore" [ref=e4163]
+          - cell "✎" [ref=e4164]:
+            - button "✎" [ref=e4165] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4166]:
+          - cell "2026-04-11" [ref=e4167]
+          - cell "—" [ref=e4168]
+          - cell "—" [ref=e4169]
+          - cell "—" [ref=e4170]
+          - cell "ignore" [ref=e4171]
+          - cell "✎" [ref=e4172]:
+            - button "✎" [ref=e4173] [cursor=pointer]
+        - row "2026-04-11 Swiggy Food ₹1,012 expense ✎" [ref=e4174]:
+          - cell "2026-04-11" [ref=e4175]
+          - cell "Swiggy" [ref=e4176]
+          - cell "Food" [ref=e4177]
+          - cell "₹1,012" [ref=e4178]
+          - cell "expense" [ref=e4179]
+          - cell "✎" [ref=e4180]:
+            - button "✎" [ref=e4181] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4182]:
+          - cell "2026-04-11" [ref=e4183]
+          - cell "—" [ref=e4184]
+          - cell "—" [ref=e4185]
+          - cell "—" [ref=e4186]
+          - cell "ignore" [ref=e4187]
+          - cell "✎" [ref=e4188]:
+            - button "✎" [ref=e4189] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4190]:
+          - cell "2026-04-11" [ref=e4191]
+          - cell "—" [ref=e4192]
+          - cell "—" [ref=e4193]
+          - cell "—" [ref=e4194]
+          - cell "ignore" [ref=e4195]
+          - cell "✎" [ref=e4196]:
+            - button "✎" [ref=e4197] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4198]:
+          - cell "2026-04-11" [ref=e4199]
+          - cell "—" [ref=e4200]
+          - cell "—" [ref=e4201]
+          - cell "—" [ref=e4202]
+          - cell "ignore" [ref=e4203]
+          - cell "✎" [ref=e4204]:
+            - button "✎" [ref=e4205] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4206]:
+          - cell "2026-04-11" [ref=e4207]
+          - cell "—" [ref=e4208]
+          - cell "—" [ref=e4209]
+          - cell "—" [ref=e4210]
+          - cell "ignore" [ref=e4211]
+          - cell "✎" [ref=e4212]:
+            - button "✎" [ref=e4213] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4214]:
+          - cell "2026-04-11" [ref=e4215]
+          - cell "—" [ref=e4216]
+          - cell "—" [ref=e4217]
+          - cell "—" [ref=e4218]
+          - cell "ignore" [ref=e4219]
+          - cell "✎" [ref=e4220]:
+            - button "✎" [ref=e4221] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4222]:
+          - cell "2026-04-11" [ref=e4223]
+          - cell "—" [ref=e4224]
+          - cell "—" [ref=e4225]
+          - cell "—" [ref=e4226]
+          - cell "ignore" [ref=e4227]
+          - cell "✎" [ref=e4228]:
+            - button "✎" [ref=e4229] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4230]:
+          - cell "2026-04-11" [ref=e4231]
+          - cell "—" [ref=e4232]
+          - cell "—" [ref=e4233]
+          - cell "—" [ref=e4234]
+          - cell "ignore" [ref=e4235]
+          - cell "✎" [ref=e4236]:
+            - button "✎" [ref=e4237] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4238]:
+          - cell "2026-04-11" [ref=e4239]
+          - cell "—" [ref=e4240]
+          - cell "—" [ref=e4241]
+          - cell "—" [ref=e4242]
+          - cell "ignore" [ref=e4243]
+          - cell "✎" [ref=e4244]:
+            - button "✎" [ref=e4245] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4246]:
+          - cell "2026-04-11" [ref=e4247]
+          - cell "—" [ref=e4248]
+          - cell "—" [ref=e4249]
+          - cell "—" [ref=e4250]
+          - cell "ignore" [ref=e4251]
+          - cell "✎" [ref=e4252]:
+            - button "✎" [ref=e4253] [cursor=pointer]
+        - row "2026-04-10 — — — ignore ✎" [ref=e4254]:
+          - cell "2026-04-10" [ref=e4255]
+          - cell "—" [ref=e4256]
+          - cell "—" [ref=e4257]
+          - cell "—" [ref=e4258]
+          - cell "ignore" [ref=e4259]
+          - cell "✎" [ref=e4260]:
+            - button "✎" [ref=e4261] [cursor=pointer]
+        - row "2026-04-11 — — — ignore ✎" [ref=e4262]:
+          - cell "2026-04-11" [ref=e4263]
+          - cell "—" [ref=e4264]
+          - cell "—" [ref=e4265]
+          - cell "—" [ref=e4266]
+          - cell "ignore" [ref=e4267]
+          - cell "✎" [ref=e4268]:
+            - button "✎" [ref=e4269] [cursor=pointer]
+  - generic:
+    - generic:
+      - generic:
+        - generic: Syncing Gmail
+        - generic: Connecting...
+      - generic: ↻
+    - generic:
+      - generic:
+        - generic: "0"
+        - generic: expense
+      - generic:
+        - generic: "0"
+        - generic: income
+      - generic:
+        - generic: "0"
+        - generic: ignore

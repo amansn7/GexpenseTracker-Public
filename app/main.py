@@ -20,15 +20,9 @@ async def lifespan(app: FastAPI):
         setup_scheduler()
         try:
             from app.database import AsyncSessionLocal
-            from app.classifier.feature_classifier import bootstrap_model_from_db
-            from app.classifier.pattern_gen import load_pattern_cache_from_db
             from app.classifier.merchant import load_alias_cache_from_db
-            from app.classifier.learning import load_learning
-            load_learning()
             async with AsyncSessionLocal() as db:
-                await load_pattern_cache_from_db(db)
                 await load_alias_cache_from_db(db)
-                await bootstrap_model_from_db(db)
         except Exception as exc:
             logging.getLogger(__name__).warning("startup cache load failed: %s", exc)
     yield
@@ -52,6 +46,11 @@ app.include_router(emails_api.router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/dashboard-old", response_class=HTMLResponse)
 async def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 

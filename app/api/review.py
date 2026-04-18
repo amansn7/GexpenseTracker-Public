@@ -17,6 +17,15 @@ _REPROCESS_CONCURRENCY = 4   # max concurrent LLM calls during bulk reprocess
 router = APIRouter()
 
 
+@router.get("/review/count")
+async def get_review_count(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func
+    result = await db.execute(
+        select(func.count()).where(Transaction.status == TransactionStatus.needs_review.value)
+    )
+    return {"count": result.scalar() or 0}
+
+
 @router.get("/review")
 async def get_review_queue(db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
@@ -76,20 +85,15 @@ async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(
 
     t, e = row
 
-    # Load current DB rules for the rule engine
-    from app.models import SenderRule
-    rules_rows = (await db.execute(select(SenderRule))).scalars().all()
-    db_rules = {r.sender_domain: (Label(r.label), r.category) for r in rules_rows}
-
     logger.info("Reprocessing transaction %s (email %s)", t.id, e.gmail_id)
     try:
         result = await classify_email(
+            email_id=e.id,
             sender=e.sender or "",
             sender_domain=e.sender_domain or "",
             subject=e.subject or "",
-            body_snippet=e.body_snippet or "",
-            db_rules=db_rules,
-            force_extraction=True,
+            body_text=e.body_text or e.body_snippet or "",
+            session=db,
         )
     except Exception as exc:
         logger.error("Reprocess failed for %s: %s", t.id, exc)
@@ -178,16 +182,14 @@ async def _bulk_reprocess_task(transaction_ids: list):
                         return
 
                     t, e = row
-                    rules_rows = (await session.execute(select(SenderRule))).scalars().all()
-                    db_rules = {r.sender_domain: (Label(r.label), r.category) for r in rules_rows}
 
                     result = await classify_email(
+                        email_id=e.id,
                         sender=e.sender or "",
                         sender_domain=e.sender_domain or "",
                         subject=e.subject or "",
-                        body_snippet=e.body_snippet or "",
-                        db_rules=db_rules,
-                        force_extraction=True,
+                        body_text=e.body_text or e.body_snippet or "",
+                        session=session,
                     )
 
                     t.label = result.label.value
@@ -249,7 +251,7 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
         )
     )).all()
 
-    for t, _ in rows:
+    for t, e in rows:
         t.label = label
         t.status = TransactionStatus.confirmed.value
         if body.category:

@@ -36,6 +36,18 @@ function _skeletonRows(n, cols) {
   return Array(n).fill(row).join('');
 }
 
+// Refresh the review badge in the sidebar nav
+async function refreshReviewBadge() {
+  try {
+    const data = await fetch('/api/review/count').then(r => r.json());
+    const el = document.getElementById('review-count');
+    if (!el) return;
+    const n = data.count || 0;
+    el.textContent = n;
+    el.style.display = n > 0 ? '' : 'none';
+  } catch (_) {}
+}
+
 /* ── End utilities ───────────────────────────────────────────── */
 
 // ── Sync progress panel ──────────────────────────────────────────────────────

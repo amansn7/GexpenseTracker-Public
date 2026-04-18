@@ -5,20 +5,8 @@ from pydantic import BaseModel
 from typing import Optional
 from app.database import get_db
 from app.models import SenderRule, RuleSource
-from app.classifier.rules import BUILTIN_SENDER_RULES
 
 router = APIRouter()
-
-BUILTIN_LIST = [
-    {
-        "sender_domain": domain,
-        "label": label.value,
-        "category": category,
-        "source": "builtin",
-        "editable": False,
-    }
-    for domain, (label, category) in sorted(BUILTIN_SENDER_RULES.items())
-]
 
 
 class RuleBody(BaseModel):
@@ -29,25 +17,22 @@ class RuleBody(BaseModel):
 
 @router.get("/rules")
 async def list_rules(db: AsyncSession = Depends(get_db)):
-    """Return builtin rules + user-defined rules. User rules override builtins."""
+    """Return user-defined sender rules."""
     user_rows = (await db.execute(select(SenderRule))).scalars().all()
-    user_domains = {r.sender_domain for r in user_rows}
 
-    # Builtins not overridden by user
-    builtin = [r for r in BUILTIN_LIST if r["sender_domain"] not in user_domains]
-
-    user = [
-        {
-            "sender_domain": r.sender_domain,
-            "label": r.label,
-            "category": r.category,
-            "source": r.source,
-            "editable": True,
-        }
-        for r in sorted(user_rows, key=lambda x: x.sender_domain)
-    ]
-
-    return {"builtin": builtin, "user": user}
+    return {
+        "builtin": [],
+        "user": [
+            {
+                "sender_domain": r.sender_domain,
+                "label": r.label,
+                "category": r.category,
+                "source": r.source,
+                "editable": True,
+            }
+            for r in sorted(user_rows, key=lambda x: x.sender_domain)
+        ],
+    }
 
 
 @router.post("/rules", status_code=201)
@@ -81,7 +66,7 @@ async def create_rule(body: RuleBody, db: AsyncSession = Depends(get_db)):
 
 @router.delete("/rules/{domain:path}")
 async def delete_rule(domain: str, db: AsyncSession = Depends(get_db)):
-    """Delete a user-defined rule. Builtin rules cannot be deleted (only overridden)."""
+    """Delete a user-defined sender rule."""
     row = (await db.execute(
         select(SenderRule).where(SenderRule.sender_domain == domain)
     )).scalar_one_or_none()

@@ -1,0 +1,96 @@
+<h2>Section 2: Bootstrap Service</h2>
+<p class="subtitle">Group similar emails → one LLM call per group → rule covers the whole group.</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+
+  <div class="mockup">
+    <div class="mockup-header">Step 1 — Grouping Strategy</div>
+    <div class="mockup-body" style="font-size:13px;line-height:1.8;padding:16px">
+      <div style="color:#a78bfa;font-weight:600;margin-bottom:8px">Primary key: sender_domain</div>
+      <div style="color:#94a3b8;font-size:12px;margin-bottom:12px">Emails from the same domain are already about the same service. hdfc.co.in → all HDFC alerts grouped.</div>
+
+      <div style="color:#fbbf24;font-weight:600;margin-bottom:8px">Secondary split: body fingerprint</div>
+      <div style="color:#94a3b8;font-size:12px;margin-bottom:12px">Same domain may have multiple patterns (debit alert vs statement vs OTP). Split by 3-word keyword signature extracted from body.</div>
+
+      <div style="padding:10px;background:rgba(99,102,241,0.08);border-radius:6px;font-size:12px">
+        <div style="color:#38bdf8;margin-bottom:4px">Example grouping:</div>
+        <div>hdfc.co.in + "debited via upi" → Group A (12 emails)</div>
+        <div>hdfc.co.in + "credited to account" → Group B (4 emails)</div>
+        <div>hdfc.co.in + "one time password" → Group C (8 emails) → skip (OTP)</div>
+        <div style="margin-top:8px;color:#4ade80">↳ 2 LLM calls instead of 24</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Step 2 — Processing Flow</div>
+    <div class="mockup-body" style="font-family:monospace;font-size:12px;line-height:1.9;padding:16px">
+      <div style="color:#4ade80">For each group:</div>
+      <div style="margin-left:16px;color:#94a3b8">1. Pick representative email</div>
+      <div style="margin-left:32px;font-size:11px;color:#64748b">(longest body_text in group)</div>
+      <div style="margin-left:16px;color:#94a3b8">2. Send to LLM → classify + extract</div>
+      <div style="margin-left:16px;color:#94a3b8">3. Generate + validate rule</div>
+      <div style="margin-left:32px;font-size:11px;color:#64748b">(template → LLM-written fallback)</div>
+      <div style="margin-left:16px;color:#94a3b8">4. Test rule against ALL emails</div>
+      <div style="margin-left:32px;font-size:11px;color:#64748b">in the group (not just the rep)</div>
+      <div style="margin-left:16px;color:#94a3b8">5. Save rule if ≥70% match</div>
+      <div style="margin-left:16px;color:#94a3b8">6. Backfill transactions for</div>
+      <div style="margin-left:32px;font-size:11px;color:#64748b">all matched emails in group</div>
+      <br>
+      <div style="color:#f97316">Batch size: 8 groups concurrent</div>
+      <div style="color:#f97316">Rate limit: pause if 429</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">Step 3 — Bootstrap Progress UI (Settings page)</div>
+  <div class="mockup-body" style="padding:20px">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-weight:600;font-size:14px">Rule Engine Bootstrap</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Groups emails by pattern and sends one per group to LLM</div>
+      </div>
+      <button class="mock-button" style="background:rgba(99,102,241,0.2);color:#a78bfa;border:1px solid rgba(99,102,241,0.3);font-size:12px;padding:6px 14px">Re-run Bootstrap</button>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="background:rgba(255,255,255,0.05);border-radius:6px;height:6px;margin-bottom:8px">
+      <div style="background:linear-gradient(90deg,#6366f1,#a78bfa);width:62%;height:100%;border-radius:6px;transition:width 0.3s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:16px">
+      <span>47 / 76 groups processed</span>
+      <span>31 rules generated · 8 dropped · 8 skipped (OTP/login)</span>
+    </div>
+
+    <!-- Live feed -->
+    <div style="background:rgba(0,0,0,0.3);border-radius:6px;padding:12px;font-family:monospace;font-size:11px;max-height:120px;overflow:hidden">
+      <div style="color:#4ade80">✓ [HDFC] debited via upi → rule saved (llm_generated) · 12 emails covered</div>
+      <div style="color:#4ade80">✓ [Swiggy] order confirmed → rule saved (llm_written) · 7 emails covered</div>
+      <div style="color:#64748b">→ [Axis] processing "INR credited to a/c"…</div>
+      <div style="color:#f87171">✗ [Bumble] email rule dropped (no match) · transaction saved</div>
+      <div style="color:#64748b">→ [Amazon] processing "order dispatched"…</div>
+    </div>
+
+    <div style="display:flex;gap:24px;margin-top:12px">
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:700;color:#4ade80">31</div>
+        <div style="font-size:11px;color:#64748b">Rules saved</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:700;color:#a78bfa">412</div>
+        <div style="font-size:11px;color:#64748b">Emails covered</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:700;color:#fbbf24">47</div>
+        <div style="font-size:11px;color:#64748b">LLM calls made</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:700;color:#64748b">8</div>
+        <div style="font-size:11px;color:#64748b">Dropped</div>
+      </div>
+    </div>
+  </div>
+</div>

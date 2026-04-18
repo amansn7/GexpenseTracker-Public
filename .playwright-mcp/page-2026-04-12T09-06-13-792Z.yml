@@ -1,0 +1,82 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "ExpenseTracker" [ref=e3] [cursor=pointer]:
+      - /url: /
+    - link "Dashboard" [ref=e4] [cursor=pointer]:
+      - /url: /
+    - link "Transactions" [ref=e5] [cursor=pointer]:
+      - /url: /transactions
+    - link "Needs Review" [ref=e6] [cursor=pointer]:
+      - /url: /review
+    - link "Recurring" [ref=e7] [cursor=pointer]:
+      - /url: /recurring
+    - link "Budgets" [ref=e8] [cursor=pointer]:
+      - /url: /budgets
+    - link "Settings" [ref=e9] [cursor=pointer]:
+      - /url: /settings
+    - button "Sync Now" [ref=e10] [cursor=pointer]
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]: "Period:"
+      - button "This month" [ref=e14] [cursor=pointer]
+      - button "3 months" [ref=e15] [cursor=pointer]
+      - button "6 months" [ref=e16] [cursor=pointer]
+      - button "This year" [ref=e17] [cursor=pointer]
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: Expenses
+        - generic [ref=e21]: ₹—
+      - generic [ref=e22]:
+        - generic [ref=e23]: Income
+        - generic [ref=e24]: ₹—
+      - generic [ref=e25]:
+        - generic [ref=e26]: Saved
+        - generic [ref=e27]: ₹—
+      - generic [ref=e28]:
+        - generic [ref=e29]: Savings Rate
+        - generic [ref=e30]: —
+      - generic [ref=e31]:
+        - generic [ref=e32]: Needs Review
+        - generic [ref=e33]: —
+    - generic [ref=e34]:
+      - generic [ref=e35]:
+        - generic [ref=e36]: Monthly Trend
+        - img [ref=e38]:
+          - generic [ref=e39]: Loading…
+      - generic [ref=e40]:
+        - generic [ref=e41]: Category Breakdown
+        - img [ref=e43]:
+          - generic [ref=e45]: Loading…
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - generic [ref=e48]: Top Merchants
+        - generic [ref=e50]: Loading…
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - text: Income vs Expense
+          - generic [ref=e53]: ● Income ● Expense
+        - img [ref=e55]:
+          - generic [ref=e56]: Loading…
+    - generic [ref=e57]:
+      - generic [ref=e58]:
+        - text: Budget vs Actual
+        - generic [ref=e59]: (current month)
+        - link "Manage budgets →" [ref=e60] [cursor=pointer]:
+          - /url: /budgets
+      - generic [ref=e62]: Loading…
+  - generic:
+    - generic:
+      - generic:
+        - generic: Syncing Gmail
+        - generic: Connecting...
+      - generic: ↻
+    - generic:
+      - generic:
+        - generic: "0"
+        - generic: expense
+      - generic:
+        - generic: "0"
+        - generic: income
+      - generic:
+        - generic: "0"
+        - generic: ignore

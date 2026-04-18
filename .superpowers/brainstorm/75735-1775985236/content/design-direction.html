@@ -1,0 +1,112 @@
+<h2>Design Direction</h2>
+<p class="subtitle">Three distinct visual identities for the redesign — same dark foundation, very different personalities. Which direction speaks to you?</p>
+
+<div class="cards" style="grid-template-columns:1fr 1fr 1fr;gap:20px">
+
+  <!-- A: Glassmorphism -->
+  <div class="card" data-choice="glass" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:linear-gradient(135deg,#0d0d1a 0%,#1a1030 100%);padding:20px;min-height:200px;position:relative;overflow:hidden">
+      <!-- BG glow blobs -->
+      <div style="position:absolute;width:120px;height:120px;background:rgba(124,131,253,0.18);border-radius:50%;top:-20px;right:-20px;filter:blur(30px)"></div>
+      <div style="position:absolute;width:80px;height:80px;background:rgba(167,139,250,0.14);border-radius:50%;bottom:10px;left:10px;filter:blur(20px)"></div>
+      <!-- Stat card glass -->
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px;backdrop-filter:blur(10px);margin-bottom:10px">
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Spent</div>
+        <div style="font-size:22px;font-weight:700;color:#e07070">₹1,67,396</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:3px">↓ 2.7% vs last month</div>
+      </div>
+      <!-- Row item -->
+      <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.8)">Swiggy</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.3)">Food · Apr 11</div>
+        </div>
+        <div style="font-size:13px;font-weight:600;color:#e07070">₹1,012</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Glassmorphism</h3>
+      <p>Frosted-glass panels, ambient glows, subtle blur effects. Premium, almost Apple-Vision-like feel. Best for "financial app" vibes.</p>
+    </div>
+  </div>
+
+  <!-- B: Bento Grid -->
+  <div class="card" data-choice="bento" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12;padding:16px;min-height:200px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:8px">
+        <!-- big tile -->
+        <div style="grid-column:1/3;background:#12121e;border:1px solid #1e1e32;border-radius:12px;padding:14px;border-left:3px solid #e07070">
+          <div style="font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.8px">This Month</div>
+          <div style="font-size:20px;font-weight:800;color:#e07070;margin-top:2px">₹1,67,396</div>
+          <div style="height:28px;background:linear-gradient(90deg,#e07070 60%,transparent);border-radius:4px;margin-top:8px;opacity:.2"></div>
+        </div>
+        <!-- small tiles -->
+        <div style="background:#12121e;border:1px solid #1e1e32;border-radius:10px;padding:10px">
+          <div style="font-size:8px;color:#555;text-transform:uppercase">Income</div>
+          <div style="font-size:15px;font-weight:700;color:#5db87d;margin-top:2px">₹1.6L</div>
+        </div>
+        <div style="background:#12121e;border:1px solid #1e1e32;border-radius:10px;padding:10px">
+          <div style="font-size:8px;color:#555;text-transform:uppercase">Budget</div>
+          <div style="font-size:15px;font-weight:700;color:#f0a500;margin-top:2px">72%</div>
+        </div>
+        <!-- wide tile -->
+        <div style="grid-column:1/3;background:#12121e;border:1px solid #1e1e32;border-radius:10px;padding:10px;display:flex;gap:8px;align-items:center">
+          <div style="width:6px;height:30px;background:#7c83fd;border-radius:3px"></div>
+          <div>
+            <div style="font-size:11px;color:#ccc">Swiggy Food</div>
+            <div style="font-size:9px;color:#444">Food · Apr 11</div>
+          </div>
+          <div style="margin-left:auto;font-size:12px;color:#e07070;font-weight:600">₹1,012</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Bento Grid</h3>
+      <p>Mosaic of asymmetric tiles, bold typography, tight grid. Very "new era" — as seen on Linear, Vercel, Raycast.</p>
+    </div>
+  </div>
+
+  <!-- C: Minimal Pro -->
+  <div class="card" data-choice="minimal" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#080810;padding:20px;min-height:200px">
+      <!-- Header line -->
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px">
+        <div style="font-size:11px;color:#333;text-transform:uppercase;letter-spacing:2px">April 2026</div>
+        <div style="font-size:9px;color:#7c83fd;border:1px solid #7c83fd;border-radius:3px;padding:2px 6px">↻ Sync</div>
+      </div>
+      <!-- Big number -->
+      <div style="font-size:32px;font-weight:900;color:#fff;letter-spacing:-2px;line-height:1">₹1,67,396</div>
+      <div style="font-size:10px;color:#444;margin-top:4px;margin-bottom:14px">spent this month</div>
+      <!-- Thin divider -->
+      <div style="border-top:1px solid #1a1a28;margin-bottom:12px"></div>
+      <!-- Transaction row -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <div style="font-size:12px;color:#ccc;font-weight:500">Swiggy</div>
+          <div style="font-size:10px;color:#333">Food</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:#e07070;font-weight:600">₹1,012</div>
+          <div style="font-size:9px;color:#333">Apr 11</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:12px;color:#ccc;font-weight:500">Amazon</div>
+          <div style="font-size:10px;color:#333">Shopping</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:#e07070;font-weight:600">₹8,325</div>
+          <div style="font-size:9px;color:#333">Mar 24</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Minimal Pro</h3>
+      <p>Near-black background, massive typography, razor-thin lines. Information-forward. Like a Bloomberg terminal but beautiful.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">Click to select — or tell me in the terminal if you want a mix of elements from multiple options.</p>

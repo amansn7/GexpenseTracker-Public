@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Design Preview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #060610; color: #e0e0e0; padding: 32px; }
+  h1 { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -.5px; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: #555; margin-bottom: 32px; }
+  .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #7c83fd; margin-bottom: 12px; font-weight: 600; }
+  .browser { background: #0d0d1a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; overflow: hidden; margin-bottom: 32px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .browser-bar { background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .browser-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .url-bar { flex: 1; background: rgba(255,255,255,0.04); border-radius: 6px; padding: 4px 12px; font-size: 11px; color: #444; margin: 0 12px; }
+  .app { display: flex; min-height: 420px; }
+
+  /* Sidebar */
+  .sidebar { width: 200px; background: rgba(255,255,255,0.02); border-right: 1px solid rgba(255,255,255,0.05); padding: 20px 12px; display: flex; flex-direction: column; flex-shrink: 0; backdrop-filter: blur(12px); }
+  .brand { font-size: 14px; font-weight: 800; color: #7c83fd; letter-spacing: -.4px; margin-bottom: 28px; padding: 0 6px; }
+  .nav-group { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; font-size: 12px; color: #555; cursor: pointer; transition: all .15s; }
+  .nav-item.active { background: rgba(124,131,253,0.12); border: 1px solid rgba(124,131,253,0.2); color: #fff; }
+  .nav-item .icon { width: 16px; text-align: center; font-size: 13px; }
+  .nav-badge { margin-left: auto; background: #e07070; color: #fff; border-radius: 8px; padding: 1px 6px; font-size: 9px; font-weight: 700; }
+  .nav-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+  .sync-btn { background: linear-gradient(135deg, #7c83fd, #a78bfa); color: #fff; border: none; border-radius: 8px; padding: 8px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; margin-top: 10px; }
+
+  /* Main content */
+  .main { flex: 1; padding: 24px; overflow: hidden; position: relative; }
+  .glow-orb { position: absolute; border-radius: 50%; filter: blur(60px); pointer-events: none; }
+
+  /* Stat cards */
+  .stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px 16px; backdrop-filter: blur(8px); position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 60%); pointer-events: none; }
+  .stat-card .lbl { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+  .stat-card .val { font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+  .val.red { color: #e07070; } .val.green { color: #5db87d; } .val.amber { color: #f0a500; } .val.purple { color: #7c83fd; }
+  .stat-card .delta { font-size: 9px; color: #444; margin-top: 3px; }
+
+  /* Two-col below stats */
+  .two-col { display: grid; grid-template-columns: 1fr 320px; gap: 14px; }
+  .glass-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; }
+  .glass-card-header { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 11px; color: #666; display: flex; justify-content: space-between; align-items: center; }
+  .glass-card-body { padding: 12px 16px; }
+
+  /* Activity feed */
+  .feed-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .feed-meta { flex: 1; margin-left: 10px; }
+  .feed-name { font-size: 12px; color: #ccc; font-weight: 500; }
+  .feed-detail { font-size: 10px; color: #444; margin-top: 1px; }
+  .feed-amount { font-size: 12px; font-weight: 700; }
+
+  /* Budget list */
+  .budget-item { margin-bottom: 12px; }
+  .budget-header { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 4px; }
+  .budget-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .budget-fill { height: 100%; border-radius: 2px; }
+
+  /* Annotations */
+  .annotations { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 32px; }
+  .annot { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 14px; }
+  .annot h4 { font-size: 12px; color: #ccc; font-weight: 600; margin-bottom: 6px; }
+  .annot ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .annot li { font-size: 11px; color: #555; padding-left: 12px; position: relative; }
+  .annot li::before { content: '→'; position: absolute; left: 0; color: #7c83fd; }
+</style>
+</head>
+<body>
+
+<h1>New Era Design — Full Preview</h1>
+<p class="sub">Glassmorphism · Left Sidebar · Purposeful Animation · Activity-Led Dashboard</p>
+
+<div class="section-label">Dashboard</div>
+<div class="browser">
+  <div class="browser-bar">
+    <div class="browser-dot" style="background:#ff5f57"></div>
+    <div class="browser-dot" style="background:#ffbd2e"></div>
+    <div class="browser-dot" style="background:#28c840"></div>
+    <div class="url-bar">localhost:8000</div>
+  </div>
+  <div class="app">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="brand">ExpenseTracker</div>
+      <div class="nav-group">
+        <div class="nav-item active"><span class="icon">⬛</span> Dashboard</div>
+        <div class="nav-item"><span class="icon">≡</span> Transactions</div>
+        <div class="nav-item"><span class="icon">◉</span> Review <span class="nav-badge">12</span></div>
+        <div class="nav-item"><span class="icon">↺</span> Recurring</div>
+        <div class="nav-item"><span class="icon">◎</span> Budgets</div>
+      </div>
+      <div class="nav-bottom">
+        <div class="nav-item"><span class="icon">⚙</span> Settings</div>
+        <div class="sync-btn">↻ Sync Now</div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <!-- Ambient glows -->
+      <div class="glow-orb" style="width:300px;height:300px;background:rgba(224,112,112,0.05);top:-100px;right:-80px"></div>
+      <div class="glow-orb" style="width:200px;height:200px;background:rgba(124,131,253,0.04);bottom:-60px;left:40px"></div>
+
+      <!-- Period + greeting -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:-.4px">Good morning ☀️</div>
+          <div style="font-size:11px;color:#444;margin-top:2px">April 2026 · 12 transactions need review</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 12px;font-size:11px;color:#888">
+          April 2026 <span style="color:#7c83fd;margin-left:4px">▾</span>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="lbl">Total Spent</div>
+          <div class="val red">₹1,67,396</div>
+          <div class="delta">↓ 2.7% vs last month</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Income</div>
+          <div class="val green">₹1,62,939</div>
+          <div class="delta">↑ 0.3% vs last month</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Net</div>
+          <div class="val amber">-₹4,457</div>
+          <div class="delta">Savings rate −2.7%</div>
+        </div>
+        <div class="stat-card">
+          <div class="lbl">Needs Review</div>
+          <div class="val purple">12</div>
+          <div class="delta" style="color:#7c83fd;cursor:pointer">Review now →</div>
+        </div>
+      </div>
+
+      <!-- Two col -->
+      <div class="two-col">
+        <!-- Activity feed -->
+        <div class="glass-card">
+          <div class="glass-card-header">
+            Recent Activity
+            <span style="color:#7c83fd;font-size:10px;cursor:pointer">View all →</span>
+          </div>
+          <div class="glass-card-body">
+            <div class="feed-item">
+              <div class="feed-icon" style="background:rgba(224,112,112,0.12)">🍔</div>
+              <div class="feed-meta">
+                <div class="feed-name">Swiggy Food</div>
+                <div class="feed-detail">Food · Apr 11</div>
+              </div>
+              <div class="feed-amount red">−₹1,012</div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-icon" style="background:rgba(124,131,253,0.12)">🛒</div>
+              <div class="feed-meta">
+                <div class="feed-name">Amazon</div>
+                <div class="feed-detail">Shopping · Apr 10</div>
+              </div>
+              <div class="feed-amount red">−₹8,325</div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-icon" style="background:rgba(93,184,125,0.12)">💰</div>
+              <div class="feed-meta">
+                <div class="feed-name">Salary Credit</div>
+                <div class="feed-detail">Income · Apr 1</div>
+              </div>
+              <div class="feed-amount green">+₹74,244</div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-icon" style="background:rgba(224,112,112,0.12)">🍕</div>
+              <div class="feed-meta">
+                <div class="feed-name">Swiggy Instamart</div>
+                <div class="feed-detail">Groceries · Apr 3</div>
+              </div>
+              <div class="feed-amount red">−₹948</div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-icon" style="background:rgba(167,139,250,0.12)">📱</div>
+              <div class="feed-meta">
+                <div class="feed-name">Apple One</div>
+                <div class="feed-detail">Subscriptions · Apr 1</div>
+              </div>
+              <div class="feed-amount red">−₹279</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Budget sidebar -->
+        <div class="glass-card">
+          <div class="glass-card-header">
+            Budgets
+            <span style="color:#7c83fd;font-size:10px;cursor:pointer">Manage →</span>
+          </div>
+          <div class="glass-card-body">
+            <div class="budget-item">
+              <div class="budget-header"><span>Food</span><span>₹12,400 / ₹15,000</span></div>
+              <div class="budget-bar"><div class="budget-fill" style="width:82%;background:linear-gradient(90deg,#f0a500,#e07070)"></div></div>
+            </div>
+            <div class="budget-item">
+              <div class="budget-header"><span>Groceries</span><span>₹4,200 / ₹8,000</span></div>
+              <div class="budget-bar"><div class="budget-fill" style="width:52%;background:#7c83fd"></div></div>
+            </div>
+            <div class="budget-item">
+              <div class="budget-header"><span>Shopping</span><span>₹18,900 / ₹20,000</span></div>
+              <div class="budget-bar"><div class="budget-fill" style="width:94%;background:#e07070;box-shadow:0 0 6px rgba(224,112,112,0.4)"></div></div>
+            </div>
+            <div class="budget-item">
+              <div class="budget-header"><span>Transport</span><span>₹2,100 / ₹5,000</span></div>
+              <div class="budget-bar"><div class="budget-fill" style="width:42%;background:#5db87d"></div></div>
+            </div>
+            <div class="budget-item">
+              <div class="budget-header"><span>Utilities</span><span>₹1,885 / ₹3,000</span></div>
+              <div class="budget-bar"><div class="budget-fill" style="width:63%;background:#7c83fd"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Annotations -->
+<div class="section-label">What's changing & why</div>
+<div class="annotations">
+  <div class="annot">
+    <h4>🏗 Layout</h4>
+    <ul>
+      <li>Left sidebar replaces top nav</li>
+      <li>Review badge always visible</li>
+      <li>Sync button fixed at sidebar bottom</li>
+      <li>Main content full-width, more breathing room</li>
+      <li>Ambient glow orbs per page (matches dominant color)</li>
+    </ul>
+  </div>
+  <div class="annot">
+    <h4>✨ Animation</h4>
+    <ul>
+      <li>Sidebar nav: instant (0ms)</li>
+      <li>Stat numbers: count-up on mount (600ms)</li>
+      <li>Skeleton shimmer → fade on all data loads</li>
+      <li>Modals: scale(0.96)→1 + fade, 200ms ease-out</li>
+      <li>Budget bars: animate width on mount</li>
+      <li>Feed rows: staggered fade-in (30ms each)</li>
+      <li>Hover rows: translateY(-1px) + glow, instant</li>
+    </ul>
+  </div>
+  <div class="annot">
+    <h4>🎨 Glassmorphism</h4>
+    <ul>
+      <li>Cards: rgba(255,255,255,0.04) + blur(8px)</li>
+      <li>Sidebar: rgba(255,255,255,0.02) + blur(12px)</li>
+      <li>Modals: stronger blur(20px) backdrop</li>
+      <li>Borders: rgba(255,255,255,0.06–0.10)</li>
+      <li>Ambient orbs: blurred color blobs per page</li>
+      <li>Active nav: rgba(124,131,253,0.12) tinted</li>
+    </ul>
+  </div>
+  <div class="annot">
+    <h4>⚡ Performance / UX</h4>
+    <ul>
+      <li>Skeleton placeholders on every API call</li>
+      <li>Optimistic updates on edit save</li>
+      <li>Toast notifications replace alert() / page reload</li>
+      <li>Keyboard nav: Escape closes modals/tooltips</li>
+      <li>CSS custom properties for all color tokens</li>
+    </ul>
+  </div>
+  <div class="annot">
+    <h4>🔒 Scope</h4>
+    <ul>
+      <li>Zero backend changes</li>
+      <li>All APIs unchanged</li>
+      <li>Existing features preserved (hover preview, edit modal, sync panel)</li>
+      <li>New CSS replaces base.html inline styles</li>
+      <li>app.js extended, not rewritten</li>
+    </ul>
+  </div>
+  <div class="annot">
+    <h4>📄 Pages</h4>
+    <ul>
+      <li>Dashboard: activity-led, budget sidebar</li>
+      <li>Transactions: glass table, same columns</li>
+      <li>Review: card-stack with keyboard shortcuts</li>
+      <li>Recurring: clean glass list</li>
+      <li>Budgets: visual progress + edit inline</li>
+      <li>Settings: glass form sections</li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+<h2>When a generated rule fails its self-test — what should happen?</h2>
+<p class="subtitle">Current system: rule is silently dropped. You want LLM to improve it. How?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Drop & Move On</h3>
+      <p>If the auto-generated regex doesn't match the trigger email, discard it. LLM result is still saved to the transaction. Rule generation is best-effort — not every email needs a rule.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Simple, no extra LLM calls</li><li>Only high-quality rules saved</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Miss opportunities for rules on unusual patterns</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>LLM Writes the Rule Directly (recommended)</h3>
+      <p>Instead of code generating the regex, ask the LLM: <em>"Given this email and its classification, write a regex that matches it."</em> LLM produces the pattern. We test it. If it matches → save. If not → drop.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Rules tailored to actual email text</li><li>LLM understands context — e.g. "INR X debited to MERCHANT"</li><li>Higher match rate than template regexes</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>1 extra LLM call per rule generated</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Retry with Broader Template</h3>
+      <p>Keep code-generated templates but try progressively looser patterns: merchant-only → amount+merchant → label keywords only. Stop at first match. No extra LLM call.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero extra cost</li><li>Deterministic</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Looser rules → more false positives</li><li>Still brittle vs. real-world SMS/email variation</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

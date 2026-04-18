@@ -6,7 +6,6 @@ from typing import Optional
 from datetime import date
 from app.database import get_db
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource
-
 router = APIRouter()
 
 class TransactionPatch(BaseModel):
@@ -156,4 +155,3 @@ async def find_duplicates(db: AsyncSession = Depends(get_db)):
             })
 
     return sorted(duplicates, key=lambda g: g["txn_date"], reverse=True)
-

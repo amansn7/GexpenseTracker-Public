@@ -3,6 +3,7 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import patch
 from app.main import app
 from app.database import get_db
+from app.models import Label
 
 
 @pytest.mark.asyncio
@@ -59,6 +60,7 @@ async def test_patch_transaction_not_found(db_session):
         assert resp.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
+
 
 
 import uuid as _uuid_mod

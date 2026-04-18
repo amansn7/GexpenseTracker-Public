@@ -1,0 +1,26 @@
+<h2>Where does the email classification service run?</h2>
+<p class="subtitle">This shapes the entire architecture — pick what fits your lifestyle best</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Local background service (your Mac)</h3>
+      <p>Runs on your machine, polls Gmail periodically. Simple, private, no cloud costs. Stops when Mac is off.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Cloud function / serverless</h3>
+      <p>Runs on AWS Lambda / GCP Cloud Functions / Vercel. Triggered on a schedule. Always on, no machine dependency.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Web app backend (self-hosted)</h3>
+      <p>Full backend server with API + background worker. Enables future dashboard, mobile app, multi-user. Most work upfront.</p>
+    </div>
+  </div>
+</div>

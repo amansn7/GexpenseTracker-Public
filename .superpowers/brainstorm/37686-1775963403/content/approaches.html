@@ -1,0 +1,85 @@
+<h2>3 Approaches — Transactions Redesign</h2>
+<p class="subtitle">All three include: full body storage, 3s hover preview, proper edit modal, income visible. They differ in how much the table UI changes.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Surgical Fixes</h3>
+      <p>Keep the existing table layout. Add the missing pieces on top: hover tooltip, edit modal, body_text storage, income row coloring.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Smallest changeset</li><li>Nothing breaks</li><li>Fast to ship</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Table stays cluttered (Source column, Status column taking space)</li><li>No visual hierarchy between expense vs income</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Refined Table ⭐ Recommended</h3>
+      <p>Redesign the table columns for clarity. Drop noisy columns (Source → icon, Status → badge color). Add left-border color coding per label. Edit button becomes a pencil icon. Hover tooltip shows full body.</p>
+      <div class="mockup" style="margin-top:10px">
+        <div class="mockup-header">Preview</div>
+        <div class="mockup-body" style="padding:0">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead>
+              <tr style="color:#555;border-bottom:1px solid #2a2a4a;text-align:left">
+                <th style="padding:7px 10px;font-weight:500">Date</th>
+                <th style="padding:7px 10px;font-weight:500">Merchant</th>
+                <th style="padding:7px 10px;font-weight:500">Category</th>
+                <th style="padding:7px 10px;font-weight:500">Amount</th>
+                <th style="padding:7px 10px;font-weight:500">Label</th>
+                <th style="padding:7px 4px;font-weight:500"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #1a1a2a;border-left:3px solid #e07070">
+                <td style="padding:7px 10px;color:#888">Apr 10</td>
+                <td style="padding:7px 10px;color:#ccc">Swiggy</td>
+                <td style="padding:7px 10px;color:#666">Food</td>
+                <td style="padding:7px 10px;color:#e07070;font-weight:600">₹349</td>
+                <td style="padding:7px 10px"><span style="background:#2a1a1a;color:#e07070;padding:2px 7px;border-radius:4px;font-size:10px">expense</span></td>
+                <td style="padding:7px 6px;color:#444;cursor:pointer">✎</td>
+              </tr>
+              <tr style="border-bottom:1px solid #1a1a2a;border-left:3px solid #5db87d">
+                <td style="padding:7px 10px;color:#888">Apr 8</td>
+                <td style="padding:7px 10px;color:#ccc">HDFC Salary</td>
+                <td style="padding:7px 10px;color:#666">Income</td>
+                <td style="padding:7px 10px;color:#5db87d;font-weight:600">₹85,000</td>
+                <td style="padding:7px 10px"><span style="background:#1a2a1a;color:#5db87d;padding:2px 7px;border-radius:4px;font-size:10px">income</span></td>
+                <td style="padding:7px 6px;color:#444;cursor:pointer">✎</td>
+              </tr>
+              <tr style="border-bottom:1px solid #1a1a2a;border-left:3px solid #3a3a5a">
+                <td style="padding:7px 10px;color:#888">Apr 7</td>
+                <td style="padding:7px 10px;color:#555">Zomato Promo</td>
+                <td style="padding:7px 10px;color:#444">Other</td>
+                <td style="padding:7px 10px;color:#555">—</td>
+                <td style="padding:7px 10px"><span style="background:#1a1a1a;color:#555;padding:2px 7px;border-radius:4px;font-size:10px">ignore</span></td>
+                <td style="padding:7px 6px;color:#444;cursor:pointer">✎</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Much cleaner at a glance</li><li>Income visually distinct (green left border)</li><li>Still a table — scannable</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Moderate changeset</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Card List</h3>
+      <p>Replace table with a card-per-transaction layout (like the Review page). More space for each entry, easier to read on mobile. Merchant prominent, amount large.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Matches review page style</li><li>More breathing room per entry</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Much less dense — harder to scan 100s of transactions</li><li>Big departure from current layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>

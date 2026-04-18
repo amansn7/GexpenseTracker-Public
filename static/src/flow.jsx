@@ -1,0 +1,237 @@
+// Money Flow view — Sankey + weekly timeline
+
+const flowStyles = {
+  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100vh - 72px)" },
+  kpis: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 28 },
+  kpi: { padding: "18px 20px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, minWidth: 0, overflow: "hidden" },
+  kpiLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 },
+  kpiValue: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 6, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  kpiSub: { fontSize: 12, color: "var(--ink-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 },
+  sectionTitle: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 28, marginBottom: 18 },
+  h2: { fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: 24, letterSpacing: "-0.015em", margin: 0 },
+  h2sub: { fontSize: 12, color: "var(--ink-3)", fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14 },
+};
+
+const SankeyDiagram = ({ data }) => {
+  const W = 1120, H = 520;
+  const LEFT_X = 30, LEFT_W = 160;
+  const MID_X = 480, MID_W = 180;
+  const RIGHT_X = 910, RIGHT_W = 180;
+  const PAD_Y = 40;
+
+  const totalIncome = data.income.reduce((a,i)=>a+i.amount, 0);
+  const totalExpense = data.expenses.reduce((a,e)=>a+e.amount, 0);
+  const savings = totalIncome - totalExpense;
+  const USABLE_H = H - PAD_Y * 2;
+  const scale = USABLE_H / totalIncome;
+
+  // Layout income nodes (left)
+  let yi = PAD_Y;
+  const incomeNodes = data.income.map(i => {
+    const h = Math.max(6, i.amount * scale);
+    const node = { ...i, y: yi, h };
+    yi += h + 10;
+    return node;
+  });
+
+  // Hub (middle) — represents total money pool
+  const hubH = USABLE_H;
+  const hubY = PAD_Y;
+
+  // Right nodes: expenses + savings, each proportional
+  let yo = PAD_Y;
+  const rightNodes = [
+    ...data.expenses.map(e => {
+      const h = Math.max(6, e.amount * scale);
+      const node = { ...e, y: yo, h, kind: "exp" };
+      yo += h + 10;
+      return node;
+    }),
+    (() => {
+      const h = Math.max(6, savings * scale);
+      const node = { label: "Remaining", amount: savings, y: yo, h, kind: "sav" };
+      yo += h + 10;
+      return node;
+    })(),
+  ];
+
+  // Track offset into hub for incoming / outgoing
+  let hubInOff = 0, hubOutOff = 0;
+
+  const buildPath = (x1, y1, h1, x2, y2, h2) => {
+    const cx1 = x1 + (x2 - x1) * 0.5;
+    const cx2 = x1 + (x2 - x1) * 0.5;
+    return `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2} L${x2},${y2+h2} C${cx2},${y2+h2} ${cx1},${y1+h1} ${x1},${y1+h1} Z`;
+  };
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "20px 16px" }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560 }}>
+        <defs>
+          <pattern id="diag" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="4" stroke="var(--line)" strokeWidth="1"/>
+          </pattern>
+        </defs>
+
+        {/* Hub */}
+        <rect x={MID_X} y={hubY} width={MID_W} height={hubH} fill="var(--paper-2)" stroke="var(--line)" rx="4"/>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 - 8} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="13" fill="var(--ink-3)" letterSpacing="0.08em">TOTAL INFLOW</text>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 + 18} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="28" fill="var(--ink)">₹{(totalIncome/1000).toFixed(0)}K</text>
+
+        {/* Income → Hub flows */}
+        {incomeNodes.map((n, idx) => {
+          const p = buildPath(LEFT_X + LEFT_W, n.y, n.h, MID_X, hubY + hubInOff, n.h);
+          hubInOff += n.h + 10 * (n.h / n.h);
+          return (
+            <g key={`in-${idx}`}>
+              <path d={p} fill="var(--pos)" fillOpacity="0.18" stroke="none">
+                <animate attributeName="fill-opacity" from="0" to="0.18" dur="600ms" fill="freeze"/>
+              </path>
+            </g>
+          );
+        })}
+
+        {/* Income nodes */}
+        {incomeNodes.map((n, idx) => (
+          <g key={`ni-${idx}`}>
+            <rect x={LEFT_X} y={n.y} width={LEFT_W} height={n.h} fill="var(--pos)" fillOpacity="0.88" rx="3"/>
+            <text x={LEFT_X + 10} y={n.y + n.h/2 - 2} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">{n.label.split(" · ")[0]}</text>
+            <text x={LEFT_X + 10} y={n.y + n.h/2 + 14} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">₹{n.amount.toLocaleString("en-IN")}</text>
+          </g>
+        ))}
+
+        {/* Hub → Right flows */}
+        {(() => {
+          let off = 0;
+          return rightNodes.map((n, idx) => {
+            const color = n.kind === "sav" ? "var(--pos)" : `var(${"--cat-"+n.cat})`;
+            const strokeColor = n.kind === "sav" ? "var(--pos)" : `var(${"--cat-"+n.cat+"-ink"})`;
+            const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
+            off += n.h + 10 * (n.h / n.h);
+            return (
+              <path key={`out-${idx}`} d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
+                onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
+                onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
+              />
+            );
+          });
+        })()}
+
+        {/* Right nodes */}
+        {rightNodes.map((n, idx) => {
+          const isSav = n.kind === "sav";
+          const catInfo = !isSav ? CATEGORIES[n.cat] : null;
+          const fill = isSav ? "var(--pos)" : catInfo.ink;
+          return (
+            <g key={`nr-${idx}`}>
+              <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"/>
+              <text x={RIGHT_X + 12} y={n.y + Math.min(16, n.h/2 + 4)} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">
+                {isSav ? "Remaining" : catInfo.label}
+              </text>
+              {n.h > 26 && (
+                <text x={RIGHT_X + 12} y={n.y + n.h/2 + 16} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">
+                  ₹{n.amount.toLocaleString("en-IN")}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* column labels */}
+        <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">INCOME SOURCES</text>
+        <text x={MID_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">POOL</text>
+        <text x={RIGHT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">WHERE IT WENT</text>
+      </svg>
+    </div>
+  );
+};
+
+const WeeklyBurn = ({ data }) => {
+  const max = Math.max(...data.weeklyBurn.map(w => w.spent));
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "24px 28px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, alignItems: "end", height: 200, borderBottom: "1px solid var(--line)", paddingBottom: 12, position: "relative" }}>
+        {data.weeklyBurn.map((w, idx) => {
+          const pct = max > 0 ? (w.spent / max) * 100 : 0;
+          return (
+            <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", borderLeft: idx === 0 ? "none" : "1px dashed var(--line)", height: "100%", padding: "0 20px", position: "relative" }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
+                ₹{w.spent.toLocaleString("en-IN")}
+              </div>
+              <div style={{ width: "100%", maxWidth: 120, background: w.projected ? "url(#diag) var(--paper-2)" : "var(--accent)", opacity: w.projected ? 0.4 : 0.85, height: `${Math.max(pct, 2)}%`, borderRadius: "3px 3px 0 0", border: w.projected ? "1px dashed var(--ink-4)" : "none", transition: "height 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", marginTop: 10 }}>
+        {data.weeklyBurn.map((w, idx) => (
+          <div key={idx} style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", padding: "0 10px" }}>
+            <div style={{ fontWeight: 500, color: w.projected ? "var(--ink-4)" : "var(--ink-2)" }}>{w.week}</div>
+            {w.projected && <div style={{ fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 12, color: "var(--ink-4)" }}>projected</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
+
+const FlowView = ({ flow, transactions }) => {
+  const totalIncome = flow.income.reduce((a,i)=>a+i.amount, 0);
+  const totalExpense = flow.expenses.reduce((a,e)=>a+e.amount, 0);
+  const savingsRate = ((totalIncome - totalExpense)/totalIncome * 100).toFixed(1);
+  const daily = Math.round(totalExpense / new Date().getDate());
+
+  return (
+    <div style={flowStyles.wrap}>
+      <div style={flowStyles.kpis}>
+        <div style={flowStyles.kpi}>
+          <div style={flowStyles.kpiLabel}>Income</div>
+          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
+          <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> 2 sources</div>
+        </div>
+        <div style={flowStyles.kpi}>
+          <div style={flowStyles.kpiLabel}>Spent</div>
+          <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
+          <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> 48% of income</div>
+        </div>
+        <div style={flowStyles.kpi}>
+          <div style={flowStyles.kpiLabel}>Remaining</div>
+          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${flow.savings.toLocaleString("en-IN")}`}>{fmtK(flow.savings)}</div>
+          <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
+        </div>
+        <div style={flowStyles.kpi}>
+          <div style={flowStyles.kpiLabel}>Daily burn</div>
+          <div style={flowStyles.kpiValue}>₹{daily.toLocaleString("en-IN")}</div>
+          <div style={flowStyles.kpiSub}>over 18 days</div>
+        </div>
+      </div>
+
+      <div style={flowStyles.sectionTitle}>
+        <div>
+          <h2 style={flowStyles.h2}>How your money moved this month</h2>
+          <div style={flowStyles.h2sub}>— traced from {transactions.length} parsed emails</div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["Month","Quarter","Year"].map((t,i)=>(
+            <button key={t} style={{ padding: "6px 12px", borderRadius: 20, border: "1px solid var(--line)", background: i===0 ? "var(--ink)" : "var(--card)", color: i===0 ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 500 }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      <SankeyDiagram data={flow}/>
+
+      <div style={flowStyles.sectionTitle}>
+        <div>
+          <h2 style={flowStyles.h2}>Weekly burn</h2>
+          <div style={flowStyles.h2sub}>— when the money actually leaves</div>
+        </div>
+      </div>
+
+      <WeeklyBurn data={flow}/>
+    </div>
+  );
+};
+
+Object.assign(window, { FlowView });

@@ -157,9 +157,3 @@ async def llm_status():
             "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,
         },
     }
-
-
-@router.get("/ml/status")
-async def ml_status():
-    from app.classifier.feature_classifier import get_model_status
-    return get_model_status()
