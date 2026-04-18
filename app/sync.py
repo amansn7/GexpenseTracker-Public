@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
-from app.models import Email, Transaction, SyncState, SenderRule, Label
+from app.models import Email, Transaction, SyncState, Label
 from app.gmail.client import fetch_new_messages
 from app.classifier.classifier import classify_email, ClassificationResult
 
@@ -60,12 +60,11 @@ def _add_preview(msg: dict, label: str, category: Optional[str], amount: Optiona
     _sync_progress["tally"][label] = _sync_progress["tally"].get(label, 0) + 1
 
 
-async def _load_db_rules(session: AsyncSession) -> dict:
-    result = await session.execute(select(SenderRule))
-    return {r.sender_domain: (Label(r.label), r.category) for r in result.scalars().all()}
-
 
 async def run_sync() -> dict:
+    if _sync_progress.get("running"):
+        logger.warning("Sync already in progress, skipping duplicate trigger")
+        return {"error": "sync_already_running", "processed": 0}
     _reset_progress()
     logger.info("Gmail sync starting")
     try:
@@ -101,15 +100,18 @@ async def _run_sync_inner() -> dict:
         # ── Phase 2: deduplicate + insert Email rows ───────────────────────────
         _sync_progress.update({"phase": "classifying", "total": total, "current": 0})
 
-        db_rules = await _load_db_rules(session)
         new_pairs: List[Tuple[Email, dict]] = []  # (email_orm, raw_msg)
         skipped = 0
 
+        # Batch dedup: one query instead of N individual SELECTs
+        incoming_ids = [m["gmail_id"] for m in messages]
+        existing_result = await session.execute(
+            select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
+        )
+        already_stored = {row[0] for row in existing_result.all()}
+
         for msg in messages:
-            existing = await session.execute(
-                select(Email).where(Email.gmail_id == msg["gmail_id"])
-            )
-            if existing.scalar_one_or_none():
+            if msg["gmail_id"] in already_stored:
                 skipped += 1
                 continue
             email = Email(**msg)
@@ -126,11 +128,12 @@ async def _run_sync_inner() -> dict:
             nonlocal done_counter
             async with sem:
                 result = await classify_email(
+                    email_id=email.id,
                     sender=msg["sender"],
                     sender_domain=msg["sender_domain"],
                     subject=msg["subject"] or "",
-                    body_snippet=msg["body_snippet"] or "",
-                    db_rules=db_rules,
+                    body_text=msg.get("body_text") or msg.get("body_snippet") or "",
+                    session=session,
                 )
             done_counter += 1
             _sync_progress["current"] = skipped + done_counter
