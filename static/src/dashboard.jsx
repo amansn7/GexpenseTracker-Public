@@ -67,12 +67,11 @@ const DashboardView = ({ transactions }) => {
   }
   const cumulative = [];
   let running = 0;
-  const todayStr2 = new Date().toISOString().slice(0, 10);
   for (const dateStr of chartDates) {
     const dayExp = rangeTxs.filter(t=>t.date===dateStr && t.amount<0).reduce((a,t)=>a+Math.abs(t.amount),0);
     const dayInc = rangeTxs.filter(t=>t.date===dateStr && t.amount>0).reduce((a,t)=>a+t.amount,0);
     running += dayInc - dayExp;
-    cumulative.push({ d: dateStr, val: running, isPast: dateStr <= todayStr2 });
+    cumulative.push({ d: dateStr, val: running, isPast: dateStr <= todayStr });
   }
 
   const catSorted = (catBreakdown?.categories || []).map(c => ({
@@ -158,7 +157,7 @@ const DashboardView = ({ transactions }) => {
               const pathPast = pastPts.map((c,i) => `${i===0?"M":"L"}${toX(c.idx)},${toY(c.val)}`).join(" ");
               const areaPast = pastPts.length ? pathPast + ` L${toX(pastPts[pastPts.length-1].idx)},170 L${toX(pastPts[0].idx)},170 Z` : "";
               const pathFut  = pastPts.length && futPts.length ? `M${toX(pastPts[pastPts.length-1].idx)},${toY(pastPts[pastPts.length-1].val)} ` + futPts.map(c=>`L${toX(c.idx)},${toY(c.val)}`).join(" ") : "";
-              const todayIdx = indexedCumulative.findIndex(c => c.d === todayStr2);
+              const todayIdx = indexedCumulative.findIndex(c => c.d === todayStr);
               const todayPt  = todayIdx >= 0 ? indexedCumulative[todayIdx] : null;
               return (
                 <>
