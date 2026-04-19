@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -90,10 +89,12 @@ async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depe
     if body.action not in ("confirmed", "dismissed"):
         raise HTTPException(status_code=422, detail="action must be 'confirmed' or 'dismissed'")
     pair, primary_tx, primary_email, dup_tx, dup_email = await _load_pair_with_txs(pair_id, db)
+    if body.primary_tx_id not in (pair.primary_tx_id, pair.duplicate_tx_id):
+        raise HTTPException(status_code=422, detail="primary_tx_id must be one of the pair's transaction IDs")
     if pair.status not in ("pending",):
         raise HTTPException(status_code=409, detail=f"Pair already resolved: {pair.status}")
     pair.primary_tx_id = body.primary_tx_id
-    await resolve_duplicate(pair, body.action, body.primary_tx_id, db)
+    await resolve_duplicate(pair, body.action, db)
     await db.commit()
     await db.refresh(pair)
     return {"id": pair.id, "status": pair.status}

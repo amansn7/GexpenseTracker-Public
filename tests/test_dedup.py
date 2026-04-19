@@ -62,3 +62,51 @@ async def test_detect_called_after_classification():
         await dedup_service.detect_and_record_duplicates(tx, email, db)
         # Since we patched it, just verify the mock was set up correctly
         mock_dedup.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_duplicates_api_list():
+    """GET /api/duplicates returns list (may be empty)."""
+    from httpx import AsyncClient, ASGITransport
+    import os
+    os.environ["TESTING"] = "1"
+    from app.main import app
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r = await client.get("/api/duplicates")
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+
+
+@pytest.mark.asyncio
+async def test_duplicates_api_resolve_validation():
+    """PATCH /api/duplicates/{id} validates action field and returns 404 for missing pairs."""
+    from httpx import AsyncClient, ASGITransport
+    from unittest.mock import AsyncMock, MagicMock
+    from sqlalchemy.ext.asyncio import AsyncSession
+    import os
+    os.environ["TESTING"] = "1"
+    from app.main import app
+    from app.database import get_db
+
+    # Provide a mock DB session so tests never touch Postgres
+    async def override_get_db():
+        db = AsyncMock(spec=AsyncSession)
+        # scalar_one_or_none returns None → triggers 404 for pair not found
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # invalid action → 422 (caught before DB)
+            r = await client.patch("/api/duplicates/nonexistent-id", json={"action": "invalid", "primary_tx_id": "x"})
+            assert r.status_code == 422
+
+            # valid action, nonexistent pair → 404
+            r = await client.patch("/api/duplicates/00000000-0000-0000-0000-000000000000", json={"action": "confirmed", "primary_tx_id": "x"})
+            assert r.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_db, None)
