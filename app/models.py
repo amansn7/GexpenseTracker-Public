@@ -160,3 +160,33 @@ class ClassificationLog(Base):
     llm_txn_date: Mapped[Optional[date]] = mapped_column(Date)
     raw_response: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class DomainPairRule(Base):
+    __tablename__ = "domain_pair_rules"
+
+    id: Mapped[str] = _uuid_col()
+    domain_a: Mapped[str] = mapped_column(String(255), nullable=False)
+    domain_b: Mapped[str] = mapped_column(String(255), nullable=False)
+    confirmed_count: Mapped[int] = mapped_column(Integer, default=0)
+    dismissed_count: Mapped[int] = mapped_column(Integer, default=0)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    auto_resolve: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        sa.UniqueConstraint("domain_a", "domain_b", name="uq_domain_pair"),
+    )
+
+
+class DuplicatePair(Base):
+    __tablename__ = "duplicate_pairs"
+
+    id: Mapped[str] = _uuid_col()
+    primary_tx_id: Mapped[str] = mapped_column(String(36), ForeignKey("transactions.id"), nullable=False)
+    duplicate_tx_id: Mapped[str] = mapped_column(String(36), ForeignKey("transactions.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    rule_source: Mapped[str] = mapped_column(String(20), nullable=False, default="amount_date")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
