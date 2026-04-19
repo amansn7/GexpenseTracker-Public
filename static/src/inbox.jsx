@@ -34,7 +34,9 @@ const inboxStyles = {
   time: { fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
 
   /* Detail panel */
-  panel: { overflowY: "auto", padding: "28px 28px 120px", background: "var(--card)", borderLeft: "1px solid var(--line)" },
+  panel: { overflowY: "auto", padding: "28px 28px 0", background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" },
+  panelBody: { flex: 1, paddingBottom: 16 },
+  panelFooter: { position: "sticky", bottom: 0, background: "var(--card)", borderTop: "1px solid var(--line)", padding: "12px 0 16px", marginTop: "auto" },
   panelHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 },
   bigAmount: { fontFamily: "'Fraunces', serif", fontSize: 54, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1, margin: "8px 0 4px" },
   panelSection: { padding: "16px 0", borderBottom: "1px dashed var(--line)" },
@@ -103,19 +105,31 @@ const Confidence = ({ value }) => {
   );
 };
 
-const Row = ({ tx, selected, onSelect, onEditCat }) => {
+const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) => {
   const tag = TAGS[tx.tag];
   const isIncome = tx.amount > 0;
   return (
     <div
-      onClick={onSelect}
+      onClick={onRowClick}
       style={{ ...inboxStyles.row, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = !tx.read ? "var(--card)" : "transparent"; }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {!tx.read && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
-        {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
+        {selectMode ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={e => { e.stopPropagation(); onCheckbox(); }}
+            onClick={e => e.stopPropagation()}
+            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }}
+          />
+        ) : (
+          <>
+            {!tx.read && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
+            {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
+          </>
+        )}
       </div>
       <div style={{ display: "flex", alignItems: "center" }}>
         <span style={{ ...inboxStyles.tagDot, background: tag.dot }}/>
@@ -160,6 +174,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const [editingAmt, setEditingAmt] = React.useState(false);
   const [amtDraft, setAmtDraft] = React.useState(Math.abs(tx.amount));
   const [note, setNote] = React.useState(tx.note || "");
+  const [reclass, setReclass] = React.useState("idle"); // idle | previewing | preview | saving | done | error
+  const [reclassResult, setReclassResult] = React.useState(null);
   const isIncome = tx.amount > 0;
   const sign = isIncome ? "+" : "−";
 
@@ -167,7 +183,43 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setAmtDraft(Math.abs(tx.amount));
     setNote(tx.note || "");
     setEditingAmt(false);
+    setReclass("idle");
+    setReclassResult(null);
   }, [tx.id]);
+
+  const handlePreview = async () => {
+    setReclass("previewing");
+    try {
+      const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview`);
+      setReclassResult(result);
+      setReclass("preview");
+    } catch (e) {
+      setReclass("error");
+    }
+  };
+
+  const handleConfirm = async () => {
+    setReclass("saving");
+    try {
+      const result = await API.post(`/api/transactions/${tx.id}/reclassify`);
+      setReclassResult(result);
+      setReclass("done");
+      // Map API _fmt response → UI tx fields via normCat, then update parent (no extra PATCH)
+      const isIncome = result.label === "income";
+      const cat = normCat(result.category, isIncome);
+      const isSub = cat === "sub";
+      onUpdate({
+        _skipApi: true,
+        amount:   isIncome ? (result.amount || 0) : -(result.amount || 0),
+        cat,
+        tag:      isIncome ? "income" : isSub ? "subscription" : "expense",
+        conf:     result.confidence ?? tx.conf,
+        merchant: result.merchant || tx.merchant,
+      });
+    } catch (e) {
+      setReclass("error");
+    }
+  };
 
   const saveAmt = () => {
     const n = parseFloat(amtDraft) || 0;
@@ -177,6 +229,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
   return (
     <aside style={inboxStyles.panel} className="slide-in" key={tx.id}>
+      <div style={inboxStyles.panelBody}>
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <MerchantLogo merchant={tx.merchant} size={36}/>
@@ -277,14 +330,70 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-        <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-          <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
-          {tx.flag ? "Flagged" : "Flag"}
-        </button>
-        <button className="focus-ring" style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500 }}>
-          Split transaction
-        </button>
+      </div>{/* end panelBody */}
+
+      <div style={inboxStyles.panelFooter}>
+        {reclass === "preview" && reclassResult && (
+          <div className="fade-in" style={{ marginBottom: 10, padding: 14, background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", fontSize: 12 }}>
+            <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="sparkle" size={13} stroke="var(--accent)"/> AI found — does this look right?
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
+              {[
+                ["Label",    reclassResult.label || "—"],
+                ["Amount",   reclassResult.amount != null ? `₹${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "—"],
+                ["Merchant", reclassResult.merchant || "—"],
+                ["Category", reclassResult.category || "—"],
+                ["Confidence", `${Math.round((reclassResult.confidence ?? 0) * 100)}%`],
+                ["Date",     reclassResult.txn_date || "—"],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{k}</div>
+                  <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "8px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Discard</button>
+              <button onClick={handleConfirm} style={{ flex: 2, padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Save to DB</button>
+            </div>
+          </div>
+        )}
+
+        {reclass === "saving" && (
+          <div style={{ marginBottom: 10, padding: 10, background: "var(--paper-2)", borderRadius: 8, fontSize: 12, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", flexShrink: 0 }}/>
+            Saving…
+          </div>
+        )}
+
+        {reclass === "done" && reclassResult && (
+          <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--pos-soft)", borderRadius: 8, border: "1px solid var(--pos)", fontSize: 12, color: "var(--pos)", display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="check" size={14} stroke="var(--pos)"/>
+            Saved · {reclassResult.label} · {reclassResult.amount != null ? `₹${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "no amount"} · {Math.round((reclassResult.confidence ?? 0) * 100)}% confidence
+          </div>
+        )}
+
+        {reclass === "error" && (
+          <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--neg-soft)", borderRadius: 8, border: "1px solid var(--neg)", fontSize: 12, color: "var(--neg)", display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="x" size={14} stroke="var(--neg)"/> Re-classification failed — check server logs
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
+            {tx.flag ? "Flagged" : "Flag"}
+          </button>
+          <button
+            className="focus-ring"
+            onClick={()=>{ if(reclass==="idle"||reclass==="done"||reclass==="error") handlePreview(); }}
+            disabled={reclass==="previewing"||reclass==="saving"||reclass==="preview"}
+            style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "var(--paper)", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
+            <Icon name="sparkle" size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
+            {reclass === "previewing" ? "Classifying…" : "Re-classify"}
+          </button>
+        </div>
       </div>
     </aside>
   );
@@ -292,6 +401,79 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {} }) => {
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
+  const [selectedIds, setSelectedIds] = React.useState(new Set());
+  const [selectMode, setSelectMode] = React.useState(false);
+  const [bulkReclassState, setBulkReclassState] = React.useState("idle"); // idle | running | done
+  const [bulkProgress, setBulkProgress] = React.useState({ done: 0, total: 0 });
+  const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
+  const [bulkManualCat, setBulkManualCat] = React.useState("other");
+  const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
+
+  React.useEffect(() => {
+    if (!selectMode) return;
+    const onKey = (e) => { if (e.key === "Escape") { setSelectMode(false); setSelectedIds(new Set()); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectMode]);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
+  const clearSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
+
+  const bulkPatch = async (patch) => {
+    await Promise.all([...selectedIds].map(id =>
+      API.patch(`/api/transactions/${id}`, patch).catch(() => {})
+    ));
+    setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...patch } : t));
+    clearSelect();
+  };
+
+  const bulkMarkRead = () => bulkPatch({ status: "confirmed" });
+  const bulkMarkUnread = () => bulkPatch({ status: "auto" });
+
+  const bulkReclassify = async () => {
+    const ids = [...selectedIds];
+    setBulkReclassState("running");
+    setBulkProgress({ done: 0, total: ids.length });
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        const result = await API.post(`/api/transactions/${ids[i]}/reclassify`);
+        const isIncome = result.label === "income";
+        const cat = normCat(result.category, isIncome);
+        setTransactions(ts => ts.map(t => t.id === ids[i] ? {
+          ...t,
+          cat,
+          tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+          conf: result.confidence ?? t.conf,
+          merchant: result.merchant || t.merchant,
+        } : t));
+      } catch (_) {}
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    setBulkReclassState("done");
+    setTimeout(() => { setBulkReclassState("idle"); clearSelect(); }, 1500);
+  };
+
+  const bulkManualApply = async () => {
+    const apiPatch = { label: bulkManualLabel, category: bulkManualCat };
+    await Promise.all([...selectedIds].map(id =>
+      API.patch(`/api/transactions/${id}`, apiPatch).catch(() => {})
+    ));
+    setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? {
+      ...t,
+      cat: normCat(bulkManualCat, bulkManualLabel === "income"),
+      tag: bulkManualLabel === "income" ? "income" : bulkManualCat === "sub" ? "subscription" : "expense",
+    } : t));
+    setBulkManualOpen(false);
+    clearSelect();
+  };
 
   const filtered = transactions.filter(t => {
     if (filter === "all") return true;
@@ -311,6 +493,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (patch._openPicker) { setPickerFor(id); return; }
     // Optimistic local update
     setTransactions(ts => ts.map(t => t.id === id ? { ...t, ...patch } : t));
+    if (patch._skipApi) return;
     // Persist to DB
     const apiPatch = {};
     if (patch.cat    !== undefined) apiPatch.category   = patch.cat;
@@ -326,20 +509,38 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       <div style={selected ? inboxStyles.wrap : inboxStyles.wrapNoPanel}>
         <div style={inboxStyles.list}>
           <div style={inboxStyles.toolbar}>
-            {[
-              ["all","All", transactions.length],
-              ["expenses","Expenses"],
-              ["income","Income"],
-              ["sub","Subscriptions"],
-              ["flagged","Flagged"],
-              ["low","Needs review"],
-            ].map(([k,label,count]) => (
-              <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
-                {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
-              </button>
-            ))}
-            <div style={{ flex: 1 }}/>
-            <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions · {new Date().toLocaleString("en-US",{month:"long",year:"numeric"})}</span>
+            {selectMode ? (
+              <>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onChange={e => e.target.checked ? selectAll() : setSelectedIds(new Set())}
+                  style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }}
+                />
+                <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>
+                  {selectedIds.size} selected
+                </span>
+                <div style={{ flex: 1 }}/>
+                <button onClick={clearSelect} style={{ ...inboxStyles.chip, color: "var(--ink-3)" }}>✕ Clear</button>
+              </>
+            ) : (
+              <>
+                {[
+                  ["all","All", transactions.length],
+                  ["expenses","Expenses"],
+                  ["income","Income"],
+                  ["sub","Subscriptions"],
+                  ["flagged","Flagged"],
+                  ["low","Needs review"],
+                ].map(([k,label,count]) => (
+                  <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
+                    {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
+                  </button>
+                ))}
+                <div style={{ flex: 1 }}/>
+                <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions · {new Date().toLocaleString("en-US",{month:"long",year:"numeric"})}</span>
+              </>
+            )}
           </div>
 
           {grouped.map(([date, txs]) => {
@@ -356,8 +557,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <Row
                     key={tx.id}
                     tx={tx}
-                    selected={selectedId===tx.id}
-                    onSelect={()=>{ setSelectedId(tx.id); updateTx(tx.id, { read: true }); }}
+                    selected={selectMode ? selectedIds.has(tx.id) : selectedId===tx.id}
+                    selectMode={selectMode}
+                    onRowClick={()=>{
+                      if (selectMode) { toggleSelect(tx.id); }
+                      else { setSelectedId(tx.id); updateTx(tx.id, { read: true }); }
+                    }}
+                    onCheckbox={()=>{ if (!selectMode) { setSelectMode(true); } toggleSelect(tx.id); }}
                     onEditCat={()=>setPickerFor(tx.id)}
                   />
                 ))}
@@ -368,6 +574,47 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
         {selected && <DetailPanel tx={selected} onClose={()=>setSelectedId(null)} onUpdate={(p)=>updateTx(selected.id, p)} />}
       </div>
+
+      {selectedIds.size > 0 && (
+        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)", zIndex: 50, fontSize: 13, fontWeight: 500 }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectedIds.size} selected</span>
+          <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
+          <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
+          <button onClick={bulkReclassify} disabled={bulkReclassState==="running"} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassState==="running"?"default":"pointer", fontWeight: 500 }}>
+            {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? "Done ✓" : "Re-classify (LLM)"}
+          </button>
+          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Re-classify (Manual)</button>
+          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+      )}
+
+      {bulkManualOpen && (
+        <div onClick={()=>setBulkManualOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.2)" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: 340, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Re-classify {selectedIds.size} transactions</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
+              <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+                <option value="ignore">Ignore</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Category</div>
+              <select value={bulkManualCat} onChange={e=>setBulkManualCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+                {Object.entries(CATEGORIES).map(([k,c])=>(
+                  <option key={k} value={k}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={()=>setBulkManualOpen(false)} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+              <button onClick={bulkManualApply} style={{ flex: 2, padding: "9px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply to {selectedIds.size}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {pickerFor && (
         <CategoryPicker
