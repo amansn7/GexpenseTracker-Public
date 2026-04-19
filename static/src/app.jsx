@@ -95,21 +95,24 @@ const App = () => {
     setSyncing(true);
     try {
       await API.post("/api/sync/trigger");
-      // Poll sync/status until it ticks forward, then reload
+      // Poll /sync/progress (real-time running flag) until sync completes.
+      // Track whether sync has started so we don't bail on a stale "idle" state.
+      let started = false;
       let attempts = 0;
-      const baseline = syncStatus?.last_synced_at;
       const poll = setInterval(async () => {
         attempts++;
         try {
-          const s = await API.get("/api/sync/status");
-          setSyncStatus(s);
-          if (s.last_synced_at !== baseline || attempts >= 15) {
+          const p = await API.get("/api/sync/progress");
+          if (p.running) started = true;
+          const done = !p.running && (started || p.phase === "error" || p.phase === "done");
+          if (done || attempts >= 180) {  // 180 × 2s = 6-minute ceiling
             clearInterval(poll);
             await loadData();
+            API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
             setSyncing(false);
           }
         } catch (_) {
-          if (attempts >= 15) { clearInterval(poll); setSyncing(false); }
+          if (attempts >= 180) { clearInterval(poll); setSyncing(false); }
         }
       }, 2000);
     } catch (_) {
@@ -143,6 +146,7 @@ const App = () => {
     dashboard: { title: "Dashboard",  sub: "one page, quick read" },
     profile:   { title: "Profile",    sub: "your account" },
     settings:  { title: "Settings",   sub: "preferences & integrations" },
+    admin:     { title: "Admin",      sub: "service testing & diagnostics" },
   };
 
   if (loading) return (
@@ -191,6 +195,7 @@ const App = () => {
         {view === "dashboard" && flowSummary && <DashboardView flow={flowSummary} transactions={transactions}/>}
         {view === "profile"   && <ProfileView transactions={transactions}/>}
         {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing}/>}
+        {view === "admin"     && <AdminView />}
       </main>
 
       {tweaksOn && (

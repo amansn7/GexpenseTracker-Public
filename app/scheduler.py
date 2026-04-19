@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import settings
 
@@ -22,6 +23,7 @@ def setup_scheduler() -> None:
         hours=settings.SYNC_INTERVAL_HOURS,
         id="gmail_sync",
         replace_existing=True,
+        next_run_time=datetime.now(),  # run immediately on startup
     )
     scheduler.start()
     logger.info("Scheduler started. Gmail sync every %dh", settings.SYNC_INTERVAL_HOURS)

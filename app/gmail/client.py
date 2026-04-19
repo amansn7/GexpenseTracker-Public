@@ -131,11 +131,13 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
                 startHistoryId=last_history_id,
                 historyTypes=["messageAdded"],
             ).execute()
+            # History API returns minimal message objects (id + threadId only),
+            # so we can't filter by labelIds here. Collect all ids and filter
+            # after fetching the full message below.
             message_ids = [
                 msg["message"]["id"]
                 for record in history.get("history", [])
                 for msg in record.get("messagesAdded", [])
-                if _passes_filter(msg["message"], email_filter)
             ]
             new_history_id = str(history.get("historyId", last_history_id))
         except HttpError as e:
@@ -162,6 +164,10 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
                 skipped += 1
                 continue
             raise
+
+        if not _passes_filter(msg, email_filter):
+            skipped += 1
+            continue
 
         headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
         sender = headers.get("From", "")

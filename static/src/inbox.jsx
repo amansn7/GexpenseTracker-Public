@@ -59,7 +59,9 @@ const groupByDate = (txs) => {
 };
 
 const dateLabel = (isoDate) => {
+  if (!isoDate) return "Unknown date";
   const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return "Unknown date";
   const today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.floor((today - d)/(24*60*60*1000));
   if (diff === 0) return "Today";
@@ -130,7 +132,7 @@ const Row = ({ tx, selected, onSelect, onEditCat }) => {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
         <span style={inboxStyles.time}>{tx.time}</span>
         <span style={{ ...inboxStyles.amount, ...(isIncome ? inboxStyles.amountPos : inboxStyles.amountNeg) }}>
-          {isIncome ? "+" : "−"}₹{Math.abs(tx.amount).toLocaleString("en-IN")}
+          {tx.amount === 0 ? "—" : `${isIncome ? "+" : "−"}₹${Math.abs(tx.amount).toLocaleString("en-IN")}`}
         </span>
       </div>
     </div>

@@ -58,7 +58,7 @@ const transformTransaction = (t) => {
 
   return {
     id: t.id,
-    date: t.txn_date || "",
+    date: t.txn_date || (t.email?.received_at ? t.email.received_at.slice(0, 10) : ""),
     time: _timeStr(t.email?.received_at),
     merchant: t.merchant || t.email?.sender?.replace(/\s*<.*>/, "").trim() || "Unknown",
     domain: _domainFromSender(t.email?.sender),
