@@ -57,19 +57,29 @@ def _period_start(period: str) -> date:
 # ---------------------------------------------------------------------------
 
 @router.get("/stats/summary")
-async def stats_summary(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    if period not in ("1m", "3m", "6m", "1y"):
-        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+async def stats_summary(
+    period: str = "1m",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
     today = date.today()
-    start = _period_start(period)
-    this_month = today.replace(day=1)
+    if date_from and date_to:
+        start = date_from
+        end = date_to
+    else:
+        if period not in ("1m", "3m", "6m", "1y"):
+            raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+        start = _period_start(period)
+        end = today
+    this_month = end.replace(day=1)
 
     expense_rows = (await db.execute(
         select(Transaction.amount)
         .where(
             Transaction.label == "expense",
             Transaction.txn_date >= start,
-            Transaction.txn_date <= today,
+            Transaction.txn_date <= end,
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
         )
@@ -112,18 +122,28 @@ async def stats_summary(period: str = "1m", db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/stats/category-breakdown")
-async def stats_category_breakdown(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    if period not in ("1m", "3m", "6m", "1y"):
-        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+async def stats_category_breakdown(
+    period: str = "1m",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
     today = date.today()
-    start = _period_start(period)
+    if date_from and date_to:
+        start = date_from
+        end = date_to
+    else:
+        if period not in ("1m", "3m", "6m", "1y"):
+            raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+        start = _period_start(period)
+        end = today
 
     rows = (await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("total"))
         .where(
             Transaction.label == "expense",
             Transaction.txn_date >= start,
-            Transaction.txn_date <= today,
+            Transaction.txn_date <= end,
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
         )
@@ -153,14 +173,19 @@ async def stats_category_breakdown(period: str = "1m", db: AsyncSession = Depend
     return {"categories": categories, "total": round(total, 2)}
 
 
-async def _monthly_data(period: str, db: AsyncSession) -> list:
+async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None) -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
-    start = _period_start(period)
-    this_month = today.replace(day=1)
+    if date_from and date_to:
+        start = date_from
+        end = date_to
+    else:
+        start = _period_start(period)
+        end = today
+    this_month = end.replace(day=1)
 
     months: dict = {}
-    m = start
+    m = start.replace(day=1)
     while m <= this_month:
         key = m.strftime("%Y-%m")
         months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
@@ -171,7 +196,7 @@ async def _monthly_data(period: str, db: AsyncSession) -> list:
         .where(
             Transaction.label == "expense",
             Transaction.txn_date >= start,
-            Transaction.txn_date <= today,
+            Transaction.txn_date <= end,
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
         )
@@ -207,25 +232,40 @@ async def _monthly_data(period: str, db: AsyncSession) -> list:
 
 
 @router.get("/stats/monthly-trend")
-async def stats_monthly_trend(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    if period not in ("1m", "3m", "6m", "1y"):
+async def stats_monthly_trend(
+    period: str = "1m",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
         raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
-    return {"months": await _monthly_data(period, db)}
+    return {"months": await _monthly_data(period, db, date_from, date_to)}
 
 
 @router.get("/stats/top-merchants")
-async def stats_top_merchants(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    if period not in ("1m", "3m", "6m", "1y"):
-        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+async def stats_top_merchants(
+    period: str = "1m",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
     today = date.today()
-    start = _period_start(period)
+    if date_from and date_to:
+        start = date_from
+        end = date_to
+    else:
+        if period not in ("1m", "3m", "6m", "1y"):
+            raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+        start = _period_start(period)
+        end = today
 
     rows = (await db.execute(
         select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
         .where(
             Transaction.label == "expense",
             Transaction.txn_date >= start,
-            Transaction.txn_date <= today,
+            Transaction.txn_date <= end,
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
             Transaction.merchant.isnot(None),
@@ -244,7 +284,12 @@ async def stats_top_merchants(period: str = "1m", db: AsyncSession = Depends(get
 
 
 @router.get("/stats/income-vs-expense")
-async def stats_income_vs_expense(period: str = "1m", db: AsyncSession = Depends(get_db)):
-    if period not in ("1m", "3m", "6m", "1y"):
+async def stats_income_vs_expense(
+    period: str = "1m",
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
         raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
-    return {"months": await _monthly_data(period, db)}
+    return {"months": await _monthly_data(period, db, date_from, date_to)}
