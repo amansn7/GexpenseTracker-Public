@@ -49,3 +49,33 @@ async def test_period_still_works(db_session):
         assert r.status_code == 200
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_monthly_trend_accepts_date_range(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.get("/api/stats/monthly-trend?date_from=2026-01-01&date_to=2026-04-30")
+        assert r.status_code == 200
+        assert "months" in r.json()
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_top_merchants_accepts_date_range(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.get("/api/stats/top-merchants?date_from=2026-01-01&date_to=2026-04-30")
+        assert r.status_code == 200
+        assert "merchants" in r.json()
+    finally:
+        app.dependency_overrides.pop(get_db, None)

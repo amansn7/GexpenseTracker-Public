@@ -63,7 +63,6 @@ async def stats_summary(
     date_to: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
     if date_from and date_to:
         start = date_from
         end = date_to
@@ -71,7 +70,7 @@ async def stats_summary(
         if period not in ("1m", "3m", "6m", "1y"):
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
-        end = today
+        end = date.today()
     this_month = end.replace(day=1)
 
     expense_rows = (await db.execute(
@@ -128,7 +127,6 @@ async def stats_category_breakdown(
     date_to: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
     if date_from and date_to:
         start = date_from
         end = date_to
@@ -136,7 +134,7 @@ async def stats_category_breakdown(
         if period not in ("1m", "3m", "6m", "1y"):
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
-        end = today
+        end = date.today()
 
     rows = (await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("total"))
@@ -250,7 +248,6 @@ async def stats_top_merchants(
     date_to: Optional[date] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
     if date_from and date_to:
         start = date_from
         end = date_to
@@ -258,7 +255,7 @@ async def stats_top_merchants(
         if period not in ("1m", "3m", "6m", "1y"):
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
-        end = today
+        end = date.today()
 
     rows = (await db.execute(
         select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
