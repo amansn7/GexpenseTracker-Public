@@ -399,6 +399,45 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   );
 };
 
+const DuplicatePairCard = ({ pair, onResolve }) => {
+  const [resolving, setResolving] = React.useState(false);
+  const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
+  const TxCard = ({ tx, isPrimary }) => (
+    <div style={{ flex: 1, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: isPrimary ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
+      {isPrimary && <div style={{ fontSize: 10, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Suggested primary</div>}
+      <MerchantLogo merchant={tx.merchant || "?"} size={28}/>
+      <div style={{ fontWeight: 600, fontSize: 13, marginTop: 8 }}>{tx.merchant || "Unknown"}</div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.email?.sender_domain || ""}</div>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 18, marginTop: 8 }}>{fmtAmt(tx.amount)}</div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.txn_date || ""}</div>
+      <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email?.subject || ""}</div>
+      <button
+        onClick={async ()=>{ if(resolving) return; setResolving(true); await onResolve(pair.id, "confirmed", tx.id); setResolving(false); }}
+        disabled={resolving}
+        style={{ marginTop: 12, width: "100%", padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: resolving?"default":"pointer" }}>
+        Keep this
+      </button>
+    </div>
+  );
+  return (
+    <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--line)" }}>
+      <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+        {pair.rule_source === "domain_pair" ? `Known pair · ${Math.round(pair.confidence * 100)}% confidence` : "Possible duplicate · same amount + date"}
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <TxCard tx={pair.primary} isPrimary />
+        <TxCard tx={pair.duplicate} isPrimary={false} />
+      </div>
+      <button
+        onClick={async ()=>{ if(resolving) return; setResolving(true); await onResolve(pair.id, "dismissed", pair.primary.id); setResolving(false); }}
+        disabled={resolving}
+        style={{ marginTop: 10, padding: "6px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 12, cursor: resolving?"default":"pointer" }}>
+        Not a duplicate
+      </button>
+    </div>
+  );
+};
+
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {} }) => {
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
@@ -408,6 +447,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
+  const [dupPairs, setDupPairs] = React.useState([]);
+  const [dupLoading, setDupLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!selectMode) return;
@@ -415,6 +456,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectMode]);
+
+  React.useEffect(() => {
+    if (filter !== "duplicates") return;
+    setDupLoading(true);
+    API.get("/api/duplicates?status=pending")
+      .then(data => { setDupPairs(data); setDupLoading(false); })
+      .catch(() => setDupLoading(false));
+  }, [filter]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
@@ -475,6 +524,15 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     clearSelect();
   };
 
+  const resolveDup = async (pairId, action, primaryTxId) => {
+    try {
+      await API.patch(`/api/duplicates/${pairId}`, { action, primary_tx_id: primaryTxId });
+      setDupPairs(prev => prev.filter(p => p.id !== pairId));
+    } catch (e) {
+      console.error("resolve dup failed", e);
+    }
+  };
+
   const filtered = transactions.filter(t => {
     if (filter === "all") return true;
     if (filter === "expenses") return t.amount < 0 && t.tag !== "subscription";
@@ -532,6 +590,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["sub","Subscriptions"],
                   ["flagged","Flagged"],
                   ["low","Needs review"],
+                  ["duplicates","Duplicates"],
                 ].map(([k,label,count]) => (
                   <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
                     {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
@@ -543,7 +602,17 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             )}
           </div>
 
-          {grouped.map(([date, txs]) => {
+          {filter === "duplicates" ? (
+            dupLoading ? (
+              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>
+            ) : dupPairs.length === 0 ? (
+              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No pending duplicates. 🎉</div>
+            ) : (
+              dupPairs.map(pair => (
+                <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
+              ))
+            )
+          ) : grouped.map(([date, txs]) => {
             const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
             return (
               <div key={date}>
