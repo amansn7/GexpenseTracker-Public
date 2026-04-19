@@ -2,7 +2,7 @@ import uuid
 import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional, Tuple
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Transaction, Email, DuplicatePair, DomainPairRule
 
@@ -60,8 +60,12 @@ async def detect_and_record_duplicates(
         # Avoid creating reverse duplicate of an existing pair
         existing_pair = (await db.execute(
             select(DuplicatePair).where(
-                DuplicatePair.primary_tx_id.in_([tx.id, cand_tx.id]),
-                DuplicatePair.duplicate_tx_id.in_([tx.id, cand_tx.id]),
+                or_(
+                    and_(DuplicatePair.primary_tx_id == tx.id,
+                         DuplicatePair.duplicate_tx_id == cand_tx.id),
+                    and_(DuplicatePair.primary_tx_id == cand_tx.id,
+                         DuplicatePair.duplicate_tx_id == tx.id),
+                )
             )
         )).scalar_one_or_none()
         if existing_pair:
@@ -115,12 +119,12 @@ def _pick_primary(tx1: Transaction, tx2: Transaction) -> str:
 async def resolve_duplicate(
     pair: DuplicatePair,
     action: str,
-    primary_tx_id: str,
     db: AsyncSession,
 ) -> None:
     """
     Apply a user resolution and update the DomainPairRule learning loop.
     action: 'confirmed' | 'dismissed'
+    Caller must set pair.primary_tx_id before calling if user changed the primary.
     """
     pair.status = action
     pair.resolved_at = datetime.now(timezone.utc)
@@ -175,3 +179,5 @@ async def resolve_duplicate(
     rule.confidence = rule.confirmed_count / total if total > 0 else 0.0
     if rule.confidence > _AUTO_RESOLVE_THRESHOLD and rule.confirmed_count >= _AUTO_RESOLVE_MIN_CONFIRMED:
         rule.auto_resolve = True
+    else:
+        rule.auto_resolve = False
