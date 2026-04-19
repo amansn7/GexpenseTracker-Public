@@ -64,7 +64,11 @@ async def classify_email(
     if llm_result:
         raw_merchant = llm_result.merchant
         merchant, _ = normalize_merchant(raw_merchant) if raw_merchant else (None, 0.0)
-        label = Label(llm_result.label)
+        try:
+            label = Label(llm_result.label)
+        except ValueError:
+            logger.warning("LLM returned unknown label %r for email %s, defaulting to ignore", llm_result.label, email_id)
+            label = Label.ignore
         amount = llm_result.amount
         category = llm_result.category
         confidence = llm_result.confidence

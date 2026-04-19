@@ -62,25 +62,6 @@ COMMON INDIAN BANK PATTERNS:
 
 JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
 
-# Extraction-only — label already confirmed by rule engine; LLM just pulls out the numbers.
-_EXTRACT_TEMPLATE = """This email is a confirmed {label} transaction. Extract the financial details precisely.
-
-From: {sender}
-Subject: {subject}
-Body: {body_snippet}
-
-EXTRACTION RULES:
-- amount    : INR number only — strip Rs., ₹, INR, commas. Check subject line first, then body. Required.
-- merchant  : payee / store / service name — NOT the bank. Clean raw codes:
-              "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
-              "NETFLIX.COM" → "Netflix". null if no identifiable payee.
-- category  : one of — Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment,
-              Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other
-- txn_date  : actual payment date (YYYY-MM-DD) from body — NOT the email received date. null if absent.
-- confidence: 0.85–1.0 for clear bank alerts · 0.65–0.85 for ambiguous body
-
-JSON only: {{"label":"{label}","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
-
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
@@ -240,45 +221,6 @@ class MultiLLMClient:
             for p in all_providers
         ]
 
-    async def extract(
-        self, label: str, sender: str, subject: str, body_snippet: str
-    ) -> LLMClassification:
-        """
-        Extraction-only call: we already know the label, just extract
-        amount / merchant / category / txn_date from the email body.
-        """
-        ranked = self._ranked_providers()
-        if not ranked:
-            from app.alerts import add_alert
-            add_alert("error", "All LLM providers unavailable. Cannot extract expense details.", "llm")
-            raise RuntimeError("No LLM providers available")
-
-        prompt = _EXTRACT_TEMPLATE.format(
-            label=label, sender=sender, subject=subject, body_snippet=body_snippet
-        )
-        last_error: Optional[Exception] = None
-        for provider in ranked:
-            try:
-                result = await self._call_provider_raw(provider, prompt)
-                provider.success_count += 1
-                return result
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    provider.mark_rate_limited(retry_after)
-                    last_error = exc
-                    continue
-                provider.fail_count += 1
-                last_error = exc
-                continue
-            except Exception as exc:
-                provider.fail_count += 1
-                logger.error("Provider '%s' extract error: %s", provider.name, exc)
-                last_error = exc
-                continue
-
-        raise last_error or RuntimeError("All LLM providers failed")
-
     async def classify(
         self, sender: str, subject: str, body_snippet: str
     ) -> LLMClassification:
@@ -368,38 +310,6 @@ class MultiLLMClient:
 
         prompt = _USER_TEMPLATE.format(
             sender=sender, subject=subject, body_snippet=body_snippet
-        )
-        last_error: Optional[Exception] = None
-        for provider in ranked:
-            try:
-                result, raw = await self._call_provider_verbose(provider, prompt)
-                provider.success_count += 1
-                return {"result": result, "provider": provider.name, "model": provider.model,
-                        "prompt": prompt, "raw_response": raw}
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
-                    last_error = exc
-                    continue
-                provider.fail_count += 1
-                last_error = exc
-                continue
-            except Exception as exc:
-                provider.fail_count += 1
-                last_error = exc
-                continue
-        raise last_error or RuntimeError("All LLM providers failed")
-
-    async def extract_verbose(
-        self, label: str, sender: str, subject: str, body_snippet: str
-    ) -> dict:
-        """Like extract() but also returns prompt, raw response, and provider name."""
-        ranked = self._ranked_providers()
-        if not ranked:
-            raise RuntimeError("No LLM providers available")
-
-        prompt = _EXTRACT_TEMPLATE.format(
-            label=label, sender=sender, subject=subject, body_snippet=body_snippet
         )
         last_error: Optional[Exception] = None
         for provider in ranked:

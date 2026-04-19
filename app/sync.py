@@ -155,7 +155,7 @@ async def _run_sync_inner() -> dict:
                     label=Label.ignore.value,
                     currency="INR",
                     status="needs_review",
-                    classifier_method="rule",
+                    classifier_method="llm",
                     confidence=0.0,
                 ))
             else:
