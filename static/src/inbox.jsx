@@ -113,7 +113,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
       onClick={onRowClick}
       style={{ ...inboxStyles.row, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = !tx.read ? "var(--card)" : "transparent"; }}
+      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         {selectMode ? (
@@ -435,8 +435,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     clearSelect();
   };
 
-  const bulkMarkRead = () => bulkPatch({ status: "confirmed" });
-  const bulkMarkUnread = () => bulkPatch({ status: "auto" });
+  const bulkMarkRead = () => bulkPatch({ status: "confirmed", read: true });
+  const bulkMarkUnread = () => bulkPatch({ status: "auto", read: false });
 
   const bulkReclassify = async () => {
     const ids = [...selectedIds];
