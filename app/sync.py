@@ -90,7 +90,7 @@ async def _run_sync_inner() -> dict:
                 fetch_new_messages, last_history_id, email_filter
             )
         except Exception as exc:
-            logger.error("Gmail fetch failed: %s", exc)
+            logger.error("Gmail fetch failed: %s", exc, exc_info=True)
             _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
             return {"error": str(exc), "processed": 0}
 
@@ -145,21 +145,25 @@ async def _run_sync_inner() -> dict:
             return_exceptions=True,
         )
 
-        # ── Phase 4: write Transaction rows ───────────────────────────────────
+        # ── Phase 4: write Transaction rows + run dedup detection ─────────────
         processed = 0
+        new_transactions: list = []  # (transaction_orm, email_orm) for dedup pass
         for (email, msg), cls in zip(new_pairs, classifications):
             if isinstance(cls, Exception):
-                logger.error("Classification failed for %s: %s", msg["gmail_id"], cls)
-                session.add(Transaction(
+                logger.error("Classification failed for %s: %s", msg["gmail_id"], cls,
+                             exc_info=(type(cls), cls, cls.__traceback__))
+                t = Transaction(
                     email_id=email.id,
                     label=Label.ignore.value,
                     currency="INR",
                     status="needs_review",
                     classifier_method="llm",
                     confidence=0.0,
-                ))
+                )
+                session.add(t)
+                new_transactions.append((t, email))
             else:
-                session.add(Transaction(
+                t = Transaction(
                     email_id=email.id,
                     label=cls.label.value,
                     amount=cls.amount,
@@ -170,8 +174,24 @@ async def _run_sync_inner() -> dict:
                     confidence=cls.confidence,
                     status=cls.status.value,
                     classifier_method=cls.classifier_method.value,
-                ))
+                )
+                session.add(t)
+                new_transactions.append((t, email))
                 processed += 1
+
+        await session.flush()  # ensure Transaction IDs exist before dedup queries
+
+        # ── Phase 4b: duplicate detection ─────────────────────────────────────
+        from app.dedup.service import detect_and_record_duplicates
+        for t, email in new_transactions:
+            try:
+                await detect_and_record_duplicates(t, email, session)
+            except Exception as exc:
+                logger.error("Dedup detection failed for tx email %s: %s", email.id, exc)
+
+        # ── Phase 4c: persist fuzzy-learned merchant aliases ──────────────────
+        from app.classifier.merchant import learn_pending_aliases
+        await learn_pending_aliases(session)
 
         # ── Phase 5: update SyncState + commit ────────────────────────────────
         if sync_state is None:
