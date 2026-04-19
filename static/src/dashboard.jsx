@@ -15,49 +15,121 @@ const dashStyles = {
   catRow: { display: "grid", gridTemplateColumns: "120px 1fr 90px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px dashed var(--line)", fontSize: 13 },
 };
 
-const DashboardView = ({ flow, transactions }) => {
-  const totalIncome = flow.income.reduce((a,i)=>a+i.amount, 0);
-  const totalExpense = flow.expenses.reduce((a,e)=>a+e.amount, 0);
+const DashboardView = ({ transactions }) => {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = (() => {
+    const d = new Date(); d.setDate(d.getDate() - 29);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
+  const [rangeTo, setRangeTo] = React.useState(todayStr);
+  const [activePreset, setActivePreset] = React.useState("30d");
+  const [stats, setStats] = React.useState(null);
+  const [catBreakdown, setCatBreakdown] = React.useState(null);
+  const [statsLoading, setStatsLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setStatsLoading(true);
+      try {
+        const [s, c] = await Promise.all([
+          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
+          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}`),
+        ]);
+        if (!cancelled) { setStats(s); setCatBreakdown(c); }
+      } catch (_) {}
+      if (!cancelled) setStatsLoading(false);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [rangeFrom, rangeTo]);
+
+  // Filter transactions to selected range for client-side charts
+  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo);
+  const totalIncome = stats?.total_income ?? 0;
+  const totalExpense = stats?.total_expenses ?? 0;
   const remaining = totalIncome - totalExpense;
-  const pctSpent = (totalExpense / totalIncome) * 100;
-  const daily = Math.round(totalExpense / new Date().getDate());
-  const subsTotal = transactions.filter(t=>t.tag==="subscription").reduce((a,t)=>a+Math.abs(t.amount),0);
-  const subsCount = transactions.filter(t=>t.tag==="subscription").length;
+  const pctSpent = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+  const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
+  const daily = Math.round(totalExpense / rangeDays);
+  const subsTotal = rangeTxs.filter(t=>t.tag==="subscription").reduce((a,t)=>a+Math.abs(t.amount),0);
+  const subsCount = rangeTxs.filter(t=>t.tag==="subscription").length;
   const unread = transactions.filter(t=>!t.read).length;
   const flagged = transactions.filter(t=>t.conf<0.7).length;
 
-  // Running balance chart for current month
-  const today = new Date();
-  const todayDay = today.getDate();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-  const daysInMonth = new Date(year, month, 0).getDate();
+  // Chart dates array for the selected range
+  const chartDates = [];
+  const startD = new Date(rangeFrom);
+  const endD = new Date(rangeTo);
+  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+    chartDates.push(d.toISOString().slice(0, 10));
+  }
   const cumulative = [];
   let running = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = `${year}-${String(month).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const dayExp = transactions.filter(t=>t.date===date && t.amount<0).reduce((a,t)=>a+Math.abs(t.amount),0);
-    const dayInc = transactions.filter(t=>t.date===date && t.amount>0).reduce((a,t)=>a+t.amount,0);
+  const todayStr2 = new Date().toISOString().slice(0, 10);
+  for (const dateStr of chartDates) {
+    const dayExp = rangeTxs.filter(t=>t.date===dateStr && t.amount<0).reduce((a,t)=>a+Math.abs(t.amount),0);
+    const dayInc = rangeTxs.filter(t=>t.date===dateStr && t.amount>0).reduce((a,t)=>a+t.amount,0);
     running += dayInc - dayExp;
-    cumulative.push({ d, val: running, isPast: d <= todayDay });
+    cumulative.push({ d: dateStr, val: running, isPast: dateStr <= todayStr2 });
   }
 
-  const catSorted = [...flow.expenses].sort((a,b)=>b.amount-a.amount);
+  const catSorted = (catBreakdown?.categories || []).map(c => ({
+    cat: normCat(c.category, false),
+    amount: c.amount,
+  })).sort((a,b) => b.amount - a.amount);
 
   return (
     <div style={dashStyles.wrap}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{new Date().toLocaleString("en-US",{month:"long",year:"numeric"})} · Snapshot</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{rangeFrom} → {rangeTo} · Snapshot</div>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
             You're <span className="italic-serif" style={{ color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</span> ahead.
           </h2>
         </div>
       </div>
 
+      {/* Date range controls */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+        {[["7d",7],["30d",30],["90d",90],["1y",365]].map(([label, days]) => (
+          <button
+            key={label}
+            onClick={() => {
+              const end = new Date();
+              const start = new Date(); start.setDate(end.getDate() - days + 1);
+              const fmt = d => d.toISOString().slice(0,10);
+              setRangeFrom(fmt(start));
+              setRangeTo(fmt(end));
+              setActivePreset(label);
+            }}
+            style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", background: activePreset===label ? "var(--ink)" : "var(--card)", color: activePreset===label ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+          >{label}</button>
+        ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+          <input
+            type="date"
+            value={rangeFrom}
+            max={rangeTo}
+            onChange={e => { setRangeFrom(e.target.value); setActivePreset(null); }}
+            style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+          />
+          <span style={{ color: "var(--ink-4)", fontSize: 12 }}>→</span>
+          <input
+            type="date"
+            value={rangeTo}
+            min={rangeFrom}
+            onChange={e => { setRangeTo(e.target.value); setActivePreset(null); }}
+            style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+          />
+        </div>
+        {statsLoading && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Loading…</span>}
+      </div>
+
       <div style={dashStyles.hero}>
         <div>
-          <div style={dashStyles.heroLabel}>Net position · this month</div>
+          <div style={dashStyles.heroLabel}>Net position · selected range</div>
           <div style={{ ...dashStyles.heroAmount, color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
           <div style={dashStyles.heroSub}>after ₹{totalExpense.toLocaleString("en-IN")} in expenses · {(100-pctSpent).toFixed(0)}% saved so far</div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
@@ -78,27 +150,34 @@ const DashboardView = ({ flow, transactions }) => {
               const maxV = Math.max(...cumulative.map(c=>c.val));
               const minV = Math.min(0, ...cumulative.map(c=>c.val));
               const range = maxV - minV || 1;
-              const toX = d => ((d-1)/(daysInMonth-1))*400 + 10;
+              const toX = idx => chartDates.length > 1 ? (idx / (chartDates.length - 1)) * 400 + 10 : 210;
               const toY = v => 170 - ((v - minV)/range)*150;
-              const pastPts = cumulative.filter(c=>c.isPast);
-              const futPts = cumulative.filter(c=>!c.isPast);
-              const pathPast = pastPts.map((c,i)=>`${i===0?"M":"L"}${toX(c.d)},${toY(c.val)}`).join(" ");
-              const areaPast = pastPts.length ? pathPast + ` L${toX(pastPts[pastPts.length-1].d)},170 L${toX(pastPts[0].d)},170 Z` : "";
-              const pathFut = pastPts.length && futPts.length ? `M${toX(pastPts[pastPts.length-1].d)},${toY(pastPts[pastPts.length-1].val)} ` + futPts.map(c=>`L${toX(c.d)},${toY(c.val)}`).join(" ") : "";
+              const indexedCumulative = cumulative.map((c, i) => ({ ...c, idx: i }));
+              const pastPts = indexedCumulative.filter(c => c.isPast);
+              const futPts  = indexedCumulative.filter(c => !c.isPast);
+              const pathPast = pastPts.map((c,i) => `${i===0?"M":"L"}${toX(c.idx)},${toY(c.val)}`).join(" ");
+              const areaPast = pastPts.length ? pathPast + ` L${toX(pastPts[pastPts.length-1].idx)},170 L${toX(pastPts[0].idx)},170 Z` : "";
+              const pathFut  = pastPts.length && futPts.length ? `M${toX(pastPts[pastPts.length-1].idx)},${toY(pastPts[pastPts.length-1].val)} ` + futPts.map(c=>`L${toX(c.idx)},${toY(c.val)}`).join(" ") : "";
+              const todayIdx = indexedCumulative.findIndex(c => c.d === todayStr2);
+              const todayPt  = todayIdx >= 0 ? indexedCumulative[todayIdx] : null;
               return (
                 <>
                   <line x1="10" y1={toY(0)} x2="410" y2={toY(0)} stroke="var(--line)" strokeDasharray="2 3"/>
                   <path d={areaPast} fill="var(--pos)" fillOpacity="0.12"/>
                   <path d={pathPast} fill="none" stroke="var(--pos)" strokeWidth="2" strokeLinecap="round"/>
                   <path d={pathFut} fill="none" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>
-                  <circle cx={toX(todayDay)} cy={toY(cumulative[todayDay-1].val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
-                  <text x={toX(todayDay)} y={toY(cumulative[todayDay-1].val)-10} fontSize="10" fill="var(--ink-2)" textAnchor="middle" fontFamily="'Geist Mono', monospace">Today</text>
+                  {todayPt && (
+                    <>
+                      <circle cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
+                      <text x={toX(todayPt.idx)} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor="middle" fontFamily="'Geist Mono', monospace">Today</text>
+                    </>
+                  )}
                 </>
               );
             })()}
           </svg>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginTop: -6, paddingLeft: 10, paddingRight: 10 }}>
-            <span>{new Date().toLocaleString("en-US",{month:"short"})} 1</span><span>{new Date().toLocaleString("en-US",{month:"short"})} {Math.floor(daysInMonth/2)}</span><span>{new Date().toLocaleString("en-US",{month:"short"})} {daysInMonth}</span>
+            <span>{rangeFrom}</span><span>{rangeTo}</span>
           </div>
         </div>
       </div>
@@ -159,10 +238,11 @@ const DashboardView = ({ flow, transactions }) => {
           </div>
           {(() => {
             const m = {};
-            for (const t of transactions) {
+            for (const t of rangeTxs) {
               if (t.amount < 0) m[t.merchant] = (m[t.merchant]||0) + Math.abs(t.amount);
             }
             const top = Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0, 6);
+            if (!top.length) return <div style={{ fontSize: 12, color: "var(--ink-4)", paddingTop: 12 }}>No data for range</div>;
             const maxAmt = top[0][1];
             return top.map(([name, amt]) => (
               <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px dashed var(--line)" }}>

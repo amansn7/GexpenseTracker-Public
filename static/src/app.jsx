@@ -192,7 +192,7 @@ const App = () => {
           />
         )}
         {view === "flow"      && flowSummary && <FlowView flow={flowSummary} transactions={transactions}/>}
-        {view === "dashboard" && flowSummary && <DashboardView flow={flowSummary} transactions={transactions}/>}
+        {view === "dashboard" && <DashboardView transactions={transactions}/>}
         {view === "profile"   && <ProfileView transactions={transactions}/>}
         {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing}/>}
         {view === "admin"     && <AdminView />}
