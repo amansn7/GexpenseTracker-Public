@@ -64,6 +64,9 @@ const Sidebar = ({ view, setView, counts, filter, onFilter }) => {
       </button>
     ))}
 
+    <div style={shellStyles.sectionLabel}>Tools</div>
+    <NavItem icon="gear" label="Admin" active={view==="admin"} onClick={()=>setView("admin")} />
+
     <div style={{ ...shellStyles.sideFooter, position: "relative" }}>
       <button
         onClick={()=>setMenu(m=>!m)}

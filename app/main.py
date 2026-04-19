@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from app.scheduler import setup_scheduler, scheduler
-from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api
+from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.include_router(recurring_api.router, prefix="/api")
 app.include_router(stats_api.router, prefix="/api")
 app.include_router(budgets_api.router, prefix="/api")
 app.include_router(emails_api.router, prefix="/api")
+app.include_router(admin_api.router, prefix="/api")
 
 
 @app.get("/", response_class=HTMLResponse)
