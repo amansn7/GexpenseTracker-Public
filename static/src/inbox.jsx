@@ -399,10 +399,9 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   );
 };
 
-const DuplicatePairCard = ({ pair, onResolve }) => {
-  const [resolving, setResolving] = React.useState(false);
+const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
   const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
-  const TxCard = ({ tx, isPrimary }) => (
+  return (
     <div style={{ flex: 1, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: isPrimary ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
       {isPrimary && <div style={{ fontSize: 10, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Suggested primary</div>}
       <MerchantLogo merchant={tx.merchant || "?"} size={28}/>
@@ -412,21 +411,25 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
       <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.txn_date || ""}</div>
       <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email?.subject || ""}</div>
       <button
-        onClick={async ()=>{ if(resolving) return; setResolving(true); await onResolve(pair.id, "confirmed", tx.id); setResolving(false); }}
+        onClick={async ()=>{ if(resolving) return; await onResolve(pairId, "confirmed", tx.id); }}
         disabled={resolving}
         style={{ marginTop: 12, width: "100%", padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: resolving?"default":"pointer" }}>
         Keep this
       </button>
     </div>
   );
+};
+
+const DuplicatePairCard = ({ pair, onResolve }) => {
+  const [resolving, setResolving] = React.useState(false);
   return (
     <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--line)" }}>
       <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
         {pair.rule_source === "domain_pair" ? `Known pair · ${Math.round(pair.confidence * 100)}% confidence` : "Possible duplicate · same amount + date"}
       </div>
       <div style={{ display: "flex", gap: 12 }}>
-        <TxCard tx={pair.primary} isPrimary />
-        <TxCard tx={pair.duplicate} isPrimary={false} />
+        <TxCard tx={pair.primary} isPrimary resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
+        <TxCard tx={pair.duplicate} isPrimary={false} resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
       </div>
       <button
         onClick={async ()=>{ if(resolving) return; setResolving(true); await onResolve(pair.id, "dismissed", pair.primary.id); setResolving(false); }}
