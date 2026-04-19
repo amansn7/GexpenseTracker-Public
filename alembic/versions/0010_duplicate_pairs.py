@@ -39,6 +39,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False,
                   server_default=sa.func.now()),
         sa.Column('resolved_at', sa.DateTime(timezone=True), nullable=True),
+        sa.UniqueConstraint('primary_tx_id', 'duplicate_tx_id', name='uq_duplicate_pair'),
     )
 
 

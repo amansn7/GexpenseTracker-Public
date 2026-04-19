@@ -190,3 +190,7 @@ class DuplicatePair(Base):
     rule_source: Mapped[str] = mapped_column(String(20), nullable=False, default="amount_date")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),
+    )
