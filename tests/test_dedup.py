@@ -47,7 +47,7 @@ async def test_detect_no_candidates():
 
 @pytest.mark.asyncio
 async def test_detect_called_after_classification():
-    """detect_and_record_duplicates is invoked for expense transactions after sync writes them."""
+    """Import path is valid and patch target resolves correctly."""
     import app.dedup.service as dedup_service
     with patch("app.dedup.service.detect_and_record_duplicates", new_callable=AsyncMock) as mock_dedup:
         # Simulate what sync.py does: create a Transaction + call detect
