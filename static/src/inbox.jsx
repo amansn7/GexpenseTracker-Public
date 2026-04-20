@@ -115,14 +115,18 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
       onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
       onMouseLeave={e => { if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: 20, justifyContent: "center" }}
+        onClick={e => { e.stopPropagation(); onCheckbox(); }}
+        title="Select"
+      >
         {selectMode ? (
           <input
             type="checkbox"
             checked={selected}
             onChange={e => { e.stopPropagation(); onCheckbox(); }}
             onClick={e => e.stopPropagation()}
-            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }}
+            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)", pointerEvents: "none" }}
           />
         ) : (
           <>

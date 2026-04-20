@@ -34,6 +34,55 @@ async def detect_and_record_duplicates(
         return
 
     tx_domain = email.sender_domain.lower()
+
+    # ── Same-domain exact-duplicate check (tight 5-min window) ────────────────
+    # Catches repeated alert emails from the same sender (e.g. bank sends 3x).
+    if email.received_at is not None:
+        recv_start = email.received_at - timedelta(minutes=5)
+        recv_end   = email.received_at + timedelta(minutes=5)
+        same_domain_dupes = (await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.id != tx.id,
+                Transaction.label == tx.label,
+                Transaction.amount == tx.amount,
+                Transaction.txn_date == tx.txn_date,
+                Email.sender_domain == email.sender_domain,
+                Email.received_at >= recv_start,
+                Email.received_at <= recv_end,
+            )
+        )).all()
+
+        for cand_tx, cand_email in same_domain_dupes:
+            existing_pair = (await db.execute(
+                select(DuplicatePair).where(
+                    or_(
+                        and_(DuplicatePair.primary_tx_id == tx.id,
+                             DuplicatePair.duplicate_tx_id == cand_tx.id),
+                        and_(DuplicatePair.primary_tx_id == cand_tx.id,
+                             DuplicatePair.duplicate_tx_id == tx.id),
+                    )
+                )
+            )).scalar_one_or_none()
+            if existing_pair:
+                continue
+
+            primary_id = _pick_primary(tx, cand_tx)
+            dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
+            dup_tx = tx if dup_id == tx.id else cand_tx
+            dup_tx.label = "ignore"
+            db.add(DuplicatePair(
+                id=str(uuid.uuid4()),
+                primary_tx_id=primary_id,
+                duplicate_tx_id=dup_id,
+                status="auto_resolved",
+                confidence=1.0,
+                rule_source="same_domain_exact",
+            ))
+            logger.info("Auto-resolved same-domain duplicate: %s vs %s (domain %s)",
+                        primary_id, dup_id, tx_domain)
+
     window_start = tx.txn_date - timedelta(days=1)
     window_end = tx.txn_date + timedelta(days=1)
 
