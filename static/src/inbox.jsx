@@ -108,12 +108,13 @@ const Confidence = ({ value }) => {
 const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) => {
   const tag = TAGS[tx.tag];
   const isIncome = tx.amount > 0;
+  const [hovered, setHovered] = React.useState(false);
   return (
     <div
       onClick={onRowClick}
       style={{ ...inboxStyles.row, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
-      onMouseEnter={e => { if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
-      onMouseLeave={e => { if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
+      onMouseEnter={e => { setHovered(true); if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
+      onMouseLeave={e => { setHovered(false); if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
     >
       <div
         style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: 20, justifyContent: "center" }}
@@ -128,6 +129,8 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
             onClick={e => e.stopPropagation()}
             style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)", pointerEvents: "none" }}
           />
+        ) : hovered ? (
+          <span style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid var(--ink-4)", display: "inline-block", boxSizing: "border-box" }}/>
         ) : (
           <>
             {!tx.read && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
@@ -582,6 +585,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   const grouped = groupByDate(filtered);
   const selected = transactions.find(t => t.id === selectedId);
+
+  // Auto-load more when a filtered tab has fewer than 10 visible rows but
+  // more data exists — prevents empty/sparse tabs until user scrolls All.
+  React.useEffect(() => {
+    if (filter === "all" || filter === "duplicates") return;
+    if (transactions.length >= totalTransactions) return;
+    if (filtered.length >= 10) return;
+    if (loadingMore) return;
+    loadMore();
+  }, [filter, filtered.length, transactions.length, totalTransactions, loadingMore]);
 
   const updateTx = (id, patch) => {
     if (patch._openPicker) { setPickerFor(id); return; }
