@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from typing import Optional
 from app.database import get_db, AsyncSessionLocal
 from app.models import Transaction, Email, TransactionStatus, SenderRule, Label, RuleSource
@@ -35,22 +35,21 @@ async def get_review_queue(db: AsyncSession = Depends(get_db)):
         .order_by(desc(Email.received_at))
     )).all()
 
+    # Pre-aggregate domain counts in one query instead of one query per row
+    domain_counts_rows = (await db.execute(
+        select(Email.sender_domain, func.count().label("cnt"))
+        .join(Transaction, Transaction.email_id == Email.id)
+        .where(
+            Transaction.status == TransactionStatus.needs_review.value,
+            Email.sender_domain.isnot(None),
+        )
+        .group_by(Email.sender_domain)
+    )).all()
+    domain_counts = {r.sender_domain: r.cnt for r in domain_counts_rows}
+
     result = []
     for t, e in rows:
-        # Count how many other needs_review items share this sender domain
-        domain_count = 0
-        if e.sender_domain:
-            domain_rows = await db.execute(
-                select(Transaction)
-                .join(Email, Transaction.email_id == Email.id)
-                .where(
-                    Transaction.status == TransactionStatus.needs_review.value,
-                    Email.sender_domain == e.sender_domain,
-                    Transaction.id != t.id,
-                )
-            )
-            domain_count = len(domain_rows.all())
-
+        domain_count = max(0, domain_counts.get(e.sender_domain or "", 0) - 1)
         result.append({
             "id": t.id,
             "label": t.label,
@@ -58,7 +57,7 @@ async def get_review_queue(db: AsyncSession = Depends(get_db)):
             "merchant": t.merchant,
             "category": t.category,
             "confidence": t.confidence,
-            "domain_count": domain_count,    # other review items from same domain
+            "domain_count": domain_count,
             "email": {
                 "subject": e.subject,
                 "sender": e.sender,
