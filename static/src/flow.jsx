@@ -177,11 +177,46 @@ const WeeklyBurn = ({ data }) => {
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
-const FlowView = ({ flow, transactions }) => {
-  const totalIncome = flow.income.reduce((a,i)=>a+i.amount, 0);
-  const totalExpense = flow.expenses.reduce((a,e)=>a+e.amount, 0);
-  const savingsRate = ((totalIncome - totalExpense)/totalIncome * 100).toFixed(1);
-  const daily = Math.round(totalExpense / new Date().getDate());
+const FlowView = ({ transactions }) => {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = (() => {
+    const d = new Date(); d.setDate(d.getDate() - 29);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
+  const [rangeTo, setRangeTo] = React.useState(todayStr);
+  const [activePreset, setActivePreset] = React.useState("30d");
+  const [stats, setStats] = React.useState(null);
+  const [catBreakdown, setCatBreakdown] = React.useState(null);
+  const [flowLoading, setFlowLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setFlowLoading(true);
+      try {
+        const [s, c] = await Promise.all([
+          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
+          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}`),
+        ]);
+        if (!cancelled) { setStats(s); setCatBreakdown(c); }
+      } catch (_) {}
+      if (!cancelled) setFlowLoading(false);
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [rangeFrom, rangeTo]);
+
+  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo);
+  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown) : null;
+
+  const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
+  const totalExpense = flow ? flow.expenses.reduce((a, e) => a + e.amount, 0) : 0;
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100).toFixed(1) : "0.0";
+  const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
+  const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
+  const incomeSources = flow ? flow.income.length : 0;
+  const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;
 
   return (
     <div style={flowStyles.wrap}>
@@ -189,47 +224,57 @@ const FlowView = ({ flow, transactions }) => {
         <div style={flowStyles.kpi}>
           <div style={flowStyles.kpiLabel}>Income</div>
           <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-          <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> 2 sources</div>
+          <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
         </div>
         <div style={flowStyles.kpi}>
           <div style={flowStyles.kpiLabel}>Spent</div>
           <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-          <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> 48% of income</div>
+          <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
         </div>
         <div style={flowStyles.kpi}>
           <div style={flowStyles.kpiLabel}>Remaining</div>
-          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${flow.savings.toLocaleString("en-IN")}`}>{fmtK(flow.savings)}</div>
+          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(flow?.savings ?? 0).toLocaleString("en-IN")}`}>{fmtK(flow?.savings ?? 0)}</div>
           <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
         </div>
         <div style={flowStyles.kpi}>
           <div style={flowStyles.kpiLabel}>Daily burn</div>
-          <div style={flowStyles.kpiValue}>₹{daily.toLocaleString("en-IN")}</div>
-          <div style={flowStyles.kpiSub}>over 18 days</div>
+          <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
+          <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
         </div>
       </div>
 
       <div style={flowStyles.sectionTitle}>
         <div>
-          <h2 style={flowStyles.h2}>How your money moved this month</h2>
-          <div style={flowStyles.h2sub}>— traced from {transactions.length} parsed emails</div>
+          <h2 style={flowStyles.h2}>How your money moved</h2>
+          <div style={flowStyles.h2sub}>— traced from {rangeTxs.length} parsed emails</div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {["Month","Quarter","Year"].map((t,i)=>(
-            <button key={t} style={{ padding: "6px 12px", borderRadius: 20, border: "1px solid var(--line)", background: i===0 ? "var(--ink)" : "var(--card)", color: i===0 ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 500 }}>{t}</button>
-          ))}
-        </div>
+        <DateRangeControl
+          rangeFrom={rangeFrom}
+          rangeTo={rangeTo}
+          activePreset={activePreset}
+          onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
+        />
       </div>
 
-      <SankeyDiagram data={flow}/>
-
-      <div style={flowStyles.sectionTitle}>
-        <div>
-          <h2 style={flowStyles.h2}>Weekly burn</h2>
-          <div style={flowStyles.h2sub}>— when the money actually leaves</div>
+      {flowLoading && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--ink-4)", fontSize: 13, fontFamily: "'Fraunces', serif" }}>
+          Loading…
         </div>
-      </div>
+      )}
 
-      <WeeklyBurn data={flow}/>
+      {!flowLoading && flow && <SankeyDiagram data={flow}/>}
+
+      {!flowLoading && flow && (
+        <>
+          <div style={flowStyles.sectionTitle}>
+            <div>
+              <h2 style={flowStyles.h2}>Weekly burn</h2>
+              <div style={flowStyles.h2sub}>— when the money actually leaves</div>
+            </div>
+          </div>
+          <WeeklyBurn data={flow}/>
+        </>
+      )}
     </div>
   );
 };
