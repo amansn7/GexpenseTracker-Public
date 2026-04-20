@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, extract
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Literal
 from datetime import date
 from app.database import get_db
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource
@@ -14,6 +14,45 @@ class TransactionPatch(BaseModel):
     merchant: Optional[str] = None
     amount: Optional[float] = None
     user_notes: Optional[str] = None
+    read: Optional[bool] = None
+    flagged: Optional[bool] = None
+
+
+class BulkAction(BaseModel):
+    ids: List[str]
+    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete"]
+
+
+@router.post("/transactions/bulk")
+async def bulk_transactions(payload: BulkAction, db: AsyncSession = Depends(get_db)):
+    rows = (await db.execute(
+        select(Transaction).where(Transaction.id.in_(payload.ids))
+    )).scalars().all()
+
+    if payload.action == "mark_read":
+        for t in rows:
+            t.read = True
+    elif payload.action == "mark_unread":
+        for t in rows:
+            t.read = False
+    elif payload.action == "flag":
+        for t in rows:
+            t.flagged = True
+    elif payload.action == "unflag":
+        for t in rows:
+            t.flagged = False
+    elif payload.action == "delete":
+        for t in rows:
+            if t.email_id:
+                email = (await db.execute(
+                    select(Email).where(Email.id == t.email_id)
+                )).scalar_one_or_none()
+                if email:
+                    await db.delete(email)
+                t.email_id = None
+
+    await db.commit()
+    return {"updated": len(rows)}
 
 def _fmt(t: Transaction, e: "Email | None") -> dict:
     return {
@@ -28,6 +67,8 @@ def _fmt(t: Transaction, e: "Email | None") -> dict:
         "status": t.status,
         "classifier_method": t.classifier_method,
         "user_notes": t.user_notes,
+        "read": bool(t.read),
+        "flagged": bool(t.flagged),
         "email": {
             "subject": e.subject if e else None,
             "sender": e.sender if e else None,
@@ -43,21 +84,38 @@ async def list_transactions(
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     category: Optional[str] = None,
+    offset: int = 0,
+    limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(Transaction, Email).outerjoin(Email).order_by(desc(Transaction.created_at))
-    if label:
-        q = q.where(Transaction.label == label)
-    if status:
-        q = q.where(Transaction.status == status)
-    if date_from:
-        q = q.where(Transaction.txn_date >= date_from)
-    if date_to:
-        q = q.where(Transaction.txn_date <= date_to)
-    if category:
-        q = q.where(Transaction.category == category)
-    rows = (await db.execute(q)).all()
-    return [_fmt(t, e) for t, e in rows]
+    conditions = []
+    if label:     conditions.append(Transaction.label == label)
+    if status:    conditions.append(Transaction.status == status)
+    if date_from: conditions.append(Transaction.txn_date >= date_from)
+    if date_to:   conditions.append(Transaction.txn_date <= date_to)
+    if category:  conditions.append(Transaction.category == category)
+
+    count_q = (
+        select(func.count(Transaction.id))
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*conditions)
+    )
+    data_q = (
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*conditions)
+        .order_by(desc(Transaction.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+    total = (await db.execute(count_q)).scalar_one()
+    rows = (await db.execute(data_q)).all()
+    return {
+        "items": [_fmt(t, e) for t, e in rows],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 @router.get("/transactions/{transaction_id}")
 async def get_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
@@ -114,10 +172,80 @@ async def patch_transaction(
         t.amount = patch.amount
     if patch.user_notes is not None:
         t.user_notes = patch.user_notes
+    if patch.read is not None:
+        t.read = patch.read
+    if patch.flagged is not None:
+        t.flagged = patch.flagged
 
     await db.commit()
     await db.refresh(t)
     return {"id": t.id, "status": t.status}
+
+async def _load_tx_email(transaction_id: str, db: AsyncSession):
+    row = (await db.execute(
+        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
+    )).one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    t, e = row
+    if not e:
+        raise HTTPException(status_code=422, detail="No email linked to this transaction")
+    return t, e
+
+
+@router.post("/transactions/{transaction_id}/reclassify/preview")
+async def reclassify_preview(transaction_id: str, db: AsyncSession = Depends(get_db)):
+    """Run LLM classification without writing to DB. Returns preview for user confirmation."""
+    t, e = await _load_tx_email(transaction_id, db)
+    from app.classifier.classifier import classify_email
+    cls = await classify_email(
+        email_id=e.id,
+        sender=e.sender or "",
+        sender_domain=e.sender_domain or "",
+        subject=e.subject or "",
+        body_text=e.body_text or e.body_snippet or "",
+        session=None,  # no DB writes
+    )
+    return {
+        "label":      cls.label.value,
+        "amount":     cls.amount,
+        "merchant":   cls.merchant,
+        "category":   cls.category,
+        "confidence": cls.confidence,
+        "txn_date":   cls.txn_date.isoformat() if cls.txn_date else None,
+        "status":     cls.status.value,
+        "classifier_method": cls.classifier_method.value,
+    }
+
+
+@router.post("/transactions/{transaction_id}/reclassify")
+async def reclassify_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
+    """Commit LLM reclassification to DB and return the updated transaction."""
+    t, e = await _load_tx_email(transaction_id, db)
+    from app.classifier.classifier import classify_email
+    cls = await classify_email(
+        email_id=e.id,
+        sender=e.sender or "",
+        sender_domain=e.sender_domain or "",
+        subject=e.subject or "",
+        body_text=e.body_text or e.body_snippet or "",
+        session=db,
+    )
+
+    t.label     = cls.label.value
+    t.amount    = cls.amount
+    t.merchant  = cls.merchant
+    t.category  = cls.category
+    t.confidence = cls.confidence
+    t.classifier_method = cls.classifier_method.value
+    t.status    = cls.status.value
+    if cls.txn_date:
+        t.txn_date = cls.txn_date
+
+    await db.commit()
+    await db.refresh(t)
+    return _fmt(t, e)
+
 
 @router.get("/transactions/duplicates")
 async def find_duplicates(db: AsyncSession = Depends(get_db)):
