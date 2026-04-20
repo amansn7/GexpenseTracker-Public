@@ -5,7 +5,6 @@ const { useState, useEffect, useCallback } = React;
 const App = () => {
   const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
   const [transactions, setTransactions] = useState([]);
-  const [flowSummary, setFlowSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -28,7 +27,6 @@ const App = () => {
       ]);
       const txs = txRaw.map(transformTransaction);
       setTransactions(txs);
-      setFlowSummary(buildFlowSummary(txs, summary, catBreakdown));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -191,7 +189,7 @@ const App = () => {
             setFilter={setInboxFilter}
           />
         )}
-        {view === "flow"      && flowSummary && <FlowView flow={flowSummary} transactions={transactions}/>}
+        {view === "flow"      && <FlowView transactions={transactions}/>}
         {view === "dashboard" && <DashboardView transactions={transactions}/>}
         {view === "profile"   && <ProfileView transactions={transactions}/>}
         {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing}/>}
