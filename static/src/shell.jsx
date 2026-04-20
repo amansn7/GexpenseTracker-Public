@@ -124,7 +124,7 @@ const Topbar = ({ title, subtitle, children, syncLabel }) => (
 );
 
 const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
-  const fmt = d => d.toISOString().slice(0, 10);
+  const fmt = d => { const off = d.getTimezoneOffset() * 60000; return new Date(d - off).toISOString().slice(0, 10); };
   const presets = [["7d", 7], ["30d", 30], ["90d", 90], ["1y", 365]];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
