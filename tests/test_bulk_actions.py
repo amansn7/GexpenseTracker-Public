@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
@@ -77,6 +76,7 @@ async def test_bulk_flag_sets_flagged_true():
                 json={"ids": ["tx-1"], "action": "flag"},
             )
         assert r.status_code == 200
+        assert r.json()["updated"] == 1
         assert t.flagged is True
     finally:
         app.dependency_overrides.pop(get_db, None)
@@ -99,10 +99,12 @@ async def test_bulk_delete_nulls_email_id_and_removes_email():
     e.id = email_id
 
     execute_call_count = 0
+    db_mock = None
 
     async def override_get_db():
-        nonlocal execute_call_count
+        nonlocal execute_call_count, db_mock
         db = AsyncMock()
+        db_mock = db
 
         def execute_side(q):
             nonlocal execute_call_count
@@ -126,5 +128,6 @@ async def test_bulk_delete_nulls_email_id_and_removes_email():
             )
         assert r.status_code == 200
         assert t.email_id is None
+        db_mock.delete.assert_called_once_with(e)
     finally:
         app.dependency_overrides.pop(get_db, None)
