@@ -67,6 +67,8 @@ class Transaction(Base):
     status: Mapped[str] = mapped_column(String(20), default=TransactionStatus.needs_review)
     classifier_method: Mapped[Optional[str]] = mapped_column(String(10))
     user_notes: Mapped[Optional[str]] = mapped_column(Text)
+    read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     email: Mapped[Optional["Email"]] = relationship(back_populates="transaction")
