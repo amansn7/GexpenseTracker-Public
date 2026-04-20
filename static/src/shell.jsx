@@ -123,4 +123,41 @@ const Topbar = ({ title, subtitle, children, syncLabel }) => (
   </header>
 );
 
-Object.assign(window, { Sidebar, Topbar, shellStyles });
+const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
+  const fmt = d => d.toISOString().slice(0, 10);
+  const presets = [["7d", 7], ["30d", 30], ["90d", 90], ["1y", 365]];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      {presets.map(([label, days]) => (
+        <button
+          key={label}
+          onClick={() => {
+            const end = new Date();
+            const start = new Date(); start.setDate(end.getDate() - days + 1);
+            onChange(fmt(start), fmt(end), label);
+          }}
+          style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", background: activePreset === label ? "var(--ink)" : "var(--card)", color: activePreset === label ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+        >{label}</button>
+      ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+        <input
+          type="date"
+          value={rangeFrom}
+          max={rangeTo}
+          onChange={e => onChange(e.target.value, rangeTo, null)}
+          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+        />
+        <span style={{ color: "var(--ink-4)", fontSize: 12 }}>→</span>
+        <input
+          type="date"
+          value={rangeTo}
+          min={rangeFrom}
+          onChange={e => onChange(rangeFrom, e.target.value, null)}
+          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+        />
+      </div>
+    </div>
+  );
+};
+
+Object.assign(window, { Sidebar, Topbar, shellStyles, DateRangeControl });
