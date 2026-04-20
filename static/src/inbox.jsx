@@ -441,10 +441,11 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
   );
 };
 
-const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {} }) => {
+const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false }) => {
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
+  const listRef = React.useRef(null);
   const [bulkReclassState, setBulkReclassState] = React.useState("idle"); // idle | running | done
   const [bulkProgress, setBulkProgress] = React.useState({ done: 0, total: 0 });
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
@@ -468,6 +469,20 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       .catch(() => setDupLoading(false));
   }, [filter]);
 
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100
+          && transactions.length < totalTransactions
+          && !loadingMore) {
+        loadMore();
+      }
+    };
+    el.addEventListener("scroll", onScroll);
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [transactions.length, totalTransactions, loadingMore, loadMore]);
+
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -479,16 +494,26 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
   const clearSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
 
-  const bulkPatch = async (patch) => {
-    await Promise.all([...selectedIds].map(id =>
-      API.patch(`/api/transactions/${id}`, patch).catch(() => {})
-    ));
-    setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...patch } : t));
+  const bulkAction = async (action, localPatch) => {
+    const ids = [...selectedIds];
+    setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...localPatch } : t));
     clearSelect();
+    await API.post("/api/transactions/bulk", { ids, action }).catch(() => {});
   };
 
-  const bulkMarkRead = () => bulkPatch({ status: "confirmed", read: true });
-  const bulkMarkUnread = () => bulkPatch({ status: "auto", read: false });
+  const bulkMarkRead   = () => bulkAction("mark_read",   { read: true });
+  const bulkMarkUnread = () => bulkAction("mark_unread", { read: false });
+  const bulkFlag       = () => bulkAction("flag",        { flag: true });
+  const bulkUnflag     = () => bulkAction("unflag",      { flag: false });
+
+  const bulkDelete = async () => {
+    const count = selectedIds.size;
+    if (!window.confirm(`Delete ${count} email(s)? Classification data is kept.`)) return;
+    const ids = [...selectedIds];
+    setTransactions(ts => ts.filter(t => !selectedIds.has(t.id)));
+    clearSelect();
+    await API.post("/api/transactions/bulk", { ids, action: "delete" }).catch(() => {});
+  };
 
   const bulkReclassify = async () => {
     const ids = [...selectedIds];
@@ -560,6 +585,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (patch.cat    !== undefined) apiPatch.category   = patch.cat;
     if (patch.note   !== undefined) apiPatch.user_notes = patch.note;
     if (patch.amount !== undefined) apiPatch.amount     = Math.abs(patch.amount);
+    if (patch.read   !== undefined) apiPatch.read       = patch.read;
+    if (patch.flag   !== undefined) apiPatch.flagged    = patch.flag;
     if (Object.keys(apiPatch).length > 0) {
       API.patch(`/api/transactions/${id}`, apiPatch).catch(err => console.error("patch failed:", err));
     }
@@ -568,7 +595,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   return (
     <>
       <div style={selected ? inboxStyles.wrap : inboxStyles.wrapNoPanel}>
-        <div style={inboxStyles.list}>
+        <div ref={listRef} style={inboxStyles.list}>
           <div style={inboxStyles.toolbar}>
             {selectMode ? (
               <>
@@ -642,6 +669,17 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               </div>
             );
           })}
+          {loadingMore && (
+            <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+            </div>
+          )}
+          {!loadingMore && transactions.length < totalTransactions && transactions.length > 0 && (
+            <div style={{ padding: "16px 32px", textAlign: "center", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+              {transactions.length} of {totalTransactions} · scroll for more
+            </div>
+          )}
         </div>
 
         {selected && <DetailPanel tx={selected} onClose={()=>setSelectedId(null)} onUpdate={(p)=>updateTx(selected.id, p)} />}
@@ -652,10 +690,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectedIds.size} selected</span>
           <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
           <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
+          <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
+          <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
           <button onClick={bulkReclassify} disabled={bulkReclassState==="running"} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassState==="running"?"default":"pointer", fontWeight: 500 }}>
             {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? "Done ✓" : "Re-classify (LLM)"}
           </button>
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Re-classify (Manual)</button>
+          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "#fca5a5", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
         </div>
       )}
