@@ -469,6 +469,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       .catch(() => setDupLoading(false));
   }, [filter]);
 
+  const loadMoreRef = React.useRef(loadMore);
+  React.useEffect(() => { loadMoreRef.current = loadMore; }, [loadMore]);
+
   React.useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -476,12 +479,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100
           && transactions.length < totalTransactions
           && !loadingMore) {
-        loadMore();
+        loadMoreRef.current();
       }
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
-  }, [transactions.length, totalTransactions, loadingMore, loadMore]);
+  }, [transactions.length, totalTransactions, loadingMore]);
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
@@ -510,7 +513,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const count = selectedIds.size;
     if (!window.confirm(`Delete ${count} email(s)? Classification data is kept.`)) return;
     const ids = [...selectedIds];
-    setTransactions(ts => ts.filter(t => !selectedIds.has(t.id)));
+    const idsSet = new Set(ids);
+    setTransactions(ts => ts.filter(t => !idsSet.has(t.id)));
     clearSelect();
     await API.post("/api/transactions/bulk", { ids, action: "delete" }).catch(() => {});
   };
