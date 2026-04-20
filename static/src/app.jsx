@@ -10,6 +10,8 @@ const App = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
   const [tweaksOn, setTweaksOn] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalTransactions, setTotalTransactions] = useState(0);
   const [theme, setTheme] = useState("paper");
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -21,18 +23,29 @@ const App = () => {
       setLoading(true);
       setError(null);
       const [txRaw, summary, catBreakdown] = await Promise.all([
-        API.get("/api/transactions"),
+        API.get("/api/transactions?offset=0&limit=50"),
         API.get("/api/stats/summary"),
         API.get("/api/stats/category-breakdown"),
       ]);
-      const txs = txRaw.map(transformTransaction);
+      const txs = txRaw.items.map(transformTransaction);
       setTransactions(txs);
+      setTotalTransactions(txRaw.total);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const loadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await API.get(`/api/transactions?offset=${transactions.length}&limit=50`);
+      setTransactions(ts => [...ts, ...data.items.map(transformTransaction)]);
+    } catch (_) {}
+    setLoadingMore(false);
+  };
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -187,6 +200,9 @@ const App = () => {
             setSelectedId={setSelectedId}
             filter={inboxFilter}
             setFilter={setInboxFilter}
+            loadMore={loadMore}
+            totalTransactions={totalTransactions}
+            loadingMore={loadingMore}
           />
         )}
         {view === "flow"      && <FlowView transactions={transactions}/>}

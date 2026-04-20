@@ -68,8 +68,8 @@ const transformTransaction = (t) => {
     cat,
     conf,
     paid: "",
-    read: t.status === "confirmed" || t.status === "corrected",
-    flag: conf < 0.7 || t.status === "needs_review",
+    read: t.read ?? false,
+    flag: t.flagged ?? false,
     note: t.user_notes || "",
   };
 };
@@ -149,4 +149,4 @@ const API = {
   }).then(r => r.json()),
 };
 
-Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API });
+Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat });
