@@ -112,10 +112,13 @@ const SankeyDiagram = ({ data }) => {
             const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
             off += n.h + 10 * (n.h / n.h);
             return (
-              <path key={`out-${idx}`} d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
-                onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
-                onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
-              />
+              <g key={`out-${idx}`}>
+                <title>{n.kind === "sav" ? "Remaining" : (n.label || CATEGORIES[n.cat]?.label || n.cat)} · ₹{n.amount.toLocaleString("en-IN")}</title>
+                <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
+                  onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
+                  onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
+                />
+              </g>
             );
           });
         })()}
@@ -249,6 +252,8 @@ const FlowView = ({ transactions }) => {
       <div style={flowStyles.secWrap}>
         <div style={flowStyles.secHead}>
           <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
+        </div>
+        <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: "8px 20px", display: "flex", justifyContent: "flex-end" }}>
           <DateRangeControl
             rangeFrom={rangeFrom}
             rangeTo={rangeTo}
@@ -256,7 +261,7 @@ const FlowView = ({ transactions }) => {
             onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
           />
         </div>
-        <div style={flowStyles.secBody}>
+        <div style={{ ...flowStyles.secBody, borderRadius: "0 0 8px 8px" }}>
           {flowLoading
             ? <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--ink-4)", fontSize: 13, fontFamily: "'Fraunces', serif" }}>Loading…</div>
             : flow

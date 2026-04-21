@@ -362,7 +362,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "8px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Discard</button>
-              <button onClick={handleConfirm} style={{ flex: 2, padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Save to DB</button>
+              <button onClick={handleConfirm} style={{ flex: 2, padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply changes</button>
             </div>
           </div>
         )}
@@ -444,6 +444,85 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
         style={{ marginTop: 10, padding: "6px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 12, cursor: resolving?"default":"pointer" }}>
         Not a duplicate
       </button>
+    </div>
+  );
+};
+
+const IncomeRow = ({ tx, onUpdate }) => {
+  const [toggling, setToggling] = React.useState(false);
+  const isPaid = tx.status === "confirmed";
+  const monthLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" }) : "—";
+  const dateLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—";
+
+  const togglePaid = async () => {
+    if (toggling) return;
+    setToggling(true);
+    const newStatus = isPaid ? "needs_review" : "confirmed";
+    onUpdate(tx.id, { status: newStatus, _skipApi: true });
+    try {
+      await API.patch(`/api/transactions/${tx.id}`, { status: newStatus });
+    } catch (_) {
+      onUpdate(tx.id, { status: tx.status, _skipApi: true });
+    }
+    setToggling(false);
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <input type="checkbox" checked={isPaid} onChange={togglePaid} disabled={toggling}
+          style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--pos)" }}/>
+      </div>
+      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+        <MerchantLogo merchant={tx.merchant} size={22}/>
+        <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.merchant}</span>
+      </div>
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600, fontSize: 14, color: "var(--pos)", textAlign: "right" }}>
+        +₹{tx.amount.toLocaleString("en-IN")}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dateLabel}</div>
+      <div><CategoryChip cat={tx.cat}/></div>
+      <div style={{ fontSize: 12, color: "var(--ink-4)" }}>{monthLabel}</div>
+    </div>
+  );
+};
+
+const IncomeTableView = ({ transactions, onUpdate }) => {
+  if (transactions.length === 0) return (
+    <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No income transactions found for this range.</div>
+  );
+
+  const grouped = {};
+  for (const t of transactions) {
+    const key = t.date ? t.date.slice(0, 7) : "unknown";
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(t);
+  }
+  const monthEntries = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]));
+
+  return (
+    <div style={{ padding: "0 32px 32px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, padding: "12px 0 8px", borderBottom: "2px solid var(--line)", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, position: "sticky", top: 41, background: "var(--paper)", zIndex: 4 }}>
+        <span title="Received">✓</span>
+        <span>Source</span>
+        <span style={{ textAlign: "right" }}>Amount</span>
+        <span>Date</span>
+        <span>Category</span>
+        <span>Month</span>
+      </div>
+      {monthEntries.map(([monthKey, txs]) => {
+        const monthTotal = txs.reduce((a, t) => a + t.amount, 0);
+        const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
+        return (
+          <div key={monthKey}>
+            <div style={{ padding: "14px 0 6px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-3)", fontWeight: 600 }}>{monthLabel}</span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--pos)", fontWeight: 600 }}>+₹{monthTotal.toLocaleString("en-IN")}</span>
+            </div>
+            {txs.map(tx => <IncomeRow key={tx.id} tx={tx} onUpdate={onUpdate}/>)}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -594,6 +673,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (filter === "sub") return t.tag === "subscription";
     if (filter === "flagged") return t.flag;
     if (filter === "low") return t.conf < 0.7;
+    if (filter === "payments") return t.amount < 0 && ["rent","util","sub"].includes(t.cat);
     if (filter.startsWith("cat:")) return t.cat === filter.slice(4);
     return true;
   });
@@ -678,12 +758,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             dupLoading ? (
               <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>
             ) : dupPairs.length === 0 ? (
-              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No pending duplicates. 🎉</div>
+              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No pending duplicates — all clear.</div>
             ) : (
               dupPairs.map(pair => (
                 <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
               ))
             )
+          ) : filter === "income" ? (
+            <IncomeTableView transactions={filtered} onUpdate={updateTx}/>
           ) : grouped.map(([date, txs]) => {
             const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
             return (
@@ -737,7 +819,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? <><Icon name="check" size={12} stroke="currentColor"/> Done</> : "Re-classify (LLM)"}
           </button>
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Re-classify (Manual)</button>
-          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "#fca5a5", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
+          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
       )}
