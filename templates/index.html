@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1440, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MoneyFlow — Inbox for your money</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,6 +73,7 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes drawLine { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .slide-in { animation: slideIn 260ms cubic-bezier(.2,.8,.2,1); }
   .fade-in { animation: fadeIn 200ms ease-out; }
@@ -94,14 +95,14 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-  <script type="text/babel" src="/static/src/data.jsx?v=2"></script>
+  <script type="text/babel" src="/static/src/data.jsx?v=4"></script>
   <script type="text/babel" src="/static/src/icons.jsx?v=2"></script>
-  <script type="text/babel" src="/static/src/shell.jsx?v=2"></script>
-  <script type="text/babel" src="/static/src/inbox.jsx?v=2"></script>
-  <script type="text/babel" src="/static/src/flow.jsx?v=2"></script>
-  <script type="text/babel" src="/static/src/dashboard.jsx?v=2"></script>
+  <script type="text/babel" src="/static/src/shell.jsx?v=3"></script>
+  <script type="text/babel" src="/static/src/inbox.jsx?v=4"></script>
+  <script type="text/babel" src="/static/src/flow.jsx?v=3"></script>
+  <script type="text/babel" src="/static/src/dashboard.jsx?v=3"></script>
   <script type="text/babel" src="/static/src/account.jsx?v=2"></script>
   <script type="text/babel" src="/static/src/admin.jsx?v=1"></script>
-  <script type="text/babel" src="/static/src/app.jsx?v=3"></script>
+  <script type="text/babel" src="/static/src/app.jsx?v=4"></script>
 </body>
 </html>

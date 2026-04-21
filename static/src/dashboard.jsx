@@ -5,14 +5,21 @@ const dashStyles = {
   hero: { padding: "36px 40px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 24, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 40, alignItems: "center" },
   heroLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 6 },
   heroAmount: { fontFamily: "'Fraunces', serif", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },
-  heroSub: { fontSize: 13, color: "var(--ink-3)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 16 },
+  heroSub: { fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 16, color: "var(--ink-3)" },
   barSplit: { display: "flex", height: 12, borderRadius: 20, overflow: "hidden", border: "1px solid var(--line)", background: "var(--paper-2)", marginTop: 12 },
   grid3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 },
   card: { padding: "22px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 },
   cardH: { fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" },
   cardBig: { fontFamily: "'Fraunces', serif", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 },
   grid2: { display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 },
-  catRow: { display: "grid", gridTemplateColumns: "120px 1fr 90px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px dashed var(--line)", fontSize: 13 },
+  // Section band system — editorial dark header + card body
+  secHead: { borderRadius: "8px 8px 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  secTitle: { fontSize: 11, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.1em" },
+  secSub: { fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--paper)", opacity: 0.4 },
+  secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "20px" },
+  // Category card grid
+  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(152px, 1fr))", gap: 10 },
+  catCard: { padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" },
 };
 
 const DashboardView = ({ transactions }) => {
@@ -181,42 +188,53 @@ const DashboardView = ({ transactions }) => {
       </div>
 
       <div style={dashStyles.grid2}>
-        <div style={dashStyles.card}>
-          <div style={dashStyles.cardH}>
-            <span>Where your money went</span>
-            <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>₹{totalExpense.toLocaleString("en-IN")} total</span>
+        {/* Category breakdown — banded section + card grid */}
+        <div>
+          <div style={dashStyles.secHead}>
+            <span style={dashStyles.secTitle}>Where money went</span>
+            <span style={dashStyles.secSub}>₹{totalExpense.toLocaleString("en-IN")} total</span>
           </div>
-          {catSorted.map((e, idx) => {
-            const pct = (e.amount / totalExpense) * 100;
-            const c = CATEGORIES[e.cat];
-            return (
-              <div key={idx} style={dashStyles.catRow}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: c.bg, border: `1px solid ${c.ink}33` }}/>
-                  <span style={{ fontWeight: 500, color: "var(--ink)" }}>{c.label}</span>
+          <div style={dashStyles.secBody}>
+            {catSorted.length === 0
+              ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>
+              : <div style={dashStyles.catGrid}>
+                  {catSorted.map((e, idx) => {
+                    const pct = totalExpense > 0 ? (e.amount / totalExpense) * 100 : 0;
+                    const c = CATEGORIES[e.cat];
+                    return (
+                      <div key={idx} style={dashStyles.catCard}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: c.bg, border: `1px solid ${c.ink}33`, flexShrink: 0 }}/>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", lineHeight: 1.2 }}>{c.label}</span>
+                        </div>
+                        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 18, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
+                          ₹{e.amount.toLocaleString("en-IN")}
+                        </div>
+                        <div style={{ background: "var(--line)", height: 3, borderRadius: 10, overflow: "hidden", margin: "8px 0 4px" }}>
+                          <div style={{ width: `${pct}%`, height: "100%", background: c.ink, borderRadius: 10, transition: "width 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{pct.toFixed(0)}% of spend</div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ background: "var(--paper-2)", height: 8, borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", background: c.ink, opacity: 0.75, borderRadius: 10, transition: "width 400ms" }}/>
-                </div>
-                <div style={{ textAlign: "right", fontFamily: "'Geist Mono', monospace", color: "var(--ink-2)" }}>
-                  ₹{e.amount.toLocaleString("en-IN")} <span style={{ color: "var(--ink-4)" }}>· {pct.toFixed(0)}%</span>
-                </div>
-              </div>
-            );
-          })}
+            }
+          </div>
         </div>
 
-        <div style={dashStyles.card}>
-          <div style={dashStyles.cardH}>
-            <span>Top merchants</span>
+        {/* Top merchants — banded section */}
+        <div>
+          <div style={dashStyles.secHead}>
+            <span style={dashStyles.secTitle}>Top merchants</span>
           </div>
+          <div style={dashStyles.secBody}>
           {(() => {
             const m = {};
             for (const t of rangeTxs) {
               if (t.amount < 0) m[t.merchant] = (m[t.merchant]||0) + Math.abs(t.amount);
             }
             const top = Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0, 6);
-            if (!top.length) return <div style={{ fontSize: 12, color: "var(--ink-4)", paddingTop: 12 }}>No data for range</div>;
+            if (!top.length) return <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>;
             const maxAmt = top[0][1];
             return top.map(([name, amt]) => (
               <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px dashed var(--line)" }}>
@@ -231,6 +249,7 @@ const DashboardView = ({ transactions }) => {
               </div>
             ));
           })()}
+          </div>
         </div>
       </div>
     </div>

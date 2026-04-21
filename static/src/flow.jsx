@@ -7,9 +7,12 @@ const flowStyles = {
   kpiLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 },
   kpiValue: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 6, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   kpiSub: { fontSize: 12, color: "var(--ink-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 },
-  sectionTitle: { display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 28, marginBottom: 18 },
-  h2: { fontFamily: "'Fraunces', serif", fontWeight: 500, fontSize: 24, letterSpacing: "-0.015em", margin: 0 },
-  h2sub: { fontSize: 12, color: "var(--ink-3)", fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14 },
+  // Section band system
+  secWrap: { marginTop: 28 },
+  secHead: { borderRadius: "8px 8px 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  secTitle: { fontSize: 11, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.1em" },
+  secSub: { fontSize: 11, fontFamily: "'Instrument Serif', serif", fontStyle: "italic", color: "var(--paper)", opacity: 0.45 },
+  secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "20px 16px" },
 };
 
 const SankeyDiagram = ({ data }) => {
@@ -65,7 +68,7 @@ const SankeyDiagram = ({ data }) => {
   };
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "20px 16px" }}>
+    <div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560 }}>
         <defs>
           <pattern id="diag" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -149,7 +152,7 @@ const SankeyDiagram = ({ data }) => {
 const WeeklyBurn = ({ data }) => {
   const max = Math.max(...data.weeklyBurn.map(w => w.spent));
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "24px 28px" }}>
+    <div style={{ padding: "4px 0" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, alignItems: "end", height: 200, borderBottom: "1px solid var(--line)", paddingBottom: 12, position: "relative" }}>
         {data.weeklyBurn.map((w, idx) => {
           const pct = max > 0 ? (w.spent / max) * 100 : 0;
@@ -243,37 +246,36 @@ const FlowView = ({ transactions }) => {
         </div>
       </div>
 
-      <div style={flowStyles.sectionTitle}>
-        <div>
-          <h2 style={flowStyles.h2}>How your money moved</h2>
-          <div style={flowStyles.h2sub}>— traced from {rangeTxs.length} parsed emails</div>
+      <div style={flowStyles.secWrap}>
+        <div style={flowStyles.secHead}>
+          <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
+          <DateRangeControl
+            rangeFrom={rangeFrom}
+            rangeTo={rangeTo}
+            activePreset={activePreset}
+            onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
+          />
         </div>
-        <DateRangeControl
-          rangeFrom={rangeFrom}
-          rangeTo={rangeTo}
-          activePreset={activePreset}
-          onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
-        />
+        <div style={flowStyles.secBody}>
+          {flowLoading
+            ? <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--ink-4)", fontSize: 13, fontFamily: "'Fraunces', serif" }}>Loading…</div>
+            : flow
+              ? <SankeyDiagram data={flow}/>
+              : <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 13 }}>No data for range</div>
+          }
+        </div>
       </div>
 
-      {flowLoading && (
-        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--ink-4)", fontSize: 13, fontFamily: "'Fraunces', serif" }}>
-          Loading…
-        </div>
-      )}
-
-      {!flowLoading && flow && <SankeyDiagram data={flow}/>}
-
       {!flowLoading && flow && (
-        <>
-          <div style={flowStyles.sectionTitle}>
-            <div>
-              <h2 style={flowStyles.h2}>Weekly burn</h2>
-              <div style={flowStyles.h2sub}>— when the money actually leaves</div>
-            </div>
+        <div style={flowStyles.secWrap}>
+          <div style={flowStyles.secHead}>
+            <span style={flowStyles.secTitle}>Weekly burn</span>
+            <span style={flowStyles.secSub}>when the money actually leaves</span>
           </div>
-          <WeeklyBurn data={flow}/>
-        </>
+          <div style={flowStyles.secBody}>
+            <WeeklyBurn data={flow}/>
+          </div>
+        </div>
       )}
     </div>
   );
