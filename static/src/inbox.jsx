@@ -321,7 +321,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Email excerpt</div>
         <div style={{ padding: 14, background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5, borderLeft: "2px solid var(--accent)" }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: "var(--ink-4)", marginBottom: 6 }}>{tx.subject}</div>
-          Dear customer, your {tx.tag === "income" ? "deposit" : "transaction"} of ₹{Math.abs(tx.amount).toLocaleString("en-IN")} on {tx.date} has been processed. Ref: #{tx.id.toUpperCase()}22{Math.abs(tx.amount).toString().slice(-3)}.
+          {tx.snippet || <span style={{ color: "var(--ink-4)", fontStyle: "italic" }}>No preview available</span>}
         </div>
       </div>
 
@@ -452,6 +452,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
+  const [selectAllFlag, setSelectAllFlag] = React.useState(false);
   const listRef = React.useRef(null);
   const [bulkReclassState, setBulkReclassState] = React.useState("idle"); // idle | running | done
   const [bulkProgress, setBulkProgress] = React.useState({ done: 0, total: 0 });
@@ -460,13 +461,21 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
   const [dupPairs, setDupPairs] = React.useState([]);
   const [dupLoading, setDupLoading] = React.useState(false);
+  const headerCheckRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!selectMode) return;
-    const onKey = (e) => { if (e.key === "Escape") { setSelectMode(false); setSelectedIds(new Set()); } };
+    const onKey = (e) => { if (e.key === "Escape") { setSelectMode(false); setSelectedIds(new Set()); setSelectAllFlag(false); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectMode]);
+
+  // Reset selection when switching filter tabs
+  React.useEffect(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setSelectAllFlag(false);
+  }, [filter]);
 
   React.useEffect(() => {
     if (filter !== "duplicates") return;
@@ -502,13 +511,19 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   };
 
   const selectAll = () => setSelectedIds(new Set(filtered.map(t => t.id)));
-  const clearSelect = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const clearSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setSelectAllFlag(false); };
 
   const bulkAction = async (action, localPatch) => {
-    const ids = [...selectedIds];
-    setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...localPatch } : t));
-    clearSelect();
-    await API.post("/api/transactions/bulk", { ids, action }).catch(() => {});
+    if (selectAllFlag) {
+      if (localPatch) setTransactions(ts => ts.map(t => ({ ...t, ...localPatch })));
+      clearSelect();
+      await API.post("/api/transactions/bulk", { ids: [], action, select_all: true }).catch(() => {});
+    } else {
+      const ids = [...selectedIds];
+      setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...localPatch } : t));
+      clearSelect();
+      await API.post("/api/transactions/bulk", { ids, action }).catch(() => {});
+    }
   };
 
   const bulkMarkRead   = () => bulkAction("mark_read",   { read: true });
@@ -622,15 +637,21 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               <>
                 <input
                   type="checkbox"
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
-                  onChange={e => e.target.checked ? selectAll() : setSelectedIds(new Set())}
+                  checked={(selectedIds.size === filtered.length && filtered.length > 0) || selectAllFlag}
+                  onChange={e => { if (e.target.checked) selectAll(); else { setSelectedIds(new Set()); setSelectAllFlag(false); } }}
                   style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }}
                 />
                 <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>
-                  {selectedIds.size} selected
+                  {selectAllFlag ? totalTransactions : selectedIds.size} selected
                 </span>
+                {!selectAllFlag && selectedIds.size === filtered.length && filtered.length > 0 && transactions.length < totalTransactions && (
+                  <button
+                    onClick={() => setSelectAllFlag(true)}
+                    style={{ fontSize: 11, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", fontWeight: 500 }}
+                  >Select all {totalTransactions}</button>
+                )}
                 <div style={{ flex: 1 }}/>
-                <button onClick={clearSelect} style={{ ...inboxStyles.chip, color: "var(--ink-3)" }}>✕ Clear</button>
+                <button onClick={clearSelect} style={{ ...inboxStyles.chip, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 5 }}><Icon name="x" size={11} stroke="var(--ink-3)"/> Clear</button>
               </>
             ) : (
               <>
@@ -692,7 +713,6 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           })}
           {loadingMore && (
             <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
               <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
             </div>
           )}
@@ -714,11 +734,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
           <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
           <button onClick={bulkReclassify} disabled={bulkReclassState==="running"} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassState==="running"?"default":"pointer", fontWeight: 500 }}>
-            {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? "Done ✓" : "Re-classify (LLM)"}
+            {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? <><Icon name="check" size={12} stroke="currentColor"/> Done</> : "Re-classify (LLM)"}
           </button>
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Re-classify (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "#fca5a5", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
-          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
       )}
 

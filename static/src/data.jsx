@@ -71,6 +71,7 @@ const transformTransaction = (t) => {
     read: t.read ?? false,
     flag: t.flagged ?? false,
     note: t.user_notes || "",
+    snippet: t.email?.body_snippet || "",
   };
 };
 

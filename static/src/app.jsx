@@ -12,11 +12,12 @@ const App = () => {
   const [tweaksOn, setTweaksOn] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
-  const [theme, setTheme] = useState("paper");
+  const [theme, setTheme] = useState(() => localStorage.getItem("mf_theme") || "paper");
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
+  useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
 
   const loadData = useCallback(async () => {
     try {
@@ -37,13 +38,19 @@ const App = () => {
     }
   }, []);
 
+  const _loadingRef = React.useRef(false);
   const loadMore = async () => {
-    if (loadingMore) return;
+    if (_loadingRef.current) return;
+    _loadingRef.current = true;
     setLoadingMore(true);
     try {
       const data = await API.get(`/api/transactions?offset=${transactions.length}&limit=50`);
-      setTransactions(ts => [...ts, ...data.items.map(transformTransaction)]);
+      setTransactions(ts => {
+        const seen = new Set(ts.map(t => t.id));
+        return [...ts, ...data.items.map(transformTransaction).filter(t => !seen.has(t.id))];
+      });
     } catch (_) {}
+    _loadingRef.current = false;
     setLoadingMore(false);
   };
 
@@ -162,7 +169,6 @@ const App = () => {
 
   if (loading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16 }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ width:32, height:32, border:"2px solid var(--line)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 700ms linear infinite" }}/>
       <div style={{ fontSize:13, color:"var(--ink-3)", fontFamily:"'Fraunces',serif" }}>Loading your inbox…</div>
     </div>
@@ -178,7 +184,7 @@ const App = () => {
 
   return (
     <div style={shellStyles.app} data-screen-label={view}>
-      <Sidebar view={view} setView={setView} counts={counts} filter={inboxFilter} onFilter={setInboxFilter} />
+      <Sidebar view={view} setView={setView} counts={counts} filter={inboxFilter} onFilter={setInboxFilter} theme={theme} setTheme={setTheme} />
       <main style={shellStyles.main}>
         <Topbar title={titles[view].title} subtitle={titles[view].sub} syncLabel={syncLabel()}>
           <button style={shellStyles.topBtn}><Icon name="filter" size={13}/> Filter</button>

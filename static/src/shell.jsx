@@ -10,7 +10,7 @@ const shellStyles = {
   navItemActive: { background: "var(--paper-2)", color: "var(--ink)" },
   navCount: { marginLeft: "auto", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
   sectionLabel: { fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", padding: "18px 10px 6px", fontWeight: 500 },
-  sideFooter: { marginTop: "auto", borderTop: "1px solid var(--line)", padding: "14px 8px 4px", display: "flex", alignItems: "center", gap: 10 },
+  sideFooter: { borderTop: "1px solid var(--line)", padding: "10px 8px 4px", display: "flex", alignItems: "center", gap: 10 },
   avatar: { width: 28, height: 28, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 600, fontFamily: "'Geist', sans-serif" },
   main: { display: "flex", flexDirection: "column", minWidth: 0 },
   topbar: { display: "flex", alignItems: "center", gap: 14, padding: "16px 28px", borderBottom: "1px solid var(--line)", background: "var(--paper)", position: "sticky", top: 0, zIndex: 10, minHeight: 72 },
@@ -33,7 +33,7 @@ const NavItem = ({ icon, label, count, active, onClick }) => (
   </button>
 );
 
-const Sidebar = ({ view, setView, counts, filter, onFilter }) => {
+const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme }) => {
   const [menu, setMenu] = React.useState(false);
   return (
   <aside style={shellStyles.side}>
@@ -67,7 +67,15 @@ const Sidebar = ({ view, setView, counts, filter, onFilter }) => {
     <div style={shellStyles.sectionLabel}>Tools</div>
     <NavItem icon="gear" label="Admin" active={view==="admin"} onClick={()=>setView("admin")} />
 
-    <div style={{ ...shellStyles.sideFooter, position: "relative" }}>
+    <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
+      {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"]].map(([k,bg,label]) => (
+        <button key={k} title={label} onClick={() => setTheme && setTheme(k)}
+          style={{ flex: 1, height: 6, borderRadius: 3, background: bg, border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)", cursor: "pointer", padding: 0 }}
+        />
+      ))}
+    </div>
+
+    <div style={{ ...shellStyles.sideFooter, position: "relative", borderTop: "none", paddingTop: 0 }}>
       <button
         onClick={()=>setMenu(m=>!m)}
         className="focus-ring"

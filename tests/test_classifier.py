@@ -126,3 +126,31 @@ async def test_classify_email_no_session_does_not_crash():
             subject="Debit", body_text="Rs.100 debited",
         )
     assert result.label == Label.expense
+
+
+@pytest.mark.asyncio
+async def test_classify_email_bad_label_defaults_to_ignore():
+    """LLM returns unrecognised label (wrong case / typo) → Label.ignore, no raise."""
+    for bad_label in ("Expense", "EXPENSE", "debit", "unknown", ""):
+        with patch("app.classifier.classifier.llm_client.classify_verbose",
+                   new_callable=AsyncMock,
+                   return_value=_mock_verbose_result(label=bad_label)):
+            result = await classify_email(
+                email_id="e-bad", sender="s@bank.com", sender_domain="bank.com",
+                subject="Alert", body_text="Rs.100 debited",
+            )
+        assert result.label == Label.ignore, f"expected ignore for label={bad_label!r}"
+        assert result.classifier_method == ClassifierMethod.llm
+
+
+@pytest.mark.asyncio
+async def test_classify_email_empty_merchant_stored_as_none():
+    """LLM returns empty-string merchant → result.merchant is None, not ''."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock,
+               return_value=_mock_verbose_result(merchant="")):
+        result = await classify_email(
+            email_id="e-merch", sender="s@bank.com", sender_domain="bank.com",
+            subject="Debit", body_text="Rs.50 debited",
+        )
+    assert result.merchant is None
