@@ -68,6 +68,7 @@ const transformTransaction = (t) => {
     cat,
     conf,
     paid: "",
+    status: t.status || "confirmed",
     read: t.read ?? false,
     flag: t.flagged ?? false,
     note: t.user_notes || "",

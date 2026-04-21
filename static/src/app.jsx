@@ -148,11 +148,12 @@ const App = () => {
   };
 
   const counts = {
-    unread:  transactions.filter(t => !t.read).length,
-    expense: transactions.filter(t => t.amount < 0 && t.tag !== "subscription").length,
-    income:  transactions.filter(t => t.amount > 0).length,
-    sub:     transactions.filter(t => t.tag === "subscription").length,
-    flagged: transactions.filter(t => t.flag).length,
+    unread:   transactions.filter(t => !t.read).length,
+    expense:  transactions.filter(t => t.amount < 0 && t.tag !== "subscription").length,
+    income:   transactions.filter(t => t.amount > 0).length,
+    sub:      transactions.filter(t => t.tag === "subscription").length,
+    flagged:  transactions.filter(t => t.flag).length,
+    payments: transactions.filter(t => t.amount < 0 && ["rent","util","sub"].includes(t.cat)).length,
   };
 
   const today = new Date();

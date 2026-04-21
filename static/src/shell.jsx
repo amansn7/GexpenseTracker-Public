@@ -50,7 +50,8 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme }) =
     <NavItem icon="dot"  label="Expenses"      count={counts.expense} active={view==="inbox"&&filter==="expenses"}      onClick={()=>{ setView("inbox"); onFilter("expenses"); }} />
     <NavItem icon="dot"  label="Income"        count={counts.income}  active={view==="inbox"&&filter==="income"}         onClick={()=>{ setView("inbox"); onFilter("income"); }} />
     <NavItem icon="dot"  label="Subscriptions" count={counts.sub}     active={view==="inbox"&&filter==="sub"}            onClick={()=>{ setView("inbox"); onFilter("sub"); }} />
-    <NavItem icon="star" label="Flagged"       count={counts.flagged} active={view==="inbox"&&filter==="flagged"}        onClick={()=>{ setView("inbox"); onFilter("flagged"); }} />
+    <NavItem icon="star"       label="Flagged"  count={counts.flagged}  active={view==="inbox"&&filter==="flagged"}   onClick={()=>{ setView("inbox"); onFilter("flagged"); }} />
+    <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>{ setView("inbox"); onFilter("payments"); }} />
 
     <div style={shellStyles.sectionLabel}>Categories</div>
     {Object.entries(CATEGORIES).filter(([k])=>k!=="income"&&k!=="other").map(([k,c]) => (

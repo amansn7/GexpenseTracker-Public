@@ -16,6 +16,7 @@ class TransactionPatch(BaseModel):
     user_notes: Optional[str] = None
     read: Optional[bool] = None
     flagged: Optional[bool] = None
+    status: Optional[str] = None
 
 
 class BulkAction(BaseModel):
@@ -181,6 +182,8 @@ async def patch_transaction(
         t.read = patch.read
     if patch.flagged is not None:
         t.flagged = patch.flagged
+    if patch.status is not None:
+        t.status = patch.status
 
     await db.commit()
     await db.refresh(t)

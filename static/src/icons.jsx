@@ -29,6 +29,7 @@ const Icon = ({ name, size = 16, stroke = "currentColor" }) => {
     case "trend-u": return <svg {...p}><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>;
     case "trend-d": return <svg {...p}><path d="M3 7l6 6 4-4 8 8"/><path d="M14 17h7v-7"/></svg>;
     case "bolt":    return <svg {...p}><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg>;
+    case "arrow-swap": return <svg {...p}><path d="M7 16V4m0 0L4 7m3-3l3 3M17 8v12m0 0l3-3m-3 3l-3-3"/></svg>;
     default: return null;
   }
 };
