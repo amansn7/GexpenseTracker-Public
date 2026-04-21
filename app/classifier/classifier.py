@@ -56,7 +56,7 @@ async def classify_email(
         model_name = verbose["model"]
         raw_response = verbose["raw_response"]
     except Exception as exc:
-        logger.error("LLM classification failed for email %s: %s", email_id, exc)
+        logger.error("LLM classification failed for email %s: %s", email_id, exc, exc_info=True)
         add_alert("error", f"LLM classification failed: {exc}", source="classifier")
 
     latency_ms = round((time.monotonic() - t0) * 1000)
@@ -64,6 +64,7 @@ async def classify_email(
     if llm_result:
         raw_merchant = llm_result.merchant
         merchant, _ = normalize_merchant(raw_merchant) if raw_merchant else (None, 0.0)
+        merchant = merchant or None  # normalize_merchant returns "" on no-match
         try:
             label = Label(llm_result.label)
         except ValueError:

@@ -111,12 +111,18 @@ async def stats_summary(
         .where(Transaction.status == "needs_review")
     )).scalar_one()
 
+    unread_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .where(Transaction.read == False)
+    )).scalar_one()
+
     return {
         "total_expenses": round(total_expenses, 2),
         "total_income": round(total_income, 2),
         "saved": round(saved, 2),
         "savings_rate": savings_rate,
         "needs_review_count": needs_review_count,
+        "unread_count": unread_count,
     }
 
 

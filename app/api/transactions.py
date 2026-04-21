@@ -19,15 +19,19 @@ class TransactionPatch(BaseModel):
 
 
 class BulkAction(BaseModel):
-    ids: List[str]
+    ids: List[str] = []
     action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete"]
+    select_all: bool = False
 
 
 @router.post("/transactions/bulk")
 async def bulk_transactions(payload: BulkAction, db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(Transaction).where(Transaction.id.in_(payload.ids))
-    )).scalars().all()
+    if payload.select_all:
+        rows = (await db.execute(select(Transaction))).scalars().all()
+    else:
+        rows = (await db.execute(
+            select(Transaction).where(Transaction.id.in_(payload.ids))
+        )).scalars().all()
 
     if payload.action == "mark_read":
         for t in rows:
@@ -74,6 +78,7 @@ def _fmt(t: Transaction, e: "Email | None") -> dict:
             "sender": e.sender if e else None,
             "received_at": e.received_at.isoformat() if e and e.received_at else None,
             "gmail_link": e.gmail_link if e else None,
+            "body_snippet": e.body_snippet if e else None,
         },
     }
 
