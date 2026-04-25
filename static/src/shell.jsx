@@ -1,5 +1,20 @@
 // Shell — sidebar nav, topbar, layout
 
+const useViewport = () => {
+  const read = () => ({
+    width: window.innerWidth,
+    isMobile: window.innerWidth < 720,
+    isTablet: window.innerWidth < 980,
+  });
+  const [viewport, setViewport] = React.useState(read);
+  React.useEffect(() => {
+    const onResize = () => setViewport(read());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return viewport;
+};
+
 const shellStyles = {
   app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100vh", position: "relative", zIndex: 2 },
   side: { borderRight: "1px solid var(--line)", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 0, height: "100vh", background: "var(--paper)" },
@@ -33,30 +48,47 @@ const NavItem = ({ icon, label, count, active, onClick }) => (
   </button>
 );
 
-const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme }) => {
+const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {} }) => {
   const [menu, setMenu] = React.useState(false);
+  const sideStyle = mobile
+    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease" }
+    : shellStyles.side;
+  const navigate = (fn) => {
+    fn();
+    if (mobile) onClose();
+  };
   return (
-  <aside style={shellStyles.side}>
+  <>
+  {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(26,24,20,0.36)", zIndex: 70 }} />}
+  <aside style={sideStyle} aria-hidden={mobile && !open}>
     <div style={shellStyles.brand}>
       <span style={shellStyles.brandMark}>Money<span style={{ color: "var(--accent)", fontStyle: "italic" }}>flow</span></span>
+      {mobile && (
+        <button onClick={onClose} className="focus-ring" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
+          <Icon name="x" size={15} />
+        </button>
+      )}
     </div>
 
     <div style={shellStyles.sectionLabel}>Views</div>
-    <NavItem icon="inbox" label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>setView("inbox")} />
-    <NavItem icon="flow"  label="Money Flow"                          active={view==="flow"}      onClick={()=>setView("flow")} />
-    <NavItem icon="dash"  label="Dashboard"                           active={view==="dashboard"} onClick={()=>setView("dashboard")} />
+    <NavItem icon="inbox"   label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>navigate(()=>setView("inbox"))} />
+    <NavItem icon="flow"    label="Money Flow"                          active={view==="flow"}      onClick={()=>navigate(()=>setView("flow"))} />
+    <NavItem icon="dash"    label="Dashboard"                           active={view==="dashboard"} onClick={()=>navigate(()=>setView("dashboard"))} />
+    <NavItem icon="chart"   label="Reports"                             active={view==="reports"}   onClick={()=>navigate(()=>setView("reports"))} />
+    <NavItem icon="repeat"  label="Recurring"                           active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
+    <NavItem icon="trending-down" label="Debt"                          active={view==="debt"}      onClick={()=>navigate(()=>setView("debt"))} />
 
     <div style={shellStyles.sectionLabel}>Filters</div>
-    <NavItem icon="dot"  label="Expenses"      count={counts.expense} active={view==="inbox"&&filter==="expenses"}      onClick={()=>{ setView("inbox"); onFilter("expenses"); }} />
-    <NavItem icon="dot"  label="Income"        count={counts.income}  active={view==="inbox"&&filter==="income"}         onClick={()=>{ setView("inbox"); onFilter("income"); }} />
-    <NavItem icon="dot"  label="Subscriptions" count={counts.sub}     active={view==="inbox"&&filter==="sub"}            onClick={()=>{ setView("inbox"); onFilter("sub"); }} />
-    <NavItem icon="star"       label="Flagged"  count={counts.flagged}  active={view==="inbox"&&filter==="flagged"}   onClick={()=>{ setView("inbox"); onFilter("flagged"); }} />
-    <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>{ setView("inbox"); onFilter("payments"); }} />
+    <NavItem icon="dot"  label="Expenses"      count={counts.expense} active={view==="inbox"&&filter==="expenses"}      onClick={()=>navigate(()=>{ setView("inbox"); onFilter("expenses"); })} />
+    <NavItem icon="dot"  label="Income"        count={counts.income}  active={view==="inbox"&&filter==="income"}         onClick={()=>navigate(()=>{ setView("inbox"); onFilter("income"); })} />
+    <NavItem icon="dot"  label="Subscriptions" count={counts.sub}     active={view==="inbox"&&filter==="sub"}            onClick={()=>navigate(()=>{ setView("inbox"); onFilter("sub"); })} />
+    <NavItem icon="star"       label="Flagged"  count={counts.flagged}  active={view==="inbox"&&filter==="flagged"}   onClick={()=>navigate(()=>{ setView("inbox"); onFilter("flagged"); })} />
+    <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>navigate(()=>{ setView("inbox"); onFilter("payments"); })} />
 
     <div style={shellStyles.sectionLabel}>Categories</div>
     {Object.entries(CATEGORIES).filter(([k])=>k!=="income"&&k!=="other").map(([k,c]) => (
       <button key={k} className="focus-ring"
-        onClick={()=>{ setView("inbox"); onFilter("cat:"+k); }}
+        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("cat:"+k); })}
         style={{ ...shellStyles.navItem, ...(view==="inbox"&&filter==="cat:"+k ? shellStyles.navItemActive : {}) }}
         onMouseEnter={e=>{ if(!(view==="inbox"&&filter==="cat:"+k)) e.currentTarget.style.background="var(--paper-2)"; }}
         onMouseLeave={e=>{ if(!(view==="inbox"&&filter==="cat:"+k)) e.currentTarget.style.background="transparent"; }}>
@@ -66,7 +98,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme }) =
     ))}
 
     <div style={shellStyles.sectionLabel}>Tools</div>
-    <NavItem icon="gear" label="Admin" active={view==="admin"} onClick={()=>setView("admin")} />
+    <NavItem icon="gear" label="Admin" active={view==="admin"} onClick={()=>navigate(()=>setView("admin"))} />
 
     <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
       {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"]].map(([k,bg,label]) => (
@@ -108,23 +140,140 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme }) =
       )}
     </div>
   </aside>
+  </>
 );
 };
 
-const Topbar = ({ title, subtitle, children, syncLabel }) => (
-  <header style={shellStyles.topbar}>
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginRight: 16, minWidth: 0, flexShrink: 0 }}>
-      <h1 className="serif" style={{ margin: 0, fontSize: 22, fontWeight: 500, letterSpacing: "-0.015em", whiteSpace: "nowrap" }}>{title}</h1>
-      {subtitle && <div style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap" }}>{subtitle}</div>}
-    </div>
-    <div style={shellStyles.search}>
+const SearchBar = ({ mobile, onSelect, onEnter }) => {
+  const [query, setQuery] = React.useState("");
+  const [results, setResults] = React.useState([]);
+  const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const inputRef = React.useRef(null);
+  const wrapRef = React.useRef(null);
+  const timerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+      if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  React.useEffect(() => {
+    const onDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const handleChange = (e) => {
+    const q = e.target.value;
+    setQuery(q);
+    clearTimeout(timerRef.current);
+    if (!q.trim() || q.trim().length < 2) { setResults([]); setOpen(false); return; }
+    timerRef.current = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const data = await API.get(`/api/search?q=${encodeURIComponent(q.trim())}&limit=15`);
+        setResults(data.items || []);
+        setOpen(true);
+      } catch (_) {}
+      setBusy(false);
+    }, 280);
+  };
+
+  const fmtAmt = (tx) => {
+    if (tx.amount == null) return null;
+    const isIncome = tx.label === "income";
+    const sign = isIncome ? "+" : "−";
+    return `${sign}₹${Math.abs(tx.amount).toLocaleString("en-IN")}`;
+  };
+
+  const handleSelect = (tx) => {
+    setOpen(false);
+    setQuery("");
+    onSelect && onSelect(tx.id);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ ...shellStyles.search, ...(mobile ? { order: 3, flexBasis: "100%", maxWidth: "none" } : {}), position: "relative" }}>
       <Icon name="search" size={14} />
-      <input style={shellStyles.searchInput} placeholder="Search merchants, amounts, categories…" />
-      <span style={shellStyles.kbd}>⌘ K</span>
+      <input
+        ref={inputRef}
+        style={shellStyles.searchInput}
+        placeholder="Search merchants, amounts, categories…"
+        value={query}
+        onChange={handleChange}
+        onFocus={() => { if (results.length > 0) setOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && query.trim().length >= 2) {
+            setOpen(false);
+            onEnter && onEnter(query.trim());
+          }
+          if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); }
+        }}
+        autoComplete="off"
+        spellCheck={false}
+      />
+      {busy && <div style={{ width: 12, height: 12, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 600ms linear infinite", flexShrink: 0 }} />}
+      {!mobile && !busy && <span style={shellStyles.kbd}>⌘K</span>}
+      {open && results.length > 0 && (
+        <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, maxHeight: 380, overflowY: "auto" }}>
+          <div style={{ padding: "6px 12px 4px", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>Results</div>
+          {results.map((tx, i) => (
+            <button key={tx.id} onClick={() => handleSelect(tx)}
+              style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 14px", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)", background: "transparent", textAlign: "left", cursor: "pointer" }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {tx.merchant || tx.email?.subject || "(no merchant)"}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                  {[tx.category, tx.txn_date || tx.email?.received_at?.slice(0, 10)].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              {fmtAmt(tx) && (
+                <span style={{ fontSize: 13, fontFamily: "'Geist Mono', monospace", fontFeatureSettings: "'tnum'", color: tx.label === "income" ? "var(--pos)" : "var(--neg)", fontWeight: 500, flexShrink: 0 }}>
+                  {fmtAmt(tx)}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && results.length === 0 && !busy && query.trim().length >= 2 && (
+        <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: "14px 14px", fontSize: 13, color: "var(--ink-3)", textAlign: "center" }}>
+          No results for "{query}"
+        </div>
+      )}
     </div>
+  );
+};
+
+const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu = mobile, onMenu = () => {}, onSearchSelect, onSearchEnter }) => (
+  <header style={{ ...shellStyles.topbar, ...(mobile ? { padding: "10px 14px", gap: 10, minHeight: 62, flexWrap: "wrap" } : {}) }}>
+    {showMenu && (
+      <button onClick={onMenu} className="focus-ring" aria-label="Open navigation" style={{ border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", borderRadius: 6, width: 38, height: 38, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <Icon name="menu" size={18} />
+      </button>
+    )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginRight: mobile ? 0 : 16, minWidth: 0, flex: mobile ? "1 1 180px" : "0 0 auto" }}>
+      <h1 className="serif" style={{ margin: 0, fontSize: mobile ? 20 : 22, fontWeight: 500, letterSpacing: "-0.015em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
+      {subtitle && <div style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
+    </div>
+    <SearchBar mobile={mobile} onSelect={onSearchSelect} onEnter={onSearchEnter} />
     <div style={{ flex: "0 0 auto", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
       {children}
-      <div style={shellStyles.connected}>
+      <div style={{ ...shellStyles.connected, ...(mobile ? { display: "none" } : {}) }}>
         <span style={shellStyles.connectedDot}></span>
         <span style={{ whiteSpace: "nowrap" }}>{syncLabel || "Gmail"}</span>
       </div>
@@ -169,4 +318,4 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
   );
 };
 
-Object.assign(window, { Sidebar, Topbar, shellStyles, DateRangeControl });
+Object.assign(window, { Sidebar, Topbar, shellStyles, DateRangeControl, useViewport });

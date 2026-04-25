@@ -286,6 +286,28 @@ async def stats_top_merchants(
     }
 
 
+@router.get("/stats/monthly-summary")
+async def stats_monthly_summary(db: AsyncSession = Depends(get_db)):
+    months_data = await _monthly_data("1y", db)
+    result = []
+    for m in reversed(months_data):
+        income = m["income"]
+        expenses = m["expenses"]
+        net = round(income - expenses, 2)
+        savings_rate = round(net / income * 100, 1) if income > 0 else 0.0
+        from datetime import datetime as _dt
+        label = _dt.strptime(m["month"], "%Y-%m").strftime("%B %Y")
+        result.append({
+            "month": m["month"],
+            "label": label,
+            "income": income,
+            "expenses": expenses,
+            "net": net,
+            "savings_rate": savings_rate,
+        })
+    return {"months": result}
+
+
 @router.get("/stats/income-vs-expense")
 async def stats_income_vs_expense(
     period: str = "1m",

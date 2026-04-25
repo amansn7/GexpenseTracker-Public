@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from app.scheduler import setup_scheduler, scheduler
-from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api
+from app.api import account, auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api
 from app.config import settings
 
 
@@ -51,6 +51,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(account.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(review.router, prefix="/api")
 app.include_router(sync_api.router, prefix="/api")
@@ -61,6 +62,7 @@ app.include_router(budgets_api.router, prefix="/api")
 app.include_router(emails_api.router, prefix="/api")
 app.include_router(admin_api.router, prefix="/api")
 app.include_router(duplicates_api.router, prefix="/api")
+app.include_router(debt_api.router, prefix="/api")
 
 
 @app.get("/health")

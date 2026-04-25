@@ -15,21 +15,48 @@ const App = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem("mf_theme") || "paper");
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [account, setAccount] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const viewport = useViewport();
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
+  useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [txRaw, summary, catBreakdown] = await Promise.all([
-        API.get("/api/transactions?offset=0&limit=50"),
+      const now = new Date();
+      const y = now.getFullYear();
+      const mo = now.getMonth(); // 0-indexed
+      const m = String(mo + 1).padStart(2, "0");
+      const lastDay = new Date(y, mo + 1, 0).getDate();
+      const dateFrom = `${y}-${m}-01`;
+      const dateTo   = `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+
+      // Last 7 days of previous month for income look-back
+      const prevMonthLastDate = new Date(y, mo, 0);
+      const prevMonthLastDay  = prevMonthLastDate.getDate();
+      const prevY  = prevMonthLastDate.getFullYear();
+      const prevM  = String(prevMonthLastDate.getMonth() + 1).padStart(2, "0");
+      const prevWeekStart = String(Math.max(prevMonthLastDay - 6, 1)).padStart(2, "0");
+      const incomeFrom = `${prevY}-${prevM}-${prevWeekStart}`;
+      const incomeTo   = `${prevY}-${prevM}-${String(prevMonthLastDay).padStart(2, "0")}`;
+
+      const [txRaw, incomeRaw] = await Promise.all([
+        API.get(`/api/transactions?date_from=${dateFrom}&date_to=${dateTo}&offset=0&limit=1000`),
+        API.get(`/api/transactions?date_from=${incomeFrom}&date_to=${incomeTo}&label=income&offset=0&limit=200`),
         API.get("/api/stats/summary"),
         API.get("/api/stats/category-breakdown"),
       ]);
-      const txs = txRaw.items.map(transformTransaction);
-      setTransactions(txs);
+      const currentMonth = txRaw.items.map(transformTransaction);
+      const prevIncome   = incomeRaw.items.map(transformTransaction);
+      const seen = new Set(currentMonth.map(t => t.id));
+      const merged = [...currentMonth, ...prevIncome.filter(t => !seen.has(t.id))];
+      setTransactions(merged);
       setTotalTransactions(txRaw.total);
     } catch (e) {
       setError(e.message);
@@ -44,7 +71,7 @@ const App = () => {
     _loadingRef.current = true;
     setLoadingMore(true);
     try {
-      const data = await API.get(`/api/transactions?offset=${transactions.length}&limit=50`);
+      const data = await API.get(`/api/transactions?offset=${transactions.length}&limit=200`);
       setTransactions(ts => {
         const seen = new Set(ts.map(t => t.id));
         return [...ts, ...data.items.map(transformTransaction).filter(t => !seen.has(t.id))];
@@ -58,6 +85,11 @@ const App = () => {
 
   useEffect(() => {
     API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
+    API.get("/api/account/me")
+      .then(data => { setAccount(data); setNeedsOnboarding(false); })
+      .catch(err => {
+        if ((err.message || "").startsWith("404")) setNeedsOnboarding(true);
+      });
   }, []);
 
   // Tweaks panel edit-mode bridge
@@ -160,12 +192,16 @@ const App = () => {
   const monthYear = today.toLocaleString("en-US", { month: "long", year: "numeric" });
 
   const titles = {
-    inbox:     { title: "Inbox",      sub: `${monthYear} · ${transactions.length} emails parsed` },
-    flow:      { title: "Money Flow", sub: "how the month really unfolded" },
-    dashboard: { title: "Dashboard",  sub: "one page, quick read" },
-    profile:   { title: "Profile",    sub: "your account" },
-    settings:  { title: "Settings",   sub: "preferences & integrations" },
-    admin:     { title: "Admin",      sub: "service testing & diagnostics" },
+    inbox:     { title: "Inbox",          sub: `${monthYear} · ${transactions.length} emails parsed` },
+    flow:      { title: "Money Flow",     sub: "how the month really unfolded" },
+    dashboard: { title: "Dashboard",      sub: "one page, quick read" },
+    reports:   { title: "Reports",        sub: "month-by-month" },
+    recurring: { title: "Recurring",      sub: "subscriptions & fixed expenses" },
+    debt:      { title: "Debt Reduction", sub: "track payoff progress" },
+    profile:   { title: "Profile",        sub: "your account" },
+    settings:  { title: "Settings",       sub: "preferences & integrations" },
+    admin:     { title: "Admin",          sub: "service testing & diagnostics" },
+    search:    { title: "Search",         sub: searchQuery ? `"${searchQuery}"` : "search your transactions" },
   };
 
   if (loading) return (
@@ -183,19 +219,38 @@ const App = () => {
     </div>
   );
 
+  if (needsOnboarding) return (
+    <OnboardingView onComplete={(data) => {
+      setAccount(data);
+      setNeedsOnboarding(false);
+      setView("profile");
+    }} />
+  );
+
   return (
-    <div style={shellStyles.app} data-screen-label={view}>
-      <Sidebar view={view} setView={setView} counts={counts} filter={inboxFilter} onFilter={setInboxFilter} theme={theme} setTheme={setTheme} />
+    <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
+      <Sidebar
+        view={view}
+        setView={setView}
+        counts={counts}
+        filter={inboxFilter}
+        onFilter={setInboxFilter}
+        theme={theme}
+        setTheme={setTheme}
+        mobile={viewport.isTablet}
+        open={!viewport.isTablet || navOpen}
+        onClose={() => setNavOpen(false)}
+      />
       <main style={shellStyles.main}>
-        <Topbar title={titles[view].title} subtitle={titles[view].sub} syncLabel={syncLabel()}>
-          <button style={shellStyles.topBtn}><Icon name="filter" size={13}/> Filter</button>
+        <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
+          {!viewport.isMobile && <button style={shellStyles.topBtn}><Icon name="filter" size={13}/> Filter</button>}
           <button
             onClick={handleRescan}
             disabled={syncing}
-            style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
+            style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, ...(viewport.isMobile ? { padding: "9px 10px" } : {}), opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
           >
             <Icon name="sparkle" size={13} stroke="currentColor"/>
-            {syncing ? "Scanning…" : "Re-scan"}
+            {!viewport.isMobile && (syncing ? "Scanning…" : "Re-scan")}
           </button>
         </Topbar>
 
@@ -212,10 +267,14 @@ const App = () => {
             loadingMore={loadingMore}
           />
         )}
+        {view === "search"    && <SearchView query={searchQuery}/>}
         {view === "flow"      && <FlowView transactions={transactions}/>}
         {view === "dashboard" && <DashboardView transactions={transactions}/>}
-        {view === "profile"   && <ProfileView transactions={transactions}/>}
-        {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing}/>}
+        {view === "reports"   && <ReportsView />}
+        {view === "recurring" && <RecurringView />}
+        {view === "debt"      && <DebtView />}
+        {view === "profile"   && <ProfileView transactions={transactions} account={account} setAccount={setAccount}/>}
+        {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/>}
         {view === "admin"     && <AdminView />}
       </main>
 
