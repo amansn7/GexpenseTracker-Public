@@ -95,6 +95,7 @@ class UserSettings(Base):
     monthly_ai_budget: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     active_ai_service_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     digest_hour: Mapped[int] = mapped_column(Integer, default=9, nullable=False, server_default="9")
+    allowed_emails: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     user: Mapped["User"] = relationship(back_populates="settings")
@@ -112,6 +113,9 @@ class ConnectedAccount(Base):
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    token_expiry: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="connected_accounts")
 
@@ -158,6 +162,15 @@ class UserAIService(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     user: Mapped["User"] = relationship(back_populates="ai_services")
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token: Mapped[bytes] = mapped_column(sa.LargeBinary(32), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 class Email(Base):
     __tablename__ = "emails"
