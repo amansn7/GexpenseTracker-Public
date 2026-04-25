@@ -1,5 +1,23 @@
 #!/bin/sh
 set -e
+
+DB_HOST="${DB_HOST:-db}"
+DB_PORT="${DB_PORT:-5432}"
+
+echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
+until python -c "
+import socket, sys
+try:
+    s = socket.create_connection(('${DB_HOST}', ${DB_PORT}), timeout=2)
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null; do
+  echo "  db not ready, retrying in 1s..."
+  sleep 1
+done
+
 echo "Running migrations..."
 alembic upgrade head
 echo "Starting app..."
