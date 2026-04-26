@@ -1,5 +1,9 @@
 .env
 data/gmail_token.json
+data/*.xlsx
+data/*.csv
+data/learning_stats.json
+data/ml_classifier.json
 __pycache__/
 .pytest_cache/
 *.pyc
@@ -16,3 +20,11 @@ htmlcov/
 *.png
 *.jpg
 .playwright-mcp/
+# graphify generated artifacts
+graphify-out/cache/
+graphify-out/graph.json
+graphify-out/graph.html
+graphify-out/.graphify_python
+# tool workspaces
+.superpowers/
+.planning/

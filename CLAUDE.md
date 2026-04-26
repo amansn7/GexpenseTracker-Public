@@ -1,3 +1,11 @@
+## Project Context
+This is an expense tracker project with budgets, analytics dashboard, and Axis Bank payroll income-shift rules. Tech stack: Python backend, JavaScript/HTML frontend. Always run the full test suite after feature implementation - tests should pass before committing.
+
+## Workflow Conventions
+- Use TaskCreate/TaskUpdate to track multi-step work and keep statuses current; clear stale 'pending' tasks at session start.
+- For UI changes, run a full-project UI audit before implementing fixes.
+- Commit completed work with descriptive messages once tests pass.
+
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 
@@ -45,3 +53,7 @@ Rules:
 - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
 - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
 - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+
+## Plugin & Environment Notes
+- Xcode Command Line Tools must be installed before plugin operations on macOS.
+- After installing plugins, verify they load correctly (not as 'Unknown skill') before proceeding.

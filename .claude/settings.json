@@ -10,6 +10,15 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if ls *.py 2>/dev/null; then pytest -q; fi"
+          }
+        ]
       }
     ],
     "SessionStart": [

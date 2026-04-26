@@ -1,0 +1,16 @@
+{
+  "comment": "Desired plugin list for this project. Add to 'plugins' array; run bootstrap to install/verify.",
+  "marketplaces": {
+    "claude-plugins-official": "anthropics/claude-plugins-official",
+    "caveman":                 "JuliusBrussee/caveman",
+    "context-mode":            "mksglu/context-mode",
+    "claude-hud":              "jarrodwatts/claude-hud",
+    "ui-ux-pro-max-skill":     "nextlevelbuilder/ui-ux-pro-max-skill"
+  },
+  "plugins": [
+    "caveman@caveman",
+    "TODO_PLUGIN_2",
+    "TODO_PLUGIN_3",
+    "TODO_PLUGIN_4"
+  ]
+}
