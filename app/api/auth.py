@@ -31,7 +31,7 @@ def _set_session_cookie(response: Response, token: bytes) -> None:
         value=token.hex(),
         httponly=True,
         secure=False,
-        samesite="strict",
+        samesite="lax",
         max_age=SESSION_DAYS * 86400,
         path="/",
     )
@@ -55,18 +55,19 @@ async def _get_or_create_user(
         role = UserRole.owner
     else:
         owner = (await db.execute(
-            select(User).where(User.role == UserRole.owner)
+            select(User).where(User.role == UserRole.owner, User.email != "service@localhost")
         )).scalar_one_or_none()
-        allowed = []
-        if owner:
+        if owner is None:
+            # No real owner yet — first real user becomes owner
+            role = UserRole.owner
+        else:
             raw = (await db.execute(
                 select(UserSettings.allowed_emails).where(UserSettings.user_id == owner.id)
             )).scalar_one_or_none()
             allowed = json.loads(raw) if raw else []
-
-        if email not in allowed:
-            raise HTTPException(status_code=403, detail="access_denied")
-        role = UserRole.member
+            if email not in allowed:
+                raise HTTPException(status_code=403, detail="access_denied")
+            role = UserRole.member
 
     user = (await db.execute(
         select(User).where(User.email == email)
