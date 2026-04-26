@@ -27,6 +27,7 @@ async def mock_user(db_session):
     """Create and return a test user in the db_session, and override get_current_user."""
     from app.main import app
     from app.auth_deps import get_current_user
+    from app.database import get_db
     from app.models import User, UserSettings, UserProfile, UserRole, UserStatus
 
     user = User(
@@ -50,6 +51,11 @@ async def mock_user(db_session):
     async def _override():
         return user
 
+    async def override_db():
+        yield db_session
+
     app.dependency_overrides[get_current_user] = _override
+    app.dependency_overrides[get_db] = override_db
     yield user
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_db, None)

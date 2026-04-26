@@ -251,7 +251,7 @@ async def patch_transaction(
 async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
     row = (await db.execute(
         select(Transaction, Email)
-        .outerjoin(Email)
+        .join(Email, Transaction.email_id == Email.id)
         .where(Transaction.id == transaction_id, Email.user_id == user_id)
     )).one_or_none()
     if not row:
@@ -335,7 +335,7 @@ async def find_duplicates(
     """
     rows = (await db.execute(
         select(Transaction, Email)
-        .outerjoin(Email)
+        .join(Email, Transaction.email_id == Email.id)
         .where(
             Email.user_id == current_user.id,
             Transaction.label == "expense",

@@ -187,7 +187,7 @@ async def stats_category_breakdown(
     return {"categories": categories, "total": round(total, 2)}
 
 
-async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None, user_id: Optional[str] = None) -> list:
+async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None, user_id: str = "") -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
     if date_from and date_to:
@@ -218,9 +218,8 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
-    if user_id:
-        expense_where.insert(0, Email.user_id == user_id)
-        income_where.insert(0, Email.user_id == user_id)
+    expense_where.insert(0, Email.user_id == user_id)
+    income_where.insert(0, Email.user_id == user_id)
 
     expense_rows = (await db.execute(
         select(Transaction.txn_date, Transaction.amount)
