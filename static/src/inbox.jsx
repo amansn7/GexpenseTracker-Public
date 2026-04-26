@@ -170,19 +170,34 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
 
 const CategoryPicker = ({ current, onPick, onClose }) => {
   const { isMobile } = useViewport();
+  const [userCats, setUserCats] = React.useState(null);
+
+  React.useEffect(() => {
+    API.get("/api/account/categories")
+      .then(d => setUserCats(d.categories || []))
+      .catch(() => setUserCats([]));
+  }, []);
+
+  const items = userCats && userCats.length > 0
+    ? userCats.map(c => ({ key: c.name.toLowerCase(), label: c.name, bg: c.color, ink: "#78736a" }))
+    : Object.entries(CATEGORIES).filter(([k]) => k !== "income").map(([k, c]) => ({ key: k, label: c.label, bg: c.bg, ink: c.ink }));
+
   return (
   <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
+    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
       <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
         <Icon name="sparkle" size={12} stroke="var(--accent)"/> Recategorize — teaches the model
       </div>
-      {Object.entries(CATEGORIES).filter(([k])=>k!=="income").map(([k, c]) => (
-        <button key={k} onClick={()=>onPick(k)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===k ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
-          <span style={{ width: 14, height: 14, borderRadius: 4, background: c.bg, border: `1px solid ${c.ink}22` }} />
-          <span style={{ fontWeight: 500 }}>{c.label}</span>
-          {current===k && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
-        </button>
-      ))}
+      {userCats === null
+        ? <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--ink-4)" }}>Loading…</div>
+        : items.map(({ key, label, bg, ink }) => (
+          <button key={key} onClick={()=>onPick(key)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
+            <span style={{ width: 14, height: 14, borderRadius: 4, background: bg, border: `1px solid ${ink}22`, flexShrink: 0 }} />
+            <span style={{ fontWeight: 500 }}>{label}</span>
+            {current===key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
+          </button>
+        ))
+      }
     </div>
   </div>
 );
