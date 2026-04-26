@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete as sa_delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import get_current_user
@@ -92,8 +92,11 @@ async def _get_or_create_user(
             status="connected",
         ))
     else:
-        if user.profile and picture:
-            user.profile.avatar_url = picture
+        profile_row = (await db.execute(
+            select(UserProfile).where(UserProfile.user_id == user.id)
+        )).scalar_one_or_none()
+        if profile_row and picture:
+            profile_row.avatar_url = picture
 
     await db.commit()
     await db.refresh(user)
@@ -119,8 +122,7 @@ async def start_google_auth():
         prompt="consent",
         include_granted_scopes="true",
     )
-    _pending["state"] = state
-    _pending["flow"] = flow
+    _pending[state] = flow
     return RedirectResponse(auth_url)
 
 
@@ -130,15 +132,12 @@ async def google_callback(
     state: str,
     db: AsyncSession = Depends(get_db),
 ):
-    flow = _pending.get("flow")
+    flow = _pending.pop(state, None)
     if not flow:
         raise HTTPException(status_code=400, detail="No pending auth flow")
-    if state != _pending.get("state"):
-        raise HTTPException(status_code=400, detail="State mismatch")
 
     await asyncio.to_thread(flow.fetch_token, code=code)
     creds = flow.credentials
-    _pending.clear()
 
     userinfo = await asyncio.to_thread(get_google_userinfo, creds)
     email = userinfo.get("email", "").lower().strip()
@@ -174,7 +173,6 @@ async def logout(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import delete as sa_delete
     raw_cookie = request.cookies.get(COOKIE_NAME)
     if raw_cookie:
         try:
@@ -230,7 +228,6 @@ async def claim_seed_data(
     )).scalar_one_or_none()
     if not seed_row:
         return {"transferred": 0}
-    from sqlalchemy import update
     result = await db.execute(
         update(Email).where(Email.user_id == seed_row.id).values(user_id=user.id)
     )
