@@ -139,31 +139,46 @@ const buildFlowSummary = (transactions, summary, catBreakdown) => {
 };
 
 // Thin fetch wrappers
+const _checkAuth = (r) => {
+  if (r.status === 401) { window.location.href = "/login"; return null; }
+  return r;
+};
+
 const API = {
-  get: (path) => fetch(path).then(r => {
+  get: async (path) => {
+    const r = _checkAuth(await fetch(path, { credentials: "include" }));
+    if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
-  }),
-  patch: (path, body) => fetch(path, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  }).then(r => {
+  },
+  patch: async (path, body) => {
+    const r = _checkAuth(await fetch(path, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }));
+    if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
-  }),
-  post: (path, body) => fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  }).then(r => {
+  },
+  post: async (path, body) => {
+    const r = _checkAuth(await fetch(path, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }));
+    if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
-  }),
-  delete: (path) => fetch(path, { method: "DELETE" }).then(r => {
+  },
+  delete: async (path) => {
+    const r = _checkAuth(await fetch(path, { method: "DELETE", credentials: "include" }));
+    if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
-  }),
+  },
 };
 
 Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat });

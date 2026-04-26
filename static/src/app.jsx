@@ -16,8 +16,8 @@ const App = () => {
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [account, setAccount] = useState(null);
+  const [showSeedModal, setShowSeedModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
 
@@ -89,11 +89,13 @@ const App = () => {
 
   useEffect(() => {
     API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-    API.get("/api/account/me")
-      .then(data => { setAccount(data); setNeedsOnboarding(false); })
-      .catch(err => {
-        if ((err.message || "").startsWith("404")) setNeedsOnboarding(true);
-      });
+    API.get("/api/auth/me")
+      .then(data => {
+        if (!data) return; // 401 redirect in flight
+        setAccount(data);
+        if (data.has_seed_data) setShowSeedModal(true);
+      })
+      .catch(() => {});
   }, []);
 
   // Tweaks panel edit-mode bridge
@@ -224,13 +226,6 @@ const App = () => {
     </div>
   );
 
-  if (needsOnboarding) return (
-    <OnboardingView onComplete={(data) => {
-      setAccount(data);
-      setNeedsOnboarding(false);
-      setView("profile");
-    }} />
-  );
 
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
