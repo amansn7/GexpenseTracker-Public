@@ -20,6 +20,9 @@ def setup_scheduler() -> None:
                     select(User).where(User.role == UserRole.owner, User.email != "service@localhost")
                 )).scalar_one_or_none()
                 owner_id = owner.id if owner else None
+            if owner_id is None:
+                logger.warning("Scheduled sync skipped: no owner user found")
+                return
             result = await run_sync(user_id=owner_id)
             logger.info("Sync complete: %s", result)
         except Exception as exc:

@@ -290,9 +290,13 @@ const App = () => {
       <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
         <button
           onClick={async () => {
-            await API.post("/api/auth/claim-seed-data");
-            setShowSeedModal(false);
-            loadData();
+            try {
+              await API.post("/api/auth/claim-seed-data");
+              setShowSeedModal(false);
+              loadData();
+            } catch (_) {
+              setShowSeedModal(false);
+            }
           }}
           style={{ padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
         >Import my data</button>

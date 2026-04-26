@@ -86,8 +86,9 @@ async def get_credentials_for_user(db, user_id: str):
     )
 
     if creds.expired and creds.refresh_token:
+        import asyncio
         from google.auth.transport.requests import Request as GRequest
-        creds.refresh(GRequest())
+        await asyncio.get_event_loop().run_in_executor(None, lambda: creds.refresh(GRequest()))
         account.access_token = creds.token
         account.token_expiry = creds.expiry
         await db.commit()
