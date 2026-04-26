@@ -47,8 +47,7 @@ EXTRACTION RULES:
 - merchant  : payee / store / service — NOT the bank itself. Clean raw merchant codes:
               "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
               "NETFLIX.COM" → "Netflix", "SPOTIFY" → "Spotify". null if no identifiable payee.
-- category  : one of — Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment,
-              Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other
+- category  : one of — {categories}
 - txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
 - confidence: 0.9–1.0 for clear bank/UPI alerts · 0.7–0.9 for merchant emails · 0.5–0.7 for ambiguous
 
@@ -221,8 +220,14 @@ class MultiLLMClient:
             for p in all_providers
         ]
 
+    _DEFAULT_CATEGORIES = (
+        "Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment, "
+        "Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other"
+    )
+
     async def classify(
-        self, sender: str, subject: str, body_snippet: str
+        self, sender: str, subject: str, body_snippet: str,
+        categories: Optional[str] = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
         if not ranked:
@@ -236,7 +241,8 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=sender, subject=subject, body_snippet=body_snippet
+            sender=sender, subject=subject, body_snippet=body_snippet,
+            categories=categories or self._DEFAULT_CATEGORIES,
         )
         last_error: Optional[Exception] = None
         for provider in ranked:
@@ -301,7 +307,8 @@ class MultiLLMClient:
         return _parse_response(raw), raw
 
     async def classify_verbose(
-        self, sender: str, subject: str, body_snippet: str
+        self, sender: str, subject: str, body_snippet: str,
+        categories: Optional[str] = None,
     ) -> dict:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
@@ -309,7 +316,8 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=sender, subject=subject, body_snippet=body_snippet
+            sender=sender, subject=subject, body_snippet=body_snippet,
+            categories=categories or self._DEFAULT_CATEGORIES,
         )
         last_error: Optional[Exception] = None
         for provider in ranked:

@@ -34,6 +34,15 @@ const Icon = ({ name, size = 16, stroke = "currentColor" }) => {
     case "repeat":       return <svg {...p}><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
     case "trending-down":return <svg {...p}><path d="M22 17l-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg>;
     case "chart":        return <svg {...p}><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>;
+    case "fork":         return <svg {...p}><line x1="5" y1="2" x2="5" y2="22"/><line x1="9" y1="2" x2="9" y2="22"/><path d="M5 2a4 4 0 0 1 4 4v2H5"/></svg>;
+    case "home":         return <svg {...p}><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg>;
+    case "bag":          return <svg {...p}><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>;
+    case "plane":        return <svg {...p}><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>;
+    case "heart":        return <svg {...p}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+    case "book":         return <svg {...p}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>;
+    case "grid":         return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
+    case "bank":         return <svg {...p}><path d="M3 22h18M3 10h18M5 10V6l7-4 7 4v4M4 22v-4h16v4"/><rect x="8" y="14" width="2" height="4"/><rect x="14" y="14" width="2" height="4"/></svg>;
+    case "trash":        return <svg {...p}><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>;
     default: return null;
   }
 };

@@ -6,7 +6,8 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
 from app.classifier.llm_client import llm_client
-from app.classifier.merchant import normalize_merchant
+from app.classifier.merchant import extract_raw_merchant, normalize_merchant
+from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.alerts import add_alert
 from app.config import settings
 
@@ -34,6 +35,20 @@ def _parse_date(raw: Optional[str]) -> Optional[date]:
         return None
 
 
+async def _load_user_categories(session: AsyncSession, user_id: Optional[str]) -> Optional[str]:
+    """Return comma-separated active category names for the given user, or None."""
+    if not session or not user_id:
+        return None
+    from sqlalchemy import select
+    from app.models import UserCategory
+    rows = (await session.execute(
+        select(UserCategory.name)
+        .where(UserCategory.user_id == user_id, UserCategory.active.is_(True))
+        .order_by(UserCategory.sort_order, UserCategory.name)
+    )).scalars().all()
+    return ", ".join(rows) if rows else None
+
+
 async def classify_email(
     email_id: Optional[str],
     sender: str,
@@ -41,16 +56,43 @@ async def classify_email(
     subject: str,
     body_text: str,
     session: Optional[AsyncSession] = None,
+    rule_engine_enabled: bool = True,
+    db_rules: Optional[dict] = None,
+    user_id: Optional[str] = None,
 ) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = body_text[:3000]
+
+    user_categories = await _load_user_categories(session, user_id)
+
+    # Stage 1 pre-filter: skip LLM for clear non-financial emails
+    if rule_engine_enabled:
+        rule_pre = apply_rules(sender_domain, subject, body_text, db_rules or {})
+        if rule_pre.label == Label.ignore and rule_pre.confidence >= 0.82:
+            logger.debug("Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", sender_domain, rule_pre.confidence)
+            status = (
+                TransactionStatus.auto
+                if rule_pre.confidence >= settings.AUTO_CONFIRM_THRESHOLD
+                else TransactionStatus.needs_review
+            )
+            return ClassificationResult(
+                label=Label.ignore,
+                amount=None,
+                merchant=None,
+                category=None,
+                txn_date=None,
+                confidence=rule_pre.confidence,
+                status=status,
+                classifier_method=ClassifierMethod.rule,
+            )
+
     provider = "none"
     model_name = "none"
     raw_response = ""
     llm_result = None
 
     try:
-        verbose = await llm_client.classify_verbose(sender, subject, body_snippet)
+        verbose = await llm_client.classify_verbose(sender, subject, body_snippet, categories=user_categories)
         llm_result = verbose["result"]
         provider = verbose["provider"]
         model_name = verbose["model"]
@@ -75,13 +117,23 @@ async def classify_email(
         confidence = llm_result.confidence
         txn_date = _parse_date(llm_result.txn_date)
     else:
-        raw_merchant = None
-        merchant = None
-        label = Label.ignore
+        rule_result = apply_rules(sender_domain, subject, body_text, db_rules or {})
+        if rule_result.merchant:
+            merchant = rule_result.merchant
+            merchant_conf = 1.0
+            merchant_category = MERCHANT_MAP.get(rule_result.merchant.lower(), {}).get("category")
+        else:
+            raw_merchant = extract_raw_merchant(body_text)
+            normalized_merchant, merchant_conf = normalize_merchant(raw_merchant or "")
+            merchant_meta = MERCHANT_MAP.get(normalized_merchant, {})
+            merchant = merchant_meta.get("display") or (normalized_merchant.title() if normalized_merchant else None)
+            merchant_category = merchant_meta.get("category")
+        label = rule_result.label or Label.ignore
         amount = None
-        category = None
-        confidence = 0.0
+        category = rule_result.category or merchant_category
+        confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
         txn_date = None
+    classifier_method = ClassifierMethod.llm if llm_result or confidence == 0.0 else ClassifierMethod.rule
 
     status = (
         TransactionStatus.auto
@@ -118,5 +170,5 @@ async def classify_email(
         txn_date=txn_date,
         confidence=confidence,
         status=status,
-        classifier_method=ClassifierMethod.llm,
+        classifier_method=classifier_method,
     )
