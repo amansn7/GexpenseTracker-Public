@@ -252,6 +252,65 @@ const CAT_ICONS = {
 };
 const getCatIcon = (name) => CAT_ICONS[(name||"").toLowerCase().trim()] || "grid";
 
+const FinancialHealthSection = ({ settings, onRefresh }) => {
+  const [balance, setBalance] = React.useState(
+    settings?.starting_balance != null ? String(Math.round(settings.starting_balance)) : ""
+  );
+  const [balanceDate, setBalanceDate] = React.useState(settings?.starting_balance_date || "");
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    await API.patch("/api/account/settings", {
+      starting_balance: balance !== "" ? parseFloat(balance) : null,
+      starting_balance_date: balanceDate || null,
+    });
+    await onRefresh();
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Financial Health</h3>
+      <div style={accountStyles.sectionSub}>— anchor your balance for runway & savings rate tracking</div>
+      <div style={{ ...accountStyles.row, ...accountStyles.rowLast, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <div style={accountStyles.label}>Starting balance</div>
+          <div style={accountStyles.sub}>leave blank to use all tracked transaction history</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>₹</span>
+          <input
+            type="number"
+            min="0"
+            placeholder="0"
+            value={balance}
+            onChange={e => setBalance(e.target.value)}
+            style={{ width: 110, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", fontSize: 13, fontFamily: "inherit" }}
+          />
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>as of</span>
+          <input
+            type="date"
+            max={today}
+            value={balanceDate}
+            onChange={e => setBalanceDate(e.target.value)}
+            style={{ padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", fontSize: 13, fontFamily: "inherit" }}
+          />
+          <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>
+            {saving ? "…" : saved ? "Saved ✓" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CategoriesSection = ({ categories, onRefresh }) => {
   const [editing, setEditing] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
@@ -478,6 +537,12 @@ const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) =>
       <CategoriesSection categories={categories} onRefresh={async () => {
         const d = await API.get("/api/account/me");
         if (d?.categories) setAccount(prev => ({ ...prev, categories: d.categories }));
+      }} />
+
+      {/* Financial Health */}
+      <FinancialHealthSection settings={settings} onRefresh={async () => {
+        const d = await API.get("/api/account/me");
+        if (d?.settings) setAccount(prev => ({ ...prev, settings: d.settings }));
       }} />
 
       {/* AI Services */}
@@ -766,4 +831,4 @@ const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) =>
   );
 };
 
-Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection });
+Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection });
