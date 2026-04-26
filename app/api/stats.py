@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 
 from app.database import get_db
-from app.models import Transaction, Email
+from app.models import Transaction, Email, UserSettings
 
 router = APIRouter()
 
@@ -318,3 +318,78 @@ async def stats_income_vs_expense(
     if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
         raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
     return {"months": await _monthly_data(period, db, date_from, date_to)}
+
+
+@router.get("/stats/health")
+async def stats_health(
+    months: int = 6,
+    db: AsyncSession = Depends(get_db),
+):
+    if months not in (3, 6, 12):
+        raise HTTPException(status_code=422, detail="months must be 3, 6, or 12")
+
+    period_map = {3: "3m", 6: "6m", 12: "1y"}
+    monthly = await _monthly_data(period_map[months], db)
+
+    monthly_net = [
+        {
+            "month": m["month"],
+            "income": m["income"],
+            "expenses": m["expenses"],
+            "net": round(m["income"] - m["expenses"], 2),
+        }
+        for m in monthly
+    ]
+
+    # Savings rate and runway use last 3 months for a stable baseline
+    last3 = monthly[-3:] if len(monthly) >= 3 else monthly
+    avg_income = sum(m["income"] for m in last3) / max(len(last3), 1)
+    avg_expense = sum(m["expenses"] for m in last3) / max(len(last3), 1)
+    avg_net = avg_income - avg_expense
+
+    savings_rate = round(avg_net / avg_income * 100, 1) if avg_income > 0 else 0.0
+
+    # Starting balance from user_settings (first row; scoped per-user after auth lands)
+    settings_row = (await db.execute(select(UserSettings).limit(1))).scalar_one_or_none()
+    starting_balance = (
+        float(settings_row.starting_balance)
+        if settings_row and settings_row.starting_balance is not None
+        else None
+    )
+    starting_balance_date = settings_row.starting_balance_date if settings_row else None
+
+    # Net transactions from starting_balance_date (or all-time if no anchor)
+    base_filter = [
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+    if starting_balance_date:
+        base_filter.append(Transaction.txn_date >= starting_balance_date)
+
+    expense_total = (await db.execute(
+        select(func.sum(Transaction.amount))
+        .where(Transaction.label == "expense", *base_filter)
+    )).scalar_one() or 0
+
+    income_txn_rows = (await db.execute(
+        select(Transaction.txn_date, Transaction.amount, Email.sender)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Transaction.label == "income", *base_filter)
+    )).all()
+    income_total = sum(float(r.amount or 0) for r in income_txn_rows)
+
+    net_since = income_total - float(expense_total)
+    current_balance = round((starting_balance or 0.0) + net_since, 2)
+    balance_mode = "anchored" if starting_balance is not None else "computed"
+
+    runway_months = round(current_balance / avg_expense, 1) if avg_expense > 0 else None
+
+    return {
+        "current_balance": current_balance,
+        "savings_rate": savings_rate,
+        "runway_months": runway_months,
+        "starting_balance": starting_balance,
+        "starting_balance_date": starting_balance_date.isoformat() if starting_balance_date else None,
+        "balance_mode": balance_mode,
+        "monthly_net": monthly_net,
+    }
