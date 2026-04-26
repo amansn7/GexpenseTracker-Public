@@ -263,14 +263,16 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
   const save = async () => {
     setSaving(true);
     setSaved(false);
-    await API.patch("/api/account/settings", {
-      starting_balance: balance !== "" ? parseFloat(balance) : null,
-      starting_balance_date: balanceDate || null,
-    });
-    await onRefresh();
+    try {
+      await API.patch("/api/account/settings", {
+        starting_balance: balance !== "" ? parseFloat(balance) : null,
+        starting_balance_date: balanceDate || null,
+      });
+      await onRefresh();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (_) {}
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   const today = new Date().toISOString().slice(0, 10);

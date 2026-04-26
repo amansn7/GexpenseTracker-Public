@@ -151,6 +151,6 @@ async def test_health_balance_reflects_transactions(db_session):
         assert data["current_balance"] == -5000.0
         assert data["balance_mode"] == "computed"
         # runway must be 0 (not negative)
-        assert data["runway_months"] == 0.0 or data["runway_months"] is None
+        assert data["runway_months"] == 0.0
     finally:
         app.dependency_overrides.pop(get_db, None)

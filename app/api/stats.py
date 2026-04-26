@@ -359,6 +359,7 @@ async def stats_health(
     )
     starting_balance_date = settings_row.starting_balance_date if settings_row else None
 
+    # TODO(auth): scope expense/income queries by current_user.id once auth is wired
     # Net transactions from starting_balance_date (or all-time if no anchor)
     base_filter = [
         Transaction.txn_date.isnot(None),

@@ -70,7 +70,7 @@ class SettingsPatch(BaseModel):
     active_ai_service_id: Optional[str] = None
     digest_hour: Optional[int] = Field(default=None, ge=0, le=23)
     use_rule_engine: Optional[bool] = None
-    starting_balance: Optional[float] = Field(default=None, ge=0)
+    starting_balance: Optional[float] = Field(default=None, ge=0, le=999_999_999)
     starting_balance_date: Optional[date] = None
 
 
