@@ -23,6 +23,7 @@ const dashStyles = {
 };
 
 const DashboardView = ({ transactions }) => {
+  const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = (() => {
     const d = new Date(); d.setDate(d.getDate() - 29);
@@ -35,6 +36,11 @@ const DashboardView = ({ transactions }) => {
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [statsLoading, setStatsLoading] = React.useState(false);
+  const [budgets, setBudgets] = React.useState([]);
+
+  React.useEffect(() => {
+    API.get("/api/budgets").then(d => setBudgets(d.budgets || [])).catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -87,11 +93,11 @@ const DashboardView = ({ transactions }) => {
   })).sort((a,b) => b.amount - a.amount);
 
   return (
-    <div style={dashStyles.wrap}>
+    <div style={{ ...dashStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{rangeFrom} → {rangeTo} · Snapshot</div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isMobile ? 28 : 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
             You're <span className="italic-serif" style={{ color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</span> ahead.
           </h2>
         </div>
@@ -108,10 +114,10 @@ const DashboardView = ({ transactions }) => {
         {statsLoading && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Loading…</span>}
       </div>
 
-      <div style={dashStyles.hero}>
+      <div style={{ ...dashStyles.hero, ...(isMobile ? { padding: 18, gridTemplateColumns: "1fr", gap: 22, borderRadius: 8 } : isTablet ? { gridTemplateColumns: "1fr", gap: 28 } : {}) }}>
         <div>
           <div style={dashStyles.heroLabel}>Net position · selected range</div>
-          <div style={{ ...dashStyles.heroAmount, color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
+          <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
           <div style={dashStyles.heroSub}>after ₹{totalExpense.toLocaleString("en-IN")} in expenses · {(100-pctSpent).toFixed(0)}% saved so far</div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
             <div style={{ width: `${pctSpent}%`, background: "var(--accent)" }} />
@@ -163,7 +169,7 @@ const DashboardView = ({ transactions }) => {
         </div>
       </div>
 
-      <div style={dashStyles.grid3}>
+      <div style={{ ...dashStyles.grid3, gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : dashStyles.grid3.gridTemplateColumns }}>
         <div style={dashStyles.card}>
           <div style={dashStyles.cardH}><span>Daily burn</span><Icon name="bolt" size={12} stroke="var(--accent)"/></div>
           <div style={dashStyles.cardBig}>₹{daily.toLocaleString("en-IN")}</div>
@@ -187,7 +193,7 @@ const DashboardView = ({ transactions }) => {
         </div>
       </div>
 
-      <div style={dashStyles.grid2}>
+      <div style={{ ...dashStyles.grid2, gridTemplateColumns: isTablet ? "1fr" : dashStyles.grid2.gridTemplateColumns }}>
         {/* Category breakdown — banded section + card grid */}
         <div>
           <div style={dashStyles.secHead}>
@@ -250,6 +256,46 @@ const DashboardView = ({ transactions }) => {
             ));
           })()}
           </div>
+        </div>
+      </div>
+
+      {/* Budget section */}
+      <div style={{ marginTop: 16 }}>
+        <div style={dashStyles.secHead}>
+          <span style={dashStyles.secTitle}>Budgets · this month</span>
+          <span style={dashStyles.secSub}>{budgets.length} tracked</span>
+        </div>
+        <div style={dashStyles.secBody}>
+          {budgets.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--ink-4)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic" }}>
+              No budgets set — add them in Settings to track monthly limits per category.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
+              {budgets.map(b => {
+                const over = b.over_budget;
+                const pct = Math.min(b.pct, 100);
+                const barColor = over ? "var(--neg)" : b.pct >= 80 ? "var(--accent)" : "var(--pos)";
+                return (
+                  <div key={b.id} style={{ padding: "14px 16px", background: over ? "var(--neg-soft)" : "var(--paper-2)", borderRadius: 8, border: `1px solid ${over ? "var(--neg)" : "var(--line)"}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{b.category}</span>
+                      <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", fontWeight: 600, color: barColor, padding: "2px 6px", background: over ? "var(--neg)" : "var(--line)", color: over ? "white" : "var(--ink-2)", borderRadius: 4 }}>
+                        {b.pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div style={{ background: "var(--line)", height: 6, borderRadius: 10, overflow: "hidden", marginBottom: 8 }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: barColor, borderRadius: 10, transition: "width 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>
+                      <span>₹{b.spent_this_month.toLocaleString("en-IN")} spent</span>
+                      <span>₹{b.monthly_limit.toLocaleString("en-IN")} limit</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

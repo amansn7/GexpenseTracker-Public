@@ -16,6 +16,7 @@ const flowStyles = {
 };
 
 const SankeyDiagram = ({ data }) => {
+  const { isMobile } = useViewport();
   const W = 1120, H = 520;
   const LEFT_X = 30, LEFT_W = 160;
   const MID_X = 480, MID_W = 180;
@@ -68,8 +69,8 @@ const SankeyDiagram = ({ data }) => {
   };
 
   return (
-    <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560 }}>
+    <div style={{ overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch" }}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560, minWidth: isMobile ? 760 : 0 }}>
         <defs>
           <pattern id="diag" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="4" stroke="var(--line)" strokeWidth="1"/>
@@ -154,13 +155,14 @@ const SankeyDiagram = ({ data }) => {
 
 const WeeklyBurn = ({ data }) => {
   const max = Math.max(...data.weeklyBurn.map(w => w.spent));
+  const { isMobile } = useViewport();
   return (
     <div style={{ padding: "4px 0" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, alignItems: "end", height: 200, borderBottom: "1px solid var(--line)", paddingBottom: 12, position: "relative" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, alignItems: "end", height: isMobile ? 160 : 200, borderBottom: "1px solid var(--line)", paddingBottom: 12, position: "relative" }}>
         {data.weeklyBurn.map((w, idx) => {
           const pct = max > 0 ? (w.spent / max) * 100 : 0;
           return (
-            <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", borderLeft: idx === 0 ? "none" : "1px dashed var(--line)", height: "100%", padding: "0 20px", position: "relative" }}>
+            <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", borderLeft: idx === 0 ? "none" : "1px dashed var(--line)", height: "100%", padding: isMobile ? "0 6px" : "0 20px", position: "relative" }}>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
                 ₹{w.spent.toLocaleString("en-IN")}
               </div>
@@ -184,6 +186,7 @@ const WeeklyBurn = ({ data }) => {
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
 const FlowView = ({ transactions }) => {
+  const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = (() => {
     const d = new Date(); d.setDate(d.getDate() - 29);
@@ -225,8 +228,8 @@ const FlowView = ({ transactions }) => {
   const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;
 
   return (
-    <div style={flowStyles.wrap}>
-      <div style={flowStyles.kpis}>
+    <div style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
+      <div style={{ ...flowStyles.kpis, gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : flowStyles.kpis.gridTemplateColumns, gap: isMobile ? 10 : 12 }}>
         <div style={flowStyles.kpi}>
           <div style={flowStyles.kpiLabel}>Income</div>
           <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
@@ -253,7 +256,7 @@ const FlowView = ({ transactions }) => {
         <div style={flowStyles.secHead}>
           <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
         </div>
-        <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: "8px 20px", display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: isMobile ? "10px 12px" : "8px 20px", display: "flex", justifyContent: "flex-end", overflowX: "auto" }}>
           <DateRangeControl
             rangeFrom={rangeFrom}
             rangeTo={rangeTo}

@@ -30,5 +30,6 @@ class Settings(BaseSettings):
 
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
+    INVITE_CODE: str = ""
 
 settings = Settings()

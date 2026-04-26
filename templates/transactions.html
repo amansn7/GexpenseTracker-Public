@@ -100,7 +100,8 @@ async function loadTxns() {
   if (from)     params.set('date_from', from);
   if (to)       params.set('date_to', to);
 
-  const txns = await fetch('/api/transactions?' + params).then(r => r.json());
+  const txResp = await fetch('/api/transactions?' + params).then(r => r.json());
+  const txns = Array.isArray(txResp) ? txResp : (txResp.items || []);
   document.getElementById('txn-count').textContent = txns.length + ' transaction' + (txns.length !== 1 ? 's' : '');
 
   const lbl = (t) => t.status === 'needs_review' ? 'needs_review' : (t.label || 'ignore');

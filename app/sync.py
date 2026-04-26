@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
-from app.models import Email, Transaction, SyncState, Label
+from app.models import Email, Transaction, SyncState, Label, UserSettings
 from app.gmail.client import fetch_new_messages
 from app.classifier.classifier import classify_email, ClassificationResult
 
@@ -120,6 +120,18 @@ async def _run_sync_inner() -> dict:
 
         await session.flush()  # assign IDs to all new Email rows at once
 
+        # ── Phase 2b: load rule engine settings ───────────────────────────────
+        user_settings = (await session.execute(select(UserSettings).limit(1))).scalar_one_or_none()
+        rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
+
+        db_rules: dict = {}
+        if rule_engine_enabled:
+            from app.classifier.rules import build_domain_rules
+            db_rules = await build_domain_rules(session)
+            logger.info("Rule engine enabled: loaded %d learned domain rules", len(db_rules))
+        else:
+            logger.info("Rule engine disabled: all emails go to LLM")
+
         # ── Phase 3: classify all new emails concurrently ─────────────────────
         sem = asyncio.Semaphore(_LLM_CONCURRENCY)
         done_counter = 0
@@ -134,6 +146,8 @@ async def _run_sync_inner() -> dict:
                     subject=msg["subject"] or "",
                     body_text=msg.get("body_text") or msg.get("body_snippet") or "",
                     session=session,
+                    rule_engine_enabled=rule_engine_enabled,
+                    db_rules=db_rules,
                 )
             done_counter += 1
             _sync_progress["current"] = skipped + done_counter

@@ -98,6 +98,9 @@ OPENROUTER_API_KEY=       # OpenRouter (fallback)
 LLM_CONFIDENCE_THRESHOLD=0.85   # below this → LLM is called
 AUTO_CONFIRM_THRESHOLD=0.75     # above this → auto-confirmed, skips review queue
 SYNC_INTERVAL_HOURS=2
+
+# Optional private-beta onboarding gate
+INVITE_CODE=your-private-code
 ```
 
 ### 3. Run with Docker

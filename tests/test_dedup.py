@@ -68,14 +68,27 @@ async def test_detect_called_after_classification():
 async def test_duplicates_api_list():
     """GET /api/duplicates returns list (may be empty)."""
     from httpx import AsyncClient, ASGITransport
+    from app.database import get_db
     import os
     os.environ["TESTING"] = "1"
     from app.main import app
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        r = await client.get("/api/duplicates")
-    assert r.status_code == 200
-    data = r.json()
-    assert isinstance(data, list)
+
+    async def override_get_db():
+        db = AsyncMock(spec=AsyncSession)
+        mock_result = MagicMock()
+        mock_result.scalars.return_value.all.return_value = []
+        db.execute = AsyncMock(return_value=mock_result)
+        yield db
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.get("/api/duplicates")
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.mark.asyncio

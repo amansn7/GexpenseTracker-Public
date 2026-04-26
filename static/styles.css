@@ -95,6 +95,8 @@ body.page-settings    #glow2 { width:200px;height:200px;background:rgba(93,184,1
 }
 .sync-btn:hover { filter: brightness(1.1); }
 
+.mobile-nav-toggle, .sidebar-backdrop { display: none; }
+
 /* ── Glass Card ──────────────────────────────────────────────── */
 .glass {
   background: var(--bg-card);
@@ -326,3 +328,47 @@ a.link:hover { text-decoration: underline; }
 .sp-badge.income  { background: #1a2a1a; color: var(--green); }
 .sp-badge.ignore  { background: #1a1a28; color: #3a3a5a; }
 #sync-panel-done { padding: 10px 16px 14px; font-size: 12px; text-align: center; display: none; border-top: 1px solid #1e1e32; }
+
+@media (max-width: 900px) {
+  .layout { display: block; }
+  .main { min-width: 0; }
+  .container { padding: 76px 18px 28px; max-width: none; }
+  .mobile-nav-toggle {
+    position: fixed; top: 14px; left: 14px; z-index: 120;
+    width: 42px; height: 42px; display: grid; place-content: center; gap: 5px;
+    background: rgba(13,13,26,0.88); border: 1px solid var(--border);
+    border-radius: var(--r-sm); color: var(--text); backdrop-filter: blur(14px);
+  }
+  .mobile-nav-toggle span {
+    display: block; width: 18px; height: 2px; border-radius: 2px; background: currentColor;
+  }
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: min(280px, 86vw); height: 100dvh;
+    transform: translateX(-105%); transition: transform 180ms ease;
+    box-shadow: 18px 0 48px rgba(0,0,0,.35); z-index: 115;
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  .sidebar-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.48);
+    z-index: 110;
+  }
+  body.nav-open .sidebar-backdrop { display: block; }
+  .stat-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important; }
+  .glass-header { align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+  .glass-body { overflow-x: auto; }
+  table { min-width: 680px; }
+  #sync-panel {
+    width: calc(100vw - 24px); right: 12px; bottom: 12px;
+  }
+  #toast-container { left: 12px; right: 12px; bottom: 12px; }
+  .toast { max-width: none; }
+}
+
+@media (max-width: 560px) {
+  .container { padding-left: 14px; padding-right: 14px; }
+  .page-title { font-size: 18px; }
+  .stat-card { padding: 14px; }
+  .stat-val { font-size: 20px; }
+  .btn-primary, .btn-ghost { width: 100%; justify-content: center; }
+  input, select, textarea { max-width: 100%; }
+}

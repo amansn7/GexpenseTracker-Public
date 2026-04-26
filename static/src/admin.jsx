@@ -3,8 +3,8 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 const S = {
-  page: { padding: "32px 40px", maxWidth: 1000, overflowY: "auto", height: "calc(100vh - 72px)" },
-  section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "24px 28px", marginBottom: 20 },
+  page: { padding: "clamp(18px, 4vw, 32px) clamp(14px, 5vw, 40px)", maxWidth: 1000, overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
+  section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 20 },
   sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 17, fontWeight: 500, marginBottom: 4, letterSpacing: "-0.01em" },
   sectionSub: { fontSize: 12, color: "var(--ink-3)", marginBottom: 20 },
   row: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 },
@@ -254,7 +254,7 @@ const ClassifyTestSection = () => {
       <div style={S.sectionTitle}>Classifier Tester</div>
       <div style={S.sectionSub}>Test the LLM classification pipeline with any input. No DB writes.</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div>
           <label style={S.label}>Sender</label>
           <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />

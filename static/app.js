@@ -168,11 +168,12 @@ async function _refreshDashboardIfPresent() {
   if (!statExpense) return;
 
   try {
-    const [stats, txns, review] = await Promise.all([
+    const [stats, txResp, review] = await Promise.all([
       fetch('/api/stats').then(r => r.json()),
       fetch('/api/transactions').then(r => r.json()),
       fetch('/api/review').then(r => r.json()),
     ]);
+    const txns = Array.isArray(txResp) ? txResp : (txResp.items || []);
 
     statExpense.textContent = '₹' + (stats.total_expense || 0).toLocaleString('en-IN', {minimumFractionDigits: 2});
     const inc = document.getElementById('stat-income');

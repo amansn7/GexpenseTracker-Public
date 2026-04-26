@@ -14,6 +14,10 @@
 <div class="glow-orb" id="glow2"></div>
 
 <div class="layout">
+  <button class="mobile-nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="sidebar-backdrop"></div>
   <!-- Sidebar -->
   <aside class="sidebar">
     <a href="/" class="sidebar-brand">ExpenseTracker</a>
@@ -98,6 +102,20 @@
   const _page = window.location.pathname.replace(/^\//, '').split('/')[0] || 'dashboard';
   document.querySelectorAll('.nav-item[data-page]').forEach(function(a) {
     a.classList.toggle('active', a.dataset.page === _page);
+  });
+
+  const _toggle = document.querySelector('.mobile-nav-toggle');
+  const _backdrop = document.querySelector('.sidebar-backdrop');
+  function _setNav(open) {
+    document.body.classList.toggle('nav-open', open);
+    _toggle?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  _toggle?.addEventListener('click', function() {
+    _setNav(!document.body.classList.contains('nav-open'));
+  });
+  _backdrop?.addEventListener('click', function() { _setNav(false); });
+  document.querySelectorAll('.sidebar a').forEach(function(a) {
+    a.addEventListener('click', function() { _setNav(false); });
   });
 </script>
 </body>

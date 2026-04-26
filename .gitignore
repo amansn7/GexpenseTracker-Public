@@ -13,3 +13,6 @@ build/
 .coverage
 htmlcov/
 *.log
+*.png
+*.jpg
+.playwright-mcp/

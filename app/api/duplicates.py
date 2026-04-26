@@ -93,8 +93,16 @@ async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depe
         raise HTTPException(status_code=422, detail="primary_tx_id must be one of the pair's transaction IDs")
     if pair.status not in ("pending",):
         raise HTTPException(status_code=409, detail=f"Pair already resolved: {pair.status}")
+
+    # Compute which TX to discard BEFORE overwriting primary_tx_id.
+    # The kept TX is body.primary_tx_id; the other one gets deleted.
+    discard_tx_id = (
+        pair.duplicate_tx_id if body.primary_tx_id == pair.primary_tx_id
+        else pair.primary_tx_id
+    )
+
     pair.primary_tx_id = body.primary_tx_id
-    await resolve_duplicate(pair, body.action, db)
+    await resolve_duplicate(pair, body.action, db, discard_tx_id=discard_tx_id)
     await db.commit()
-    await db.refresh(pair)
-    return {"id": pair.id, "status": pair.status}
+    # Don't refresh pair — it may have been deleted as part of confirmed resolution.
+    return {"id": pair_id, "status": body.action}

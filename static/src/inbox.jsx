@@ -8,7 +8,7 @@ const inboxStyles = {
   chip: { padding: "5px 10px", borderRadius: 20, border: "1px solid var(--line)", background: "var(--card)", fontSize: 11, color: "var(--ink-2)", display: "flex", alignItems: "center", gap: 6, fontWeight: 500, cursor: "pointer" },
   chipActive: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
 
-  dayLabel: { padding: "20px 32px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, background: "var(--paper)", position: "sticky", top: 41, display: "flex", alignItems: "baseline", gap: 12 },
+  dayLabel: { padding: "20px 32px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, background: "var(--paper)", position: "sticky", top: 41, zIndex: 3, display: "flex", alignItems: "baseline", gap: 12 },
   dayTotal: { fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", textTransform: "none", letterSpacing: 0 },
 
   row: { display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "13px 28px", borderBottom: "1px solid var(--line)", cursor: "pointer", transition: "background 120ms", position: "relative" },
@@ -62,10 +62,10 @@ const groupByDate = (txs) => {
 
 const dateLabel = (isoDate) => {
   if (!isoDate) return "Unknown date";
-  const d = new Date(isoDate);
+  const d = new Date(isoDate + "T00:00:00"); // local timezone, not UTC
   if (isNaN(d.getTime())) return "Unknown date";
   const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.floor((today - d)/(24*60*60*1000));
+  const diff = Math.round((today - d) / (24*60*60*1000));
   if (diff === 0) return "Today";
   if (diff === 1) return "Yesterday";
   return d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
@@ -109,10 +109,14 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   const tag = TAGS[tx.tag];
   const isIncome = tx.amount > 0;
   const [hovered, setHovered] = React.useState(false);
+  const { isMobile } = useViewport();
+  const rowStyle = isMobile
+    ? { ...inboxStyles.row, gridTemplateColumns: "24px 30px minmax(0, 1fr) auto", gap: 10, padding: "13px 14px", alignItems: "start" }
+    : inboxStyles.row;
   return (
     <div
       onClick={onRowClick}
-      style={{ ...inboxStyles.row, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
+      style={{ ...rowStyle, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
       onMouseEnter={e => { setHovered(true); if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
       onMouseLeave={e => { setHovered(false); if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
     >
@@ -138,20 +142,24 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
           </>
         )}
       </div>
-      <div style={{ display: "flex", alignItems: "center" }}>
+      {!isMobile && <div style={{ display: "flex", alignItems: "center" }}>
         <span style={{ ...inboxStyles.tagDot, background: tag.dot }}/>
-      </div>
+      </div>}
       <MerchantLogo merchant={tx.merchant}/>
-      <div style={{ minWidth: 0, display: "flex", alignItems: "baseline", gap: 12 }}>
-        <span style={{ ...inboxStyles.merchantName, ...(!tx.read ? inboxStyles.merchantNameUnread : {}) }}>{tx.merchant}</span>
+      <div style={{ minWidth: 0, display: "flex", alignItems: isMobile ? "flex-start" : "baseline", gap: isMobile ? 5 : 12, flexDirection: isMobile ? "column" : "row" }}>
+        <span style={{ ...inboxStyles.merchantName, ...(!tx.read ? inboxStyles.merchantNameUnread : {}), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{tx.merchant}</span>
         <span style={inboxStyles.subject}>{tx.subject}</span>
+        {isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }} onClick={(e)=>e.stopPropagation()}>
+          <CategoryChip cat={tx.cat} editable onClick={onEditCat} />
+          <span style={inboxStyles.time}>{tx.time}</span>
+        </div>}
       </div>
-      <div onClick={(e)=>{e.stopPropagation(); onEditCat&&onEditCat();}}>
+      {!isMobile && <div onClick={(e)=>{e.stopPropagation(); onEditCat&&onEditCat();}}>
         <CategoryChip cat={tx.cat} editable />
-      </div>
-      <Confidence value={tx.conf} />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
-        <span style={inboxStyles.time}>{tx.time}</span>
+      </div>}
+      {!isMobile && <Confidence value={tx.conf} />}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
+        {!isMobile && <span style={inboxStyles.time}>{tx.time}</span>}
         <span style={{ ...inboxStyles.amount, ...(isIncome ? inboxStyles.amountPos : inboxStyles.amountNeg) }}>
           {tx.amount === 0 ? "—" : `${isIncome ? "+" : "−"}₹${Math.abs(tx.amount).toLocaleString("en-IN")}`}
         </span>
@@ -160,9 +168,11 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   );
 };
 
-const CategoryPicker = ({ current, onPick, onClose }) => (
+const CategoryPicker = ({ current, onPick, onClose }) => {
+  const { isMobile } = useViewport();
+  return (
   <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: 320, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
+    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
       <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
         <Icon name="sparkle" size={12} stroke="var(--accent)"/> Recategorize — teaches the model
       </div>
@@ -176,6 +186,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => (
     </div>
   </div>
 );
+};
 
 const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const [editingAmt, setEditingAmt] = React.useState(false);
@@ -185,6 +196,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const [reclassResult, setReclassResult] = React.useState(null);
   const isIncome = tx.amount > 0;
   const sign = isIncome ? "+" : "−";
+  const { isMobile } = useViewport();
 
   React.useEffect(() => {
     setAmtDraft(Math.abs(tx.amount));
@@ -235,7 +247,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   };
 
   return (
-    <aside style={inboxStyles.panel} className="slide-in" key={tx.id}>
+    <aside style={{ ...inboxStyles.panel, ...(isMobile ? { position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none" } : {}) }} className="slide-in" key={tx.id}>
       <div style={inboxStyles.panelBody}>
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -254,7 +266,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>{isIncome ? "Money in" : "Money out"}</div>
         {editingAmt ? (
           <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
-            <span className="serif" style={{ fontSize: 54, color: isIncome ? "var(--pos)" : "var(--ink)", lineHeight: 1 }}>{sign}₹</span>
+            <span className="serif" style={{ fontSize: isMobile ? 40 : 54, color: isIncome ? "var(--pos)" : "var(--ink)", lineHeight: 1 }}>{sign}₹</span>
             <input
               autoFocus
               value={amtDraft}
@@ -262,14 +274,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               onBlur={saveAmt}
               onKeyDown={(e)=>{ if(e.key==="Enter") saveAmt(); if(e.key==="Escape") { setAmtDraft(Math.abs(tx.amount)); setEditingAmt(false); } }}
               className="serif focus-ring"
-              style={{ fontSize: 54, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1, width: 240, border: "none", background: "transparent", color: isIncome ? "var(--pos)" : "var(--ink)", outline: "none", borderBottom: "2px solid var(--accent)", padding: 0 }}
+              style={{ fontSize: isMobile ? 40 : 54, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1, width: isMobile ? 160 : 240, border: "none", background: "transparent", color: isIncome ? "var(--pos)" : "var(--ink)", outline: "none", borderBottom: "2px solid var(--accent)", padding: 0 }}
             />
           </div>
         ) : (
           <div onClick={()=>setEditingAmt(true)} style={{ cursor: "text", display: "inline-block", borderBottom: "1px dashed transparent" }}
             onMouseEnter={e=>e.currentTarget.style.borderBottomColor="var(--line)"}
             onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
-            <div style={{ ...inboxStyles.bigAmount, color: isIncome ? "var(--pos)" : "var(--ink)" }}>
+            <div style={{ ...inboxStyles.bigAmount, ...(isMobile ? { fontSize: 40 } : {}), color: isIncome ? "var(--pos)" : "var(--ink)" }}>
               {sign}₹{Math.abs(tx.amount).toLocaleString("en-IN")}
             </div>
           </div>
@@ -387,7 +399,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
           <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
             {tx.flag ? "Flagged" : "Flag"}
@@ -429,12 +441,13 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
 
 const DuplicatePairCard = ({ pair, onResolve }) => {
   const [resolving, setResolving] = React.useState(false);
+  const { isMobile } = useViewport();
   return (
-    <div style={{ padding: "20px 28px", borderBottom: "1px solid var(--line)" }}>
+    <div style={{ padding: isMobile ? "16px 14px" : "20px 28px", borderBottom: "1px solid var(--line)" }}>
       <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
         {pair.rule_source === "domain_pair" ? `Known pair · ${Math.round(pair.confidence * 100)}% confidence` : "Possible duplicate · same amount + date"}
       </div>
-      <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", gap: 12, flexDirection: isMobile ? "column" : "row" }}>
         <TxCard tx={pair.primary} isPrimary resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
         <TxCard tx={pair.duplicate} isPrimary={false} resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
       </div>
@@ -450,6 +463,7 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
 
 const IncomeRow = ({ tx, onUpdate }) => {
   const [toggling, setToggling] = React.useState(false);
+  const { isMobile } = useViewport();
   const isPaid = tx.status === "confirmed";
   const monthLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" }) : "—";
   const dateLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—";
@@ -468,7 +482,7 @@ const IncomeRow = ({ tx, onUpdate }) => {
   };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
       <div style={{ display: "flex", justifyContent: "center" }}>
         <input type="checkbox" checked={isPaid} onChange={togglePaid} disabled={toggling}
           style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--pos)" }}/>
@@ -480,14 +494,15 @@ const IncomeRow = ({ tx, onUpdate }) => {
       <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600, fontSize: 14, color: "var(--pos)", textAlign: "right" }}>
         +₹{tx.amount.toLocaleString("en-IN")}
       </div>
-      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dateLabel}</div>
-      <div><CategoryChip cat={tx.cat}/></div>
-      <div style={{ fontSize: 12, color: "var(--ink-4)" }}>{monthLabel}</div>
+      {!isMobile && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dateLabel}</div>}
+      {!isMobile && <div><CategoryChip cat={tx.cat}/></div>}
+      {!isMobile && <div style={{ fontSize: 12, color: "var(--ink-4)" }}>{monthLabel}</div>}
     </div>
   );
 };
 
 const IncomeTableView = ({ transactions, onUpdate }) => {
+  const { isMobile } = useViewport();
   if (transactions.length === 0) return (
     <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No income transactions found for this range.</div>
   );
@@ -501,14 +516,14 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
   const monthEntries = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]));
 
   return (
-    <div style={{ padding: "0 32px 32px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, padding: "12px 0 8px", borderBottom: "2px solid var(--line)", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, position: "sticky", top: 41, background: "var(--paper)", zIndex: 4 }}>
+    <div style={{ padding: isMobile ? "0 14px 24px" : "0 32px 32px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, padding: "12px 0 8px", borderBottom: "2px solid var(--line)", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, position: "sticky", top: 41, background: "var(--paper)", zIndex: 4 }}>
         <span title="Received">✓</span>
         <span>Source</span>
         <span style={{ textAlign: "right" }}>Amount</span>
-        <span>Date</span>
-        <span>Category</span>
-        <span>Month</span>
+        {!isMobile && <span>Date</span>}
+        {!isMobile && <span>Category</span>}
+        {!isMobile && <span>Month</span>}
       </div>
       {monthEntries.map(([monthKey, txs]) => {
         const monthTotal = txs.reduce((a, t) => a + t.amount, 0);
@@ -528,6 +543,7 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
 };
 
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false }) => {
+  const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
@@ -566,6 +582,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   const loadMoreRef = React.useRef(loadMore);
   React.useEffect(() => { loadMoreRef.current = loadMore; }, [loadMore]);
+
+  const autoLoadAttemptsRef = React.useRef(0);
+  React.useEffect(() => { autoLoadAttemptsRef.current = 0; }, [filter]);
 
   React.useEffect(() => {
     const el = listRef.current;
@@ -682,12 +701,15 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const selected = transactions.find(t => t.id === selectedId);
 
   // Auto-load more when a filtered tab has fewer than 10 visible rows but
-  // more data exists — prevents empty/sparse tabs until user scrolls All.
+  // more data exists — capped at 3 attempts per tab to avoid chain-fetching
+  // sparse tabs (e.g. income) that would exhaust all transactions.
   React.useEffect(() => {
     if (filter === "all" || filter === "duplicates") return;
     if (transactions.length >= totalTransactions) return;
     if (filtered.length >= 10) return;
     if (loadingMore) return;
+    if (autoLoadAttemptsRef.current >= 3) return;
+    autoLoadAttemptsRef.current += 1;
     loadMore();
   }, [filter, filtered.length, transactions.length, totalTransactions, loadingMore]);
 
@@ -710,9 +732,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   return (
     <>
-      <div style={selected ? inboxStyles.wrap : inboxStyles.wrapNoPanel}>
-        <div ref={listRef} style={inboxStyles.list}>
-          <div style={inboxStyles.toolbar}>
+      <div style={{ ...(selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel), height: isMobile ? "calc(100dvh - 115px)" : (selected ? inboxStyles.wrap.height : inboxStyles.wrapNoPanel.height) }}>
+        <div ref={listRef} style={{ ...inboxStyles.list, ...(isMobile ? { borderRight: "none" } : {}) }}>
+          <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px 14px", overflowX: "auto", alignItems: "center" } : {}) }}>
             {selectMode ? (
               <>
                 <input
@@ -749,7 +771,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   </button>
                 ))}
                 <div style={{ flex: 1 }}/>
-                <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions · {new Date().toLocaleString("en-US",{month:"long",year:"numeric"})}</span>
+                {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions · {new Date().toLocaleString("en-US",{month:"long",year:"numeric"})}</span>}
               </>
             )}
           </div>
@@ -764,13 +786,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
               ))
             )
-          ) : filter === "income" ? (
-            <IncomeTableView transactions={filtered} onUpdate={updateTx}/>
           ) : grouped.map(([date, txs]) => {
             const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
             return (
               <div key={date}>
-                <div style={inboxStyles.dayLabel}>
+                <div style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}) }}>
                   <span>{dateLabel(date)}</span>
                   <span style={inboxStyles.dayTotal}>
                     {dayTotal !== 0 && (dayTotal > 0 ? <span style={{color:"var(--pos)"}}>+₹{dayTotal.toLocaleString("en-IN")}</span> : <span>−₹{Math.abs(dayTotal).toLocaleString("en-IN")}</span>)}
@@ -809,7 +829,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       </div>
 
       {selectedIds.size > 0 && (
-        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)", zIndex: 50, fontSize: 13, fontWeight: 500 }}>
+        <div style={{ position: "fixed", bottom: isMobile ? 12 : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)", zIndex: 50, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible" }}>
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectedIds.size} selected</span>
           <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
           <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
@@ -818,7 +838,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <button onClick={bulkReclassify} disabled={bulkReclassState==="running"} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassState==="running"?"default":"pointer", fontWeight: 500 }}>
             {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? <><Icon name="check" size={12} stroke="currentColor"/> Done</> : "Re-classify (LLM)"}
           </button>
-          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Re-classify (Manual)</button>
+          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Re-classify (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
@@ -826,7 +846,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
       {bulkManualOpen && (
         <div onClick={()=>setBulkManualOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.2)" }}>
-          <div onClick={e=>e.stopPropagation()} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: 340, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position: "absolute", top: isMobile ? 80 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: isMobile ? "calc(100vw - 28px)" : 340, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
             <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Re-classify {selectedIds.size} transactions</div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
@@ -863,4 +883,94 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   );
 };
 
-Object.assign(window, { InboxView, fmtMoney, MerchantLogo, CategoryChip, Confidence, dateLabel });
+const SearchView = ({ query }) => {
+  const [results, setResults] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [selectedId, setSelectedId] = React.useState(null);
+  const [pickerFor, setPickerFor] = React.useState(null);
+  const { isMobile } = useViewport();
+
+  React.useEffect(() => {
+    if (!query || query.trim().length < 2) return;
+    setLoading(true);
+    setSelectedId(null);
+    API.get(`/api/search?q=${encodeURIComponent(query.trim())}&limit=200`)
+      .then(d => setResults((d.items || []).map(transformTransaction)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [query]);
+
+  const updateTx = (id, patch) => {
+    if (patch._openPicker) { setPickerFor(id); return; }
+    setResults(rs => rs.map(t => t.id === id ? { ...t, ...patch } : t));
+    if (patch._skipApi || patch._delete) return;
+    const api = {};
+    if (patch.cat    !== undefined) api.category   = patch.cat;
+    if (patch.note   !== undefined) api.user_notes = patch.note;
+    if (patch.amount !== undefined) api.amount     = Math.abs(patch.amount);
+    if (patch.read   !== undefined) api.read       = patch.read;
+    if (patch.flag   !== undefined) api.flagged    = patch.flag;
+    if (Object.keys(api).length > 0)
+      API.patch(`/api/transactions/${id}`, api).catch(e => console.error(e));
+  };
+
+  const grouped = groupByDate(results);
+  const selected = results.find(t => t.id === selectedId);
+  const wrapStyle = selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel;
+
+  return (
+    <div style={{ ...wrapStyle, height: "calc(100vh - 72px)" }}>
+      <div style={inboxStyles.list}>
+        <div style={{ ...inboxStyles.toolbar }}>
+          {loading
+            ? <span>Searching…</span>
+            : <span>{results.length} result{results.length !== 1 ? "s" : ""} for <strong style={{ color: "var(--ink)", fontWeight: 600 }}>"{query}"</strong></span>
+          }
+        </div>
+
+        {loading && (
+          <div style={{ display: "flex", justifyContent: "center", padding: 56 }}>
+            <div style={{ width: 24, height: 24, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+          </div>
+        )}
+
+        {!loading && results.length === 0 && (
+          <div style={{ padding: "72px 32px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
+            <div style={{ fontSize: 13, color: "var(--ink-4)" }}>Try a different merchant, category, or amount</div>
+          </div>
+        )}
+
+        {!loading && grouped.map(([date, txs]) => (
+          <div key={date}>
+            <div style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}) }}>
+              <span>{dateLabel(date)}</span>
+            </div>
+            {txs.map(tx => (
+              <Row
+                key={tx.id}
+                tx={tx}
+                selected={selectedId === tx.id}
+                selectMode={false}
+                onRowClick={() => { setSelectedId(tx.id); updateTx(tx.id, { read: true }); }}
+                onCheckbox={() => {}}
+                onEditCat={() => setPickerFor(tx.id)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {selected && <DetailPanel tx={selected} onClose={() => setSelectedId(null)} onUpdate={p => updateTx(selected.id, p)} />}
+      {pickerFor && (
+        <CategoryPicker
+          current={results.find(t => t.id === pickerFor)?.cat}
+          onPick={cat => { updateTx(pickerFor, { cat, conf: 1.0 }); setPickerFor(null); }}
+          onClose={() => setPickerFor(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+Object.assign(window, { InboxView, SearchView, fmtMoney, MerchantLogo, CategoryChip, Confidence, dateLabel });

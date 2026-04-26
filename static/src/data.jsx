@@ -56,9 +56,14 @@ const transformTransaction = (t) => {
   const amount = isIncome ? (t.amount || 0) : -(t.amount || 0);
   const conf = t.confidence ?? 0.5;
 
+  const _localDate = (iso) => {
+    const d = new Date(iso);
+    const y = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,"0"), dy = String(d.getDate()).padStart(2,"0");
+    return `${y}-${mo}-${dy}`;
+  };
   return {
     id: t.id,
-    date: t.txn_date || (t.email?.received_at ? t.email.received_at.slice(0, 10) : ""),
+    date: t.txn_date || (t.email?.received_at ? _localDate(t.email.received_at) : ""),
     time: _timeStr(t.email?.received_at),
     merchant: t.merchant || t.email?.sender?.replace(/\s*<.*>/, "").trim() || "Unknown",
     domain: _domainFromSender(t.email?.sender),
@@ -143,12 +148,22 @@ const API = {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then(r => r.json()),
+  }).then(r => {
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  }),
   post: (path, body) => fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
-  }).then(r => r.json()),
+  }).then(r => {
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  }),
+  delete: (path) => fetch(path, { method: "DELETE" }).then(r => {
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  }),
 };
 
 Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat });
