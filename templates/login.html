@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MoneyFlow — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#f6f3ec; --ink:#1a1814; --ink-3:#78736a; --line:#e3dcca; --card:#fbf9f3; --accent:#c2410c; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Geist',system-ui,sans-serif; font-size:14px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; }
+  h1 { font-family:'Fraunces',serif; font-size:40px; font-weight:400; letter-spacing:-0.03em; margin:0 0 8px; }
+  .tagline { font-size:14px; color:var(--ink-3); margin:0 0 40px; }
+  .btn { display:inline-flex; align-items:center; gap:10px; padding:12px 24px; background:var(--ink); color:var(--paper); border:none; border-radius:8px; font-size:14px; font-family:'Geist',sans-serif; font-weight:500; cursor:pointer; text-decoration:none; transition:opacity 120ms; }
+  .btn:hover { opacity:0.85; }
+  .btn svg { flex-shrink:0; }
+  .footer { margin-top:48px; font-size:12px; color:var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MoneyFlow</h1>
+  <p class="tagline">Your inbox for money.</p>
+  <a class="btn" href="/api/auth/google">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+      <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+    Sign in with Google
+  </a>
+  <p class="footer">Self-hosted · your data stays local</p>
+</div>
+</body>
+</html>

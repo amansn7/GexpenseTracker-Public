@@ -11,6 +11,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import RedirectResponse as StarletteRedirect
 from app.scheduler import setup_scheduler, scheduler
 from app.api import account, auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api
 from app.config import settings
@@ -37,8 +40,23 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Redirect unauthenticated browser GETs to /login."""
+
+    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/health"}
+
+    async def dispatch(self, request: StarletteRequest, call_next):
+        path = request.url.path
+        if path.startswith("/static") or path.startswith("/api/") or path in self.EXEMPT:
+            return await call_next(request)
+        if not request.cookies.get("session"):
+            return StarletteRedirect("/login")
+        return await call_next(request)
+
+
 app = FastAPI(title="Expense Tracker", lifespan=lifespan)
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:8000").split(","),
@@ -108,3 +126,8 @@ async def budgets_page(request: Request):
 @app.get("/emails", response_class=HTMLResponse)
 async def emails_page(request: Request):
     return templates.TemplateResponse("emails.html", {"request": request})
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
