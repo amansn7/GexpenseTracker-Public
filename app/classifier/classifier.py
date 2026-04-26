@@ -1,14 +1,13 @@
 import time
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
 from app.classifier.llm_client import llm_client
 from app.classifier.merchant import extract_raw_merchant, normalize_merchant
 from app.classifier.rules import MERCHANT_MAP, apply_rules
-from app.alerts import add_alert
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -24,6 +23,7 @@ class ClassificationResult:
     confidence: float
     status: TransactionStatus
     classifier_method: ClassifierMethod
+    warnings: List[str] = field(default_factory=list)
 
 
 def _parse_date(raw: Optional[str]) -> Optional[date]:
@@ -90,6 +90,7 @@ async def classify_email(
     model_name = "none"
     raw_response = ""
     llm_result = None
+    result_warnings: List[str] = []
 
     try:
         verbose = await llm_client.classify_verbose(sender, subject, body_snippet, categories=user_categories)
@@ -99,7 +100,7 @@ async def classify_email(
         raw_response = verbose["raw_response"]
     except Exception as exc:
         logger.error("LLM classification failed for email %s: %s", email_id, exc, exc_info=True)
-        add_alert("error", f"LLM classification failed: {exc}", source="classifier")
+        result_warnings.append(f"LLM classification failed: {exc}")
 
     latency_ms = round((time.monotonic() - t0) * 1000)
 
@@ -171,4 +172,5 @@ async def classify_email(
         confidence=confidence,
         status=status,
         classifier_method=classifier_method,
+        warnings=result_warnings,
     )

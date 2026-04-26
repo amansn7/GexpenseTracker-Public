@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models import Email, Transaction, SyncState, Label, UserSettings
 from app.gmail.client import fetch_new_messages
+from app.alerts import add_alert
 from app.classifier.classifier import classify_email
 from app.classifier.protocol import ClassificationResult
 
@@ -152,6 +153,8 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                     rule_engine_enabled=rule_engine_enabled,
                     db_rules=db_rules,
                 )
+            for warning in result.warnings:
+                add_alert("error", warning, source="classifier")
             done_counter += 1
             _sync_progress["current"] = skipped + done_counter
             _add_preview(msg, result.label.value, result.category, result.amount)
