@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models import Email, Transaction, SyncState, Label, UserSettings
 from app.gmail.client import fetch_new_messages
-from app.classifier.classifier import classify_email, ClassificationResult
+from app.classifier.classifier import classify_email
+from app.classifier.protocol import ClassificationResult
 
 logger = logging.getLogger(__name__)
 
