@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 from app.gmail.auth import get_oauth_flow, save_credentials, is_authenticated
 from app.database import get_db
 from app.auth_deps import get_current_user as _get_current_user
+from app.models import Email, User as UserModel
 
 router = APIRouter()
 _pending: dict = {}
@@ -40,7 +41,6 @@ async def auth_status():
 
 @router.get("/auth/me")
 async def auth_me(user=Depends(_get_current_user), db: AsyncSession = Depends(get_db)):
-    from app.models import Email, User as UserModel
     has_seed_data = False
     try:
         seed_row = (await db.execute(
