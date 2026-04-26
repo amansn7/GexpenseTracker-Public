@@ -275,7 +275,7 @@ const App = () => {
         {view === "search"    && <SearchView query={searchQuery}/>}
         {view === "flow"      && <FlowView transactions={transactions}/>}
         {view === "dashboard" && <DashboardView transactions={transactions}/>}
-        {view === "health"    && <HealthView transactions={transactions}/>}
+        {view === "health"    && <HealthView />}
         {view === "reports"   && <ReportsView />}
         {view === "recurring" && <RecurringView />}
         {view === "debt"      && <DebtView />}
