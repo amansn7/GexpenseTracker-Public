@@ -110,3 +110,47 @@ async def test_health_anchored_balance_mode(db_session):
         assert data["starting_balance"] == 50000.0
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_health_balance_reflects_transactions(db_session):
+    from app.models import Email as EmailModel, Transaction as TxnModel, Label, TransactionStatus
+    from datetime import date as date_type
+    import uuid
+
+    async def override_get_db():
+        yield db_session
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # Seed: one expense of 5000
+            email_id = str(uuid.uuid4())
+            email = EmailModel(
+                id=email_id,
+                gmail_id="msg-bal-test-1",
+                sender="test@bank.com",
+                subject="Debit",
+                body_text="",
+            )
+            txn = TxnModel(
+                id=str(uuid.uuid4()),
+                email_id=email_id,
+                label=Label.expense,
+                amount=5000.0,
+                status=TransactionStatus.auto,
+                txn_date=date_type.today(),
+            )
+            db_session.add(email)
+            db_session.add(txn)
+            await db_session.flush()
+
+            r = await client.get("/api/stats/health?months=6")
+        assert r.status_code == 200
+        data = r.json()
+        # No starting_balance, so current_balance = 0 (income) - 5000 (expense) = -5000
+        assert data["current_balance"] == -5000.0
+        assert data["balance_mode"] == "computed"
+        # runway must be 0 (not negative)
+        assert data["runway_months"] == 0.0 or data["runway_months"] is None
+    finally:
+        app.dependency_overrides.pop(get_db, None)

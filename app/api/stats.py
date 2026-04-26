@@ -350,7 +350,8 @@ async def stats_health(
     savings_rate = round(avg_net / avg_income * 100, 1) if avg_income > 0 else 0.0
 
     # Starting balance from user_settings (first row; scoped per-user after auth lands)
-    settings_row = (await db.execute(select(UserSettings).limit(1))).scalar_one_or_none()
+    # TODO(auth): filter by current_user.id once auth is wired
+    settings_row = (await db.execute(select(UserSettings).order_by(UserSettings.user_id).limit(1))).scalar_one_or_none()
     starting_balance = (
         float(settings_row.starting_balance)
         if settings_row and settings_row.starting_balance is not None
@@ -371,18 +372,16 @@ async def stats_health(
         .where(Transaction.label == "expense", *base_filter)
     )).scalar_one() or 0
 
-    income_txn_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount, Email.sender)
-        .join(Email, Transaction.email_id == Email.id)
+    income_total = float((await db.execute(
+        select(func.sum(Transaction.amount))
         .where(Transaction.label == "income", *base_filter)
-    )).all()
-    income_total = sum(float(r.amount or 0) for r in income_txn_rows)
+    )).scalar_one() or 0)
 
     net_since = income_total - float(expense_total)
     current_balance = round((starting_balance or 0.0) + net_since, 2)
     balance_mode = "anchored" if starting_balance is not None else "computed"
 
-    runway_months = round(current_balance / avg_expense, 1) if avg_expense > 0 else None
+    runway_months = max(round(current_balance / avg_expense, 1), 0.0) if avg_expense > 0 else None
 
     return {
         "current_balance": current_balance,
