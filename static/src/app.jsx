@@ -280,6 +280,31 @@ const App = () => {
         {view === "admin"     && <AdminView />}
       </main>
 
+      {showSeedModal && (
+  <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+    <div style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
+      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
+      <div style={{ fontSize:14, color:"var(--ink-3)", lineHeight:1.6, marginBottom:24 }}>
+        We found existing transaction data from a previous setup. Import it into your account?
+      </div>
+      <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
+        <button
+          onClick={async () => {
+            await API.post("/api/auth/claim-seed-data");
+            setShowSeedModal(false);
+            loadData();
+          }}
+          style={{ padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
+        >Import my data</button>
+        <button
+          onClick={() => setShowSeedModal(false)}
+          style={{ padding:"10px 20px", background:"var(--card)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
+        >Start fresh</button>
+      </div>
+    </div>
+  </div>
+)}
+
       {tweaksOn && (
         <div className="tweaks-panel">
           <div style={{ fontFamily:"'Fraunces',serif", fontSize:14, fontWeight:500, marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>

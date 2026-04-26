@@ -416,6 +416,80 @@ const CategoriesSection = ({ categories, onRefresh }) => {
   );
 };
 
+const AccessSection = ({ account }) => {
+  const [allowlist, setAllowlist] = React.useState(null);
+  const [newEmail, setNewEmail] = React.useState("");
+  const [adding, setAdding] = React.useState(false);
+  const [addError, setAddError] = React.useState(null);
+
+  React.useEffect(() => {
+    API.get("/api/auth/allowlist")
+      .then(d => setAllowlist(d.allowed_emails || []))
+      .catch(() => setAllowlist([]));
+  }, []);
+
+  const addEmail = async () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      const d = await API.post("/api/auth/allowlist", { email });
+      setAllowlist(d.allowed_emails);
+      setNewEmail("");
+    } catch (err) {
+      setAddError(err.message || "Could not add email");
+    }
+    setAdding(false);
+  };
+
+  const removeEmail = async (email) => {
+    try {
+      const d = await API.delete(`/api/auth/allowlist/${encodeURIComponent(email)}`);
+      setAllowlist(d.allowed_emails);
+    } catch (_) {}
+  };
+
+  if (allowlist === null) return null;
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Access</h3>
+      <div style={accountStyles.sectionSub}>— emails allowed to sign in</div>
+      <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
+        {allowlist.map(email => (
+          <div key={email} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", borderBottom:"1px solid var(--line)" }}>
+            <span style={{ fontSize: 13 }}>
+              {email}
+              {email === account?.email && <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>(you)</span>}
+            </span>
+            <button
+              onClick={() => removeEmail(email)}
+              disabled={email === account?.email}
+              style={{ fontSize: 11, color: "var(--neg)", background: "none", border: "none", cursor: email === account?.email ? "default" : "pointer", opacity: email === account?.email ? 0.3 : 1, fontFamily: "inherit" }}
+            >Remove</button>
+          </div>
+        ))}
+        <div style={{ display:"flex", gap:8, padding:"10px 16px" }}>
+          <input
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addEmail()}
+            placeholder="Add email address…"
+            style={{ flex:1, padding:"7px 10px", border:"1px solid var(--line)", borderRadius:6, background:"var(--paper)", color:"var(--ink)", fontSize:13, fontFamily:"inherit" }}
+          />
+          <button
+            onClick={addEmail}
+            disabled={adding}
+            style={{ padding:"7px 14px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}
+          >Add</button>
+        </div>
+        {addError && <div style={{ padding:"4px 16px 10px", fontSize:11, color:"var(--neg)" }}>{addError}</div>}
+      </div>
+    </div>
+  );
+};
+
 const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) => {
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
@@ -834,8 +908,11 @@ const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) =>
           <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Delete…</button>
         </div>
       </div>
+      {account?.role === "owner" && (
+        <AccessSection account={account} />
+      )}
     </div>
   );
 };
 
-Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection });
+Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, AccessSection });
