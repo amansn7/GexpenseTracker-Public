@@ -48,7 +48,7 @@ const NavItem = ({ icon, label, count, active, onClick }) => (
   </button>
 );
 
-const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {} }) => {
+const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
   const sideStyle = mobile
     ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease" }
@@ -115,10 +115,13 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mob
         className="focus-ring"
         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: 6, border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 6, cursor: "pointer", textAlign: "left" }}
       >
-        <div style={shellStyles.avatar}>AK</div>
+        {account?.avatar_url
+          ? <img src={account.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
+          : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
+        }
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Ananya K.</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>ananya@acme.in</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{account?.name || account?.email || "—"}</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
         </div>
         <Icon name="arrow-d" size={12} stroke="var(--ink-3)" />
       </button>
@@ -133,7 +136,13 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mob
               <Icon name="gear" size={14}/> Settings
             </button>
             <div style={{ height: 1, background: "var(--line)", margin: "4px 2px" }}/>
-            <button style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}>
+            <button
+              onClick={async () => {
+                await API.post("/api/auth/logout");
+                window.location.href = "/login";
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
+            >
               <Icon name="arrow-u-r" size={14}/> Sign out
             </button>
           </div>
