@@ -58,3 +58,6 @@ async def test_me_authenticated(authed_client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["email"] == "test@example.com"
+    assert "id" in data
+    assert "role" in data
+    assert "has_seed_data" in data

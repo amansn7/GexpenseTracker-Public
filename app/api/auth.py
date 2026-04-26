@@ -56,6 +56,6 @@ async def auth_me(user=Depends(_get_current_user), db: AsyncSession = Depends(ge
     return {
         "id": user.id,
         "email": user.email,
-        "role": user.role,
+        "role": user.role.value if hasattr(user.role, "value") else user.role,
         "has_seed_data": has_seed_data,
     }
