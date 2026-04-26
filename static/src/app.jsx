@@ -24,6 +24,10 @@ const App = () => {
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
+  useEffect(() => {
+    window._goSettings = () => setView("settings");
+    return () => { delete window._goSettings; };
+  }, [setView]);
 
   const loadData = useCallback(async () => {
     try {
@@ -192,6 +196,7 @@ const App = () => {
   const monthYear = today.toLocaleString("en-US", { month: "long", year: "numeric" });
 
   const titles = {
+    health:    { title: "Financial Health", sub: "runway · savings rate · monthly net" },
     inbox:     { title: "Inbox",          sub: `${monthYear} · ${transactions.length} emails parsed` },
     flow:      { title: "Money Flow",     sub: "how the month really unfolded" },
     dashboard: { title: "Dashboard",      sub: "one page, quick read" },
@@ -270,6 +275,7 @@ const App = () => {
         {view === "search"    && <SearchView query={searchQuery}/>}
         {view === "flow"      && <FlowView transactions={transactions}/>}
         {view === "dashboard" && <DashboardView transactions={transactions}/>}
+        {view === "health"    && <HealthView transactions={transactions}/>}
         {view === "reports"   && <ReportsView />}
         {view === "recurring" && <RecurringView />}
         {view === "debt"      && <DebtView />}
