@@ -3,12 +3,13 @@ import hashlib
 from datetime import datetime, date
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth_deps import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models import (
@@ -147,31 +148,6 @@ def _encrypt_secret(secret: Optional[str]) -> Optional[str]:
     key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
     return Fernet(key).encrypt(secret.encode("utf-8")).decode("utf-8")
 
-
-async def _current_user(
-    db: AsyncSession,
-    x_user_id: Optional[str] = None,
-    x_user_email: Optional[str] = None,
-) -> User:
-    query = select(User)
-    if x_user_id:
-        query = query.where(User.id == x_user_id)
-    elif x_user_email:
-        query = query.where(User.email == _clean_email(x_user_email))
-    else:
-        query = query.order_by(User.created_at)
-    user = (await db.execute(query.limit(1))).scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="No onboarded user found")
-    return user
-
-
-async def get_current_user(
-    db: AsyncSession = Depends(get_db),
-    x_user_id: Optional[str] = Header(default=None),
-    x_user_email: Optional[str] = Header(default=None),
-) -> User:
-    return await _current_user(db, x_user_id=x_user_id, x_user_email=x_user_email)
 
 
 def _profile_dict(profile: UserProfile) -> dict:

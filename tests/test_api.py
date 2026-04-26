@@ -1,22 +1,20 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import patch
 from app.main import app
 from app.database import get_db
 from app.models import Label
 
 
 @pytest.mark.asyncio
-async def test_auth_status_unauthenticated():
+async def test_auth_status_returns_authenticated():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        with patch("app.api.auth.is_authenticated", return_value=False):
-            resp = await client.get("/api/auth/status")
+        resp = await client.get("/api/auth/status")
     assert resp.status_code == 200
-    assert resp.json() == {"authenticated": False}
+    assert resp.json() == {"authenticated": True}
 
 
 @pytest.mark.asyncio
-async def test_get_transactions_empty(db_session):
+async def test_get_transactions_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -25,7 +23,7 @@ async def test_get_transactions_empty(db_session):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.get("/api/transactions")
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert resp.json() == {"items": [], "total": 0, "offset": 0, "limit": 50}
     finally:
         app.dependency_overrides.pop(get_db, None)
 
@@ -46,7 +44,7 @@ async def test_get_review_empty(db_session):
 
 
 @pytest.mark.asyncio
-async def test_patch_transaction_not_found(db_session):
+async def test_patch_transaction_not_found(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -96,7 +94,7 @@ async def test_effective_month_no_shift_expense():
 
 
 @pytest.mark.asyncio
-async def test_stats_summary_empty(db_session):
+async def test_stats_summary_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -115,7 +113,7 @@ async def test_stats_summary_empty(db_session):
 
 
 @pytest.mark.asyncio
-async def test_stats_category_breakdown_empty(db_session):
+async def test_stats_category_breakdown_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -130,7 +128,7 @@ async def test_stats_category_breakdown_empty(db_session):
 
 
 @pytest.mark.asyncio
-async def test_stats_top_merchants_empty(db_session):
+async def test_stats_top_merchants_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -145,7 +143,7 @@ async def test_stats_top_merchants_empty(db_session):
 
 
 @pytest.mark.asyncio
-async def test_stats_monthly_trend_empty(db_session):
+async def test_stats_monthly_trend_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -221,12 +219,12 @@ async def test_update_budget(db_session):
 
 
 @pytest.mark.asyncio
-async def test_get_transaction_detail_includes_body_text(db_session):
+async def test_get_transaction_detail_includes_body_text(db_session, mock_user):
     from app.models import Email, Transaction
     import uuid
     from datetime import datetime, timezone
 
-    # Insert an Email + Transaction directly
+    # Insert an Email + Transaction directly (owned by mock_user)
     email = Email(
         gmail_id="test_gmail_id_body",
         subject="Test Subject",
@@ -236,6 +234,7 @@ async def test_get_transaction_detail_includes_body_text(db_session):
         body_snippet="short snippet",
         body_text="Full body text here.",
         gmail_link="https://mail.google.com/mail/u/0/#inbox/test_gmail_id_body",
+        user_id=mock_user.id,
     )
     db_session.add(email)
     await db_session.flush()

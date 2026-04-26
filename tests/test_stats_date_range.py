@@ -7,7 +7,7 @@ from app.database import get_db
 
 
 @pytest.mark.asyncio
-async def test_summary_accepts_date_from_date_to(db_session):
+async def test_summary_accepts_date_from_date_to(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -23,7 +23,7 @@ async def test_summary_accepts_date_from_date_to(db_session):
 
 
 @pytest.mark.asyncio
-async def test_category_breakdown_accepts_date_range(db_session):
+async def test_category_breakdown_accepts_date_range(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -38,7 +38,7 @@ async def test_category_breakdown_accepts_date_range(db_session):
 
 
 @pytest.mark.asyncio
-async def test_period_still_works(db_session):
+async def test_period_still_works(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -52,7 +52,7 @@ async def test_period_still_works(db_session):
 
 
 @pytest.mark.asyncio
-async def test_monthly_trend_accepts_date_range(db_session):
+async def test_monthly_trend_accepts_date_range(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -67,7 +67,7 @@ async def test_monthly_trend_accepts_date_range(db_session):
 
 
 @pytest.mark.asyncio
-async def test_top_merchants_accepts_date_range(db_session):
+async def test_top_merchants_accepts_date_range(db_session, mock_user):
     async def override_get_db():
         yield db_session
 

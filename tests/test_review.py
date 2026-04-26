@@ -3,6 +3,26 @@ from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+@pytest.fixture(autouse=True)
+def override_auth():
+    """Override get_current_user for all review tests."""
+    from app.main import app
+    from app.auth_deps import get_current_user
+    from app.models import User
+    import uuid
+
+    fake_user = MagicMock(spec=User)
+    fake_user.id = str(uuid.uuid4())
+    fake_user.email = "review-test@example.com"
+
+    async def _override():
+        return fake_user
+
+    app.dependency_overrides[get_current_user] = _override
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 @pytest.mark.asyncio
 async def test_get_review_queue_domain_count_no_n1():
     """

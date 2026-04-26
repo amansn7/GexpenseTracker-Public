@@ -8,6 +8,27 @@ def set_testing(monkeypatch):
     monkeypatch.setenv("TESTING", "1")
 
 
+@pytest.fixture(autouse=True)
+def override_auth():
+    """Override get_current_user for all pagination tests."""
+    from app.main import app
+    from app.auth_deps import get_current_user
+    from app.models import User
+    from unittest.mock import MagicMock
+    import uuid
+
+    fake_user = MagicMock(spec=User)
+    fake_user.id = str(uuid.uuid4())
+    fake_user.email = "pagination-test@example.com"
+
+    async def _override():
+        return fake_user
+
+    app.dependency_overrides[get_current_user] = _override
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 def _make_row(txn_id: str):
     from app.models import Transaction, Email
     t = MagicMock(spec=Transaction)

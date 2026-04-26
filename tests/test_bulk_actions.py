@@ -1,10 +1,31 @@
 import pytest
+import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 
 @pytest.fixture(autouse=True)
 def set_testing(monkeypatch):
     monkeypatch.setenv("TESTING", "1")
+
+
+@pytest.fixture(autouse=True)
+def override_auth():
+    """Override get_current_user for all bulk action tests."""
+    from app.main import app
+    from app.auth_deps import get_current_user
+    from app.models import User
+    import uuid
+
+    fake_user = MagicMock(spec=User)
+    fake_user.id = str(uuid.uuid4())
+    fake_user.email = "bulk-test@example.com"
+
+    async def _override():
+        return fake_user
+
+    app.dependency_overrides[get_current_user] = _override
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio

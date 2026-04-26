@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Transaction, Email, UserSettings
+from app.models import Transaction, Email, User, UserSettings
 
 router = APIRouter()
 
@@ -61,6 +62,7 @@ async def stats_summary(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if date_from and date_to:
@@ -75,7 +77,9 @@ async def stats_summary(
 
     expense_rows = (await db.execute(
         select(Transaction.amount)
+        .join(Email, Transaction.email_id == Email.id)
         .where(
+            Email.user_id == current_user.id,
             Transaction.label == "expense",
             Transaction.txn_date >= start,
             Transaction.txn_date <= end,
@@ -90,6 +94,7 @@ async def stats_summary(
         select(Transaction.txn_date, Transaction.amount, Email.sender)
         .join(Email, Transaction.email_id == Email.id)
         .where(
+            Email.user_id == current_user.id,
             Transaction.label == "income",
             Transaction.txn_date >= _add_months(start, -1),
             Transaction.txn_date.isnot(None),
@@ -108,12 +113,14 @@ async def stats_summary(
 
     needs_review_count = (await db.execute(
         select(func.count()).select_from(Transaction)
-        .where(Transaction.status == "needs_review")
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Email.user_id == current_user.id, Transaction.status == "needs_review")
     )).scalar_one()
 
     unread_count = (await db.execute(
         select(func.count()).select_from(Transaction)
-        .where(Transaction.read == False)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Email.user_id == current_user.id, Transaction.read == False)
     )).scalar_one()
 
     return {
@@ -131,6 +138,7 @@ async def stats_category_breakdown(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if date_from and date_to:
@@ -144,7 +152,9 @@ async def stats_category_breakdown(
 
     rows = (await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("total"))
+        .join(Email, Transaction.email_id == Email.id)
         .where(
+            Email.user_id == current_user.id,
             Transaction.label == "expense",
             Transaction.txn_date >= start,
             Transaction.txn_date <= end,
@@ -177,7 +187,7 @@ async def stats_category_breakdown(
     return {"categories": categories, "total": round(total, 2)}
 
 
-async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None) -> list:
+async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None, user_id: Optional[str] = None) -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
     if date_from and date_to:
@@ -195,15 +205,27 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
         months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
         m = _add_months(m, 1)
 
+    expense_where = [
+        Transaction.label == "expense",
+        Transaction.txn_date >= start,
+        Transaction.txn_date <= end,
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+    income_where = [
+        Transaction.label == "income",
+        Transaction.txn_date >= _add_months(start, -1),
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+    if user_id:
+        expense_where.insert(0, Email.user_id == user_id)
+        income_where.insert(0, Email.user_id == user_id)
+
     expense_rows = (await db.execute(
         select(Transaction.txn_date, Transaction.amount)
-        .where(
-            Transaction.label == "expense",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*expense_where)
     )).all()
 
     for r in expense_rows:
@@ -214,12 +236,7 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
     income_rows = (await db.execute(
         select(Transaction.txn_date, Transaction.amount, Email.sender)
         .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.label == "income",
-            Transaction.txn_date >= _add_months(start, -1),
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
+        .where(*income_where)
     )).all()
 
     for r in income_rows:
@@ -240,11 +257,12 @@ async def stats_monthly_trend(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
         raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
-    return {"months": await _monthly_data(period, db, date_from, date_to)}
+    return {"months": await _monthly_data(period, db, date_from, date_to, user_id=current_user.id)}
 
 
 @router.get("/stats/top-merchants")
@@ -252,6 +270,7 @@ async def stats_top_merchants(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if date_from and date_to:
@@ -265,7 +284,9 @@ async def stats_top_merchants(
 
     rows = (await db.execute(
         select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
+        .join(Email, Transaction.email_id == Email.id)
         .where(
+            Email.user_id == current_user.id,
             Transaction.label == "expense",
             Transaction.txn_date >= start,
             Transaction.txn_date <= end,
@@ -287,8 +308,11 @@ async def stats_top_merchants(
 
 
 @router.get("/stats/monthly-summary")
-async def stats_monthly_summary(db: AsyncSession = Depends(get_db)):
-    months_data = await _monthly_data("1y", db)
+async def stats_monthly_summary(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    months_data = await _monthly_data("1y", db, user_id=current_user.id)
     result = []
     for m in reversed(months_data):
         income = m["income"]
@@ -313,23 +337,25 @@ async def stats_income_vs_expense(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
         raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
-    return {"months": await _monthly_data(period, db, date_from, date_to)}
+    return {"months": await _monthly_data(period, db, date_from, date_to, user_id=current_user.id)}
 
 
 @router.get("/stats/health")
 async def stats_health(
     months: int = 6,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if months not in (3, 6, 12):
         raise HTTPException(status_code=422, detail="months must be 3, 6, or 12")
 
     period_map = {3: "3m", 6: "6m", 12: "1y"}
-    monthly = await _monthly_data(period_map[months], db)
+    monthly = await _monthly_data(period_map[months], db, user_id=current_user.id)
 
     monthly_net = [
         {
@@ -349,9 +375,10 @@ async def stats_health(
 
     savings_rate = round(avg_net / avg_income * 100, 1) if avg_income > 0 else 0.0
 
-    # Starting balance from user_settings (first row; scoped per-user after auth lands)
-    # TODO(auth): filter by current_user.id once auth is wired
-    settings_row = (await db.execute(select(UserSettings).order_by(UserSettings.user_id).limit(1))).scalar_one_or_none()
+    # Starting balance from user_settings scoped to current_user
+    settings_row = (await db.execute(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    )).scalar_one_or_none()
     starting_balance = (
         float(settings_row.starting_balance)
         if settings_row and settings_row.starting_balance is not None
@@ -359,9 +386,9 @@ async def stats_health(
     )
     starting_balance_date = settings_row.starting_balance_date if settings_row else None
 
-    # TODO(auth): scope expense/income queries by current_user.id once auth is wired
-    # Net transactions from starting_balance_date (or all-time if no anchor)
+    # Net transactions from starting_balance_date (or all-time if no anchor), scoped to current_user
     base_filter = [
+        Email.user_id == current_user.id,
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
@@ -370,11 +397,13 @@ async def stats_health(
 
     expense_total = (await db.execute(
         select(func.sum(Transaction.amount))
+        .join(Email, Transaction.email_id == Email.id)
         .where(Transaction.label == "expense", *base_filter)
     )).scalar_one() or 0
 
     income_total = float((await db.execute(
         select(func.sum(Transaction.amount))
+        .join(Email, Transaction.email_id == Email.id)
         .where(Transaction.label == "income", *base_filter)
     )).scalar_one() or 0)
 

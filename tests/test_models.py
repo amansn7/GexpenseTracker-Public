@@ -1,11 +1,21 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
-from app.models import Email, Transaction, SyncState, SenderRule, Label, TransactionStatus, RuleSource
+from app.models import Email, Transaction, SyncState, SenderRule, Label, TransactionStatus, RuleSource, User, UserSettings, UserStatus, UserRole
+
+
+async def _make_user(db_session):
+    """Create a minimal user for email foreign key."""
+    user = User(email="model-test@example.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
 
 @pytest.mark.asyncio
 async def test_create_email(db_session):
-    email = Email(gmail_id="abc123", subject="Receipt", sender="no-reply@amazon.in", sender_domain="amazon.in")
+    user = await _make_user(db_session)
+    email = Email(gmail_id="abc123", subject="Receipt", sender="no-reply@amazon.in", sender_domain="amazon.in", user_id=user.id)
     db_session.add(email)
     await db_session.commit()
     result = await db_session.execute(select(Email).where(Email.gmail_id == "abc123"))
@@ -13,7 +23,8 @@ async def test_create_email(db_session):
 
 @pytest.mark.asyncio
 async def test_create_transaction(db_session):
-    email = Email(gmail_id="xyz789", sender_domain="zomato.com")
+    user = await _make_user(db_session)
+    email = Email(gmail_id="xyz789", sender_domain="zomato.com", user_id=user.id)
     db_session.add(email)
     await db_session.flush()
     txn = Transaction(

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, extract
+from sqlalchemy import select, desc, func, extract, or_, delete
 from pydantic import BaseModel
 from typing import Optional, List, Literal
 from datetime import date
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource
+from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User
 router = APIRouter()
 
 class TransactionPatch(BaseModel):
@@ -26,12 +27,22 @@ class BulkAction(BaseModel):
 
 
 @router.post("/transactions/bulk")
-async def bulk_transactions(payload: BulkAction, db: AsyncSession = Depends(get_db)):
+async def bulk_transactions(
+    payload: BulkAction,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if payload.select_all:
-        rows = (await db.execute(select(Transaction))).scalars().all()
+        rows = (await db.execute(
+            select(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Email.user_id == current_user.id)
+        )).scalars().all()
     else:
         rows = (await db.execute(
-            select(Transaction).where(Transaction.id.in_(payload.ids))
+            select(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.id.in_(payload.ids), Email.user_id == current_user.id)
         )).scalars().all()
 
     if payload.action == "mark_read":
@@ -53,6 +64,7 @@ async def bulk_transactions(payload: BulkAction, db: AsyncSession = Depends(get_
                     select(Email).where(Email.id == t.email_id)
                 )).scalar_one_or_none()
                 if email:
+                    await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
                     await db.delete(email)
                 t.email_id = None
 
@@ -92,9 +104,10 @@ async def list_transactions(
     category: Optional[str] = None,
     offset: int = 0,
     limit: int = 50,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conditions = []
+    conditions = [Email.user_id == current_user.id]
     if label:     conditions.append(Transaction.label == label)
     if status:    conditions.append(Transaction.status == status)
     if date_from: conditions.append(Transaction.txn_date >= date_from)
@@ -123,10 +136,53 @@ async def list_transactions(
         "limit": limit,
     }
 
+@router.get("/search")
+async def search_transactions(
+    q: str = "",
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    q = q.strip()
+    if len(q) < 2:
+        return {"items": []}
+    term = f"%{q.lower()}%"
+    amount_val = None
+    try:
+        amount_val = float(q.replace(",", "").replace("₹", "").replace("Rs", ""))
+    except (ValueError, AttributeError):
+        pass
+
+    text_cond = or_(
+        func.lower(Transaction.merchant).like(term),
+        func.lower(Transaction.category).like(term),
+        func.lower(Email.subject).like(term),
+    )
+    if amount_val is not None:
+        match_cond = or_(text_cond, func.abs(Transaction.amount - amount_val) <= 10)
+    else:
+        match_cond = text_cond
+
+    rows = (await db.execute(
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Email.user_id == current_user.id, Transaction.label != "ignore", match_cond)
+        .order_by(desc(Transaction.created_at))
+        .limit(limit)
+    )).all()
+    return {"items": [_fmt(t, e) for t, e in rows]}
+
+
 @router.get("/transactions/{transaction_id}")
-async def get_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
+async def get_transaction(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     row = (await db.execute(
-        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -141,10 +197,13 @@ async def get_transaction(transaction_id: str, db: AsyncSession = Depends(get_db
 async def patch_transaction(
     transaction_id: str,
     patch: TransactionPatch,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     row = (await db.execute(
-        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")

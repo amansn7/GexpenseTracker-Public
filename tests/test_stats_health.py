@@ -7,17 +7,12 @@ from app.database import get_db
 
 
 @pytest.mark.asyncio
-async def test_settings_patch_accepts_starting_balance(db_session):
+async def test_settings_patch_accepts_starting_balance(db_session, mock_user):
     async def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
     try:
-        # First create a user + settings via onboarding
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.post("/api/account/onboarding", json={
-                "email": "test@example.com",
-                "full_name": "Test User",
-            })
             r = await client.patch("/api/account/settings", json={
                 "starting_balance": 100000,
                 "starting_balance_date": "2026-01-01",
@@ -31,7 +26,7 @@ async def test_settings_patch_accepts_starting_balance(db_session):
 
 
 @pytest.mark.asyncio
-async def test_health_returns_expected_fields(db_session):
+async def test_health_returns_expected_fields(db_session, mock_user):
     async def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
@@ -52,7 +47,7 @@ async def test_health_returns_expected_fields(db_session):
 
 
 @pytest.mark.asyncio
-async def test_health_rejects_invalid_months(db_session):
+async def test_health_rejects_invalid_months(db_session, mock_user):
     async def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
@@ -65,7 +60,7 @@ async def test_health_rejects_invalid_months(db_session):
 
 
 @pytest.mark.asyncio
-async def test_health_accepts_months_3_and_12(db_session):
+async def test_health_accepts_months_3_and_12(db_session, mock_user):
     async def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
@@ -88,17 +83,12 @@ async def test_health_accepts_months_3_and_12(db_session):
 
 
 @pytest.mark.asyncio
-async def test_health_anchored_balance_mode(db_session):
+async def test_health_anchored_balance_mode(db_session, mock_user):
     async def override_get_db():
         yield db_session
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # Create user + settings, set starting_balance
-            await client.post("/api/account/onboarding", json={
-                "email": "test2@example.com",
-                "full_name": "Test User 2",
-            })
             await client.patch("/api/account/settings", json={
                 "starting_balance": 50000,
                 "starting_balance_date": "2026-01-01",
@@ -113,7 +103,7 @@ async def test_health_anchored_balance_mode(db_session):
 
 
 @pytest.mark.asyncio
-async def test_health_balance_reflects_transactions(db_session):
+async def test_health_balance_reflects_transactions(db_session, mock_user):
     from app.models import Email as EmailModel, Transaction as TxnModel, Label, TransactionStatus
     from datetime import date as date_type
     import uuid
@@ -123,7 +113,7 @@ async def test_health_balance_reflects_transactions(db_session):
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            # Seed: one expense of 5000
+            # Seed: one expense of 5000 owned by mock_user
             email_id = str(uuid.uuid4())
             email = EmailModel(
                 id=email_id,
@@ -131,6 +121,7 @@ async def test_health_balance_reflects_transactions(db_session):
                 sender="test@bank.com",
                 subject="Debit",
                 body_text="",
+                user_id=mock_user.id,
             )
             txn = TxnModel(
                 id=str(uuid.uuid4()),
