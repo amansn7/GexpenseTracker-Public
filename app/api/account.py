@@ -4,7 +4,7 @@ from datetime import datetime, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,6 +73,13 @@ class SettingsPatch(BaseModel):
     use_rule_engine: Optional[bool] = None
     starting_balance: Optional[float] = Field(default=None, ge=0, le=999_999_999)
     starting_balance_date: Optional[date] = None
+
+    @field_validator("starting_balance_date")
+    @classmethod
+    def _date_not_future(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v > date.today():
+            raise ValueError("starting_balance_date cannot be in the future")
+        return v
 
 
 class ConnectedAccountBody(BaseModel):

@@ -259,10 +259,12 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
   const [balanceDate, setBalanceDate] = React.useState(settings?.starting_balance_date || "");
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [saveError, setSaveError] = React.useState(null);
 
   const save = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await API.patch("/api/account/settings", {
         starting_balance: balance !== "" ? parseFloat(balance) : null,
@@ -271,7 +273,9 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
       await onRefresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (_) {}
+    } catch (err) {
+      setSaveError(err.message || "Could not save");
+    }
     setSaving(false);
   };
 
@@ -308,6 +312,7 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
             {saving ? "…" : saved ? "Saved ✓" : "Save"}
           </button>
         </div>
+        {saveError && <div style={{ fontSize: 12, color: "var(--neg)", marginTop: 6 }}>{saveError}</div>}
       </div>
     </div>
   );
