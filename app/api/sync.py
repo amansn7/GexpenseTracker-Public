@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models import SyncState
 from app.config import settings
+from app.auth_deps import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -68,9 +69,10 @@ async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depend
 
 
 @router.post("/sync/trigger")
-async def trigger_sync():
+async def trigger_sync(current_user=Depends(get_current_user)):
     from app.sync import run_sync
-    task = asyncio.create_task(run_sync())
+    user_id = getattr(current_user, "id", None)
+    task = asyncio.create_task(run_sync(user_id=user_id))
     _background_tasks.add(task)
     task.add_done_callback(_log_task_result)
     return {"message": "Sync triggered"}

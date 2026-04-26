@@ -61,21 +61,21 @@ def _add_preview(msg: dict, label: str, category: Optional[str], amount: Optiona
 
 
 
-async def run_sync() -> dict:
+async def run_sync(user_id: str = None) -> dict:
     if _sync_progress.get("running"):
         logger.warning("Sync already in progress, skipping duplicate trigger")
         return {"error": "sync_already_running", "processed": 0}
     _reset_progress()
     logger.info("Gmail sync starting")
     try:
-        return await _run_sync_inner()
+        return await _run_sync_inner(user_id=user_id)
     except Exception as exc:
         logger.error("Sync crashed: %s", exc, exc_info=True)
         _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
         raise
 
 
-async def _run_sync_inner() -> dict:
+async def _run_sync_inner(user_id: str = None) -> dict:
     async with AsyncSessionLocal() as session:
         state_result = await session.execute(select(SyncState))
         sync_state = state_result.scalar_one_or_none()
@@ -115,6 +115,8 @@ async def _run_sync_inner() -> dict:
                 skipped += 1
                 continue
             email = Email(**msg)
+            if user_id:
+                email.user_id = user_id
             session.add(email)
             new_pairs.append((email, msg))
 

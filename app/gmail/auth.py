@@ -58,3 +58,38 @@ def get_google_userinfo(creds) -> dict:
     )
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())
+
+
+async def get_credentials_for_user(db, user_id: str):
+    """Load Gmail credentials from connected_accounts DB row."""
+    from sqlalchemy import select
+    from app.models import ConnectedAccount
+
+    account = (await db.execute(
+        select(ConnectedAccount).where(
+            ConnectedAccount.user_id == user_id,
+            ConnectedAccount.provider == "gmail",
+            ConnectedAccount.status == "connected",
+        )
+    )).scalar_one_or_none()
+
+    if not account or not account.refresh_token:
+        return None
+
+    creds = Credentials(
+        token=account.access_token,
+        refresh_token=account.refresh_token,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        scopes=SCOPES,
+    )
+
+    if creds.expired and creds.refresh_token:
+        from google.auth.transport.requests import Request as GRequest
+        creds.refresh(GRequest())
+        account.access_token = creds.token
+        account.token_expiry = creds.expiry
+        await db.commit()
+
+    return creds if creds.valid else None
