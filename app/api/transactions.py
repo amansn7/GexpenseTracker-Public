@@ -248,9 +248,11 @@ async def patch_transaction(
     await db.refresh(t)
     return {"id": t.id, "status": t.status}
 
-async def _load_tx_email(transaction_id: str, db: AsyncSession):
+async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
     row = (await db.execute(
-        select(Transaction, Email).outerjoin(Email).where(Transaction.id == transaction_id)
+        select(Transaction, Email)
+        .outerjoin(Email)
+        .where(Transaction.id == transaction_id, Email.user_id == user_id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -261,9 +263,13 @@ async def _load_tx_email(transaction_id: str, db: AsyncSession):
 
 
 @router.post("/transactions/{transaction_id}/reclassify/preview")
-async def reclassify_preview(transaction_id: str, db: AsyncSession = Depends(get_db)):
+async def reclassify_preview(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Run LLM classification without writing to DB. Returns preview for user confirmation."""
-    t, e = await _load_tx_email(transaction_id, db)
+    t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
     cls = await classify_email(
         email_id=e.id,
@@ -286,9 +292,13 @@ async def reclassify_preview(transaction_id: str, db: AsyncSession = Depends(get
 
 
 @router.post("/transactions/{transaction_id}/reclassify")
-async def reclassify_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
+async def reclassify_transaction(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """Commit LLM reclassification to DB and return the updated transaction."""
-    t, e = await _load_tx_email(transaction_id, db)
+    t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
     cls = await classify_email(
         email_id=e.id,
@@ -315,7 +325,10 @@ async def reclassify_transaction(transaction_id: str, db: AsyncSession = Depends
 
 
 @router.get("/transactions/duplicates")
-async def find_duplicates(db: AsyncSession = Depends(get_db)):
+async def find_duplicates(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Find potential duplicate expenses: same amount on the same date from different sender domains.
     Only looks at expense-labelled transactions with non-null amount and txn_date.
@@ -324,6 +337,7 @@ async def find_duplicates(db: AsyncSession = Depends(get_db)):
         select(Transaction, Email)
         .outerjoin(Email)
         .where(
+            Email.user_id == current_user.id,
             Transaction.label == "expense",
             Transaction.amount.isnot(None),
             Transaction.txn_date.isnot(None),
