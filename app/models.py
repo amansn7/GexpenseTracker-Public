@@ -96,6 +96,8 @@ class UserSettings(Base):
     active_ai_service_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
     digest_hour: Mapped[int] = mapped_column(Integer, default=9, nullable=False, server_default="9")
     allowed_emails: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    starting_balance: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    starting_balance_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     user: Mapped["User"] = relationship(back_populates="settings")

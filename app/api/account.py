@@ -1,6 +1,6 @@
 import base64
 import hashlib
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -70,6 +70,8 @@ class SettingsPatch(BaseModel):
     active_ai_service_id: Optional[str] = None
     digest_hour: Optional[int] = Field(default=None, ge=0, le=23)
     use_rule_engine: Optional[bool] = None
+    starting_balance: Optional[float] = Field(default=None, ge=0)
+    starting_balance_date: Optional[date] = None
 
 
 class ConnectedAccountBody(BaseModel):
@@ -197,6 +199,8 @@ def _settings_dict(settings: UserSettings) -> dict:
         "active_ai_service_id": settings.active_ai_service_id,
         "digest_hour": settings.digest_hour,
         "use_rule_engine": settings.use_rule_engine,
+        "starting_balance": float(settings.starting_balance) if settings.starting_balance is not None else None,
+        "starting_balance_date": settings.starting_balance_date.isoformat() if settings.starting_balance_date else None,
     }
 
 
