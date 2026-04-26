@@ -1,3 +1,5 @@
+import json
+import urllib.request
 from pathlib import Path
 from typing import Optional
 from google.oauth2.credentials import Credentials
@@ -6,7 +8,12 @@ from google.auth.transport.requests import Request
 from app.config import settings
 
 TOKEN_FILE = Path("data/gmail_token.json")
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = [
+    "openid",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/gmail.readonly",
+]
 
 
 def get_oauth_flow() -> Flow:
@@ -41,3 +48,13 @@ def save_credentials(creds: Credentials) -> None:
 
 def is_authenticated() -> bool:
     return get_credentials() is not None
+
+
+def get_google_userinfo(creds) -> dict:
+    """Fetch {email, name, picture} from Google using access token."""
+    req = urllib.request.Request(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {creds.token}"},
+    )
+    with urllib.request.urlopen(req) as resp:
+        return json.loads(resp.read())
