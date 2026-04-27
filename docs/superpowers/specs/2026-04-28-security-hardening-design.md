@@ -120,7 +120,7 @@ One Alembic migration generated for this table.
 ```
 tests/
   test_auth_required.py      # all formerly-open endpoints → 401 when unauthenticated
-  test_user_scoping.py       # 2-user fixture: list endpoints return empty for user A's data when queried by user B; single-resource endpoints (GET /emails/{id}) return 404
+test_user_scoping.py       # 2-user fixture: list endpoints return empty for user A's data when queried by user B; single-resource endpoints (GET /emails/{id}) return 404
   test_xss_escaping.py       # inject <script> as merchant/sender, assert output escaped
   test_config_hardening.py   # monkeypatch SECRET_KEY default → assert RuntimeError
   test_oauth_state.py        # expired state → 400; consumed state → 400
