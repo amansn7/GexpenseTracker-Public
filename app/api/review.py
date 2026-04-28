@@ -30,7 +30,8 @@ async def get_review_queue(count: bool = False, db: AsyncSession = Depends(get_d
                 Email.user_id == current_user.id,
             )
         )
-        return {"count": result.scalar() or 0}    rows = (await db.execute(
+        return {"count": result.scalar() or 0}
+    rows = (await db.execute(
         select(Transaction, Email)
         .join(Email)
         .where(
