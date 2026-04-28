@@ -79,7 +79,8 @@ async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/recurring/{id}")
-async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    r = (await db.execute(
+async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    r = (await db.execute(
         select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
@@ -97,7 +98,8 @@ async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depe
 
 
 @router.delete("/recurring/{id}")
-async def delete_recurring(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    r = (await db.execute(
+async def delete_recurring(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    r = (await db.execute(
         select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
