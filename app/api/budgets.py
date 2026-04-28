@@ -9,7 +9,6 @@ from sqlalchemy import select, func
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Budget, Transaction, Email, User
-
 router = APIRouter()
 
 
@@ -84,8 +83,7 @@ async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db), cu
 
 
 @router.patch("/budgets/{id}")
-async def update_budget(id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    b = (await db.execute(
+async def update_budget(id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    b = (await db.execute(
         select(Budget).where(Budget.id == id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:
@@ -100,8 +98,7 @@ async def update_budget(id: int, body: BudgetPatch, db: AsyncSession = Depends(g
 
 
 @router.delete("/budgets/{id}")
-async def delete_budget(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    b = (await db.execute(
+async def delete_budget(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    b = (await db.execute(
         select(Budget).where(Budget.id == id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:

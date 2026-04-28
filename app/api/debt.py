@@ -75,8 +75,7 @@ async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db), curren
 
 
 @router.patch("/debts/{id}")
-async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    d = (await db.execute(
+async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    d = (await db.execute(
         select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:
@@ -99,8 +98,7 @@ async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db
 
 
 @router.delete("/debts/{id}")
-async def delete_debt(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    d = (await db.execute(
+async def delete_debt(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    d = (await db.execute(
         select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:

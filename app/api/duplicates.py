@@ -72,8 +72,7 @@ async def list_duplicates(status: Optional[str] = None, db: AsyncSession = Depen
         .join(Email, Email.id == Transaction.email_id)
         .where(Email.user_id == current_user.id)
         .order_by(DuplicatePair.created_at.desc())
-    )
-    if status:
+    )    if status:
         q = q.where(DuplicatePair.status == status)
     pairs = (await db.execute(q)).scalars().all()
 
