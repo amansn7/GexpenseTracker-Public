@@ -5,8 +5,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 from typing import Optional
+from app.auth_deps import get_current_user
 from app.database import get_db, AsyncSessionLocal
-from app.models import Transaction, Email, TransactionStatus, SenderRule, Label, RuleSource
+from app.models import Transaction, Email, TransactionStatus, SenderRule, Label, RuleSource, User
 from app.classifier.classifier import classify_email
 
 logger = logging.getLogger(__name__)
@@ -18,20 +19,29 @@ router = APIRouter()
 
 
 @router.get("/review/count")
-async def get_review_count(db: AsyncSession = Depends(get_db)):
+async def get_review_count(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     from sqlalchemy import func
     result = await db.execute(
-        select(func.count()).where(Transaction.status == TransactionStatus.needs_review.value)
+        select(func.count())
+        .select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(
+            Transaction.status == TransactionStatus.needs_review.value,
+            Email.user_id == current_user.id,
+        )
     )
     return {"count": result.scalar() or 0}
 
 
 @router.get("/review")
-async def get_review_queue(db: AsyncSession = Depends(get_db)):
+async def get_review_queue(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = (await db.execute(
         select(Transaction, Email)
         .join(Email)
-        .where(Transaction.status == TransactionStatus.needs_review.value)
+        .where(
+            Transaction.status == TransactionStatus.needs_review.value,
+            Email.user_id == current_user.id,
+        )
         .order_by(desc(Email.received_at))
     )).all()
 
@@ -42,6 +52,7 @@ async def get_review_queue(db: AsyncSession = Depends(get_db)):
         .where(
             Transaction.status == TransactionStatus.needs_review.value,
             Email.sender_domain.isnot(None),
+            Email.user_id == current_user.id,
         )
         .group_by(Email.sender_domain)
     )).all()
@@ -72,12 +83,12 @@ async def get_review_queue(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/review/{transaction_id}/reprocess")
-async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(get_db)):
+async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Re-run the rule engine + LLM classifier on the email and update the transaction."""
     row = (await db.execute(
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.id == transaction_id)
+        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
     )).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -135,12 +146,12 @@ _bulk_progress = {
 
 
 @router.get("/review/reprocess-all/progress")
-async def reprocess_all_progress():
+async def reprocess_all_progress(current_user: User = Depends(get_current_user)):
     return dict(_bulk_progress)
 
 
 @router.post("/review/reprocess-all")
-async def reprocess_all(db: AsyncSession = Depends(get_db)):
+async def reprocess_all(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Kick off background bulk reprocessing of every needs_review transaction.
     Returns immediately; poll /api/review/reprocess-all/progress for status.
@@ -152,7 +163,10 @@ async def reprocess_all(db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(
         select(Transaction.id)
         .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.status == TransactionStatus.needs_review.value)
+        .where(
+            Transaction.status == TransactionStatus.needs_review.value,
+            Email.user_id == current_user.id,
+        )
     )).scalars().all()
 
     if not rows:
@@ -225,7 +239,7 @@ class BatchActionBody(BaseModel):
 
 
 @router.post("/review/batch")
-async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)):
+async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Apply label to ALL needs_review transactions from a given sender domain.
     Also upserts a SenderRule so future emails from this domain are auto-classified.
@@ -247,6 +261,7 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
         .where(
             Transaction.status == TransactionStatus.needs_review.value,
             Email.sender_domain == body.domain,
+            Email.user_id == current_user.id,
         )
     )).all()
 
@@ -258,7 +273,10 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
 
     # Upsert sender rule
     existing = (await db.execute(
-        select(SenderRule).where(SenderRule.sender_domain == body.domain)
+        select(SenderRule).where(
+            SenderRule.sender_domain == body.domain,
+            SenderRule.user_id == current_user.id,
+        )
     )).scalar_one_or_none()
 
     if existing:
@@ -268,6 +286,7 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
         existing.source = RuleSource.user_trained.value
     else:
         db.add(SenderRule(
+            user_id=current_user.id,
             sender_domain=body.domain,
             label=label,
             category=body.category,

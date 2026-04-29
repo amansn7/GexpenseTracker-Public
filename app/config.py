@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
+    FERNET_KEY: str = ""   # base64 Fernet key; if empty, tokens stored plaintext
     INVITE_CODE: str = ""
 
 settings = Settings()

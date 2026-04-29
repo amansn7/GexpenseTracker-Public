@@ -1,59 +1,21 @@
 ## Project Context
-This is an expense tracker project with budgets, analytics dashboard, and Axis Bank payroll income-shift rules. Tech stack: Python backend, JavaScript/HTML frontend. Always run the full test suite after feature implementation - tests should pass before committing.
+Expense tracker: budgets, analytics, Axis Bank payroll income-shift rules. Stack: FastAPI + SQLAlchemy (async), JavaScript/HTML frontend. Run full test suite before committing (`--ignore=tests/test_llm_client.py` — pre-existing failure).
 
-## Workflow Conventions
-- Use TaskCreate/TaskUpdate to track multi-step work and keep statuses current; clear stale 'pending' tasks at session start.
-- For UI changes, run a full-project UI audit before implementing fixes.
-- Commit completed work with descriptive messages once tests pass.
+## Workflow
+- Track multi-step work with TaskCreate/TaskUpdate; clear stale tasks at session start.
+- UI changes: full audit before fixing.
+- Commit with descriptive messages once tests pass.
 
-<!-- code-review-graph MCP tools -->
-## MCP Tools: code-review-graph
+## MCP: code-review-graph
+**Use graph tools BEFORE Grep/Glob/Read.** Faster, cheaper, gives structural context.
 
-**IMPORTANT: This project has a knowledge graph. ALWAYS use the
-code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
-the codebase.** The graph is faster, cheaper (fewer tokens), and gives
-you structural context (callers, dependents, test coverage) that file
-scanning cannot.
+- Explore code → `semantic_search_nodes` / `query_graph`
+- Impact analysis → `get_impact_radius` / `get_affected_flows`
+- Code review → `detect_changes` + `get_review_context`
+- Architecture → `get_architecture_overview` + `list_communities`
+- Tests → `query_graph` pattern="tests_for"
 
-### When to use graph tools FIRST
-
-- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
-- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
-- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
-- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
-- **Architecture questions**: `get_architecture_overview` + `list_communities`
-
-Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
-
-### Key Tools
-
-| Tool | Use when |
-|------|----------|
-| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
-| `get_review_context` | Need source snippets for review — token-efficient |
-| `get_impact_radius` | Understanding blast radius of a change |
-| `get_affected_flows` | Finding which execution paths are impacted |
-| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
-| `semantic_search_nodes` | Finding functions/classes by name or keyword |
-| `get_architecture_overview` | Understanding high-level codebase structure |
-| `refactor_tool` | Planning renames, finding dead code |
-
-### Workflow
-
-1. The graph auto-updates on file changes (via hooks).
-2. Use `detect_changes` for code review.
-3. Use `get_affected_flows` to understand impact.
-4. Use `query_graph` pattern="tests_for" to check coverage.
+Fallback to Grep/Read only when graph can't answer.
 
 ## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
-
-## Plugin & Environment Notes
-- Xcode Command Line Tools must be installed before plugin operations on macOS.
-- After installing plugins, verify they load correctly (not as 'Unknown skill') before proceeding.
+Knowledge graph at `graphify-out/`. Use `graphify-out/wiki/index.md` for architecture questions. Run `graphify update .` after modifying code files.

@@ -1,11 +1,19 @@
 import asyncio
 import logging
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from app.auth_deps import get_current_user
+from app.models import User, UserRole
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _require_owner(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "owner":
+        raise HTTPException(status_code=403, detail="Owner only")
+    return current_user
 
 
 class FetchPreviewBody(BaseModel):
@@ -14,7 +22,10 @@ class FetchPreviewBody(BaseModel):
 
 
 @router.post("/admin/fetch-preview")
-async def fetch_preview(body: FetchPreviewBody):
+async def fetch_preview(
+    body: FetchPreviewBody,
+    current_user: User = Depends(_require_owner),
+):
     """Fetch N emails from Gmail for inspection — no DB writes."""
     if not (1 <= body.limit <= 100):
         raise HTTPException(status_code=422, detail="limit must be 1–100")
@@ -60,7 +71,8 @@ async def fetch_preview(body: FetchPreviewBody):
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        logger.error("fetch-preview failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Upstream fetch failed")
 
 
 class ClassifyTestBody(BaseModel):
@@ -71,7 +83,10 @@ class ClassifyTestBody(BaseModel):
 
 
 @router.post("/admin/classify-test")
-async def classify_test(body: ClassifyTestBody):
+async def classify_test(
+    body: ClassifyTestBody,
+    current_user: User = Depends(_require_owner),
+):
     """Run classification pipeline on raw inputs — no DB writes."""
     from app.gmail.client import extract_domain
     from app.classifier.classifier import classify_email

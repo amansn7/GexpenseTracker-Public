@@ -183,16 +183,27 @@ async function _refreshDashboardIfPresent() {
 
     const tbody = document.getElementById('txn-body');
     if (tbody && txns.length) {
-      tbody.innerHTML = txns.slice(0, 20).map(t => `
-        <tr>
-          <td>${t.txn_date || (t.email.received_at ? t.email.received_at.slice(0,10) : '\u2014')}</td>
-          <td>${t.merchant || t.email.sender || '\u2014'}</td>
-          <td>${t.category || '\u2014'}</td>
-          <td><span class="badge ${t.label}">${t.label}</span></td>
-          <td style="color:${t.label==='expense'?'#e07070':t.label==='income'?'#5db87d':'#888'}">${t.amount != null ? (t.label==='expense'?'-':'+') + '\u20B9' + Number(t.amount).toLocaleString('en-IN') : '\u2014'}</td>
-          <td><a href="${t.email.gmail_link}" target="_blank" class="link">Email</a></td>
-          <td style="font-size:11px;color:${t.status==='auto'?'#5db87d':t.status==='corrected'?'#7c83fd':'#f0a500'}">${t.status}</td>
-        </tr>`).join('');
+      tbody.innerHTML = txns.slice(0, 20).map(t => {
+        const date     = _esc(t.txn_date || (t.email.received_at ? t.email.received_at.slice(0,10) : '\u2014'));
+        const merchant = _esc(t.merchant || t.email.sender || '\u2014');
+        const category = _esc(t.category || '\u2014');
+        const label    = _esc(t.label);
+        const status   = _esc(t.status);
+        const amtColor = t.label === 'expense' ? '#e07070' : t.label === 'income' ? '#5db87d' : '#888';
+        const amount   = t.amount != null ? _esc((t.label === 'expense' ? '-' : '+') + '\u20B9' + Number(t.amount).toLocaleString('en-IN')) : '\u2014';
+        const rawLink  = t.email && t.email.gmail_link;
+        const href     = (rawLink && rawLink.startsWith('https://mail.google.com/')) ? rawLink : '#';
+        const stColor  = t.status === 'auto' ? '#5db87d' : t.status === 'corrected' ? '#7c83fd' : '#f0a500';
+        return `<tr>
+          <td>${date}</td>
+          <td>${merchant}</td>
+          <td>${category}</td>
+          <td><span class="badge ${label}">${label}</span></td>
+          <td style="color:${amtColor}">${amount}</td>
+          <td><a href="${href}" target="_blank" rel="noopener" class="link">Email</a></td>
+          <td style="font-size:11px;color:${stColor}">${status}</td>
+        </tr>`;
+      }).join('');
     }
   } catch (_) {}
 }

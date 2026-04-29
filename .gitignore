@@ -25,6 +25,11 @@ graphify-out/cache/
 graphify-out/graph.json
 graphify-out/graph.html
 graphify-out/.graphify_python
+graphify-out/.graphify_ast.json
+graphify-out/.graphify_cached.json
+graphify-out/.graphify_chunk_01.json
+graphify-out/.graphify_detect.json
+graphify-out/.graphify_uncached.txt
 # tool workspaces
 .superpowers/
 .planning/

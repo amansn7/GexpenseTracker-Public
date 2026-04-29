@@ -76,9 +76,10 @@ async def get_credentials_for_user(db, user_id: str):
     if not account or not account.refresh_token:
         return None
 
+    from app.crypto import decrypt_secret
     creds = Credentials(
         token=account.access_token,
-        refresh_token=account.refresh_token,
+        refresh_token=decrypt_secret(account.refresh_token),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.GOOGLE_CLIENT_ID,
         client_secret=settings.GOOGLE_CLIENT_SECRET,

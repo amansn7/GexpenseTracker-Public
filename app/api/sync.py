@@ -32,7 +32,7 @@ async def sync_progress_endpoint():
 
 
 @router.get("/sync/status")
-async def sync_status(db: AsyncSession = Depends(get_db)):
+async def sync_status(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     state = (await db.execute(select(SyncState))).scalar_one_or_none()
     if state and state.last_synced_at:
         next_sync = state.last_synced_at + timedelta(hours=settings.SYNC_INTERVAL_HOURS)
@@ -55,7 +55,7 @@ class SyncSettingsBody(BaseModel):
 
 
 @router.patch("/sync/settings")
-async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depends(get_db)):
+async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     if body.email_filter not in ("all", "unread", "read"):
         raise HTTPException(status_code=422, detail="email_filter must be all, unread, or read")
     state = (await db.execute(select(SyncState))).scalar_one_or_none()
@@ -83,7 +83,7 @@ class BackfillBody(BaseModel):
 
 
 @router.post("/sync/backfill-bodies")
-async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db)):
+async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     """
     Fetch full body_text from Gmail.
     email_ids supplied → only those rows (regardless of current body_text).
@@ -142,7 +142,7 @@ async def get_alerts():
 
 
 @router.post("/alerts/clear")
-async def clear_alerts():
+async def clear_alerts(current_user=Depends(get_current_user)):
     from app.alerts import clear_alerts as _clear
     _clear()
     return {"cleared": True}

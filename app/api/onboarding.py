@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +36,6 @@ class OnboardingBody(BaseModel):
     location: Optional[str] = None
     default_currency: str = Field(default="INR", min_length=3, max_length=3)
     timezone: str = "Asia/Kolkata"
-    role: str = UserRole.member.value
 
 
 @router.post("/account/onboarding", status_code=201)
@@ -46,7 +46,11 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     if settings.INVITE_CODE and body.invite_code != settings.INVITE_CODE:
         raise HTTPException(status_code=403, detail="Invalid invite code")
 
-    user = User(email=email, role=body.role, status=UserStatus.active.value, onboarding_complete=True)
+    existing_count = (await db.scalar(
+        select(func.count(User.id)).where(User.email != "service@localhost")
+    )) or 0
+    role = UserRole.owner.value if existing_count == 0 else UserRole.member.value
+    user = User(email=email, role=role, status=UserStatus.active.value, onboarding_complete=True)
     db.add(user)
     await db.flush()
     db.add(UserProfile(

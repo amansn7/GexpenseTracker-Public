@@ -3,8 +3,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import RecurringExpense
+from app.models import RecurringExpense, User
 
 router = APIRouter()
 
@@ -34,9 +35,9 @@ def _fmt(r: RecurringExpense) -> dict:
 
 
 @router.get("/recurring")
-async def list_recurring(db: AsyncSession = Depends(get_db)):
+async def list_recurring(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = (await db.execute(
-        select(RecurringExpense).order_by(RecurringExpense.name)
+        select(RecurringExpense).where(RecurringExpense.user_id == current_user.id).order_by(RecurringExpense.name)
     )).scalars().all()
     items = [_fmt(r) for r in rows]
 
@@ -56,12 +57,13 @@ async def list_recurring(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/recurring", status_code=201)
-async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_db)):
+async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     if body.frequency not in ("monthly", "weekly", "yearly"):
         raise HTTPException(status_code=422, detail="frequency must be monthly, weekly, or yearly")
     r = RecurringExpense(
+        user_id=current_user.id,
         name=body.name.strip(),
         amount=body.amount,
         category=body.category,
@@ -77,9 +79,9 @@ async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/recurring/{item_id}")
-async def update_recurring(item_id: str, body: RecurringBody, db: AsyncSession = Depends(get_db)):
+async def update_recurring(item_id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == item_id)
+        select(RecurringExpense).where(RecurringExpense.id == item_id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
@@ -96,9 +98,9 @@ async def update_recurring(item_id: str, body: RecurringBody, db: AsyncSession =
 
 
 @router.delete("/recurring/{item_id}")
-async def delete_recurring(item_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_recurring(item_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == item_id)
+        select(RecurringExpense).where(RecurringExpense.id == item_id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")

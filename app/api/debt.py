@@ -4,8 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 from datetime import date
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Debt
+from app.models import Debt, User
 
 router = APIRouter()
 
@@ -39,9 +40,9 @@ def _fmt(d: Debt) -> dict:
 
 
 @router.get("/debts")
-async def list_debts(db: AsyncSession = Depends(get_db)):
+async def list_debts(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = (await db.execute(
-        select(Debt).order_by(
+        select(Debt).where(Debt.user_id == current_user.id).order_by(
             (Debt.total_amount - Debt.paid_amount).desc()
         )
     )).scalars().all()
@@ -49,7 +50,7 @@ async def list_debts(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/debts", status_code=201)
-async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db)):
+async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     if body.total_amount <= 0:
@@ -59,6 +60,7 @@ async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db)):
     if body.paid_amount > body.total_amount:
         raise HTTPException(status_code=422, detail="paid_amount cannot exceed total_amount")
     d = Debt(
+        user_id=current_user.id,
         name=body.name.strip(),
         total_amount=body.total_amount,
         paid_amount=body.paid_amount,
@@ -73,9 +75,9 @@ async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/debts/{debt_id}")
-async def update_debt(debt_id: str, body: DebtBody, db: AsyncSession = Depends(get_db)):
+async def update_debt(debt_id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     d = (await db.execute(
-        select(Debt).where(Debt.id == debt_id)
+        select(Debt).where(Debt.id == debt_id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")
@@ -97,9 +99,9 @@ async def update_debt(debt_id: str, body: DebtBody, db: AsyncSession = Depends(g
 
 
 @router.delete("/debts/{debt_id}")
-async def delete_debt(debt_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_debt(debt_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     d = (await db.execute(
-        select(Debt).where(Debt.id == debt_id)
+        select(Debt).where(Debt.id == debt_id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")

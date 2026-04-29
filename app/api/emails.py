@@ -8,8 +8,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from app.auth_deps import get_current_user
 from app.database import get_db, AsyncSessionLocal
-from app.models import Email, Transaction, SenderRule, Label
+from app.models import Email, Transaction, SenderRule, Label, User
 from app.classifier.classifier import classify_email
 
 
@@ -20,10 +21,11 @@ router = APIRouter()
 
 
 @router.get("/emails")
-async def list_emails(db: AsyncSession = Depends(get_db)):
+async def list_emails(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     result = await db.execute(
         select(Email, Transaction)
         .outerjoin(Transaction, Transaction.email_id == Email.id)
+        .where(Email.user_id == current_user.id)
         .order_by(desc(Email.received_at))
     )
     rows = result.all()
@@ -55,7 +57,7 @@ class RetrainPayload(BaseModel):
 
 
 @router.post("/emails/retrain")
-async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_db)):
+async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     For each selected email, upsert a SenderRule from its current transaction label.
     Emails with no transaction or label='ignore' are skipped unless they already
@@ -66,7 +68,7 @@ async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_
     email_q = await db.execute(
         select(Email, Transaction)
         .outerjoin(Transaction, Transaction.email_id == Email.id)
-        .where(Email.id.in_(payload.email_ids))
+        .where(Email.id.in_(payload.email_ids), Email.user_id == current_user.id)
     )
     rows = email_q.all()
 
@@ -81,7 +83,10 @@ async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_
             continue
 
         existing = (await db.execute(
-            select(SenderRule).where(SenderRule.sender_domain == domain)
+            select(SenderRule).where(
+                SenderRule.sender_domain == domain,
+                SenderRule.user_id == current_user.id,
+            )
         )).scalar_one_or_none()
 
         if existing:
@@ -90,6 +95,7 @@ async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_
             existing.source = RuleSource.user_trained.value
         else:
             db.add(SenderRule(
+                user_id=current_user.id,
                 sender_domain=domain,
                 label=txn.label,
                 category=txn.category,
@@ -115,7 +121,8 @@ class ReclassifyPayload(BaseModel):
 
 
 @router.post("/emails/reclassify")
-async def reclassify_emails(payload: ReclassifyPayload):
+async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Depends(get_current_user)):
+    user_id = current_user.id
 
     async def generate():
         async with AsyncSessionLocal() as db:
@@ -198,7 +205,10 @@ async def reclassify_emails(payload: ReclassifyPayload):
                     if domain and cls.confidence >= 0.75 and cls.label.value in ("expense", "income"):
                         from app.models import RuleSource
                         existing_rule = (await db.execute(
-                            select(SenderRule).where(SenderRule.sender_domain == domain)
+                            select(SenderRule).where(
+                                SenderRule.sender_domain == domain,
+                                SenderRule.user_id == user_id,
+                            )
                         )).scalar_one_or_none()
                         if existing_rule:
                             existing_rule.label = cls.label.value
@@ -207,6 +217,7 @@ async def reclassify_emails(payload: ReclassifyPayload):
                             rule_saved_msg = f"  ✦ domain rule updated: {domain} → {cls.label.value}"
                         else:
                             db.add(SenderRule(
+                                user_id=user_id,
                                 sender_domain=domain,
                                 label=cls.label.value,
                                 category=cls.category,

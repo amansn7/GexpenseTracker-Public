@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import secrets
 from datetime import datetime, UTC, timedelta
 from typing import Optional
@@ -10,27 +11,29 @@ from sqlalchemy import select, func, delete as sa_delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import get_current_user
+from app.crypto import encrypt_secret
 from app.config import settings
 from app.database import get_db
 from app.gmail.auth import get_oauth_flow, get_google_userinfo
 from app.models import (
-    ConnectedAccount, Email, Session, User, UserProfile, UserRole,
+    ConnectedAccount, Email, OAuthState, Session, User, UserProfile, UserRole,
     UserSettings, UserStatus,
 )
 
 router = APIRouter()
-_pending: dict = {}
 
 SESSION_DAYS = 30
+OAUTH_STATE_MINUTES = 10
 COOKIE_NAME = "session"
 
 
 def _set_session_cookie(response: Response, token: bytes) -> None:
+    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
     response.set_cookie(
         COOKIE_NAME,
         value=token.hex(),
         httponly=True,
-        secure=False,
+        secure=secure,
         samesite="lax",
         max_age=SESSION_DAYS * 86400,
         path="/",
@@ -116,14 +119,22 @@ async def _create_session(db: AsyncSession, user: User) -> bytes:
 
 
 @router.get("/auth/google")
-async def start_google_auth():
+async def start_google_auth(db: AsyncSession = Depends(get_db)):
     flow = get_oauth_flow()
     auth_url, state = flow.authorization_url(
         access_type="offline",
         prompt="consent",
         include_granted_scopes="true",
     )
-    _pending[state] = flow
+    # Purge expired states, then persist new one
+    await db.execute(
+        sa_delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
+    )
+    db.add(OAuthState(
+        state=state,
+        expires_at=datetime.now(UTC) + timedelta(minutes=OAUTH_STATE_MINUTES),
+    ))
+    await db.commit()
     return RedirectResponse(auth_url)
 
 
@@ -133,10 +144,15 @@ async def google_callback(
     state: str,
     db: AsyncSession = Depends(get_db),
 ):
-    flow = _pending.pop(state, None)
-    if not flow:
+    state_row = (await db.execute(
+        select(OAuthState).where(OAuthState.state == state)
+    )).scalar_one_or_none()
+    if not state_row or state_row.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="No pending auth flow")
+    await db.delete(state_row)
+    await db.commit()
 
+    flow = get_oauth_flow()
     await asyncio.to_thread(flow.fetch_token, code=code)
     creds = flow.credentials
 
@@ -155,7 +171,7 @@ async def google_callback(
     )).scalar_one_or_none()
     if account:
         account.access_token = creds.token
-        account.refresh_token = creds.refresh_token
+        account.refresh_token = encrypt_secret(creds.refresh_token) if creds.refresh_token else None
         account.token_expiry = creds.expiry
         account.status = "connected"
         await db.commit()

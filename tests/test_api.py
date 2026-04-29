@@ -29,7 +29,7 @@ async def test_get_transactions_empty(db_session, mock_user):
 
 
 @pytest.mark.asyncio
-async def test_get_review_empty(db_session):
+async def test_get_review_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -160,7 +160,7 @@ async def test_stats_monthly_trend_empty(db_session, mock_user):
 
 
 @pytest.mark.asyncio
-async def test_list_budgets_empty(db_session):
+async def test_list_budgets_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -175,7 +175,7 @@ async def test_list_budgets_empty(db_session):
 
 
 @pytest.mark.asyncio
-async def test_create_and_delete_budget(db_session):
+async def test_create_and_delete_budget(db_session, mock_user):
     async def override_get_db():
         yield db_session
 
@@ -202,7 +202,7 @@ async def test_create_and_delete_budget(db_session):
 
 
 @pytest.mark.asyncio
-async def test_update_budget(db_session):
+async def test_update_budget(db_session, mock_user):
     async def override_get_db():
         yield db_session
 

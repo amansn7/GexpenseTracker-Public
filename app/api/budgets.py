@@ -6,8 +6,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Budget, Transaction
+from app.models import Budget, Transaction, Email, User
 
 router = APIRouter()
 
@@ -22,16 +23,17 @@ class BudgetPatch(BaseModel):
 
 
 @router.get("/budgets")
-async def list_budgets(db: AsyncSession = Depends(get_db)):
+async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     today = date.today()
     first_of_month = today.replace(day=1)
 
     budgets = (await db.execute(
-        select(Budget).order_by(Budget.category)
+        select(Budget).where(Budget.user_id == current_user.id).order_by(Budget.category)
     )).scalars().all()
 
     spend_rows = (await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("spent"))
+        .join(Email, Transaction.email_id == Email.id)
         .where(
             Transaction.label == "expense",
             Transaction.txn_date >= first_of_month,
@@ -39,6 +41,7 @@ async def list_budgets(db: AsyncSession = Depends(get_db)):
             Transaction.txn_date.isnot(None),
             # Exclude needs_review: unreviewed transactions may not be confirmed expenses
             Transaction.status != "needs_review",
+            Email.user_id == current_user.id,
         )
         .group_by(Transaction.category)
     )).all()
@@ -63,13 +66,13 @@ async def list_budgets(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/budgets", status_code=201)
-async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db)):
+async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not body.category.strip():
         raise HTTPException(status_code=422, detail="category is required")
     if body.monthly_limit <= 0:
         raise HTTPException(status_code=422, detail="monthly_limit must be positive")
     from sqlalchemy.exc import IntegrityError
-    b = Budget(category=body.category.strip(), monthly_limit=body.monthly_limit)
+    b = Budget(user_id=current_user.id, category=body.category.strip(), monthly_limit=body.monthly_limit)
     db.add(b)
     try:
         await db.commit()
@@ -81,9 +84,9 @@ async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/budgets/{budget_id}")
-async def update_budget(budget_id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db)):
+async def update_budget(budget_id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     b = (await db.execute(
-        select(Budget).where(Budget.id == budget_id)
+        select(Budget).where(Budget.id == budget_id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:
         raise HTTPException(status_code=404, detail="Not found")
@@ -97,9 +100,9 @@ async def update_budget(budget_id: int, body: BudgetPatch, db: AsyncSession = De
 
 
 @router.delete("/budgets/{budget_id}")
-async def delete_budget(budget_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_budget(budget_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     b = (await db.execute(
-        select(Budget).where(Budget.id == budget_id)
+        select(Budget).where(Budget.id == budget_id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:
         raise HTTPException(status_code=404, detail="Not found")

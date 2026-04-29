@@ -80,7 +80,11 @@ async def test_duplicates_api_list():
         db.execute = AsyncMock(return_value=mock_result)
         yield db
 
+    from app.auth_deps import get_current_user
+    from unittest.mock import MagicMock as _MagicMock
+    _user = _MagicMock(); _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = lambda: _user
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r = await client.get("/api/duplicates")
@@ -89,6 +93,7 @@ async def test_duplicates_api_list():
         assert isinstance(data, list)
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
@@ -111,7 +116,11 @@ async def test_duplicates_api_resolve_validation():
         db.execute = AsyncMock(return_value=mock_result)
         yield db
 
+    from app.auth_deps import get_current_user
+    from unittest.mock import MagicMock as _MagicMock
+    _user = _MagicMock(); _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = lambda: _user
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # invalid action → 422 (caught before DB)
@@ -123,3 +132,4 @@ async def test_duplicates_api_resolve_validation():
             assert r.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)

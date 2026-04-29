@@ -14,6 +14,7 @@ from .user import (
     UserCategory,
     UserAIService,
     Session,
+    OAuthState,
 )
 
 from .email import (
@@ -56,6 +57,7 @@ __all__ = [
     "UserCategory",
     "UserAIService",
     "Session",
+    "OAuthState",
     # email
     "Email",
     "SyncState",

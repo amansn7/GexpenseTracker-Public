@@ -1,6 +1,5 @@
 import os
 import logging
-import warnings
 from contextlib import asynccontextmanager
 
 _log_fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -21,10 +20,10 @@ from app.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.SECRET_KEY == "change-me-in-production":
-        warnings.warn(
-            "SECRET_KEY is still the default value — set a secure random key in .env before exposing this service",
-            stacklevel=1,
+    if settings.SECRET_KEY == "change-me-in-production" and not os.getenv("TESTING"):
+        raise RuntimeError(
+            "SECRET_KEY is still the default value. "
+            "Set a secure random key in .env before starting the server."
         )
     if not os.getenv("TESTING"):
         setup_scheduler()
@@ -41,15 +40,17 @@ async def lifespan(app: FastAPI):
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Redirect unauthenticated browser GETs to /login."""
+    """Block unauthenticated requests: 401 for API calls, redirect for browser pages."""
 
     EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/health"}
 
     async def dispatch(self, request: StarletteRequest, call_next):
         path = request.url.path
-        if path.startswith("/static") or path.startswith("/api/") or path in self.EXEMPT:
+        if path.startswith("/static") or path in self.EXEMPT or os.getenv("TESTING"):
             return await call_next(request)
         if not request.cookies.get("session"):
+            if path.startswith("/api/"):
+                return JSONResponse({"detail": "Not authenticated"}, status_code=401)
             return StarletteRedirect("/login")
         return await call_next(request)
 

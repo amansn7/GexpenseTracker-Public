@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import DuplicatePair, Transaction, Email
+from app.models import DuplicatePair, Transaction, Email, User
 from app.dedup.service import resolve_duplicate
 
 router = APIRouter()
@@ -42,10 +43,14 @@ def _fmt_pair(pair: DuplicatePair, primary_tx, primary_email, dup_tx, dup_email)
     }
 
 
-async def _load_pair_with_txs(pair_id: str, db: AsyncSession):
-    pair = (await db.execute(
-        select(DuplicatePair).where(DuplicatePair.id == pair_id)
+async def _load_pair_with_txs(pair_id: str, db: AsyncSession, user_id: str):
+    pair_row = (await db.execute(
+        select(DuplicatePair)
+        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
+        .join(Email, Email.id == Transaction.email_id)
+        .where(DuplicatePair.id == pair_id, Email.user_id == user_id)
     )).scalar_one_or_none()
+    pair = pair_row
     if not pair:
         raise HTTPException(status_code=404, detail="Duplicate pair not found")
     primary_row = (await db.execute(
@@ -60,8 +65,14 @@ async def _load_pair_with_txs(pair_id: str, db: AsyncSession):
 
 
 @router.get("/duplicates")
-async def list_duplicates(status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
-    q = select(DuplicatePair).order_by(DuplicatePair.created_at.desc())
+async def list_duplicates(status: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    q = (
+        select(DuplicatePair)
+        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
+        .join(Email, Email.id == Transaction.email_id)
+        .where(Email.user_id == current_user.id)
+        .order_by(DuplicatePair.created_at.desc())
+    )
     if status:
         q = q.where(DuplicatePair.status == status)
     pairs = (await db.execute(q)).scalars().all()
@@ -85,10 +96,10 @@ class ResolvePatch(BaseModel):
 
 
 @router.patch("/duplicates/{pair_id}")
-async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depends(get_db)):
+async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if body.action not in ("confirmed", "dismissed"):
         raise HTTPException(status_code=422, detail="action must be 'confirmed' or 'dismissed'")
-    pair, primary_tx, primary_email, dup_tx, dup_email = await _load_pair_with_txs(pair_id, db)
+    pair, primary_tx, primary_email, dup_tx, dup_email = await _load_pair_with_txs(pair_id, db, current_user.id)
     if body.primary_tx_id not in (pair.primary_tx_id, pair.duplicate_tx_id):
         raise HTTPException(status_code=422, detail="primary_tx_id must be one of the pair's transaction IDs")
     if pair.status not in ("pending",):

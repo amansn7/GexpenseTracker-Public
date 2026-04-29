@@ -1,11 +1,14 @@
 #!/bin/sh
 set -e
 
-DB_HOST="${DB_HOST:-db}"
-DB_PORT="${DB_PORT:-5432}"
+PORT="${PORT:-8000}"
 
-echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
-until python -c "
+# Skip TCP wait on Railway (managed Postgres is always reachable via DATABASE_URL)
+if [ -z "${RAILWAY_ENVIRONMENT}" ]; then
+  DB_HOST="${DB_HOST:-db}"
+  DB_PORT="${DB_PORT:-5432}"
+  echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
+  until python -c "
 import socket, sys
 try:
     s = socket.create_connection(('${DB_HOST}', ${DB_PORT}), timeout=2)
@@ -14,11 +17,12 @@ try:
 except Exception:
     sys.exit(1)
 " 2>/dev/null; do
-  echo "  db not ready, retrying in 1s..."
-  sleep 1
-done
+    echo "  db not ready, retrying in 1s..."
+    sleep 1
+  done
+fi
 
 echo "Running migrations..."
 alembic upgrade head
 echo "Starting app..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}"
