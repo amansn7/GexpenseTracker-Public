@@ -169,12 +169,20 @@ async def google_callback(
             ConnectedAccount.provider == "gmail",
         )
     )).scalar_one_or_none()
-    if account:
-        account.access_token = creds.token
-        account.refresh_token = encrypt_secret(creds.refresh_token) if creds.refresh_token else None
-        account.token_expiry = creds.expiry
-        account.status = "connected"
-        await db.commit()
+    if account is None:
+        account = ConnectedAccount(
+            user_id=user.id,
+            provider="gmail",
+            account_email=email,
+            status="connected",
+        )
+        db.add(account)
+    account.access_token = creds.token
+    if creds.refresh_token:
+        account.refresh_token = encrypt_secret(creds.refresh_token)
+    account.token_expiry = creds.expiry
+    account.status = "connected"
+    await db.commit()
 
     token = await _create_session(db, user)
 
