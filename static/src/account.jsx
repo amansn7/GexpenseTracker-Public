@@ -490,15 +490,13 @@ const AccessSection = ({ account }) => {
   );
 };
 
-const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) => {
+const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
   const categories = account?.categories || [];
-  const [authStatus, setAuthStatus] = React.useState(null);
-
-  React.useEffect(() => {
-    API.get("/api/auth/status").then(setAuthStatus).catch(() => {});
-  }, []);
+  const gmailAccount = connectedAccounts.find(a => a.provider === "gmail");
+  const gmailConnected = gmailAccount?.status === "connected";
+  const [filterSaving, setFilterSaving] = React.useState(false);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -514,7 +512,22 @@ const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) =>
     if (!syncStatus?.last_synced_at) return "Never synced";
     const diff = Math.floor((Date.now() - new Date(syncStatus.last_synced_at)) / 60000);
     const when = diff < 1 ? "just now" : diff < 60 ? `${diff}m ago` : `${Math.floor(diff/60)}h ago`;
-    return `Last synced ${when} · interval ${syncStatus.sync_interval_hours}h`;
+    const interval = `every ${syncStatus.sync_interval_hours}h`;
+    if (!syncStatus.next_sync_at) return `Last synced ${when} · ${interval}`;
+    const nextDiff = Math.max(0, Math.floor((new Date(syncStatus.next_sync_at) - Date.now()) / 60000));
+    const next = nextDiff < 1 ? "next now" : nextDiff < 60 ? `next in ${nextDiff}m` : `next in ${Math.floor(nextDiff/60)}h`;
+    return `Last synced ${when} · ${next} · ${interval}`;
+  };
+
+  const updateEmailFilter = async (emailFilter) => {
+    if (filterSaving || emailFilter === (syncStatus?.email_filter || "all")) return;
+    setFilterSaving(true);
+    try {
+      const result = await API.patch("/api/sync/settings", { email_filter: emailFilter });
+      setSyncStatus(s => ({ ...(s || {}), email_filter: result.email_filter }));
+    } finally {
+      setFilterSaving(false);
+    }
   };
 
   return (
@@ -533,35 +546,65 @@ const SettingsView = ({ syncStatus, onRescan, syncing, account, setAccount }) =>
             <Icon name="gmail" size={18} stroke="var(--accent)"/>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               Gmail
-              {authStatus !== null && (
-                <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 3, background: authStatus.authenticated ? "var(--pos-soft)" : "var(--neg-soft)", color: authStatus.authenticated ? "var(--pos)" : "var(--neg)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  {authStatus.authenticated ? "Connected" : "Disconnected"}
-                </span>
-              )}
+              <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 3, background: gmailConnected ? "var(--pos-soft)" : "var(--neg-soft)", color: gmailConnected ? "var(--pos)" : "var(--neg)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {gmailConnected ? "Connected" : "Disconnected"}
+              </span>
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{syncMeta()}</div>
-            {connectedAccounts.length > 0 && (
+            {gmailAccount?.account_email && (
               <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 3, fontFamily: "'Geist Mono', monospace" }}>
-                {connectedAccounts.map(a => `${a.provider}:${a.account_email}`).join(" · ")}
+                {gmailAccount.account_email}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {authStatus?.authenticated ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {gmailConnected ? (
               <>
                 <button onClick={onRescan} disabled={syncing} style={{ ...accountStyles.btn, opacity: syncing ? 0.6 : 1 }}>
                   {syncing ? "Syncing…" : "Re-sync"}
                 </button>
-                <button onClick={() => window.location.href = "/api/auth/gmail"} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Reconnect</button>
+                <button onClick={() => window.location.href = "/api/auth/google"} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Reconnect</button>
               </>
             ) : (
-              <button onClick={() => window.location.href = "/api/auth/gmail"} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>Connect Gmail</button>
+              <button onClick={() => window.location.href = "/api/auth/google"} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>Connect Gmail</button>
             )}
           </div>
         </div>
-        <button style={{ ...accountStyles.btn, marginTop: 10 }}><Icon name="plus" size={12}/> Add another account</button>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Messages to scan</div>
+          <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", opacity: filterSaving ? 0.65 : 1 }}>
+            {[
+              ["all", "All"],
+              ["unread", "Unread"],
+              ["read", "Read"],
+            ].map(([value, label]) => {
+              const active = (syncStatus?.email_filter || "all") === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={filterSaving}
+                  onClick={() => updateEmailFilter(value)}
+                  style={{
+                    padding: "6px 12px",
+                    border: "none",
+                    borderRadius: 4,
+                    background: active ? "var(--ink)" : "transparent",
+                    color: active ? "var(--paper)" : "var(--ink-3)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: filterSaving ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Parsing */}

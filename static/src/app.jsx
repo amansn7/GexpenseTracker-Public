@@ -276,7 +276,7 @@ const App = () => {
         {view === "recurring" && <RecurringView />}
         {view === "debt"      && <DebtView />}
         {view === "profile"   && <ProfileView transactions={transactions} account={account} setAccount={setAccount}/>}
-        {view === "settings"  && <SettingsView syncStatus={syncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/>}
+        {view === "settings"  && <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/>}
         {view === "admin"     && <AdminView />}
       </main>
 
