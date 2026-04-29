@@ -494,9 +494,38 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
   const categories = account?.categories || [];
+  const aiServices = account?.ai_services || [];
   const gmailAccount = connectedAccounts.find(a => a.provider === "gmail");
   const gmailConnected = gmailAccount?.status === "connected";
   const [filterSaving, setFilterSaving] = React.useState(false);
+  const emptyAiForm = {
+    provider: "openai",
+    display_name: "OpenAI",
+    model_id: "gpt-4o-mini",
+    base_url: "https://api.openai.com/v1",
+    auth_header: "bearer",
+    api_key: "",
+    enabled: true,
+  };
+  const providerPresets = [
+    { provider: "openai", display_name: "OpenAI", model_id: "gpt-4o-mini", base_url: "https://api.openai.com/v1" },
+    { provider: "openrouter", display_name: "OpenRouter", model_id: "google/gemini-2.0-flash-exp:free", base_url: "https://openrouter.ai/api/v1" },
+    { provider: "gemini", display_name: "Google Gemini", model_id: "gemini-2.0-flash", base_url: "https://generativelanguage.googleapis.com/v1beta/openai" },
+    { provider: "grok", display_name: "Grok", model_id: "grok-3-mini", base_url: "https://api.x.ai/v1" },
+    { provider: "scaleway", display_name: "Scaleway", model_id: "llama-3.3-70b-instruct", base_url: "https://api.scaleway.ai/v1" },
+    { provider: "custom", display_name: "Custom service", model_id: "", base_url: "" },
+  ];
+  const [aiForm, setAiForm] = React.useState(emptyAiForm);
+  const [editingAiId, setEditingAiId] = React.useState(null);
+  const [aiSaving, setAiSaving] = React.useState(false);
+  const [aiError, setAiError] = React.useState(null);
+  const [budgetValue, setBudgetValue] = React.useState(
+    settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
+  );
+
+  React.useEffect(() => {
+    setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
+  }, [settings.monthly_ai_budget]);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -528,6 +557,114 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     } finally {
       setFilterSaving(false);
     }
+  };
+
+  const patchAiForm = (key, value) => setAiForm(f => ({ ...f, [key]: value }));
+
+  const chooseAiPreset = (provider) => {
+    const preset = providerPresets.find(p => p.provider === provider);
+    if (!preset) return;
+    setAiForm(f => ({ ...f, ...preset, api_key: "", enabled: true }));
+    setEditingAiId(null);
+    setAiError(null);
+  };
+
+  const editAiService = (service) => {
+    setEditingAiId(service.id);
+    setAiForm({
+      provider: service.provider || "custom",
+      display_name: service.display_name || "",
+      model_id: service.model_id || "",
+      base_url: service.base_url || "",
+      auth_header: service.auth_header || "bearer",
+      api_key: "",
+      enabled: service.enabled !== false,
+    });
+    setAiError(null);
+  };
+
+  const resetAiForm = () => {
+    setEditingAiId(null);
+    setAiForm(emptyAiForm);
+    setAiError(null);
+  };
+
+  const saveAiService = async () => {
+    if (!aiForm.display_name.trim() || !aiForm.model_id.trim()) {
+      setAiError("Display name and model ID are required.");
+      return;
+    }
+    setAiSaving(true);
+    setAiError(null);
+    const body = {
+      provider: aiForm.provider,
+      display_name: aiForm.display_name.trim(),
+      model_id: aiForm.model_id.trim(),
+      base_url: aiForm.base_url.trim() || null,
+      auth_header: aiForm.auth_header,
+      enabled: !!aiForm.enabled,
+    };
+    if (aiForm.api_key.trim()) body.api_key = aiForm.api_key.trim();
+    try {
+      const result = editingAiId
+        ? await API.patch(`/api/account/ai-services/${editingAiId}`, body)
+        : await API.post("/api/account/ai-services", body);
+      const shouldActivateFirstService = !editingAiId && aiServices.length === 0 && !settings.active_ai_service_id;
+      const settingsResult = shouldActivateFirstService
+        ? await API.patch("/api/account/settings", { active_ai_service_id: result.ai_service.id })
+        : null;
+      setAccount(prev => {
+        const existing = prev.ai_services || [];
+        const next = editingAiId
+          ? existing.map(s => s.id === editingAiId ? result.ai_service : s)
+          : [...existing, result.ai_service];
+        return {
+          ...prev,
+          ai_services: next,
+          settings: settingsResult?.settings || prev.settings,
+        };
+      });
+      resetAiForm();
+    } catch (err) {
+      setAiError(err.message || "Could not save AI service.");
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+  const toggleAiService = async (service) => {
+    const result = await API.patch(`/api/account/ai-services/${service.id}`, { enabled: !service.enabled });
+    const shouldClearActive = service.enabled && settings.active_ai_service_id === service.id;
+    const settingsResult = shouldClearActive
+      ? await API.patch("/api/account/settings", { active_ai_service_id: null })
+      : null;
+    setAccount(prev => ({
+      ...prev,
+      ai_services: (prev.ai_services || []).map(s => s.id === service.id ? result.ai_service : s),
+      settings: settingsResult?.settings || prev.settings,
+    }));
+  };
+
+  const deleteAiService = async (service) => {
+    if (!window.confirm(`Delete ${service.display_name}?`)) return;
+    await API.delete(`/api/account/ai-services/${service.id}`);
+    setAccount(prev => ({
+      ...prev,
+      ai_services: (prev.ai_services || []).filter(s => s.id !== service.id),
+      settings: prev.settings?.active_ai_service_id === service.id
+        ? { ...prev.settings, active_ai_service_id: null }
+        : prev.settings,
+    }));
+    if (settings.active_ai_service_id === service.id) {
+      await API.patch("/api/account/settings", { active_ai_service_id: null });
+    }
+    if (editingAiId === service.id) resetAiForm();
+  };
+
+  const saveAiBudget = async () => {
+    const value = budgetValue.trim() === "" ? null : Number(budgetValue);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) return;
+    await updateSetting("monthly_ai_budget", value);
   };
 
   return (
@@ -672,250 +809,143 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       {/* AI Services */}
       <div style={accountStyles.section}>
         <h3 style={accountStyles.sectionTitle}>AI services</h3>
-        <div style={accountStyles.sectionSub}>— bring your own model subscription for parsing & insights</div>
+        <div style={accountStyles.sectionSub}>— bring your own model subscription for parsing and insights</div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--paper-2)", borderRadius: 6, marginTop: 6, marginBottom: 14, fontSize: 12, color: "var(--ink-2)" }}>
           <Icon name="info" size={13} stroke="var(--ink-3)"/>
-          <span>Moneyflow parses with its in-house model by default. Connect a premium subscription to use it instead for sharper merchant inference and written insights.</span>
+          <span>Moneyflow can fall back to its default providers. Save your own OpenAI-compatible service here when you want to control model, key, and budget.</span>
         </div>
 
-        {[
-          { key: "claude",  name: "Anthropic Claude",  sub: "Claude Sonnet 4.5 · recommended for finance",        badge: "Recommended", connected: true,  meta: "Connected · key ••f2a1" },
-          { key: "openai",  name: "OpenAI",            sub: "GPT-4o, GPT-4 Turbo via API key",                   connected: false },
-          { key: "gemini",  name: "Google Gemini",     sub: "Gemini 2.5 Pro · free tier available",              connected: false },
-          { key: "mistral", name: "Mistral",           sub: "Mistral Large · EU-hosted option",                  connected: false },
-          { key: "perp",    name: "Perplexity",        sub: "for merchant-lookup enrichment",                    connected: false },
-          { key: "local",   name: "Local model (Ollama)", sub: "llama3.1 · fully on-device, no keys shared",     connected: false },
-        ].map((p, idx, arr) => (
-          <div key={p.key} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: idx === arr.length - 1 ? "none" : "1px dashed var(--line)", flexWrap: "wrap" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", display: "grid", placeItems: "center", fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 13, color: "var(--ink-2)" }}>
-              {p.name.split(" ").map(w=>w[0]).join("").slice(0,2)}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 8 }}>Saved services</div>
+          {aiServices.length === 0 ? (
+            <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-3)" }}>
+              No custom AI services saved. Add one below to use your own API key.
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</span>
-                {p.badge && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{p.badge}</span>}
-                {p.connected && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--pos-soft)", color: "var(--pos)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 4 }}><span style={{ width: 5, height: 5, borderRadius: 999, background: "var(--pos)" }}/> Active</span>}
+          ) : aiServices.map((service, idx) => {
+            const active = settings.active_ai_service_id === service.id;
+            return (
+              <div key={service.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: idx === aiServices.length - 1 ? "none" : "1px dashed var(--line)", flexWrap: "wrap" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", display: "grid", placeItems: "center", fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 13, color: "var(--ink-2)", textTransform: "uppercase" }}>
+                  {(service.display_name || service.provider || "AI").split(" ").map(w=>w[0]).join("").slice(0,2)}
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{service.display_name}</span>
+                    {active && <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Active</span>}
+                    <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: service.enabled ? "var(--pos-soft)" : "var(--paper-2)", color: service.enabled ? "var(--pos)" : "var(--ink-3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      {service.enabled ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{service.model_id}</div>
+                  <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 3, fontFamily: "'Geist Mono', monospace" }}>
+                    {service.provider}{service.base_url ? ` · ${service.base_url}` : ""}{service.api_key_hint ? ` · key ${service.api_key_hint}` : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {!active && <button onClick={() => updateSetting("active_ai_service_id", service.id)} style={accountStyles.btn}>Make active</button>}
+                  <button onClick={() => toggleAiService(service)} style={accountStyles.btn}>{service.enabled ? "Disable" : "Enable"}</button>
+                  <button onClick={() => editAiService(service)} style={accountStyles.btn}>Edit</button>
+                  <button onClick={() => deleteAiService(service)} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Delete</button>
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{p.sub}</div>
-              {p.connected && p.meta && <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 3, fontFamily: "'Geist Mono', monospace" }}>{p.meta}</div>}
+            );
+          })}
+        </div>
+
+        <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Preferred AI service</div>
+              <select style={accountStyles.input} value={settings.active_ai_service_id || "default"} onChange={e=>updateSetting("active_ai_service_id", e.target.value === "default" ? null : e.target.value)}>
+                <option value="default">Moneyflow default providers</option>
+                {aiServices.filter(s => s.enabled !== false || s.id === settings.active_ai_service_id).map(service => (
+                  <option key={service.id} value={service.id}>{service.display_name} - {service.model_id}{service.enabled === false ? " (disabled)" : ""}</option>
+                ))}
+              </select>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {p.connected ? (
-                <>
-                  <button style={accountStyles.btn}>Settings</button>
-                  <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Disconnect</button>
-                </>
-              ) : (
-                <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>Connect</button>
-              )}
+            <div>
+              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Monthly AI budget</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="number" min="0" step="1" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={budgetValue} onChange={e=>setBudgetValue(e.target.value)} placeholder="No cap"/>
+                <button onClick={saveAiBudget} style={accountStyles.btn}>Save</button>
+              </div>
             </div>
           </div>
-        ))}
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10 }}>
+            Preferred-service selection is saved with your account settings. Parser routing and budget enforcement depend on usage integration.
+          </div>
+        </div>
 
-        {/* Custom OpenAI-compatible endpoint */}
         <div style={{ marginTop: 14, padding: "16px 18px", border: "1px dashed var(--line)", borderRadius: 6, background: "var(--paper)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
             <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--ink-3)" }}>
               <Icon name="bolt" size={14}/>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Custom service</div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>any OpenAI-compatible endpoint — self-hosted, Azure, OpenRouter, etc.</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{editingAiId ? "Edit AI service" : "Add AI service"}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>any OpenAI-compatible endpoint, including OpenAI, Gemini, Grok, OpenRouter, or self-hosted</div>
             </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
+            {providerPresets.map(p => (
+              <button key={p.provider} onClick={() => chooseAiPreset(p.provider)} style={{ ...accountStyles.btn, background: aiForm.provider === p.provider ? "var(--ink)" : "var(--paper)", color: aiForm.provider === p.provider ? "var(--paper)" : "var(--ink-2)" }}>
+                {p.display_name}
+              </button>
+            ))}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginTop: 12 }}>
             <div>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Display name</div>
-              <input style={accountStyles.input} placeholder="e.g. Our internal router"/>
+              <input style={accountStyles.input} value={aiForm.display_name} onChange={e=>patchAiForm("display_name", e.target.value)} placeholder="e.g. Our internal router"/>
             </div>
             <div>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Model ID</div>
-              <input style={accountStyles.input} placeholder="anthropic/claude-sonnet-4.5"/>
+              <input style={accountStyles.input} value={aiForm.model_id} onChange={e=>patchAiForm("model_id", e.target.value)} placeholder="gpt-4o-mini"/>
             </div>
           </div>
 
           <div style={{ marginTop: 10 }}>
             <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Base URL</div>
-            <input style={accountStyles.input} placeholder="https://api.openrouter.ai/v1"/>
+            <input style={accountStyles.input} value={aiForm.base_url} onChange={e=>patchAiForm("base_url", e.target.value)} placeholder="https://api.openai.com/v1"/>
           </div>
 
           <div style={{ marginTop: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>API key</div>
-              <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>stored encrypted, never logged</span>
+              <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{editingAiId ? "leave blank to keep current key" : "stored encrypted, never logged"}</span>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} placeholder="sk-••••••••••••••••••••••••"/>
-              <button style={accountStyles.btn}>Paste</button>
-            </div>
+            <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e=>patchAiForm("api_key", e.target.value)} placeholder="sk-..."/>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 10 }}>
             <div>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Auth header</div>
-              <select style={accountStyles.input} defaultValue="bearer">
+              <select style={accountStyles.input} value={aiForm.auth_header} onChange={e=>patchAiForm("auth_header", e.target.value)}>
                 <option value="bearer">Authorization: Bearer</option>
                 <option value="x-api-key">x-api-key</option>
-                <option value="custom">Custom header…</option>
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Max tokens</div>
-              <input style={accountStyles.input} placeholder="2048" defaultValue="2048"/>
-            </div>
-            <div>
-              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Temperature</div>
-              <input style={accountStyles.input} placeholder="0.2" defaultValue="0.2"/>
+              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Enabled</div>
+              <div style={{ height: 35, display: "flex", alignItems: "center" }}>
+                <Toggle on={!!aiForm.enabled} onChange={v=>patchAiForm("enabled", v)}/>
+              </div>
             </div>
           </div>
 
+          {aiError && <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 6, background: "var(--neg-soft)", color: "var(--neg)", fontSize: 12 }}>{aiError}</div>}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <div style={{ flex: 1, fontSize: 11, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
               <Icon name="info" size={12} stroke="var(--ink-3)"/>
-              We'll send a tiny probe request to verify the endpoint before saving.
+              Connection testing is not wired yet; this saves the encrypted credentials and model metadata.
             </div>
-            <button style={accountStyles.btn}>Test connection</button>
-            <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>Save service</button>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 18, padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>Active model for parsing</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <select style={{ ...accountStyles.input, flex: 1 }} defaultValue="claude">
-              <option value="default">Moneyflow default</option>
-              <option value="claude">Anthropic Claude — Sonnet 4.5</option>
-              <option value="openai">OpenAI — GPT-4o</option>
-              <option value="gemini">Google Gemini — 2.5 Pro</option>
-            </select>
-            <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>~ ₹0.4 per 100 emails</span>
-          </div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon name="sparkle" size={12} stroke="var(--accent)"/>
-            Written insights on the Dashboard use this model too.
-          </div>
-        </div>
-
-        {/* LLM usage stats */}
-        <div style={{ marginTop: 14 }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>Usage · last 30 days</div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>calls, tokens, and cost across connected models</div>
-            </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {["7d","30d","90d"].map((t,i)=>(
-                <button key={t} style={{ padding: "4px 10px", borderRadius: 20, border: "1px solid var(--line)", background: i===1 ? "var(--ink)" : "var(--card)", color: i===1 ? "var(--paper)" : "var(--ink-3)", fontSize: 10, fontWeight: 500, cursor: "pointer", fontFamily: "'Geist Mono', monospace" }}>{t}</button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: 10, marginBottom: 14 }}>
-            {[
-              { label: "Calls",          value: "1,412", sub: "47/day avg" },
-              { label: "Input tokens",   value: "2.18M", sub: "avg 1,545/call" },
-              { label: "Output tokens",  value: "384K",  sub: "concise by design" },
-              { label: "Spend",          value: "₹128.40", sub: "of ₹500 budget", accent: true },
-            ].map((k,i)=>(
-              <div key={i} style={{ padding: "12px 14px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 6 }}>
-                <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>{k.label}</div>
-                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 400, letterSpacing: "-0.015em", marginTop: 4, lineHeight: 1, color: k.accent ? "var(--accent)" : "var(--ink)" }}>{k.value}</div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 4, fontFamily: "'Geist Mono', monospace" }}>{k.sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Per-model breakdown */}
-          <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 6, marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>By model</div>
-            {(() => {
-              const rows = [
-                { name: "Claude Sonnet 4.5",  calls: 1189, tokens: "2.1M", cost: 112.60, color: "var(--accent)" },
-                { name: "GPT-4o",              calls: 184,  tokens: "412K", cost: 14.20,  color: "var(--cat-travel-ink)" },
-                { name: "Gemini 2.5 Pro",      calls: 39,   tokens: "58K",  cost: 1.60,   color: "var(--cat-rent-ink)" },
-              ];
-              const max = Math.max(...rows.map(r=>r.cost));
-              return rows.map((r,i)=>(
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) repeat(3, auto)", gap: 12, alignItems: "center", padding: "8px 0", borderBottom: i === rows.length-1 ? "none" : "1px dashed var(--line)", overflowX: "auto" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color, flexShrink: 0 }}/>
-                    <span style={{ fontSize: 12, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</span>
-                    <div style={{ flex: 1, height: 4, background: "var(--paper-2)", borderRadius: 3, overflow: "hidden", marginLeft: 6 }}>
-                      <div style={{ width: `${(r.cost/max)*100}%`, height: "100%", background: r.color, opacity: 0.7 }}/>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", textAlign: "right" }}>{r.calls} calls</div>
-                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", textAlign: "right" }}>{r.tokens} tok</div>
-                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, fontWeight: 600, textAlign: "right" }}>₹{r.cost.toFixed(2)}</div>
-                </div>
-              ));
-            })()}
-          </div>
-
-          {/* Daily usage sparkline */}
-          <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 6, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>Calls per day</div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>peak 78 · Apr 15</div>
-            </div>
-            <svg width="100%" height="80" viewBox="0 0 420 80" preserveAspectRatio="none">
-              {(() => {
-                const data = [32,28,41,37,44,39,52,48,51,46,58,55,62,59,78,71,64,58,55,62,0,0,0,0,0,0,0,0,0,0];
-                const max = Math.max(...data);
-                const bw = 420 / data.length;
-                return data.map((v, i) => {
-                  const h = max > 0 ? (v / max) * 64 : 0;
-                  const isPast = i < 20;
-                  return <rect key={i} x={i*bw + 1} y={72 - h} width={bw - 2} height={h} fill={isPast ? "var(--accent)" : "var(--line)"} opacity={isPast ? 0.75 : 1} rx="1"/>;
-                });
-              })()}
-              <line x1="0" y1="72" x2="420" y2="72" stroke="var(--line)"/>
-            </svg>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginTop: 4 }}>
-              <span>Mar 20</span><span>Apr 4</span><span>Apr 18</span><span>Today</span>
-            </div>
-          </div>
-
-          {/* By task */}
-          <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 6, marginBottom: 14 }}>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>By task</div>
-            {[
-              { task: "Email parsing",        pct: 71, calls: 1003, note: "transaction extraction" },
-              { task: "Category inference",   pct: 18, calls: 254,  note: "Food, Rent, etc." },
-              { task: "Merchant lookup",      pct:  7, calls: 99,   note: "enrichment" },
-              { task: "Dashboard insights",   pct:  4, calls: 56,   note: "written summaries" },
-            ].map((t,i,arr)=>(
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(130px, 160px) minmax(90px, 1fr) auto auto", gap: 12, alignItems: "center", padding: "7px 0", borderBottom: i === arr.length-1 ? "none" : "1px dashed var(--line)", fontSize: 12, overflowX: "auto" }}>
-                <div style={{ fontWeight: 500 }}>{t.task}<div style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 400 }}>{t.note}</div></div>
-                <div style={{ background: "var(--paper-2)", height: 6, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ width: `${t.pct}%`, height: "100%", background: "var(--accent)", opacity: 0.7 }}/>
-                </div>
-                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", textAlign: "right" }}>{t.calls}</div>
-                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, fontWeight: 600, textAlign: "right" }}>{t.pct}%</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Budget */}
-          <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600 }}>Monthly budget cap</div>
-                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>pauses AI calls if hit — you stay in control</div>
-              </div>
-              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
-                <span style={{ fontWeight: 600 }}>₹128.40</span><span style={{ color: "var(--ink-3)" }}> / ₹500.00</span>
-              </div>
-            </div>
-            <div style={{ height: 6, background: "var(--card)", borderRadius: 3, overflow: "hidden", border: "1px solid var(--line)" }}>
-              <div style={{ width: "25.68%", height: "100%", background: "var(--pos)", opacity: 0.7 }}/>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>
-              <span>26% used · 19 days in</span>
-              <button style={{ border: "none", background: "transparent", color: "var(--accent)", fontWeight: 600, cursor: "pointer", fontSize: 10, fontFamily: "'Geist Mono', monospace" }}>Edit cap →</button>
-            </div>
+            {editingAiId && <button onClick={resetAiForm} style={accountStyles.btn}>Cancel</button>}
+            <button onClick={saveAiService} disabled={aiSaving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: aiSaving ? 0.65 : 1 }}>
+              {aiSaving ? "Saving..." : editingAiId ? "Save changes" : "Save service"}
+            </button>
           </div>
         </div>
       </div>
