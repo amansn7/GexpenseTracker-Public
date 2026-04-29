@@ -23,6 +23,7 @@ from app.models import (
 router = APIRouter()
 
 
+
 def require_dev():
     if not settings.DEV_MODE:
         raise HTTPException(status_code=404, detail="Not found")
