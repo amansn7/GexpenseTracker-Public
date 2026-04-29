@@ -189,7 +189,6 @@ async def google_callback(
     account.token_expiry = creds.expiry
     account.status = "connected"
     await db.commit()
-
     token = await _create_session(db, user)
 
     response = RedirectResponse("/", status_code=302)
