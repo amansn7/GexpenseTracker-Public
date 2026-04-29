@@ -1,9 +1,18 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     DATABASE_URL: str = "postgresql+asyncpg://expense:expense@localhost:5432/expense_tracker"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def force_asyncpg(cls, v: str) -> str:
+        for sync_scheme in ("postgresql://", "postgresql+psycopg2://", "postgres://"):
+            if v.startswith(sync_scheme):
+                return "postgresql+asyncpg://" + v[len(sync_scheme):]
+        return v
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
