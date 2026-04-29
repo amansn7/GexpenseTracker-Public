@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models import Email, Transaction, SyncState, Label, UserSettings
+from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import fetch_new_messages
 from app.alerts import add_alert
 from app.classifier.classifier import classify_email
@@ -88,8 +89,11 @@ async def _run_sync_inner(user_id: str = None) -> dict:
         new_history_id = last_history_id
         logger.info("Fetching messages with filter=%s", email_filter)
         try:
+            creds = await get_credentials_for_user(session, user_id) if user_id else None
+            if not creds:
+                raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
             messages, new_history_id = await asyncio.to_thread(
-                fetch_new_messages, last_history_id, email_filter
+                fetch_new_messages, last_history_id, email_filter, creds
             )
         except Exception as exc:
             logger.error("Gmail fetch failed: %s", exc, exc_info=True)

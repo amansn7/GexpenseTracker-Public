@@ -92,6 +92,7 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     import asyncio
     from sqlalchemy import or_
     from app.models import Email
+    from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
 
     if payload.email_ids:
@@ -108,10 +109,10 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     if not emails:
         return {"updated": 0, "message": "All emails already have body text"}
 
-    try:
-        service = await asyncio.to_thread(_build_service)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Gmail not authenticated: {exc}")
+    creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
+    if not creds:
+        raise HTTPException(status_code=503, detail="Gmail not authenticated. Visit /api/auth/google")
+    service = await asyncio.to_thread(_build_service, creds)
 
     updated = 0
     errors = 0

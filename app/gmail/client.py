@@ -4,6 +4,7 @@ import re
 from datetime import datetime, timezone
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.oauth2.credentials import Credentials
 from app.gmail.auth import get_credentials
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,8 @@ def extract_domain(sender: str) -> str:
 def get_gmail_link(gmail_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#inbox/{gmail_id}"
 
-def _build_service():
-    creds = get_credentials()
+def _build_service(creds: Credentials | None = None):
+    creds = creds or get_credentials()
     if not creds:
         raise RuntimeError("Gmail not authenticated. Visit /api/auth/gmail")
     return build("gmail", "v1", credentials=creds)
@@ -107,7 +108,11 @@ def _passes_filter(msg: dict, email_filter: str) -> bool:
 
 _FETCH_CONCURRENCY = 40  # Gmail quota: messages.get is 5 units; stay well under 250/sec burst
 
-def fetch_new_messages(last_history_id, email_filter: str = "all"):
+def fetch_new_messages(
+    last_history_id,
+    email_filter: str = "all",
+    creds: Credentials | None = None,
+):
     """
     Returns (messages, new_history_id).
     last_history_id=None triggers full 90-day fetch with pagination.
@@ -118,7 +123,7 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
     """
     import time
-    service = _build_service()
+    service = _build_service(creds)
 
     if last_history_id is None:
         query = "newer_than:90d"
@@ -162,7 +167,7 @@ def fetch_new_messages(last_history_id, email_filter: str = "all"):
             # 404 = historyId too old (expired), 410 = Gone — both warrant a full re-fetch
             if e.resp.status in (404, 410):
                 logger.warning("History ID expired (status %s), falling back to full fetch", e.resp.status)
-                return fetch_new_messages(None, email_filter)
+                return fetch_new_messages(None, email_filter, creds)
             raise
 
     messages = []
