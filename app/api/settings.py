@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, date
 from typing import Optional
 
@@ -110,6 +111,10 @@ class AIServiceValidateBody(BaseModel):
     api_key: str
     model_id: str
     base_url: str
+
+
+class TotpVerifyBody(BaseModel):
+    code: str
 
 
 @router.patch("/account/settings")
@@ -403,3 +408,54 @@ async def delete_ai_service(
     await db.delete(service)
     await db.commit()
     return {"deleted": service_id}
+
+
+@router.post("/account/2fa/setup")
+async def setup_2fa(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import io, qrcode, pyotp
+    secret = pyotp.random_base32()
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    user_row.totp_secret_pending = secret
+    await db.commit()
+    uri = pyotp.TOTP(secret).provisioning_uri(user.email, issuer_name="GexpenseTracker")
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_url = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+    return {"secret": secret, "qr_url": qr_url}
+
+
+@router.post("/account/2fa/verify")
+async def verify_2fa(
+    body: TotpVerifyBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    import pyotp
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    if not user_row.totp_secret_pending:
+        raise HTTPException(status_code=400, detail="No pending 2FA setup")
+    valid = pyotp.TOTP(user_row.totp_secret_pending).verify(body.code, valid_window=1)
+    if not valid:
+        return {"ok": False, "error": "Invalid code"}
+    user_row.totp_secret = user_row.totp_secret_pending
+    user_row.totp_secret_pending = None
+    user_row.totp_enabled = True
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/account/2fa")
+async def disable_2fa(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    user_row.totp_enabled = False
+    user_row.totp_secret = None
+    user_row.totp_secret_pending = None
+    await db.commit()
+    return {"ok": True}
