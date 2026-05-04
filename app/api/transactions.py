@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+import io
+
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, extract, or_, delete
 from pydantic import BaseModel
@@ -171,6 +174,80 @@ async def search_transactions(
         .limit(limit)
     )).all()
     return {"items": [_fmt(t, e) for t, e in rows]}
+
+
+EXPORT_COLUMNS = [
+    "id",
+    "label",
+    "amount",
+    "currency",
+    "merchant",
+    "category",
+    "txn_date",
+    "confidence",
+    "status",
+    "classifier_method",
+    "user_notes",
+    "read",
+    "flagged",
+    "email_subject",
+    "email_sender",
+    "email_received_at",
+    "gmail_link",
+    "created_at",
+]
+
+
+def _csv_value(value):
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+@router.get("/transactions/export")
+async def export_transactions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Email.user_id == current_user.id)
+        .order_by(desc(Transaction.created_at))
+    )).all()
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=EXPORT_COLUMNS)
+    writer.writeheader()
+    for t, e in rows:
+        writer.writerow({
+            "id": t.id,
+            "label": t.label,
+            "amount": float(t.amount) if t.amount is not None else None,
+            "currency": t.currency,
+            "merchant": t.merchant,
+            "category": t.category,
+            "txn_date": _csv_value(t.txn_date),
+            "confidence": t.confidence,
+            "status": t.status,
+            "classifier_method": t.classifier_method,
+            "user_notes": t.user_notes,
+            "read": bool(t.read),
+            "flagged": bool(t.flagged),
+            "email_subject": e.subject if e else None,
+            "email_sender": e.sender if e else None,
+            "email_received_at": _csv_value(e.received_at if e else None),
+            "gmail_link": e.gmail_link if e else None,
+            "created_at": _csv_value(t.created_at),
+        })
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="transactions.csv"'},
+    )
 
 
 @router.get("/transactions/{transaction_id}")
