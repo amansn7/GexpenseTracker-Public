@@ -52,7 +52,11 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     role = UserRole.owner.value if existing_count == 0 else UserRole.member.value
     user = User(email=email, role=role, status=UserStatus.active.value, onboarding_complete=True)
     db.add(user)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="User already exists")
     db.add(UserProfile(
         user_id=user.id,
         full_name=body.full_name.strip(),
@@ -66,11 +70,6 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     db.add(ConnectedAccount(user_id=user.id, provider="gmail", account_email=email, status="disconnected"))
     for idx, (name, color, kind) in enumerate(DEFAULT_CATEGORIES):
         db.add(UserCategory(user_id=user.id, name=name, color=color, kind=kind, sort_order=idx))
-
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="User already exists")
+    await db.commit()
     await db.refresh(user)
     return await _load_user_bundle(db, user)

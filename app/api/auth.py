@@ -240,6 +240,7 @@ async def auth_me(
         "name": profile.full_name if profile else user.email,
         "avatar_url": profile.avatar_url if profile else None,
         "has_seed_data": has_seed_data,
+        "onboarding_complete": user.onboarding_complete,
     }
 
 
