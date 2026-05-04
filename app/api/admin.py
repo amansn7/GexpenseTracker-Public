@@ -3,7 +3,9 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
+from app.database import get_db
 from app.models import User, UserRole
 
 router = APIRouter()
@@ -25,15 +27,18 @@ class FetchPreviewBody(BaseModel):
 async def fetch_preview(
     body: FetchPreviewBody,
     current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
 ):
     """Fetch N emails from Gmail for inspection — no DB writes."""
     if not (1 <= body.limit <= 100):
         raise HTTPException(status_code=422, detail="limit must be 1–100")
     try:
         from app.gmail.client import _build_service, _extract_body_text, extract_domain, get_gmail_link
+        from app.gmail.auth import get_credentials_for_user
         from datetime import datetime, timezone
 
-        service = await asyncio.to_thread(_build_service)
+        creds = await get_credentials_for_user(db, current_user.id)
+        service = await asyncio.to_thread(lambda: _build_service(creds))
         results = await asyncio.to_thread(
             lambda: service.users().messages().list(
                 userId="me", q=body.query, maxResults=body.limit
