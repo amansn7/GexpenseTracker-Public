@@ -20,8 +20,8 @@ const accountStyles = {
   toggleKnob: { width: 16, height: 16, borderRadius: 999, background: "white", transition: "transform 160ms", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" },
 };
 
-const Toggle = ({ on, onChange }) => (
-  <button type="button" onClick={()=>onChange(!on)} style={{ ...accountStyles.toggle, background: on ? "var(--pos)" : "var(--ink-4)" }}>
+const Toggle = ({ on, onChange, label }) => (
+  <button type="button" aria-pressed={on} aria-label={label || (on ? "Disable" : "Enable")} onClick={()=>onChange(!on)} style={{ ...accountStyles.toggle, background: on ? "var(--pos)" : "var(--ink-4)" }}>
     <span style={{ ...accountStyles.toggleKnob, transform: on ? "translateX(16px)" : "translateX(0)" }}/>
   </button>
 );
@@ -519,6 +519,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [editingAiId, setEditingAiId] = React.useState(null);
   const [aiSaving, setAiSaving] = React.useState(false);
   const [aiError, setAiError] = React.useState(null);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [confirmEmail, setConfirmEmail] = React.useState("");
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState(null);
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
@@ -979,9 +983,51 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, borderBottom: "none" }}>
           <div><div style={accountStyles.label}>Delete account</div><div style={accountStyles.sub}>removes all parsed data, forever</div></div>
           <div/>
-          <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Delete…</button>
+          <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }} onClick={() => { setShowDeleteModal(true); setConfirmEmail(""); setDeleteError(null); }}>Delete…</button>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+              This permanently deletes all your transactions, categories, budgets, and Gmail connection. There is no undo.
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>
+              Type your email to confirm: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)" }}>{account?.email}</span>
+            </div>
+            <input
+              value={confirmEmail}
+              onChange={e => setConfirmEmail(e.target.value)}
+              placeholder={account?.email}
+              style={{ ...accountStyles.input, marginBottom: 16 }}
+              autoFocus
+            />
+            {deleteError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{deleteError}</div>}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+              <button
+                style={{ ...accountStyles.btn, ...accountStyles.btnDanger, opacity: (confirmEmail.toLowerCase() === account?.email?.toLowerCase() && !deleting) ? 1 : 0.4 }}
+                disabled={confirmEmail.toLowerCase() !== account?.email?.toLowerCase() || deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    await API.delete("/api/account");
+                    window.location.href = "/";
+                  } catch (e) {
+                    setDeleteError(e.message || "Delete failed. Try again.");
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {account?.role === "owner" && (
         <AccessSection account={account} />
       )}

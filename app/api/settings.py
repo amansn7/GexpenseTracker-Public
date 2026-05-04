@@ -3,7 +3,7 @@ from datetime import datetime, date
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -459,3 +459,16 @@ async def disable_2fa(
     user_row.totp_secret_pending = None
     await db.commit()
     return {"ok": True}
+
+
+@router.delete("/account")
+async def delete_account(
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    await db.delete(user_row)
+    await db.commit()
+    response.delete_cookie("session", path="/")
+    return {"deleted": True}
