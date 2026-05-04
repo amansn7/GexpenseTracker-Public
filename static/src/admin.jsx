@@ -3,10 +3,13 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 const S = {
-  page: { padding: "clamp(18px, 4vw, 32px) clamp(14px, 5vw, 40px)", maxWidth: 1000, overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
-  section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 20 },
+  page: { padding: "clamp(18px, 4vw, 32px) clamp(14px, 5vw, 40px)", maxWidth: 920, margin: "0 auto", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
+  section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 16 },
+  header: { marginBottom: 28 },
+  kicker: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
+  h1: { fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0", color: "var(--ink)" },
   sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 17, fontWeight: 500, marginBottom: 4, letterSpacing: "-0.01em" },
-  sectionSub: { fontSize: 12, color: "var(--ink-3)", marginBottom: 20 },
+  sectionSub: { fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, color: "var(--ink-3)", marginBottom: 18 },
   row: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 },
   label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 5, display: "block" },
   input: { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" },
@@ -441,6 +444,10 @@ const AlertsSection = () => {
 
 const AdminView = () => (
   <div style={S.page}>
+    <div style={S.header}>
+      <div style={S.kicker}>System</div>
+      <h1 style={S.h1}>Admin</h1>
+    </div>
     <SyncSection />
     <FetchPreviewSection />
     <ClassifyTestSection />
