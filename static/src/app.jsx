@@ -332,4 +332,20 @@ const App = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+(async () => {
+  let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
+  if (!showOnboarding) {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        showOnboarding = !data.onboarding_complete;
+      } else if (res.status === 401) {
+        showOnboarding = true;
+      }
+    } catch (_) {}
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(
+    showOnboarding ? React.createElement(OnboardingWizard) : React.createElement(App)
+  );
+})();

@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
@@ -102,6 +103,13 @@ class AIServicePatch(BaseModel):
     auth_header: Optional[str] = None
     api_key: Optional[str] = None
     enabled: Optional[bool] = None
+
+
+class AIServiceValidateBody(BaseModel):
+    provider: str
+    api_key: str
+    model_id: str
+    base_url: str
 
 
 @router.patch("/account/settings")
@@ -335,6 +343,32 @@ async def create_ai_service(
     await db.commit()
     await db.refresh(service)
     return {"ai_service": _ai_service_dict(service)}
+
+
+@router.post("/account/ai-services/validate")
+async def validate_ai_service(
+    body: AIServiceValidateBody,
+    user: User = Depends(get_current_user),
+):
+    payload = {
+        "model": body.model_id,
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 1,
+    }
+    headers = {
+        "Authorization": f"Bearer {body.api_key}",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(f"{body.base_url}/chat/completions", json=payload, headers=headers)
+            response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        truncated = exc.response.text[:200]
+        return {"ok": False, "error": f"HTTP {exc.response.status_code}: {truncated}"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True}
 
 
 @router.patch("/account/ai-services/{service_id}")
