@@ -27,6 +27,9 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(20), default=UserRole.member, nullable=False, server_default=UserRole.member.value)
     status: Mapped[str] = mapped_column(String(20), default=UserStatus.invited, nullable=False, server_default=UserStatus.invited.value)
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    totp_secret: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    totp_secret_pending: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
