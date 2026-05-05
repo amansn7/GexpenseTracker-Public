@@ -32,7 +32,6 @@ PROTECTED = [
     ("POST", "/api/emails/retrain"),
     ("POST", "/api/emails/reclassify"),
     # review
-    ("GET",  "/api/review/count"),
     ("GET",  "/api/review"),
     ("POST", "/api/review/batch"),
     ("POST", "/api/review/reprocess-all"),

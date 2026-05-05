@@ -18,23 +18,19 @@ _REPROCESS_CONCURRENCY = 4   # max concurrent LLM calls during bulk reprocess
 router = APIRouter()
 
 
-@router.get("/review/count")
-async def get_review_count(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from sqlalchemy import func
-    result = await db.execute(
-        select(func.count())
-        .select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.status == TransactionStatus.needs_review.value,
-            Email.user_id == current_user.id,
-        )
-    )
-    return {"count": result.scalar() or 0}
-
-
 @router.get("/review")
-async def get_review_queue(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_review_queue(count: bool = False, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if count:
+        result = await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.status == TransactionStatus.needs_review.value,
+                Email.user_id == current_user.id,
+            )
+        )
+        return {"count": result.scalar() or 0}
     rows = (await db.execute(
         select(Transaction, Email)
         .join(Email)

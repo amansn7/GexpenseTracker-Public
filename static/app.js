@@ -39,7 +39,7 @@ function _skeletonRows(n, cols) {
 // Refresh the review badge in the sidebar nav
 async function refreshReviewBadge() {
   try {
-    const data = await fetch('/api/review/count').then(r => r.json());
+    const data = await fetch('/api/review?count=true').then(r => r.json());
     const el = document.getElementById('review-count');
     if (!el) return;
     const n = data.count || 0;
