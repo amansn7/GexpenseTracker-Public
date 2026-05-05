@@ -15,8 +15,10 @@ from app.classifier.protocol import ClassificationResult
 
 logger = logging.getLogger(__name__)
 
-# Max concurrent LLM calls (emails that need LLM go in parallel, capped here)
+# Max concurrent LLM calls
 _LLM_CONCURRENCY = 8
+_LLM_MAX_RETRIES = 3
+_LLM_RETRY_DELAY = 2  # seconds between retries
 
 # Global sync progress — read by /api/sync/progress polling endpoint
 _sync_progress: Dict[str, Any] = {
@@ -158,6 +160,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                 try:
                     decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
                     user_llm_client = build_user_client(
+                        user_id=user.id,
                         provider=ai_svc.provider,
                         base_url=ai_svc.base_url,
                         api_key=decrypted_key,
@@ -170,6 +173,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
         # ── Phase 3: classify all new emails concurrently ─────────────────────
         sem = asyncio.Semaphore(_LLM_CONCURRENCY)
         done_counter = 0
+        failed_items: List[Tuple[Email, dict]] = []
 
         async def _classify_one(email: Email, msg: dict) -> ClassificationResult:
             nonlocal done_counter
@@ -196,6 +200,36 @@ async def _run_sync_inner(user_id: str = None) -> dict:
             *[_classify_one(e, m) for e, m in new_pairs],
             return_exceptions=True,
         )
+
+        # Collect failed items for retry (rate limit or provider errors)
+        for (email, msg), cls in zip(new_pairs, classifications):
+            if isinstance(cls, Exception):
+                failed_items.append((email, msg))
+                logger.warning("Classification failed (will retry): %s - %s", msg["gmail_id"], cls)
+
+        # ── Retry Phase: retry failed emails up to N times ─────────────────────
+        for retry_round in range(1, _LLM_MAX_RETRIES + 1):
+            if not failed_items:
+                break
+            await asyncio.sleep(_LLM_RETRY_DELAY * retry_round)
+            logger.info("Retry round %d: retrying %d failed emails", retry_round, len(failed_items))
+
+            new_classifications = await asyncio.gather(
+                *[_classify_one(e, m) for e, m in failed_items],
+                return_exceptions=True,
+            )
+
+            retry_failed = []
+            for (email, msg), cls in zip(failed_items, new_classifications):
+                if isinstance(cls, Exception):
+                    retry_failed.append((email, msg))
+                    logger.warning("Retry failed: %s - %s", msg["gmail_id"], cls)
+                else:
+                    idx = new_pairs.index((email, msg))
+                    classifications[idx] = cls
+                    logger.info("Retry succeeded for: %s", msg["gmail_id"])
+
+            failed_items = retry_failed
 
         # ── Phase 4: write Transaction rows + run dedup detection ─────────────
         processed = 0
@@ -319,6 +353,7 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
             if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
                 try:
                     user_llm_client = build_user_client(
+                        user_id=user.id,
                         provider=ai_svc.provider,
                         base_url=ai_svc.base_url,
                         api_key=_decrypt_secret(ai_svc.encrypted_api_key),

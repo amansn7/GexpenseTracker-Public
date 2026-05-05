@@ -176,15 +176,69 @@ async def clear_alerts(current_user=Depends(get_current_user)):
     return {"cleared": True}
 
 
+@router.get("/llm/my-limits")
+async def my_llm_limits(current_user: User = Depends(get_current_user)):
+    """Get current user's rate limit status for their configured AI service."""
+    from app.classifier.groq_rate_limiter import get_groq_limiter
+
+    limits = {}
+    try:
+        limiter = get_groq_limiter(user_id=current_user.id)
+        if limiter:
+            limits = {
+                "llama-3.3-70b-versatile": limiter.get_available("llama-3.3-70b-versatile"),
+                "llama-3.1-8b-instant": limiter.get_available("llama-3.1-8b-instant"),
+            }
+    except RuntimeError:
+        pass
+
+    if not limits:
+        return {"message": "No Groq service configured. Add one in Settings → AI."}
+
+    return {"groq": limits}
+
+
+@router.get("/llm/limits")
+async def llm_limits(current_user: User = Depends(get_current_user)):
+    """Get user's current rate limit status (for their configured AI service)."""
+    from app.classifier.llm_client import llm_client
+
+    result = {"providers": {}}
+    try:
+        user_client = llm_client.get_user_client(current_user.id)
+        if user_client:
+            result["providers"] = user_client.get_status()
+    except Exception as e:
+        result["error"] = str(e)
+
+    if not result.get("providers"):
+        result["message"] = "No AI service configured. Go to Settings → AI to add one."
+    return result
+
+
 @router.get("/llm/status")
 async def llm_status(current_user: User = Depends(get_current_user)):
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.classifier.llm_client import llm_client
-    return {
+
+    result = {
         "providers": llm_client.get_status(),
         "config": {
             "confidence_threshold": settings.LLM_CONFIDENCE_THRESHOLD,
             "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,
         },
     }
+    if settings.GROQ_API_KEY:
+        try:
+            from app.classifier.groq_rate_limiter import get_groq_limiter
+
+            limiter = get_groq_limiter()
+            result["groq"] = {
+                "llama-3.3-70b-versatile": limiter.get_status("llama-3.3-70b-versatile"),
+                "llama-3.1-8b-instant": limiter.get_status("llama-3.1-8b-instant"),
+                "qwen/qwen3-32b": limiter.get_status("qwen/qwen3-32b"),
+            }
+        except Exception as e:
+            result["groq_error"] = str(e)
+    return result

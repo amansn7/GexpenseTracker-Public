@@ -121,14 +121,45 @@ class _Provider:
 
 # ── Parser ────────────────────────────────────────────────────────────────────
 
+import re
+
+
+def _extract_json(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        if len(parts) >= 2:
+            text = parts[1]
+            if text.startswith("json"):
+                text = text[4:]
+            elif text.startswith("xml"):
+                text = text[3:]
+    text = text.strip()
+    text = re.sub(r"^```.*$", "", text, flags=re.MULTILINE)
+    text = text.strip()
+    if text.startswith('"') and text.endswith('"'):
+        text = text[1:-1]
+    if text.startswith("'") and text.endswith("'"):
+        text = text[1:-1]
+    brace_open = text.find("{")
+    brace_close = text.rfind("}")
+    if brace_open >= 0 and brace_close > brace_open:
+        text = text[brace_open : brace_close + 1]
+    return text
+
+
 def _parse_response(raw: str) -> LLMClassification:
-    if raw.startswith("```"):
-        parts = raw.split("```")
-        raw = parts[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-    data = json.loads(raw)
+    cleaned = _extract_json(raw)
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        logger.warning("JSON parse failed, attempting repair: %s", exc)
+        fixed = re.sub(r",(\s*[}\\]])", r"\1", cleaned)
+        fixed = re.sub(r'([{,]\\s*)"(\\w+)":\\s*"', r'\1"\2": "', fixed)
+        try:
+            data = json.loads(fixed)
+        except json.JSONDecodeError:
+            raise ValueError(f"Cannot parse response: {cleaned[:200]}")
     return LLMClassification(
         label=data.get("label", "ignore"),
         amount=float(data["amount"]) if data.get("amount") is not None else None,
@@ -142,8 +173,9 @@ def _parse_response(raw: str) -> LLMClassification:
 # ── Multi-provider client ─────────────────────────────────────────────────────
 
 class MultiLLMClient:
-    def __init__(self):
+    def __init__(self, user_id: Optional[str] = None):
         self._providers: List[_Provider] = []
+        self._user_id = user_id
         self._build_providers()
 
     def _build_providers(self) -> None:
@@ -167,6 +199,13 @@ class MultiLLMClient:
                 base_url="https://api.x.ai/v1",
                 api_key=settings.GROK_API_KEY,
                 model="grok-3-mini",
+            ))
+        if settings.GROQ_API_KEY:
+            self._providers.append(_Provider(
+                name="groq",
+                base_url="https://api.groq.com/openai/v1",
+                api_key=settings.GROQ_API_KEY,
+                model="llama-3.3-70b-versatile",
             ))
         if settings.SCALEWAY_API_KEY:
             self._providers.append(_Provider(
@@ -281,6 +320,24 @@ class MultiLLMClient:
         self, provider: _Provider, user_prompt: str
     ) -> tuple:
         """Returns (LLMClassification, raw_response_str)."""
+        if provider.name == "groq":
+            try:
+                from app.classifier.groq_rate_limiter import get_groq_limiter
+
+                limiter = get_groq_limiter(user_id=self._user_id, api_key=provider.api_key)
+                if not limiter.acquire(provider.model, estimated_tokens=150, timeout=30.0):
+                    provider.mark_rate_limited(retry_after=60)
+                    provider.fail_count += 1
+                    raise httpx.HTTPStatusError(
+                        "Groq rate limit exceeded",
+                        request=None,
+                        response=httpx.Response(429),
+                    )
+            except httpx.HTTPStatusError:
+                raise
+            except Exception as e:
+                logger.warning("Groq rate limiter error: %s", e)
+
         payload = {
             "model": provider.model,
             "messages": [
@@ -304,6 +361,7 @@ class MultiLLMClient:
             response.raise_for_status()
 
         raw = response.json()["choices"][0]["message"]["content"].strip()
+        logger.debug("Raw LLM response: %s", raw[:500])
         return _parse_response(raw), raw
 
     async def classify_verbose(
@@ -353,15 +411,14 @@ _KNOWN_BASE_URLS: dict[str, str] = {
 }
 
 
-def build_user_client(provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
+def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
     """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
     resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
     if not resolved_url:
         logger.warning("No base_url for provider %r and not in known list — using env-var client only", provider)
         return llm_client
 
-    client = MultiLLMClient()
+    client = MultiLLMClient(user_id=user_id)
     user_provider = _Provider(name=provider, base_url=resolved_url, api_key=api_key, model=model_id)
-    # Prepend user's provider; skip any env-var provider with the same name to avoid double-registration
     client._providers = [user_provider] + [p for p in client._providers if p.name != provider]
     return client
