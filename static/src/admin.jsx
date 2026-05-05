@@ -440,6 +440,66 @@ const AlertsSection = () => {
   );
 };
 
+// ── Section: Fetch Email Range ─────────────────────────────────────────────────
+
+const FetchRangeSection = () => {
+  const [afterDate,  setAfterDate]  = React.useState("");
+  const [beforeDate, setBeforeDate] = React.useState("");
+  const [loading,    setLoading]    = React.useState(false);
+  const [result,     setResult]     = React.useState(null);
+  const [error,      setError]      = React.useState(null);
+
+  const T = {
+    section: { border: "1px solid rgba(16,185,129,0.25)", borderRadius: 6, padding: 14, marginBottom: 16 },
+    header:  { color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10, fontFamily: "'Geist Mono', monospace" },
+    label:   { color: "#6b7280", fontSize: 9, letterSpacing: "0.5px", marginBottom: 4, textTransform: "uppercase", display: "block", fontFamily: "'Geist Mono', monospace" },
+    input:   { background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "6px 10px", color: "#e5e5e5", fontSize: 11, fontFamily: "'Geist Mono', monospace", outline: "none", width: "100%", boxSizing: "border-box" },
+    btn:     { background: "#10b981", color: "#0d0d0d", border: "none", borderRadius: 4, padding: "7px 14px", fontSize: 11, fontFamily: "'Geist Mono', monospace", fontWeight: 700, cursor: "pointer", letterSpacing: "0.5px" },
+    btnDis:  { background: "#1a3a2a", color: "#4b7a62", cursor: "default" },
+    hint:    { color: "#4b5563", fontSize: 10, fontFamily: "'Geist Mono', monospace", marginTop: 6 },
+    result:  { marginTop: 10, color: "#10b981", fontSize: 11, fontFamily: "'Geist Mono', monospace" },
+    err:     { marginTop: 10, color: "#ef4444", fontSize: 11, fontFamily: "'Geist Mono', monospace" },
+  };
+
+  const run = async () => {
+    if (!afterDate || !beforeDate || loading) return;
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate });
+      setResult(r);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const disabled = !afterDate || !beforeDate || loading;
+
+  return (
+    <div style={T.section}>
+      <div style={T.header}>▶ FETCH EMAIL RANGE</div>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={T.label}>From</label>
+          <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={T.input} />
+        </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={T.label}>To</label>
+          <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={T.input} />
+        </div>
+        <button style={{ ...T.btn, ...(disabled ? T.btnDis : {}) }} onClick={run} disabled={disabled}>
+          {loading ? "FETCHING…" : "FETCH + BACKFILL"}
+        </button>
+      </div>
+      <div style={T.hint}>Fetches new emails from Gmail in range, then backfills missing bodies. Owner only.</div>
+      {result && (
+        <div style={T.result}>
+          ✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}
+        </div>
+      )}
+      {error && <div style={T.err}>✗ {error}</div>}
+    </div>
+  );
+};
+
 // ── AdminView (exported) ───────────────────────────────────────────────────────
 
 const AdminView = () => (
@@ -456,4 +516,4 @@ const AdminView = () => (
   </div>
 );
 
-Object.assign(window, { AdminView });
+Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, AlertsSection, FetchRangeSection });
