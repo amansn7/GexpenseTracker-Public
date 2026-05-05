@@ -22,6 +22,12 @@ from app.models import (
 
 router = APIRouter()
 
+
+def require_dev():
+    if not settings.DEV_MODE:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
 SESSION_DAYS = 30
 OAUTH_STATE_MINUTES = 10
 COOKIE_NAME = "session"
@@ -246,6 +252,7 @@ async def auth_me(
 
 @router.post("/auth/claim-seed-data")
 async def claim_seed_data(
+    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -268,6 +275,7 @@ async def auth_status():
 
 @router.get("/auth/allowlist")
 async def get_allowlist(
+    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -282,6 +290,7 @@ async def get_allowlist(
 @router.post("/auth/allowlist")
 async def add_to_allowlist(
     body: dict,
+    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -304,6 +313,7 @@ async def add_to_allowlist(
 @router.delete("/auth/allowlist/{email}")
 async def remove_from_allowlist(
     email: str,
+    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

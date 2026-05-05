@@ -41,5 +41,6 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     FERNET_KEY: str = ""   # base64 Fernet key; if empty, tokens stored plaintext
     INVITE_CODE: str = ""
+    DEV_MODE: bool = False
 
 settings = Settings()

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 # Prevent APScheduler from starting during tests
 os.environ.setdefault("TESTING", "1")
+os.environ.setdefault("DEV_MODE", "true")
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
