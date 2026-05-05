@@ -83,10 +83,10 @@ async def create_budget(body: BudgetBody, db: AsyncSession = Depends(get_db), cu
     return {"id": b.id, "category": b.category, "monthly_limit": float(b.monthly_limit)}
 
 
-@router.patch("/budgets/{budget_id}")
-async def update_budget(budget_id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.patch("/budgets/{id}")
+async def update_budget(id: int, body: BudgetPatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     b = (await db.execute(
-        select(Budget).where(Budget.id == budget_id, Budget.user_id == current_user.id)
+        select(Budget).where(Budget.id == id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:
         raise HTTPException(status_code=404, detail="Not found")
@@ -99,13 +99,13 @@ async def update_budget(budget_id: int, body: BudgetPatch, db: AsyncSession = De
     return {"id": b.id, "category": b.category, "monthly_limit": float(b.monthly_limit)}
 
 
-@router.delete("/budgets/{budget_id}")
-async def delete_budget(budget_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.delete("/budgets/{id}")
+async def delete_budget(id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     b = (await db.execute(
-        select(Budget).where(Budget.id == budget_id, Budget.user_id == current_user.id)
+        select(Budget).where(Budget.id == id, Budget.user_id == current_user.id)
     )).scalar_one_or_none()
     if not b:
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(b)
     await db.commit()
-    return {"deleted": budget_id}
+    return {"deleted": id}

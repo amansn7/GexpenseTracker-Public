@@ -78,10 +78,10 @@ async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_d
     return _fmt(r)
 
 
-@router.patch("/recurring/{item_id}")
-async def update_recurring(item_id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.patch("/recurring/{id}")
+async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == item_id, RecurringExpense.user_id == current_user.id)
+        select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
@@ -97,13 +97,13 @@ async def update_recurring(item_id: str, body: RecurringBody, db: AsyncSession =
     return _fmt(r)
 
 
-@router.delete("/recurring/{item_id}")
-async def delete_recurring(item_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.delete("/recurring/{id}")
+async def delete_recurring(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == item_id, RecurringExpense.user_id == current_user.id)
+        select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
     )).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(r)
     await db.commit()
-    return {"deleted": item_id}
+    return {"deleted": id}

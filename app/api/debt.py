@@ -74,10 +74,10 @@ async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db), curren
     return _fmt(d)
 
 
-@router.patch("/debts/{debt_id}")
-async def update_debt(debt_id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.patch("/debts/{id}")
+async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     d = (await db.execute(
-        select(Debt).where(Debt.id == debt_id, Debt.user_id == current_user.id)
+        select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")
@@ -98,13 +98,13 @@ async def update_debt(debt_id: str, body: DebtBody, db: AsyncSession = Depends(g
     return _fmt(d)
 
 
-@router.delete("/debts/{debt_id}")
-async def delete_debt(debt_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.delete("/debts/{id}")
+async def delete_debt(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     d = (await db.execute(
-        select(Debt).where(Debt.id == debt_id, Debt.user_id == current_user.id)
+        select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
     )).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(d)
     await db.commit()
-    return {"deleted": debt_id}
+    return {"deleted": id}
