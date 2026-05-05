@@ -198,7 +198,7 @@ _groq_limiter: Optional[GroqRateLimiter] = None
 _user_limiters: dict[str, GroqRateLimiter] = {}
 
 
-def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> "Optional[GroqRateLimiter]":
+def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> Optional[GroqRateLimiter]:
     """
     Get or create a GroqRateLimiter.
 
