@@ -98,9 +98,6 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mob
       </button>
     ))}
 
-    <div style={shellStyles.sectionLabel}>Tools</div>
-    <NavItem icon="gear" label="Admin" active={view==="admin"} onClick={()=>navigate(()=>setView("admin"))} />
-
     <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
       {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"]].map(([k,bg,label]) => (
         <button key={k} title={label} onClick={() => setTheme && setTheme(k)}
