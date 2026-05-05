@@ -112,6 +112,8 @@ def fetch_new_messages(
     last_history_id,
     email_filter: str = "all",
     creds: Credentials | None = None,
+    after_date: str | None = None,
+    before_date: str | None = None,
 ):
     """
     Returns (messages, new_history_id).
@@ -125,12 +127,17 @@ def fetch_new_messages(
     import time
     service = _build_service(creds)
 
-    if last_history_id is None:
-        query = "newer_than:90d"
-        if email_filter == "unread":
-            query += " is:unread"
-        elif email_filter == "read":
-            query += " is:read"
+    if last_history_id is None or after_date is not None:
+        if after_date is not None:
+            query = f"after:{after_date}"
+            if before_date:
+                query += f" before:{before_date}"
+        else:
+            query = "newer_than:90d"
+            if email_filter == "unread":
+                query += " is:unread"
+            elif email_filter == "read":
+                query += " is:read"
 
         # Paginate through all results, not just the first 500
         message_ids = []
@@ -145,8 +152,11 @@ def fetch_new_messages(
             if not page_token:
                 break
 
-        profile = service.users().getProfile(userId="me").execute()
-        new_history_id = str(profile["historyId"])
+        if after_date is not None:
+            new_history_id = last_history_id
+        else:
+            profile = service.users().getProfile(userId="me").execute()
+            new_history_id = str(profile["historyId"])
     else:
         try:
             history = service.users().history().list(

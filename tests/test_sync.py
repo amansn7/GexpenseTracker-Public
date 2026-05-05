@@ -2,6 +2,29 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 
+def test_fetch_new_messages_date_range_query():
+    """fetch_new_messages with after_date builds correct Gmail query and preserves history_id."""
+    from unittest.mock import patch, MagicMock
+    from app.gmail.client import fetch_new_messages
+
+    mock_service = MagicMock()
+    mock_service.users().messages().list().execute.return_value = {"messages": []}
+
+    with patch("app.gmail.client._build_service", return_value=mock_service):
+        messages, returned_history_id = fetch_new_messages(
+            last_history_id="abc123",
+            after_date="2024/01/01",
+            before_date="2024/03/31",
+        )
+
+    assert messages == []
+    assert returned_history_id == "abc123"  # preserved, not advanced
+
+    call_kwargs = mock_service.users().messages().list.call_args[1]
+    assert "after:2024/01/01" in call_kwargs["q"]
+    assert "before:2024/03/31" in call_kwargs["q"]
+
+
 async def _make_service_user(db_session):
     """Create a minimal service user for sync tests."""
     from app.models import User, UserRole, UserStatus
