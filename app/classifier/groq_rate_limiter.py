@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.config import settings
-from app.encryption import decrypt_or_none, encrypt
 
 logger = logging.getLogger(__name__)
 
@@ -199,20 +198,19 @@ _groq_limiter: Optional[GroqRateLimiter] = None
 _user_limiters: dict[str, GroqRateLimiter] = {}
 
 
-def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> "GroqRateLimiter":
+def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> "Optional[GroqRateLimiter]":
     """
-    Get or create a GroqRateLimiter for a user.
-    
-    If user_id is provided, returns a per-user limiter (stored in _user_limiters).
-    Otherwise, returns the global limiter (from settings.GROQ_API_KEY).
+    Get or create a GroqRateLimiter.
+
+    If user_id provided: returns per-user limiter (creates one if api_key given, else None if not cached).
+    If no user_id: returns global limiter from settings.GROQ_API_KEY.
     """
     if user_id:
         if user_id not in _user_limiters:
-            from app.encryption import decrypt_or_none
-
             if api_key:
-                encrypted = encrypt(api_key)
-                _user_limiters[user_id] = GroqRateLimiter(decrypt_or_none(encrypted) or api_key)
+                _user_limiters[user_id] = GroqRateLimiter(api_key)
+            else:
+                return None
         return _user_limiters[user_id]
 
     global _groq_limiter
