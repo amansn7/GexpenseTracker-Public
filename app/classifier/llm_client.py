@@ -330,7 +330,7 @@ class MultiLLMClient:
                     provider.fail_count += 1
                     raise httpx.HTTPStatusError(
                         "Groq rate limit exceeded",
-                        request=None,
+                        request=httpx.Request("POST", provider.base_url or "https://api.groq.com/openai/v1/chat/completions"),
                         response=httpx.Response(429),
                     )
             except httpx.HTTPStatusError:
