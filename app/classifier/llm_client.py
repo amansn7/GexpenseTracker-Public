@@ -154,8 +154,8 @@ def _parse_response(raw: str) -> LLMClassification:
         data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         logger.warning("JSON parse failed, attempting repair: %s", exc)
-        fixed = re.sub(r",(\s*[}\\]])", r"\1", cleaned)
-        fixed = re.sub(r'([{,]\\s*)"(\\w+)":\\s*"', r'\1"\2": "', fixed)
+        fixed = re.sub(r",(\s*[}\]])", r"\1", cleaned)
+        fixed = re.sub(r'([{,]\s*)"(\w+)":\s*"', r'\1"\2": "', fixed)
         try:
             data = json.loads(fixed)
         except json.JSONDecodeError:
