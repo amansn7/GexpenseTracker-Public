@@ -1,5 +1,7 @@
 import pytest
 import time
+import inspect
+import asyncio
 import app.classifier.groq_rate_limiter as _mod
 from app.classifier.groq_rate_limiter import get_groq_limiter, GroqRateLimiter, _user_limiters
 
@@ -44,4 +46,31 @@ def test_maybe_reset_buckets_resets_rpm_after_minute():
     limiter._minute_start = time.time() - 61
     limiter._maybe_reset_buckets()
     assert bucket["rpm_used"] == 0
+    limiter.stop()
+
+
+def test_acquire_is_coroutine_function():
+    from app.classifier.groq_rate_limiter import GroqRateLimiter
+    limiter = GroqRateLimiter("key")
+    assert inspect.iscoroutinefunction(limiter.acquire)
+    limiter.stop()
+
+
+@pytest.mark.asyncio
+async def test_acquire_returns_true_when_quota_available():
+    from app.classifier.groq_rate_limiter import GroqRateLimiter
+    limiter = GroqRateLimiter("key")
+    result = await limiter.acquire("llama-3.3-70b-versatile", estimated_tokens=10, timeout=5.0)
+    assert result is True
+    limiter.stop()
+
+
+@pytest.mark.asyncio
+async def test_acquire_returns_false_when_quota_exhausted():
+    from app.classifier.groq_rate_limiter import GroqRateLimiter, GROQ_LIMITS
+    limiter = GroqRateLimiter("key")
+    bucket = limiter._get_bucket("llama-3.3-70b-versatile")
+    bucket["rpm_used"] = GROQ_LIMITS["llama-3.3-70b-versatile"].requests_per_minute
+    result = await limiter.acquire("llama-3.3-70b-versatile", timeout=0.1)
+    assert result is False
     limiter.stop()

@@ -97,7 +97,7 @@ class GroqRateLimiter:
             }
         return self._buckets[model]
 
-    def acquire(
+    async def acquire(
         self,
         model: str,
         estimated_tokens: int = 100,
@@ -105,12 +105,12 @@ class GroqRateLimiter:
     ) -> bool:
         """
         Acquire permission to make a request.
-        
+
         Args:
             model: Model identifier
             estimated_tokens: Estimated tokens for this request (for TPM tracking)
             timeout: Maximum seconds to wait for rate limit
-            
+
         Returns:
             True if acquired, False if timeout
         """
@@ -160,7 +160,7 @@ class GroqRateLimiter:
                 return False
 
             wait_time = min(1.0, timeout - (time.time() - start_time))
-            time.sleep(wait_time)
+            await asyncio.sleep(wait_time)
 
     def get_status(self, model: str) -> dict:
         bucket = self._get_bucket(model)
