@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.config import settings
-from app.encryption import decrypt_or_none, encrypt
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +73,13 @@ class GroqRateLimiter:
 
     def _maybe_reset_buckets(self) -> None:
         now = time.time()
-        if now - self._minute_start >= 60:
-            with self._lock:
+        with self._lock:
+            if now - self._minute_start >= 60:
                 for bucket in self._buckets.values():
                     bucket["rpm_used"] = 0
                     bucket["tpm_used"] = 0
                 self._minute_start = now
-        if now - self._day_start >= 86400:
-            with self._lock:
+            if now - self._day_start >= 86400:
                 for bucket in self._buckets.values():
                     bucket["rpd_used"] = 0
                     bucket["tpd_used"] = 0
@@ -99,7 +97,7 @@ class GroqRateLimiter:
             }
         return self._buckets[model]
 
-    def acquire(
+    async def acquire(
         self,
         model: str,
         estimated_tokens: int = 100,
@@ -107,12 +105,12 @@ class GroqRateLimiter:
     ) -> bool:
         """
         Acquire permission to make a request.
-        
+
         Args:
             model: Model identifier
             estimated_tokens: Estimated tokens for this request (for TPM tracking)
             timeout: Maximum seconds to wait for rate limit
-            
+
         Returns:
             True if acquired, False if timeout
         """
@@ -162,7 +160,7 @@ class GroqRateLimiter:
                 return False
 
             wait_time = min(1.0, timeout - (time.time() - start_time))
-            time.sleep(wait_time)
+            await asyncio.sleep(wait_time)
 
     def get_status(self, model: str) -> dict:
         bucket = self._get_bucket(model)
@@ -199,20 +197,19 @@ _groq_limiter: Optional[GroqRateLimiter] = None
 _user_limiters: dict[str, GroqRateLimiter] = {}
 
 
-def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> "GroqRateLimiter":
+def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> Optional[GroqRateLimiter]:
     """
-    Get or create a GroqRateLimiter for a user.
-    
-    If user_id is provided, returns a per-user limiter (stored in _user_limiters).
-    Otherwise, returns the global limiter (from settings.GROQ_API_KEY).
+    Get or create a GroqRateLimiter.
+
+    If user_id provided: returns per-user limiter (creates one if api_key given, else None if not cached).
+    If no user_id: returns global limiter from settings.GROQ_API_KEY.
     """
     if user_id:
         if user_id not in _user_limiters:
-            from app.encryption import decrypt_or_none
-
             if api_key:
-                encrypted = encrypt(api_key)
-                _user_limiters[user_id] = GroqRateLimiter(decrypt_or_none(encrypted) or api_key)
+                _user_limiters[user_id] = GroqRateLimiter(api_key)
+            else:
+                return None
         return _user_limiters[user_id]
 
     global _groq_limiter

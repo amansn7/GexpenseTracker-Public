@@ -174,6 +174,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
         sem = asyncio.Semaphore(_LLM_CONCURRENCY)
         done_counter = 0
         failed_items: List[Tuple[Email, dict]] = []
+        pair_index: dict[int, int] = {id(e): i for i, (e, _) in enumerate(new_pairs)}
 
         async def _classify_one(email: Email, msg: dict) -> ClassificationResult:
             nonlocal done_counter
@@ -225,7 +226,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                     retry_failed.append((email, msg))
                     logger.warning("Retry failed: %s - %s", msg["gmail_id"], cls)
                 else:
-                    idx = new_pairs.index((email, msg))
+                    idx = pair_index[id(email)]
                     classifications[idx] = cls
                     logger.info("Retry succeeded for: %s", msg["gmail_id"])
 

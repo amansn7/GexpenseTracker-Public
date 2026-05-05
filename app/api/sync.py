@@ -176,28 +176,6 @@ async def clear_alerts(current_user=Depends(get_current_user)):
     return {"cleared": True}
 
 
-@router.get("/llm/my-limits")
-async def my_llm_limits(current_user: User = Depends(get_current_user)):
-    """Get current user's rate limit status for their configured AI service."""
-    from app.classifier.groq_rate_limiter import get_groq_limiter
-
-    limits = {}
-    try:
-        limiter = get_groq_limiter(user_id=current_user.id)
-        if limiter:
-            limits = {
-                "llama-3.3-70b-versatile": limiter.get_available("llama-3.3-70b-versatile"),
-                "llama-3.1-8b-instant": limiter.get_available("llama-3.1-8b-instant"),
-            }
-    except RuntimeError:
-        pass
-
-    if not limits:
-        return {"message": "No Groq service configured. Add one in Settings → AI."}
-
-    return {"groq": limits}
-
-
 @router.get("/llm/limits")
 async def llm_limits(current_user: User = Depends(get_current_user)):
     """Get user's current rate limit status (for their configured AI service)."""

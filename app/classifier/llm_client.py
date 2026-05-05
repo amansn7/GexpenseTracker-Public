@@ -154,8 +154,8 @@ def _parse_response(raw: str) -> LLMClassification:
         data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         logger.warning("JSON parse failed, attempting repair: %s", exc)
-        fixed = re.sub(r",(\s*[}\\]])", r"\1", cleaned)
-        fixed = re.sub(r'([{,]\\s*)"(\\w+)":\\s*"', r'\1"\2": "', fixed)
+        fixed = re.sub(r",(\s*[}\]])", r"\1", cleaned)
+        fixed = re.sub(r'([{,]\s*)"(\w+)":\s*"', r'\1"\2": "', fixed)
         try:
             data = json.loads(fixed)
         except json.JSONDecodeError:
@@ -325,12 +325,12 @@ class MultiLLMClient:
                 from app.classifier.groq_rate_limiter import get_groq_limiter
 
                 limiter = get_groq_limiter(user_id=self._user_id, api_key=provider.api_key)
-                if not limiter.acquire(provider.model, estimated_tokens=150, timeout=30.0):
+                if limiter is not None and not await limiter.acquire(provider.model, estimated_tokens=150, timeout=30.0):
                     provider.mark_rate_limited(retry_after=60)
                     provider.fail_count += 1
                     raise httpx.HTTPStatusError(
                         "Groq rate limit exceeded",
-                        request=None,
+                        request=httpx.Request("POST", provider.base_url or "https://api.groq.com/openai/v1/chat/completions"),
                         response=httpx.Response(429),
                     )
             except httpx.HTTPStatusError:
