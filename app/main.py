@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 from app.scheduler import setup_scheduler, scheduler
-from app.api import account, auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api
+from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api
 from app.config import settings
 
 
@@ -71,7 +71,6 @@ templates = Jinja2Templates(directory="templates")
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(onboarding_api.router, prefix="/api")
-app.include_router(account.router, prefix="/api")
 app.include_router(settings_api.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(review.router, prefix="/api")

@@ -16,6 +16,7 @@ from app.models import (
     User,
     UserAIService,
     UserCategory,
+    UserProfile,
     UserSettings,
 )
 from app.api._account_helpers import (
@@ -27,6 +28,8 @@ from app.api._account_helpers import (
     _category_dict,
     _ai_service_dict,
     _get_owned,
+    _profile_dict,
+    _load_user_bundle,
 )
 
 router = APIRouter()
@@ -115,6 +118,16 @@ class AIServiceValidateBody(BaseModel):
 
 class TotpVerifyBody(BaseModel):
     code: str
+
+
+class ProfilePatch(BaseModel):
+    full_name: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    avatar_url: Optional[str] = None
+    default_currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
+    timezone: Optional[str] = None
 
 
 @router.patch("/account/settings")
@@ -333,11 +346,22 @@ async def create_ai_service(
 ):
     if not body.display_name.strip() or not body.model_id.strip():
         raise HTTPException(status_code=422, detail="display_name and model_id are required")
+    provider = body.provider.strip().lower()
+    model_id = body.model_id.strip()
+    existing = await db.execute(
+        select(UserAIService).where(
+            UserAIService.user_id == user.id,
+            UserAIService.provider == provider,
+            UserAIService.model_id == model_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="AI service with this provider and model already exists")
     service = UserAIService(
         user_id=user.id,
-        provider=body.provider.strip().lower(),
+        provider=provider,
         display_name=body.display_name.strip(),
-        model_id=body.model_id.strip(),
+        model_id=model_id,
         base_url=body.base_url,
         auth_header=body.auth_header,
         api_key_hint=_api_key_hint(body.api_key),
@@ -345,7 +369,11 @@ async def create_ai_service(
         enabled=body.enabled,
     )
     db.add(service)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="AI service with this provider and model already exists")
     await db.refresh(service)
     return {"ai_service": _ai_service_dict(service)}
 
@@ -472,3 +500,29 @@ async def delete_account(
     await db.commit()
     response.delete_cookie("session", path="/")
     return {"deleted": True}
+
+
+@router.get("/account/me")
+async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return await _load_user_bundle(db, user)
+
+
+@router.patch("/account/profile")
+async def update_profile(
+    patch: ProfilePatch,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    profile = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one()
+    for key, value in patch.model_dump(exclude_unset=True).items():
+        if isinstance(value, str):
+            value = value.strip()
+            if key == "default_currency":
+                value = value.upper()
+        if key in {"default_currency", "timezone"}:
+            setattr(profile, key, value)
+        else:
+            setattr(profile, key, value or None)
+    await db.commit()
+    await db.refresh(profile)
+    return {"profile": _profile_dict(profile)}
