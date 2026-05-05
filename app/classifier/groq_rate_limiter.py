@@ -73,14 +73,13 @@ class GroqRateLimiter:
 
     def _maybe_reset_buckets(self) -> None:
         now = time.time()
-        if now - self._minute_start >= 60:
-            with self._lock:
+        with self._lock:
+            if now - self._minute_start >= 60:
                 for bucket in self._buckets.values():
                     bucket["rpm_used"] = 0
                     bucket["tpm_used"] = 0
                 self._minute_start = now
-        if now - self._day_start >= 86400:
-            with self._lock:
+            if now - self._day_start >= 86400:
                 for bucket in self._buckets.values():
                     bucket["rpd_used"] = 0
                     bucket["tpd_used"] = 0

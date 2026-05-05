@@ -1,6 +1,7 @@
 import pytest
+import time
 import app.classifier.groq_rate_limiter as _mod
-from app.classifier.groq_rate_limiter import get_groq_limiter, _user_limiters
+from app.classifier.groq_rate_limiter import get_groq_limiter, GroqRateLimiter, _user_limiters
 
 
 def setup_function():
@@ -34,3 +35,13 @@ def test_get_groq_limiter_raises_when_no_global_key():
         mock_settings.GROQ_API_KEY = None
         with pytest.raises(RuntimeError, match="GROQ_API_KEY not configured"):
             get_groq_limiter()
+
+
+def test_maybe_reset_buckets_resets_rpm_after_minute():
+    limiter = GroqRateLimiter("key")
+    bucket = limiter._get_bucket("llama-3.3-70b-versatile")
+    bucket["rpm_used"] = 10
+    limiter._minute_start = time.time() - 61
+    limiter._maybe_reset_buckets()
+    assert bucket["rpm_used"] == 0
+    limiter.stop()
