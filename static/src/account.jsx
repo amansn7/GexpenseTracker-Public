@@ -1,10 +1,11 @@
 // Profile & Settings views
 
 const accountStyles = {
-  wrap: { padding: "clamp(18px, 4vw, 32px) clamp(14px, 5vw, 40px) 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 920, margin: "0 auto" },
-  header: { marginBottom: 28 },
-  kicker: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
-  h1: { fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" },
+  wrap: { overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
+  inner: { padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) 80px", maxWidth: 920, margin: "0 auto" },
+  header: { marginBottom: 20 },
+  kicker: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
+  h1: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0" },
   section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 16 },
   sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
   sectionSub: { fontSize: 12, color: "var(--ink-3)", fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, marginBottom: 18 },
@@ -53,6 +54,7 @@ const OnboardingView = ({ onComplete }) => {
   };
   return (
     <div style={accountStyles.wrap}>
+      <div style={accountStyles.inner}>
       <div style={accountStyles.header}>
         <div style={accountStyles.kicker}>First run</div>
         <h1 style={accountStyles.h1}>Create your profile</h1>
@@ -105,6 +107,7 @@ const OnboardingView = ({ onComplete }) => {
           <button disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: saving ? 0.65 : 1 }}>{saving ? "Creating…" : "Create account"}</button>
         </div>
       </form>
+      </div>
     </div>
   );
 };
@@ -132,6 +135,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
   const memberSince = user.created_at ? new Date(user.created_at).toLocaleString("en-US", { month: "short", year: "numeric" }) : "today";
   return (
     <div style={accountStyles.wrap}>
+      <div style={accountStyles.inner}>
       <div style={accountStyles.header}>
         <div style={accountStyles.kicker}>Your account</div>
         <h1 style={accountStyles.h1}>Profile</h1>
@@ -232,6 +236,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
           </div>
           <button style={accountStyles.btn}>Manage plan</button>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -674,6 +679,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
 
   return (
     <div style={accountStyles.wrap}>
+      <div style={accountStyles.inner}>
       <div style={accountStyles.header}>
         <div style={accountStyles.kicker}>Preferences</div>
         <h1 style={accountStyles.h1}>Settings</h1>
@@ -1097,6 +1103,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };
