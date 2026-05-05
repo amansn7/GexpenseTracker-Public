@@ -1,8 +1,8 @@
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import timedelta, date as _date
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -136,6 +136,36 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     await db.commit()
     logger.info("backfill-bodies: updated=%d errors=%d", updated, errors)
     return {"updated": updated, "errors": errors, "total": len(emails)}
+
+
+class FetchRangeBody(BaseModel):
+    after_date: _date
+    before_date: _date
+
+    @model_validator(mode="after")
+    def _check_range(self):
+        if self.after_date >= self.before_date:
+            raise ValueError("after_date must be before before_date")
+        if (self.before_date - self.after_date).days > 365:
+            raise ValueError("Date range cannot exceed 365 days")
+        return self
+
+
+@router.post("/sync/fetch-range")
+async def fetch_range(
+    body: FetchRangeBody,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(status_code=403, detail="Owner only")
+    from app.sync import run_sync_range
+    result = await run_sync_range(
+        user_id=current_user.id,
+        after_date=body.after_date.strftime("%Y/%m/%d"),
+        before_date=body.before_date.strftime("%Y/%m/%d"),
+    )
+    return result
 
 
 @router.get("/alerts")

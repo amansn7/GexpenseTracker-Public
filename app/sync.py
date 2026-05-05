@@ -259,3 +259,160 @@ async def _run_sync_inner(user_id: str = None) -> dict:
     _sync_progress.update({"running": False, "phase": "done", "result": result})
     logger.info("Sync complete: %s", result)
     return result
+
+
+async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dict:
+    """
+    Fetch + classify emails in a specific date range, then backfill missing bodies.
+    Does NOT update SyncState (history_id or last_synced_at).
+    after_date / before_date: "YYYY/MM/DD" (Gmail query format).
+    """
+    from sqlalchemy import or_
+    from app.gmail.client import _build_service, _extract_body_text
+
+    async with AsyncSessionLocal() as session:
+        try:
+            creds = await get_credentials_for_user(session, user_id)
+            if not creds:
+                raise RuntimeError("Gmail not authenticated")
+            messages, _ = await asyncio.to_thread(
+                fetch_new_messages, None, "all", creds, after_date, before_date
+            )
+        except Exception as exc:
+            logger.error("fetch-range: Gmail fetch failed: %s", exc)
+            return {"fetched": 0, "inserted": 0, "backfilled": 0, "errors": 1}
+
+        fetched = len(messages)
+        incoming_ids = [m["gmail_id"] for m in messages]
+        existing = {row[0] for row in (await session.execute(
+            select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
+        )).all()} if incoming_ids else set()
+
+        new_pairs = []
+        for msg in messages:
+            if msg["gmail_id"] in existing:
+                continue
+            email = Email(**msg)
+            email.user_id = user_id
+            session.add(email)
+            new_pairs.append((email, msg))
+
+        await session.flush()
+
+        user_settings = (await session.execute(
+            select(UserSettings).where(UserSettings.user_id == user_id)
+        )).scalar_one_or_none()
+        rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
+        db_rules: dict = {}
+        if rule_engine_enabled:
+            from app.classifier.rules import build_domain_rules
+            db_rules = await build_domain_rules(session)
+
+        user_llm_client = None
+        if user_settings and user_settings.active_ai_service_id:
+            from app.models.user import UserAIService
+            from app.api._account_helpers import _decrypt_secret
+            from app.classifier.llm_client import build_user_client
+            ai_svc = (await session.execute(
+                select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
+            )).scalar_one_or_none()
+            if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
+                try:
+                    user_llm_client = build_user_client(
+                        provider=ai_svc.provider,
+                        base_url=ai_svc.base_url,
+                        api_key=_decrypt_secret(ai_svc.encrypted_api_key),
+                        model_id=ai_svc.model_id,
+                    )
+                except Exception as exc:
+                    logger.error("fetch-range: failed to build user LLM client: %s", exc)
+
+        sem = asyncio.Semaphore(_LLM_CONCURRENCY)
+
+        async def _classify_one(email: Email, msg: dict):
+            async with sem:
+                return await classify_email(
+                    email_id=email.id,
+                    sender=msg["sender"],
+                    sender_domain=msg["sender_domain"],
+                    subject=msg["subject"] or "",
+                    body_text=msg.get("body_text") or msg.get("body_snippet") or "",
+                    session=session,
+                    rule_engine_enabled=rule_engine_enabled,
+                    db_rules=db_rules,
+                    llm_client_override=user_llm_client,
+                )
+
+        classifications = await asyncio.gather(
+            *[_classify_one(e, m) for e, m in new_pairs],
+            return_exceptions=True,
+        )
+
+        inserted = 0
+        for (email, _), cls in zip(new_pairs, classifications):
+            if isinstance(cls, Exception):
+                t = Transaction(
+                    email_id=email.id,
+                    label=Label.ignore.value,
+                    currency="INR",
+                    status="needs_review",
+                    classifier_method="llm",
+                    confidence=0.0,
+                )
+            else:
+                t = Transaction(
+                    email_id=email.id,
+                    label=cls.label.value,
+                    amount=cls.amount,
+                    currency="INR",
+                    merchant=cls.merchant,
+                    category=cls.category,
+                    txn_date=cls.txn_date,
+                    confidence=cls.confidence,
+                    status=cls.status.value,
+                    classifier_method=cls.classifier_method.value,
+                )
+                inserted += 1
+            session.add(t)
+
+        await session.flush()
+
+        # Backfill missing bodies for emails in this date range
+        from datetime import datetime as _dt
+        try:
+            after_dt = _dt.strptime(after_date, "%Y/%m/%d")
+            before_dt = _dt.strptime(before_date, "%Y/%m/%d")
+        except ValueError:
+            after_dt = before_dt = None
+
+        backfilled = 0
+        errors = 0
+        if after_dt and before_dt:
+            missing_q = select(Email).where(
+                Email.user_id == user_id,
+                Email.received_at >= after_dt,
+                Email.received_at <= before_dt,
+                or_(Email.body_text.is_(None), Email.body_text == ""),
+            )
+            missing_emails = (await session.execute(missing_q)).scalars().all()
+            if missing_emails:
+                service = await asyncio.to_thread(_build_service, creds)
+                for email in missing_emails:
+                    try:
+                        msg = await asyncio.to_thread(
+                            lambda eid=email.gmail_id: service.users().messages().get(
+                                userId="me", id=eid, format="full"
+                            ).execute()
+                        )
+                        body = _extract_body_text(msg.get("payload", {}))
+                        if body:
+                            email.body_text = body
+                            backfilled += 1
+                    except Exception as exc:
+                        logger.warning("fetch-range backfill: failed for %s: %s", email.gmail_id, exc)
+                        errors += 1
+
+        await session.commit()
+
+    logger.info("fetch-range: fetched=%d inserted=%d backfilled=%d errors=%d", fetched, inserted, backfilled, errors)
+    return {"fetched": fetched, "inserted": inserted, "backfilled": backfilled, "errors": errors}

@@ -108,3 +108,63 @@ async def test_run_sync_persists_rule_detected_merchant(db_session):
     assert txns[0].merchant is not None
     assert "wiggy" in txns[0].merchant.lower()
     assert txns[0].category == "Food"
+
+
+@pytest.mark.asyncio
+async def test_fetch_range_endpoint_owner_only(db_session):
+    """Non-owner gets 403 from /sync/fetch-range."""
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    from app.database import get_db
+    from app.auth_deps import get_current_user
+    from app.models import User, UserRole, UserStatus
+
+    member = User(email="member@test.com", role=UserRole.member, status=UserStatus.active, onboarding_complete=True)
+    db_session.add(member)
+    await db_session.commit()
+
+    async def _override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_current_user] = lambda: member
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/api/sync/fetch-range", json={"after_date": "2024-01-01", "before_date": "2024-03-31"})
+        assert resp.status_code == 403
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_fetch_range_endpoint_owner_succeeds(db_session):
+    """Owner gets 200 from /sync/fetch-range with mocked run_sync_range."""
+    from httpx import AsyncClient, ASGITransport
+    from unittest.mock import patch
+    from app.main import app
+    from app.database import get_db
+    from app.auth_deps import get_current_user
+    from app.models import User, UserRole, UserStatus
+
+    owner = User(email="owner@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
+    db_session.add(owner)
+    await db_session.commit()
+
+    async def _override_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_current_user] = lambda: owner
+
+    try:
+        with patch("app.sync.run_sync_range", return_value={"fetched": 0, "inserted": 0, "backfilled": 0, "errors": 0}):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                resp = await client.post("/api/sync/fetch-range", json={"after_date": "2024-01-01", "before_date": "2024-03-31"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "fetched" in data and "backfilled" in data
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
