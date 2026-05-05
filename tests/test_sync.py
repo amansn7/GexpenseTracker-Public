@@ -99,8 +99,9 @@ async def test_run_sync_persists_rule_detected_merchant(db_session):
 
     with patch("app.sync.fetch_new_messages", return_value=(fake_messages, "101")):
         with patch("app.sync.AsyncSessionLocal", return_value=mock_ctx):
-            from app.sync import run_sync
-            await run_sync()
+            with patch("app.sync.get_credentials_for_user", return_value=AsyncMock()):
+                from app.sync import run_sync
+                await run_sync(user_id=user.id)
 
     txns = (await db_session.execute(select(Transaction))).scalars().all()
     assert len(txns) == 1
