@@ -83,11 +83,7 @@ class BackfillBody(BaseModel):
 
 
 @router.post("/sync/backfill-bodies")
-async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):    """
-    Fetch full body_text from Gmail.
-    email_ids supplied → only those rows (regardless of current body_text).
-    email_ids empty   → all emails with null or empty body_text.
-    """
+async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
     import asyncio
