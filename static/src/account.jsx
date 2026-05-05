@@ -526,6 +526,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
+  const [adminTab, setAdminTab] = React.useState(false);
 
   React.useEffect(() => {
     setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
@@ -677,6 +678,40 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         <div style={accountStyles.kicker}>Preferences</div>
         <h1 style={accountStyles.h1}>Settings</h1>
       </div>
+
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => setAdminTab(false)}
+          style={{
+            padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12,
+            background: !adminTab ? "var(--ink)" : "transparent",
+            color: !adminTab ? "var(--paper)" : "var(--ink-3)",
+            fontFamily: "inherit",
+          }}
+        >
+          Settings
+        </button>
+        {account?.role === "owner" && (
+          <button
+            type="button"
+            onClick={() => setAdminTab(true)}
+            style={{
+              padding: "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
+              border: "1.5px dashed #ef4444",
+              background: adminTab ? "rgba(239,68,68,0.08)" : "transparent",
+              color: "#ef4444",
+              fontFamily: "inherit",
+              letterSpacing: "0.3px",
+            }}
+          >
+            ⚡ Admin
+          </button>
+        )}
+      </div>
+
+      {!adminTab && (<>
 
       {/* Gmail connection */}
       <div style={accountStyles.section}>
@@ -1030,6 +1065,37 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       )}
       {account?.role === "owner" && (
         <AccessSection account={account} />
+      )}
+
+      </>)}
+
+      {adminTab && account?.role === "owner" && (
+        <div style={{ background: "#0d0d0d", borderRadius: 8, padding: 20, fontFamily: "'Geist Mono', monospace" }}>
+          <div style={{ color: "#ef4444", fontSize: 10, fontWeight: 700, letterSpacing: "1.5px", marginBottom: 18 }}>
+            // ADMIN — OWNER ONLY
+          </div>
+          <FetchRangeSection />
+          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
+            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ GMAIL SYNC</div>
+            <SyncSection />
+          </div>
+          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
+            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ FETCH PREVIEW</div>
+            <FetchPreviewSection />
+          </div>
+          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
+            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ CLASSIFY TEST</div>
+            <ClassifyTestSection />
+          </div>
+          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
+            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ LLM STATUS</div>
+            <LLMStatusSection />
+          </div>
+          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14 }}>
+            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ ALERTS</div>
+            <AlertsSection />
+          </div>
+        </div>
       )}
     </div>
   );
