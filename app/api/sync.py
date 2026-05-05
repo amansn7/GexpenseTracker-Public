@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import SyncState
+from app.models import SyncState, User, UserRole
 from app.config import settings
 from app.auth_deps import get_current_user
 
@@ -83,12 +83,14 @@ class BackfillBody(BaseModel):
 
 
 @router.post("/sync/backfill-bodies")
-async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Fetch full body_text from Gmail.
     email_ids supplied → only those rows (regardless of current body_text).
     email_ids empty   → all emails with null or empty body_text.
     """
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(status_code=403, detail="Owner only")
     import asyncio
     from sqlalchemy import or_
     from app.models import Email
@@ -150,9 +152,10 @@ async def clear_alerts(current_user=Depends(get_current_user)):
 
 
 @router.get("/llm/status")
-async def llm_status():
+async def llm_status(current_user: User = Depends(get_current_user)):
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(status_code=403, detail="Owner only")
     from app.classifier.llm_client import llm_client
-    from app.config import settings
     return {
         "providers": llm_client.get_status(),
         "config": {
