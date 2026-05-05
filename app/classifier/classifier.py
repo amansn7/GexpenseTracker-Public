@@ -5,7 +5,7 @@ from datetime import date
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
-from app.classifier.llm_client import llm_client
+from app.classifier.llm_client import llm_client, MultiLLMClient
 from app.classifier.merchant import extract_raw_merchant, normalize_merchant
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
@@ -59,6 +59,7 @@ async def classify_email(
     rule_engine_enabled: bool = True,
     db_rules: Optional[dict] = None,
     user_id: Optional[str] = None,
+    llm_client_override: Optional[MultiLLMClient] = None,
 ) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = body_text[:3000]
@@ -92,8 +93,9 @@ async def classify_email(
     llm_result = None
     result_warnings: List[str] = []
 
+    active_client = llm_client_override or llm_client
     try:
-        verbose = await llm_client.classify_verbose(sender, subject, body_snippet, categories=user_categories)
+        verbose = await active_client.classify_verbose(sender, subject, body_snippet, categories=user_categories)
         llm_result = verbose["result"]
         provider = verbose["provider"]
         model_name = verbose["model"]

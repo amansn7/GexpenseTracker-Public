@@ -129,7 +129,12 @@ async def _run_sync_inner(user_id: str = None) -> dict:
         await session.flush()  # assign IDs to all new Email rows at once
 
         # ── Phase 2b: load rule engine settings ───────────────────────────────
-        user_settings = (await session.execute(select(UserSettings).limit(1))).scalar_one_or_none()
+        _settings_q = select(UserSettings)
+        if user_id:
+            _settings_q = _settings_q.where(UserSettings.user_id == user_id)
+        else:
+            _settings_q = _settings_q.limit(1)
+        user_settings = (await session.execute(_settings_q)).scalar_one_or_none()
         rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
 
         db_rules: dict = {}
@@ -139,6 +144,28 @@ async def _run_sync_inner(user_id: str = None) -> dict:
             logger.info("Rule engine enabled: loaded %d learned domain rules", len(db_rules))
         else:
             logger.info("Rule engine disabled: all emails go to LLM")
+
+        # ── Phase 2c: build per-user LLM client from DB-stored AI service ─────
+        user_llm_client = None
+        if user_settings and user_settings.active_ai_service_id:
+            from app.models.user import UserAIService
+            from app.api._account_helpers import _decrypt_secret
+            from app.classifier.llm_client import build_user_client
+            ai_svc = (await session.execute(
+                select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
+            )).scalar_one_or_none()
+            if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
+                try:
+                    decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
+                    user_llm_client = build_user_client(
+                        provider=ai_svc.provider,
+                        base_url=ai_svc.base_url,
+                        api_key=decrypted_key,
+                        model_id=ai_svc.model_id,
+                    )
+                    logger.info("Using DB AI service: %s (%s)", ai_svc.display_name, ai_svc.provider)
+                except Exception as exc:
+                    logger.error("Failed to build user LLM client from DB service: %s", exc)
 
         # ── Phase 3: classify all new emails concurrently ─────────────────────
         sem = asyncio.Semaphore(_LLM_CONCURRENCY)
@@ -156,6 +183,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                     session=session,
                     rule_engine_enabled=rule_engine_enabled,
                     db_rules=db_rules,
+                    llm_client_override=user_llm_client,
                 )
             for warning in result.warnings:
                 add_alert("error", warning, source="classifier")

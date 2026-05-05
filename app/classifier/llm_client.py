@@ -343,3 +343,25 @@ class MultiLLMClient:
 
 llm_client = MultiLLMClient()
 LLMClient = MultiLLMClient
+
+
+_KNOWN_BASE_URLS: dict[str, str] = {
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "grok": "https://api.x.ai/v1",
+    "scaleway": "https://api.scaleway.ai/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
+}
+
+
+def build_user_client(provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
+    """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
+    resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
+    if not resolved_url:
+        logger.warning("No base_url for provider %r and not in known list — using env-var client only", provider)
+        return llm_client
+
+    client = MultiLLMClient()
+    user_provider = _Provider(name=provider, base_url=resolved_url, api_key=api_key, model=model_id)
+    # Prepend user's provider; skip any env-var provider with the same name to avoid double-registration
+    client._providers = [user_provider] + [p for p in client._providers if p.name != provider]
+    return client

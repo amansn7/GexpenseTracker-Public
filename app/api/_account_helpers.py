@@ -53,6 +53,15 @@ def _encrypt_secret(secret: Optional[str]) -> Optional[str]:
     return Fernet(key).encrypt(secret.encode("utf-8")).decode("utf-8")
 
 
+def _decrypt_secret(encrypted: Optional[str]) -> Optional[str]:
+    if not encrypted:
+        return None
+    from cryptography.fernet import Fernet
+
+    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
+    return Fernet(key).decrypt(encrypted.encode("utf-8")).decode("utf-8")
+
+
 def _profile_dict(profile: UserProfile) -> dict:
     return {
         "full_name": profile.full_name,
