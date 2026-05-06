@@ -495,6 +495,376 @@ const AccessSection = ({ account }) => {
   );
 };
 
+// ── Admin sections (inline, use accountStyles directly) ────────────────────────
+
+const AdminFetchRangeSection = () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [afterDate,  setAfterDate]  = React.useState(today);
+  const [beforeDate, setBeforeDate] = React.useState(today);
+  const [loading, setLoading] = React.useState(false);
+  const [result,  setResult]  = React.useState(null);
+  const [error,   setError]   = React.useState(null);
+
+  const run = async () => {
+    if (!afterDate || !beforeDate || loading) return;
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate });
+      setResult(r);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Fetch Email Range</h3>
+      <div style={accountStyles.sectionSub}>— fetch emails from Gmail in a date range, then backfill missing bodies</div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Date range</div><div style={accountStyles.sub}>emails received between these dates</div></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={accountStyles.input} />
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>→</span>
+          <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={accountStyles.input} />
+        </div>
+      </div>
+      <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div/>
+        <div/>
+        <button onClick={run} disabled={loading} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: loading ? 0.65 : 1 }}>
+          {loading ? "Fetching…" : "Fetch + Backfill"}
+        </button>
+      </div>
+      {result && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}</div>}
+      {error  && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+    </div>
+  );
+};
+
+const AdminSyncSection = () => {
+  const [status,   setStatus]   = React.useState(null);
+  const [progress, setProgress] = React.useState(null);
+  const [running,  setRunning]  = React.useState(false);
+  const pollRef = React.useRef(null);
+
+  const loadStatus = () => API.get("/api/sync/status").then(setStatus).catch(() => {});
+
+  const startPoll = React.useCallback(() => {
+    let started = false, attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const p = await API.get("/api/sync/progress");
+        setProgress(p);
+        if (p.running) started = true;
+        if ((!p.running && (started || ["done","error"].includes(p.phase))) || attempts >= 200) {
+          clearInterval(pollRef.current);
+          setRunning(false);
+          loadStatus();
+        }
+      } catch (_) { if (attempts >= 200) { clearInterval(pollRef.current); setRunning(false); } }
+    }, 1500);
+  }, []);
+
+  React.useEffect(() => { loadStatus(); return () => clearInterval(pollRef.current); }, []);
+
+  const trigger = async () => {
+    if (running) return;
+    setRunning(true); setProgress(null);
+    try { await API.post("/api/sync/trigger"); startPoll(); }
+    catch (e) { setRunning(false); alert("Sync trigger failed: " + e.message); }
+  };
+
+  const pct = progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Gmail Sync</h3>
+      <div style={accountStyles.sectionSub}>— trigger a full Gmail sync and watch live progress</div>
+      <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div>
+          <div style={accountStyles.label}>Last synced</div>
+          <div style={accountStyles.sub}>{status?.last_synced_at ? new Date(status.last_synced_at).toLocaleString("en-IN") : "Never synced"}</div>
+        </div>
+        <div/>
+        <button onClick={trigger} disabled={running} style={{ ...accountStyles.btn, ...(!running ? accountStyles.btnPrimary : {}), opacity: running ? 0.65 : 1 }}>
+          {running ? "Syncing…" : "▶ Trigger Sync"}
+        </button>
+      </div>
+      {progress && (
+        <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8, background: "var(--paper-2)", border: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+            <span style={{ fontWeight: 500, textTransform: "capitalize" }}>{progress.phase}</span>
+            <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", fontSize: 12 }}>{progress.current}/{progress.total || "?"} emails</span>
+          </div>
+          <div style={{ height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden", margin: "10px 0 8px" }}>
+            <div style={{ height: "100%", background: "var(--pos)", borderRadius: 2, transition: "width 300ms ease", width: `${pct}%` }} />
+          </div>
+          {progress.tally && (
+            <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+              {[["expense","var(--neg)","Exp"],["income","var(--pos)","Inc"],["ignore","var(--ink-4)","Ign"]].map(([k,c,lbl])=>(
+                <span key={k} style={{ color: c }}>{lbl}: <strong>{progress.tally[k] || 0}</strong></span>
+              ))}
+            </div>
+          )}
+          {progress.phase === "done" && progress.result && (
+            <div style={{ marginTop: 10, fontSize: 13, color: "var(--pos)", fontWeight: 500 }}>✓ Done — {progress.result.processed} classified, {progress.result.skipped} skipped, {progress.result.total_fetched} fetched</div>
+          )}
+          {progress.phase === "error" && <div style={{ marginTop: 10, fontSize: 13, color: "var(--neg)" }}>✗ {progress.error}</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdminFetchPreviewSection = () => {
+  const [limit,   setLimit]   = React.useState(10);
+  const [query,   setQuery]   = React.useState("newer_than:7d");
+  const [loading, setLoading] = React.useState(false);
+  const [result,  setResult]  = React.useState(null);
+  const [error,   setError]   = React.useState(null);
+
+  const run = async () => {
+    setLoading(true); setError(null); setResult(null);
+    try { const r = await API.post("/api/admin/fetch-preview", { limit, query }); setResult(r); }
+    catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const TH = { padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 };
+  const TD = { padding: "10px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", fontSize: 13 };
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Gmail Fetch Preview</h3>
+      <div style={accountStyles.sectionSub}>— pull N emails from Gmail without writing to DB, confirms auth + fetch pipeline</div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Limit</div><div style={accountStyles.sub}>max emails to fetch</div></div>
+        <input type="number" min={1} max={100} value={limit} onChange={e => setLimit(+e.target.value)} style={{ ...accountStyles.input, maxWidth: 120 }} />
+      </div>
+      <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div><div style={accountStyles.label}>Gmail query</div><div style={accountStyles.sub}>Gmail search syntax</div></div>
+        <input value={query} onChange={e => setQuery(e.target.value)} style={accountStyles.input} placeholder="newer_than:7d" />
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+        <button onClick={run} disabled={loading} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: loading ? 0.65 : 1 }}>
+          {loading ? "Fetching…" : "Fetch"}
+        </button>
+      </div>
+      {error && <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+      {result && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 10 }}>Fetched <strong style={{ color: "var(--ink)" }}>{result.count}</strong> emails</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>{["Sender","Subject","Domain","Received","Body chars",""].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <tbody>
+                {result.emails.map(e => (
+                  <tr key={e.gmail_id}>
+                    <td style={{ ...TD, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.sender}</td>
+                    <td style={{ ...TD, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.subject || "(no subject)"}</td>
+                    <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)" }}>{e.sender_domain}</td>
+                    <td style={{ ...TD, whiteSpace: "nowrap", fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)" }}>{new Date(e.received_at).toLocaleDateString("en-IN")}</td>
+                    <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", textAlign: "right" }}>{e.body_chars}</td>
+                    <td style={TD}><a href={e.gmail_link} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontSize: 11, textDecoration: "none" }}>Open ↗</a></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdminClassifySection = () => {
+  const [sender,  setSender]  = React.useState("alerts@hdfcbank.net");
+  const [subject, setSubject] = React.useState("HDFC Bank: Rs.499.00 debited from your account");
+  const [body,    setBody]    = React.useState("Dear Customer,\n\nRs.499.00 has been debited from your HDFC Bank account ending 1234 for payment to Swiggy on 18-Apr-2026.\n\nAvailable balance: Rs.12,340.00");
+  const [loading, setLoading] = React.useState(false);
+  const [result,  setResult]  = React.useState(null);
+  const [error,   setError]   = React.useState(null);
+
+  const run = async () => {
+    setLoading(true); setError(null); setResult(null);
+    try { const r = await API.post("/api/admin/classify-test", { sender, subject, body }); setResult(r); }
+    catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const labelBadge = (l) => ({ expense: { background: "var(--neg-soft)", color: "var(--neg)" }, income: { background: "var(--pos-soft)", color: "var(--pos)" }, ignore: { background: "var(--paper-2)", color: "var(--ink-3)" } }[l] || {});
+  const confColor  = (c) => c >= 0.85 ? "var(--pos)" : c >= 0.65 ? "var(--accent)" : "var(--neg)";
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Classifier Tester</h3>
+      <div style={accountStyles.sectionSub}>— test the LLM classification pipeline with any input, no DB writes</div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Sender</div><div style={accountStyles.sub}>email address of sender</div></div>
+        <input value={sender} onChange={e => setSender(e.target.value)} style={accountStyles.input} placeholder="noreply@bank.com" />
+      </div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Subject</div><div style={accountStyles.sub}>email subject line</div></div>
+        <input value={subject} onChange={e => setSubject(e.target.value)} style={accountStyles.input} placeholder="Rs.X debited from account" />
+      </div>
+      <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div><div style={accountStyles.label}>Body</div><div style={accountStyles.sub}>email body text</div></div>
+        <textarea value={body} onChange={e => setBody(e.target.value)}
+          style={{ ...accountStyles.input, height: 140, resize: "none", lineHeight: 1.6, WebkitAppearance: "none" }}
+          placeholder="Email body text…"
+        />
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+        <button onClick={run} disabled={loading} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: loading ? 0.65 : 1 }}>
+          {loading ? "Classifying…" : "Run Classifier"}
+        </button>
+      </div>
+      {error && <div style={{ marginTop: 14, padding: "10px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+      {result && (
+        <div style={{ marginTop: 16, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 12px", borderRadius: 5, fontSize: 13, fontWeight: 600, ...labelBadge(result.label) }}>{result.label.toUpperCase()}</span>
+            {result.amount != null && <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 400 }}>₹{result.amount.toLocaleString("en-IN")}</span>}
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>conf: <span style={{ fontWeight: 600, color: confColor(result.confidence) }}>{(result.confidence * 100).toFixed(0)}%</span></span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+            {[["Merchant", result.merchant || "—"],["Category", result.category || "—"],["Date", result.txn_date || "—"],["Domain", result.sender_domain || "—"],["Method", result.classifier_method]].map(([k, v]) => (
+              <div key={k} style={{ padding: "10px 12px", background: "var(--card)", borderRadius: 6, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", marginBottom: 3, fontWeight: 500 }}>{k}</div>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdminLLMSection = ({ account, settings }) => {
+  const [data,    setData]    = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const aiServices = account?.ai_services || [];
+  const activeId   = settings?.active_ai_service_id;
+
+  const load = () => { setLoading(true); API.get("/api/llm/status").then(setData).catch(() => {}).finally(() => setLoading(false)); };
+  React.useEffect(() => { load(); }, []);
+
+  const TH = { padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 };
+  const TD = { padding: "11px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", fontSize: 13 };
+  const Pill = ({ on, text }) => <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: on ? "var(--pos-soft)" : "var(--paper-2)", color: on ? "var(--pos)" : "var(--ink-4)" }}>{text}</span>;
+
+  return (
+    <div style={accountStyles.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={accountStyles.sectionTitle}>LLM Providers</h3>
+        <button onClick={load} style={accountStyles.btn}>↻ Refresh</button>
+      </div>
+      <div style={accountStyles.sectionSub}>— priority dispatch list, rate-limit hits persistently demote providers</div>
+
+      {aiServices.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Your AI services</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>{["Service","Model","Provider","Status"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+              <tbody>
+                {aiServices.map(svc => (
+                  <tr key={svc.id}>
+                    <td style={{ ...TD, fontWeight: 600 }}>
+                      {svc.display_name}
+                      {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                    </td>
+                    <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
+                    <td style={{ ...TD, fontSize: 12, color: "var(--ink-3)" }}>{svc.provider}</td>
+                    <td style={TD}><Pill on={svc.enabled} text={svc.enabled ? "Enabled" : "Disabled"}/></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Built-in providers</div>
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
+      {!loading && data && (
+        <>
+          {(data.providers || []).length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No built-in providers configured (no API keys set).</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>{["#","Provider","Status","Rate-limited","Penalty","OK","Fail","Err%"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {data.providers.map((p, i) => (
+                    <tr key={p.name}>
+                      <td style={{ ...TD, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{i + 1}</td>
+                      <td style={{ ...TD, fontWeight: 600 }}>{p.name}</td>
+                      <td style={TD}><span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>{p.available ? "Ready" : "Limited"}</span></td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
+                      <td style={{ ...TD, color: "var(--pos)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.success}</td>
+                      <td style={{ ...TD, color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.fail}</td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>{(p.error_rate * 100).toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {data.config && (
+            <div style={{ marginTop: 14, display: "flex", gap: 24, fontSize: 13, color: "var(--ink-3)", flexWrap: "wrap" }}>
+              <span>Confidence threshold: <strong style={{ color: "var(--ink)" }}>{data.config.confidence_threshold}</strong></span>
+              <span>Auto-confirm: <strong style={{ color: "var(--ink)" }}>{data.config.auto_confirm_threshold}</strong></span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+const AdminAlertsSection = () => {
+  const [alerts,  setAlerts]  = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const load = () => { setLoading(true); API.get("/api/alerts").then(setAlerts).catch(() => setAlerts([])).finally(() => setLoading(false)); };
+  const clear = async () => { await API.post("/api/alerts/clear").catch(() => {}); setAlerts([]); };
+  React.useEffect(() => { load(); }, []);
+
+  const lvlStyle = (l) => ({ error: { background: "var(--neg-soft)", color: "var(--neg)" }, warning: { background: "var(--accent-soft)", color: "var(--accent)" }, info: { background: "var(--pos-soft)", color: "var(--pos)" } }[l] || { background: "var(--paper-2)", color: "var(--ink-3)" });
+
+  return (
+    <div style={accountStyles.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={accountStyles.sectionTitle}>System Alerts</h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={load} style={accountStyles.btn}>↻ Refresh</button>
+          {alerts.length > 0 && <button onClick={clear} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Clear All ({alerts.length})</button>}
+        </div>
+      </div>
+      <div style={accountStyles.sectionSub}>— LLM failures, rate-limit hits, and other system events</div>
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
+      {!loading && alerts.length === 0 && (
+        <div style={{ fontSize: 13, color: "var(--pos)", fontWeight: 500, padding: "14px 16px", background: "var(--pos-soft)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8 }}>✓ No alerts — all clear</div>
+      )}
+      {alerts.map((a, i) => (
+        <div key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 0", borderBottom: i < alerts.length - 1 ? "1px dashed var(--line)" : "none" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "4px 10px", borderRadius: 5, fontSize: 12, fontWeight: 600, flexShrink: 0, minWidth: 64, ...lvlStyle(a.level) }}>{a.level}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.5, wordBreak: "break-word" }}>{a.message}</div>
+            <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+              {a.source && <span>{a.source}</span>}
+              {a.timestamp && <span>{new Date(a.timestamp).toLocaleTimeString("en-IN")}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
@@ -1080,12 +1450,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--neg)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20 }}>
             // Admin — Owner Only
           </div>
-          <div style={accountStyles.section}><FetchRangeSection /></div>
-          <div style={accountStyles.section}><SyncSection /></div>
-          <div style={accountStyles.section}><FetchPreviewSection /></div>
-          <div style={accountStyles.section}><ClassifyTestSection /></div>
-          <div style={accountStyles.section}><LLMStatusSection account={account} settings={settings} /></div>
-          <div style={accountStyles.section}><AlertsSection /></div>
+          <AdminFetchRangeSection />
+          <AdminSyncSection />
+          <AdminFetchPreviewSection />
+          <AdminClassifySection />
+          <AdminLLMSection account={account} settings={settings} />
+          <AdminAlertsSection />
         </>
       )}
       </div>
