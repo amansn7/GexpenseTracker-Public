@@ -762,58 +762,51 @@ const AdminLLMSection = ({ account, settings }) => {
       </div>
       <div style={accountStyles.sectionSub}>— priority dispatch list, rate-limit hits persistently demote providers</div>
 
-      {aiServices.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Your AI services</div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{["Service","Model","Provider","Status"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
-              <tbody>
-                {aiServices.map(svc => (
-                  <tr key={svc.id}>
-                    <td style={{ ...TD, fontWeight: 600 }}>
-                      {svc.display_name}
-                      {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
-                    </td>
-                    <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
-                    <td style={{ ...TD, fontSize: 12, color: "var(--ink-3)" }}>{svc.provider}</td>
-                    <td style={TD}><Pill on={svc.enabled} text={svc.enabled ? "Enabled" : "Disabled"}/></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Built-in providers</div>
+      {/* Unified table: DB services + built-in providers */}
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
-      {!loading && data && (
+      {!loading && (
         <>
-          {(data.providers || []).length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No built-in providers configured (no API keys set).</div>
+          {aiServices.length === 0 && (data?.providers || []).length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No AI services configured.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr>{["#","Provider","Status","Rate-limited","Penalty","OK","Fail","Err%"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
+                <thead><tr>{["Source","Service","Model","Status","Rate-limited","Penalty","OK/Fail"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {data.providers.map((p, i) => (
-                    <tr key={p.name}>
-                      <td style={{ ...TD, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{i + 1}</td>
+                  {aiServices.map(svc => (
+                    <tr key={`db-${svc.id}`}>
+                      <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span></td>
+                      <td style={{ ...TD, fontWeight: 600 }}>
+                        {svc.display_name}
+                        {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 5px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                      </td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
+                      <td style={TD}><Pill on={svc.enabled} text={svc.enabled ? "Enabled" : "Disabled"}/></td>
+                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
+                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
+                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
+                    </tr>
+                  ))}
+                  {(data?.providers || []).map((p, i) => (
+                    <tr key={`builtin-${p.name}`}>
+                      <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
                       <td style={{ ...TD, fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
                       <td style={TD}><span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>{p.available ? "Ready" : "Limited"}</span></td>
                       <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
                       <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
-                      <td style={{ ...TD, color: "var(--pos)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.success}</td>
-                      <td style={{ ...TD, color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.fail}</td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>{(p.error_rate * 100).toFixed(0)}%</td>
+                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
+                        <span style={{ color: "var(--pos)" }}>{p.success}</span>
+                        <span style={{ color: "var(--ink-4)" }}> / </span>
+                        <span style={{ color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail}</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          {data.config && (
+          {data?.config && (
             <div style={{ marginTop: 14, display: "flex", gap: 24, fontSize: 13, color: "var(--ink-3)", flexWrap: "wrap" }}>
               <span>Confidence threshold: <strong style={{ color: "var(--ink)" }}>{data.config.confidence_threshold}</strong></span>
               <span>Auto-confirm: <strong style={{ color: "var(--ink)" }}>{data.config.auto_confirm_threshold}</strong></span>
@@ -902,10 +895,15 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
   const [adminTab, setAdminTab] = React.useState(false);
+  const [llmStatus, setLlmStatus] = React.useState(null);
 
   React.useEffect(() => {
     setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
   }, [settings.monthly_ai_budget]);
+
+  React.useEffect(() => {
+    API.get("/api/llm/status").then(setLlmStatus).catch(() => {});
+  }, []);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -1292,6 +1290,29 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             Preferred-service selection is saved with your account settings. Parser routing and budget enforcement depend on usage integration.
           </div>
         </div>
+
+        {/* Built-in providers (read-only, from env config) */}
+        {llmStatus && (llmStatus.providers || []).length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 8 }}>Built-in providers</div>
+            {llmStatus.providers.map((p, i) => (
+              <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 0", borderBottom: i < llmStatus.providers.length - 1 ? "1px dashed var(--line)" : "none", flexWrap: "wrap" }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: "var(--ink-3)", textTransform: "uppercase" }}>
+                  {p.name.slice(0, 2)}
+                </div>
+                <div style={{ flex: 1, minWidth: 140 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                    {p.model || "—"}{p.success + p.fail > 0 ? ` · ${p.success} ok / ${p.fail} fail` : ""}
+                  </div>
+                </div>
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 3, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
+                  {p.available ? "Ready" : p.rate_limited_secs > 0 ? `Rate limited ${p.rate_limited_secs}s` : "Unavailable"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ marginTop: 14, padding: "16px 18px", border: "1px dashed var(--line)", borderRadius: 6, background: "var(--paper)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
