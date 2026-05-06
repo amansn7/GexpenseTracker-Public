@@ -1080,12 +1080,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--neg)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20 }}>
             // Admin — Owner Only
           </div>
-          <FetchRangeSection />
-          <SyncSection />
-          <FetchPreviewSection />
-          <ClassifyTestSection />
-          <LLMStatusSection />
-          <AlertsSection />
+          <div style={accountStyles.section}><FetchRangeSection /></div>
+          <div style={accountStyles.section}><SyncSection /></div>
+          <div style={accountStyles.section}><FetchPreviewSection /></div>
+          <div style={accountStyles.section}><ClassifyTestSection /></div>
+          <div style={accountStyles.section}><LLMStatusSection /></div>
+          <div style={accountStyles.section}><AlertsSection /></div>
         </>
       )}
       </div>

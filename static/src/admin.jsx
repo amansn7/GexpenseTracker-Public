@@ -96,7 +96,7 @@ const SyncSection = () => {
   const phase = progress?.phase || "idle";
 
   return (
-    <div style={S.section}>
+    <>
       <h3 style={S.sectionTitle}>Gmail Sync</h3>
       <div style={S.sectionSub}>— trigger a full Gmail sync and watch live progress</div>
 
@@ -153,7 +153,7 @@ const SyncSection = () => {
           )}
         </div>
       )}
-    </div>
+    </>
   );
 };
 
@@ -176,7 +176,7 @@ const FetchPreviewSection = () => {
   };
 
   return (
-    <div style={S.section}>
+    <>
       <h3 style={S.sectionTitle}>Gmail Fetch Preview</h3>
       <div style={S.sectionSub}>— pull N emails from Gmail without writing to DB, confirms auth + fetch pipeline</div>
 
@@ -228,7 +228,7 @@ const FetchPreviewSection = () => {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 };
 
@@ -252,7 +252,7 @@ const ClassifyTestSection = () => {
   };
 
   return (
-    <div style={S.section}>
+    <>
       <h3 style={S.sectionTitle}>Classifier Tester</h3>
       <div style={S.sectionSub}>— test the LLM classification pipeline with any input, no DB writes</div>
 
@@ -311,7 +311,7 @@ const ClassifyTestSection = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
@@ -328,7 +328,7 @@ const LLMStatusSection = () => {
   useEffect(() => { load(); }, []);
 
   return (
-    <div style={S.section}>
+    <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>LLM Providers</h3>
         <button style={S.btn} onClick={load}>Refresh</button>
@@ -378,7 +378,7 @@ const LLMStatusSection = () => {
           )}
         </>
       )}
-    </div>
+    </>
   );
 };
 
@@ -407,7 +407,7 @@ const AlertsSection = () => {
   }[l] || { background: "var(--paper-2)", color: "var(--ink-3)" });
 
   return (
-    <div style={S.section}>
+    <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>System Alerts</h3>
         <div style={{ display: "flex", gap: 8 }}>
@@ -435,7 +435,7 @@ const AlertsSection = () => {
           )}
         </div>
       ))}
-    </div>
+    </>
   );
 };
 
@@ -461,7 +461,7 @@ const FetchRangeSection = () => {
   const disabled = !afterDate || !beforeDate || loading;
 
   return (
-    <div style={S.section}>
+    <>
       <h3 style={S.sectionTitle}>Fetch Email Range</h3>
       <div style={S.sectionSub}>— fetch emails from Gmail in a date range, then backfill missing bodies</div>
       <div style={S.row}>
@@ -483,7 +483,7 @@ const FetchRangeSection = () => {
         </div>
       )}
       {error && <div style={{ color: "var(--neg)", fontSize: 12 }}>✗ {error}</div>}
-    </div>
+    </>
   );
 };
 
@@ -495,11 +495,11 @@ const AdminView = () => (
       <div style={S.kicker}>System</div>
       <h1 style={S.h1}>Admin</h1>
     </div>
-    <SyncSection />
-    <FetchPreviewSection />
-    <ClassifyTestSection />
-    <LLMStatusSection />
-    <AlertsSection />
+    <div style={S.section}><SyncSection /></div>
+    <div style={S.section}><FetchPreviewSection /></div>
+    <div style={S.section}><ClassifyTestSection /></div>
+    <div style={S.section}><LLMStatusSection /></div>
+    <div style={S.section}><AlertsSection /></div>
   </div>
 );
 
