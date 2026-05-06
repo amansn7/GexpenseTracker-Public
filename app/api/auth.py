@@ -275,7 +275,6 @@ async def auth_status():
 
 @router.get("/auth/allowlist")
 async def get_allowlist(
-    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -290,7 +289,6 @@ async def get_allowlist(
 @router.post("/auth/allowlist")
 async def add_to_allowlist(
     body: dict,
-    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -313,7 +311,6 @@ async def add_to_allowlist(
 @router.delete("/auth/allowlist/{email}")
 async def remove_from_allowlist(
     email: str,
-    _: None = Depends(require_dev),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

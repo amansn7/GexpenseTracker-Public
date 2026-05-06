@@ -160,7 +160,7 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                 try:
                     decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
                     user_llm_client = build_user_client(
-                        user_id=user.id,
+                        user_id=user_id,
                         provider=ai_svc.provider,
                         base_url=ai_svc.base_url,
                         api_key=decrypted_key,
@@ -354,7 +354,7 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
             if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
                 try:
                     user_llm_client = build_user_client(
-                        user_id=user.id,
+                        user_id=user_id,
                         provider=ai_svc.provider,
                         base_url=ai_svc.base_url,
                         api_key=_decrypt_secret(ai_svc.encrypted_api_key),
