@@ -11,21 +11,21 @@ const S = {
   sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
   sectionSub: { fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, color: "var(--ink-3)", marginBottom: 18 },
   row: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 },
-  label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 5, display: "block" },
-  input: { width: "100%", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" },
-  textarea: { width: "100%", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", resize: "vertical", minHeight: 100 },
-  btn: { padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit", margin: 0 },
+  label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6, display: "block" },
+  input: { width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" },
+  textarea: { width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", resize: "vertical", minHeight: 120, lineHeight: 1.6 },
+  btn: { padding: "9px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit", margin: 0 },
   btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
   btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
   result: { marginTop: 16, padding: "14px 16px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)", fontSize: 12, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", wordBreak: "break-all" },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
-  th: { padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 },
-  td: { padding: "10px 10px", borderBottom: "1px solid var(--line)", verticalAlign: "top", color: "var(--ink-2)" },
-  badge: { display: "inline-block", padding: "2px 7px", borderRadius: 4, fontSize: 11, fontWeight: 500 },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: { padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 },
+  td: { padding: "11px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", color: "var(--ink-2)" },
+  badge: { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 5, fontSize: 12, fontWeight: 600 },
   progress: { marginTop: 12, padding: "14px 16px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)" },
   progressBar: { height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden", margin: "10px 0 8px" },
   progressFill: { height: "100%", background: "var(--pos)", borderRadius: 2, transition: "width 300ms ease" },
-  pill: { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 20, fontSize: 11, fontWeight: 500 },
+  pill: { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500 },
   divider: { height: 1, background: "var(--line)", margin: "20px 0" },
 };
 
@@ -191,7 +191,7 @@ const FetchPreviewSection = () => {
           <input value={query} onChange={e => setQuery(e.target.value)} style={S.input}
             placeholder="newer_than:7d, is:unread, from:hdfc…" />
         </div>
-        <button style={{ ...S.btn, ...S.btnPrimary }} onClick={run} disabled={loading}>
+        <button style={{ ...S.btn, ...S.btnPrimary, alignSelf: "flex-end" }} onClick={run} disabled={loading}>
           {loading ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Fetching…</span> : "Fetch"}
         </button>
       </div>
@@ -256,23 +256,25 @@ const ClassifyTestSection = () => {
       <h3 style={S.sectionTitle}>Classifier Tester</h3>
       <div style={S.sectionSub}>— test the LLM classification pipeline with any input, no DB writes</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 12 }}>
-        <div>
-          <label style={S.label}>Sender</label>
-          <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={S.label}>Sender</label>
+            <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />
+          </div>
+          <div>
+            <label style={S.label}>Subject</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} style={S.input} placeholder="Rs.X debited from account" />
+          </div>
         </div>
         <div>
-          <label style={S.label}>Subject</label>
-          <input value={subject} onChange={e => setSubject(e.target.value)} style={S.input} placeholder="Rs.X debited from account" />
+          <label style={S.label}>Body</label>
+          <textarea value={body} onChange={e => setBody(e.target.value)} style={{ ...S.textarea, minHeight: 140 }} placeholder="Email body text…" />
         </div>
-      </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={S.label}>Body</label>
-        <textarea value={body} onChange={e => setBody(e.target.value)} style={S.textarea} placeholder="Email body text…" rows={5} />
       </div>
 
-      <button style={{ ...S.btn, ...S.btnPrimary }} onClick={run} disabled={loading}>
-        {loading ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Classifying…</span> : "Run Classifier"}
+      <button style={{ ...S.btn, ...S.btnPrimary, width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: 8, padding: "11px 20px", fontSize: 14 }} onClick={run} disabled={loading}>
+        {loading ? <><Spinner /> Classifying…</> : "Run Classifier"}
       </button>
 
       {error && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}>✗ {error}</div>}
@@ -317,11 +319,14 @@ const ClassifyTestSection = () => {
 
 // ── Section: LLM Provider Status ──────────────────────────────────────────────
 
-const LLMStatusSection = () => {
+const LLMStatusSection = ({ account, settings }) => {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const aiServices = (account?.ai_services || []);
+  const activeId = settings?.active_ai_service_id;
 
   const load = () => {
+    setLoading(true);
     API.get("/api/llm/status").then(setData).catch(() => {}).finally(() => setLoading(false));
   };
 
@@ -329,49 +334,91 @@ const LLMStatusSection = () => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>LLM Providers</h3>
-        <button style={S.btn} onClick={load}>Refresh</button>
+        <button style={{ ...S.btn, ...S.btnPrimary, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
+          <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+        </button>
       </div>
       <div style={S.sectionSub}>— priority-ordered dispatch list, rate-limit hits persistently demote providers</div>
 
-      {loading && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Loading…</div>}
-      {data && (
-        <>
-          <table style={S.table}>
-            <thead>
-              <tr>
-                {["#", "Provider", "Model", "Status", "Rate-limited", "Priority", "OK", "Fail", "Err%"].map(h => (
-                  <th key={h} style={S.th}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.providers.map((p, i) => (
-                <tr key={p.name}>
-                  <td style={{ ...S.td, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{i + 1}</td>
-                  <td style={{ ...S.td, fontWeight: 600 }}>{p.name}</td>
-                  <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)" }}>{p.model || "—"}</td>
-                  <td style={S.td}>
-                    <span style={{ ...S.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
-                      {p.available ? "ready" : "limited"}
-                    </span>
-                  </td>
-                  <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>
-                    {p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}
-                  </td>
-                  <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 11 }}>{p.priority_score.toFixed(3)}</td>
-                  <td style={{ ...S.td, color: "var(--pos)", fontFamily: "'Geist Mono', monospace" }}>{p.success}</td>
-                  <td style={{ ...S.td, color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{p.fail}</td>
-                  <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>
-                    {(p.error_rate * 100).toFixed(0)}%
-                  </td>
+      {/* User AI Services from DB */}
+      {aiServices.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Your AI Services</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={S.table}>
+              <thead>
+                <tr>
+                  {["Service", "Model", "Provider", "Status"].map(h => <th key={h} style={S.th}>{h}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {aiServices.map(svc => (
+                  <tr key={svc.id}>
+                    <td style={{ ...S.td, fontWeight: 600 }}>
+                      {svc.display_name}
+                      {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                    </td>
+                    <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{svc.model_id}</td>
+                    <td style={{ ...S.td, fontSize: 12, color: "var(--ink-3)" }}>{svc.provider}{svc.base_url ? ` · ${svc.base_url}` : ""}</td>
+                    <td style={S.td}>
+                      <span style={{ ...S.pill, background: svc.enabled ? "var(--pos-soft)" : "var(--paper-2)", color: svc.enabled ? "var(--pos)" : "var(--ink-4)" }}>
+                        {svc.enabled ? "Enabled" : "Disabled"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Global LLM providers (built-in) */}
+      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Built-in providers</div>
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
+      {!loading && data && (
+        <>
+          {data.providers.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No built-in providers configured (no API keys set).</div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    {["#", "Provider", "Status", "Rate-limited", "Penalty", "OK", "Fail", "Err%"].map(h => (
+                      <th key={h} style={S.th}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.providers.map((p, i) => (
+                    <tr key={p.name}>
+                      <td style={{ ...S.td, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{i + 1}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{p.name}</td>
+                      <td style={S.td}>
+                        <span style={{ ...S.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
+                          {p.available ? "Ready" : "Limited"}
+                        </span>
+                      </td>
+                      <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>
+                        {p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}
+                      </td>
+                      <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
+                      <td style={{ ...S.td, color: "var(--pos)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.success}</td>
+                      <td style={{ ...S.td, color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.fail}</td>
+                      <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>
+                        {(p.error_rate * 100).toFixed(0)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           {data.config && (
-            <div style={{ marginTop: 14, display: "flex", gap: 20, fontSize: 12, color: "var(--ink-3)" }}>
+            <div style={{ marginTop: 14, display: "flex", gap: 24, fontSize: 13, color: "var(--ink-3)", flexWrap: "wrap" }}>
               <span>Confidence threshold: <strong style={{ color: "var(--ink)" }}>{data.config.confidence_threshold}</strong></span>
               <span>Auto-confirm threshold: <strong style={{ color: "var(--ink)" }}>{data.config.auto_confirm_threshold}</strong></span>
             </div>
@@ -408,31 +455,37 @@ const AlertsSection = () => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>System Alerts</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={S.btn} onClick={load}>Refresh</button>
-          {alerts.length > 0 && <button style={{ ...S.btn, ...S.btnDanger }} onClick={clear}>Clear All</button>}
+          <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+          </button>
+          {alerts.length > 0 && (
+            <button style={{ ...S.btn, ...S.btnDanger }} onClick={clear}>Clear All ({alerts.length})</button>
+          )}
         </div>
       </div>
-      <div style={{ ...S.sectionSub, marginBottom: alerts.length ? 14 : 0 }}>
+      <div style={{ ...S.sectionSub, marginBottom: alerts.length ? 16 : 0 }}>
         — LLM failures, rate-limit hits, and other system events
       </div>
 
-      {loading && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Loading…</div>}
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
       {!loading && alerts.length === 0 && (
-        <div style={{ fontSize: 12, color: "var(--ink-4)", fontStyle: "italic" }}>No alerts. All clear.</div>
+        <div style={{ fontSize: 13, color: "var(--pos)", fontWeight: 500, padding: "14px 16px", background: "var(--pos-soft)", borderRadius: 6, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>✓</span> No alerts — all clear
+        </div>
       )}
       {alerts.map((a, i) => (
-        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 0", borderBottom: i < alerts.length - 1 ? "1px dashed var(--line)" : "none" }}>
-          <span style={{ ...S.badge, ...levelColor(a.level), flexShrink: 0 }}>{a.level}</span>
-          <div style={{ flex: 1, fontSize: 12, color: "var(--ink-2)" }}>{a.message}</div>
-          {a.source && <span style={{ fontSize: 11, color: "var(--ink-4)", flexShrink: 0 }}>{a.source}</span>}
-          {a.timestamp && (
-            <span style={{ fontSize: 11, color: "var(--ink-4)", flexShrink: 0, fontFamily: "'Geist Mono', monospace" }}>
-              {new Date(a.timestamp).toLocaleTimeString("en-IN")}
-            </span>
-          )}
+        <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 0", borderBottom: i < alerts.length - 1 ? "1px solid var(--line)" : "none" }}>
+          <span style={{ ...S.badge, ...levelColor(a.level), flexShrink: 0, minWidth: 60, justifyContent: "center" }}>{a.level}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.5, wordBreak: "break-all" }}>{a.message}</div>
+            <div style={{ display: "flex", gap: 12, marginTop: 4, fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+              {a.source && <span>{a.source}</span>}
+              {a.timestamp && <span>{new Date(a.timestamp).toLocaleTimeString("en-IN")}</span>}
+            </div>
+          </div>
         </div>
       ))}
     </>
@@ -473,7 +526,7 @@ const FetchRangeSection = () => {
           <label style={S.label}>To</label>
           <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={S.input} />
         </div>
-        <button style={{ ...S.btn, ...(disabled ? {} : S.btnPrimary), opacity: disabled ? 0.5 : 1 }} onClick={run} disabled={disabled}>
+        <button style={{ ...S.btn, ...(disabled ? {} : S.btnPrimary), opacity: disabled ? 0.5 : 1, padding: "9px 24px", alignSelf: "flex-end" }} onClick={run} disabled={disabled}>
           {loading ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Fetching…</span> : "Fetch + Backfill"}
         </button>
       </div>

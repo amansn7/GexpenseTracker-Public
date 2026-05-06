@@ -1084,7 +1084,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div style={accountStyles.section}><SyncSection /></div>
           <div style={accountStyles.section}><FetchPreviewSection /></div>
           <div style={accountStyles.section}><ClassifyTestSection /></div>
-          <div style={accountStyles.section}><LLMStatusSection /></div>
+          <div style={accountStyles.section}><LLMStatusSection account={account} settings={settings} /></div>
           <div style={accountStyles.section}><AlertsSection /></div>
         </>
       )}
