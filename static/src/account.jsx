@@ -1076,32 +1076,17 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </>)}
 
       {adminTab && account?.role === "owner" && (
-        <div style={{ background: "#0d0d0d", borderRadius: 8, padding: 20, fontFamily: "'Geist Mono', monospace" }}>
-          <div style={{ color: "#ef4444", fontSize: 10, fontWeight: 700, letterSpacing: "1.5px", marginBottom: 18 }}>
-            // ADMIN — OWNER ONLY
+        <>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--neg)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20 }}>
+            // Admin — Owner Only
           </div>
           <FetchRangeSection />
-          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
-            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ GMAIL SYNC</div>
-            <SyncSection />
-          </div>
-          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
-            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ FETCH PREVIEW</div>
-            <FetchPreviewSection />
-          </div>
-          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
-            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ CLASSIFY TEST</div>
-            <ClassifyTestSection />
-          </div>
-          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14, marginBottom: 10 }}>
-            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ LLM STATUS</div>
-            <LLMStatusSection />
-          </div>
-          <div style={{ border: "1px solid #1f1f1f", borderRadius: 6, padding: 14 }}>
-            <div style={{ color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10 }}>▶ ALERTS</div>
-            <AlertsSection />
-          </div>
-        </div>
+          <SyncSection />
+          <FetchPreviewSection />
+          <ClassifyTestSection />
+          <LLMStatusSection />
+          <AlertsSection />
+        </>
       )}
       </div>
     </div>

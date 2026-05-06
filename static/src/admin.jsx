@@ -100,16 +100,15 @@ const SyncSection = () => {
       <div style={S.sectionTitle}>Gmail Sync</div>
       <div style={S.sectionSub}>Trigger a full Gmail sync and watch live progress.</div>
 
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <span style={{ fontSize: 12, color: status?.last_synced_at ? "var(--ink-3)" : "var(--ink-4)" }}>
+          {status?.last_synced_at
+            ? `Last synced: ${new Date(status.last_synced_at).toLocaleString("en-IN")}`
+            : "Never synced"}
+        </span>
         <button style={{ ...S.btn, ...(running ? {} : S.btnPrimary) }} onClick={trigger} disabled={running}>
           {running ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Syncing…</span> : "▶ Trigger Sync"}
         </button>
-        {status?.last_synced_at && (
-          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>
-            Last synced: {new Date(status.last_synced_at).toLocaleString("en-IN")}
-          </span>
-        )}
-        {!status?.last_synced_at && <span style={{ fontSize: 12, color: "var(--ink-4)" }}>Never synced</span>}
       </div>
 
       {progress && (
@@ -449,18 +448,6 @@ const FetchRangeSection = () => {
   const [result,     setResult]     = React.useState(null);
   const [error,      setError]      = React.useState(null);
 
-  const T = {
-    section: { border: "1px solid rgba(16,185,129,0.25)", borderRadius: 6, padding: 14, marginBottom: 16 },
-    header:  { color: "#10b981", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", marginBottom: 10, fontFamily: "'Geist Mono', monospace" },
-    label:   { color: "#6b7280", fontSize: 9, letterSpacing: "0.5px", marginBottom: 4, textTransform: "uppercase", display: "block", fontFamily: "'Geist Mono', monospace" },
-    input:   { background: "#1a1a1a", border: "1px solid #333", borderRadius: 4, padding: "6px 10px", color: "#e5e5e5", fontSize: 11, fontFamily: "'Geist Mono', monospace", outline: "none", width: "100%", boxSizing: "border-box" },
-    btn:     { background: "#10b981", color: "#0d0d0d", border: "none", borderRadius: 4, padding: "7px 14px", fontSize: 11, fontFamily: "'Geist Mono', monospace", fontWeight: 700, cursor: "pointer", letterSpacing: "0.5px" },
-    btnDis:  { background: "#1a3a2a", color: "#4b7a62", cursor: "default" },
-    hint:    { color: "#4b5563", fontSize: 10, fontFamily: "'Geist Mono', monospace", marginTop: 6 },
-    result:  { marginTop: 10, color: "#10b981", fontSize: 11, fontFamily: "'Geist Mono', monospace" },
-    err:     { marginTop: 10, color: "#ef4444", fontSize: 11, fontFamily: "'Geist Mono', monospace" },
-  };
-
   const run = async () => {
     if (!afterDate || !beforeDate || loading) return;
     setLoading(true); setError(null); setResult(null);
@@ -474,28 +461,28 @@ const FetchRangeSection = () => {
   const disabled = !afterDate || !beforeDate || loading;
 
   return (
-    <div style={T.section}>
-      <div style={T.header}>▶ FETCH EMAIL RANGE</div>
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 8 }}>
+    <div style={S.section}>
+      <div style={S.sectionTitle}>Fetch Email Range</div>
+      <div style={S.sectionSub}>Fetch emails from Gmail in a date range, then backfill missing bodies.</div>
+      <div style={S.row}>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={T.label}>From</label>
-          <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={T.input} />
+          <label style={S.label}>From</label>
+          <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={S.input} />
         </div>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={T.label}>To</label>
-          <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={T.input} />
+          <label style={S.label}>To</label>
+          <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={S.input} />
         </div>
-        <button style={{ ...T.btn, ...(disabled ? T.btnDis : {}) }} onClick={run} disabled={disabled}>
-          {loading ? "FETCHING…" : "FETCH + BACKFILL"}
+        <button style={{ ...S.btn, ...(disabled ? {} : S.btnPrimary), opacity: disabled ? 0.5 : 1 }} onClick={run} disabled={disabled}>
+          {loading ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Fetching…</span> : "Fetch + Backfill"}
         </button>
       </div>
-      <div style={T.hint}>Fetches new emails from Gmail in range, then backfills missing bodies. Owner only.</div>
       {result && (
-        <div style={T.result}>
+        <div style={{ fontSize: 12, color: "var(--pos)" }}>
           ✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}
         </div>
       )}
-      {error && <div style={T.err}>✗ {error}</div>}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12 }}>✗ {error}</div>}
     </div>
   );
 };
