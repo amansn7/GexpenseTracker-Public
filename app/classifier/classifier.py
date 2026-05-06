@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
 from app.classifier.llm_client import llm_client, MultiLLMClient
 from app.classifier.merchant import extract_raw_merchant, normalize_merchant
+from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
 
@@ -93,9 +94,16 @@ async def classify_email(
     llm_result = None
     result_warnings: List[str] = []
 
+    pre_extraction = rule_engine_adapter.extract(subject, body_snippet)
+    logger.debug("Pre-extraction for email %s: %s", email_id, pre_extraction)
+
     active_client = llm_client_override or llm_client
     try:
-        verbose = await active_client.classify_verbose(sender, subject, body_snippet, categories=user_categories)
+        verbose = await active_client.classify_verbose(
+            sender, subject, body_snippet,
+            categories=user_categories,
+            pre_extraction=pre_extraction,
+        )
         llm_result = verbose["result"]
         provider = verbose["provider"]
         model_name = verbose["model"]

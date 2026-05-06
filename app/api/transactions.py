@@ -10,6 +10,7 @@ from datetime import date
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User
+from app.classifier.merchant_store import merchant_store
 router = APIRouter()
 
 class TransactionPatch(BaseModel):
@@ -322,6 +323,18 @@ async def patch_transaction(
         t.status = patch.status
 
     await db.commit()
+
+    # Record merchant→category correction for future pre-extraction hints
+    final_merchant = patch.merchant if patch.merchant is not None else t.merchant
+    final_category = patch.category if patch.category is not None else t.category
+    if final_merchant and final_category:
+        try:
+            await merchant_store.correct(db, current_user.id, final_merchant, final_category)
+            await db.commit()
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("MerchantStore.correct failed: %s", exc)
+
     await db.refresh(t)
     return {"id": t.id, "status": t.status}
 

@@ -28,6 +28,31 @@ _SYSTEM = (
 )
 
 # Full classify + extract — used during initial sync / reclassify
+_PRE_EXTRACTION_BLOCK = """
+PRE-EXTRACTED FACTS (regex-based — verify against email; override if contradicted):
+{lines}
+"""
+
+
+def _build_pre_extraction_block(pre: dict) -> str:
+    lines = []
+    if pre.get("amount") is not None:
+        lines.append(f"- Amount: {pre['amount']} INR")
+    if pre.get("date"):
+        lines.append(f"- Date: {pre['date']}")
+    if pre.get("direction") not in (None, "unknown"):
+        lines.append(f"- Direction: {pre['direction']}")
+    if pre.get("mode") not in (None, "unknown"):
+        lines.append(f"- Mode: {pre['mode']}")
+    if pre.get("merchant"):
+        lines.append(f"- Merchant: {pre['merchant']}")
+    if pre.get("category_hint"):
+        lines.append(f"- Category hint: {pre['category_hint']}")
+    if not lines:
+        return ""
+    return _PRE_EXTRACTION_BLOCK.format(lines="\n".join(lines))
+
+
 _USER_TEMPLATE = """Classify this financial email and extract transaction details.
 
 CLASSIFICATION RULES:
@@ -267,6 +292,7 @@ class MultiLLMClient:
     async def classify(
         self, sender: str, subject: str, body_snippet: str,
         categories: Optional[str] = None,
+        pre_extraction: Optional[dict] = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
         if not ranked:
@@ -283,6 +309,8 @@ class MultiLLMClient:
             sender=sender, subject=subject, body_snippet=body_snippet,
             categories=categories or self._DEFAULT_CATEGORIES,
         )
+        if pre_extraction:
+            prompt = _build_pre_extraction_block(pre_extraction) + prompt
         last_error: Optional[Exception] = None
         for provider in ranked:
             try:
@@ -367,6 +395,7 @@ class MultiLLMClient:
     async def classify_verbose(
         self, sender: str, subject: str, body_snippet: str,
         categories: Optional[str] = None,
+        pre_extraction: Optional[dict] = None,
     ) -> dict:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
@@ -377,6 +406,8 @@ class MultiLLMClient:
             sender=sender, subject=subject, body_snippet=body_snippet,
             categories=categories or self._DEFAULT_CATEGORIES,
         )
+        if pre_extraction:
+            prompt = _build_pre_extraction_block(pre_extraction) + prompt
         last_error: Optional[Exception] = None
         for provider in ranked:
             try:
