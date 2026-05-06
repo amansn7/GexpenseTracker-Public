@@ -6,17 +6,17 @@ const S = {
   page: { padding: "clamp(18px, 4vw, 32px) clamp(14px, 5vw, 40px)", maxWidth: 920, margin: "0 auto", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
   section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 16 },
   header: { marginBottom: 28 },
-  kicker: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
-  h1: { fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0", color: "var(--ink)" },
-  sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 17, fontWeight: 500, marginBottom: 4, letterSpacing: "-0.01em" },
+  kicker: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
+  h1: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0", color: "var(--ink)" },
+  sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
   sectionSub: { fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, color: "var(--ink-3)", marginBottom: 18 },
   row: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 },
   label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 5, display: "block" },
-  input: { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" },
-  textarea: { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", resize: "vertical", minHeight: 100 },
-  btn: { padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit", margin: 0 },
-  btnPrimary: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
-  btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", border: "1px solid var(--neg)" },
+  input: { width: "100%", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" },
+  textarea: { width: "100%", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", resize: "vertical", minHeight: 100 },
+  btn: { padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit", margin: 0 },
+  btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
+  btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
   result: { marginTop: 16, padding: "14px 16px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)", fontSize: 12, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", wordBreak: "break-all" },
   table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
   th: { padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 },
@@ -97,8 +97,8 @@ const SyncSection = () => {
 
   return (
     <div style={S.section}>
-      <div style={S.sectionTitle}>Gmail Sync</div>
-      <div style={S.sectionSub}>Trigger a full Gmail sync and watch live progress.</div>
+      <h3 style={S.sectionTitle}>Gmail Sync</h3>
+      <div style={S.sectionSub}>— trigger a full Gmail sync and watch live progress</div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <span style={{ fontSize: 12, color: status?.last_synced_at ? "var(--ink-3)" : "var(--ink-4)" }}>
@@ -177,8 +177,8 @@ const FetchPreviewSection = () => {
 
   return (
     <div style={S.section}>
-      <div style={S.sectionTitle}>Gmail Fetch Preview</div>
-      <div style={S.sectionSub}>Pull N emails from Gmail without writing to DB. Confirms auth + fetch pipeline.</div>
+      <h3 style={S.sectionTitle}>Gmail Fetch Preview</h3>
+      <div style={S.sectionSub}>— pull N emails from Gmail without writing to DB, confirms auth + fetch pipeline</div>
 
       <div style={S.row}>
         <div style={{ width: 90 }}>
@@ -253,8 +253,8 @@ const ClassifyTestSection = () => {
 
   return (
     <div style={S.section}>
-      <div style={S.sectionTitle}>Classifier Tester</div>
-      <div style={S.sectionSub}>Test the LLM classification pipeline with any input. No DB writes.</div>
+      <h3 style={S.sectionTitle}>Classifier Tester</h3>
+      <div style={S.sectionSub}>— test the LLM classification pipeline with any input, no DB writes</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div>
@@ -330,10 +330,10 @@ const LLMStatusSection = () => {
   return (
     <div style={S.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-        <div style={S.sectionTitle}>LLM Providers</div>
+        <h3 style={S.sectionTitle}>LLM Providers</h3>
         <button style={S.btn} onClick={load}>Refresh</button>
       </div>
-      <div style={S.sectionSub}>Priority-ordered dispatch list. Rate-limit hits persistently demote providers.</div>
+      <div style={S.sectionSub}>— priority-ordered dispatch list, rate-limit hits persistently demote providers</div>
 
       {loading && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Loading…</div>}
       {data && (
@@ -409,14 +409,14 @@ const AlertsSection = () => {
   return (
     <div style={S.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-        <div style={S.sectionTitle}>System Alerts</div>
+        <h3 style={S.sectionTitle}>System Alerts</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={S.btn} onClick={load}>Refresh</button>
           {alerts.length > 0 && <button style={{ ...S.btn, ...S.btnDanger }} onClick={clear}>Clear All</button>}
         </div>
       </div>
       <div style={{ ...S.sectionSub, marginBottom: alerts.length ? 14 : 0 }}>
-        LLM failures, rate-limit hits, and other system events.
+        — LLM failures, rate-limit hits, and other system events
       </div>
 
       {loading && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>Loading…</div>}
@@ -462,8 +462,8 @@ const FetchRangeSection = () => {
 
   return (
     <div style={S.section}>
-      <div style={S.sectionTitle}>Fetch Email Range</div>
-      <div style={S.sectionSub}>Fetch emails from Gmail in a date range, then backfill missing bodies.</div>
+      <h3 style={S.sectionTitle}>Fetch Email Range</h3>
+      <div style={S.sectionSub}>— fetch emails from Gmail in a date range, then backfill missing bodies</div>
       <div style={S.row}>
         <div style={{ flex: 1, minWidth: 120 }}>
           <label style={S.label}>From</label>
