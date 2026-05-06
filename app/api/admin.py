@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,10 @@ def _require_owner(current_user: User = Depends(get_current_user)) -> User:
 class FetchPreviewBody(BaseModel):
     limit: int = 10
     query: str = "newer_than:7d"
+
+
+class SeedMerchantsBody(BaseModel):
+    merchants: dict[str, Any]  # raw merchant_db.json "merchants" dict
 
 
 @router.post("/admin/fetch-preview")
@@ -116,3 +120,40 @@ async def classify_test(
         "classifier_method": result.classifier_method.value,
         "sender_domain": sender_domain,
     }
+
+
+@router.post("/admin/seed-merchants")
+async def seed_merchants(
+    body: SeedMerchantsBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_require_owner),
+):
+    """Seed merchant→category mappings from ExpenseRuleEngine merchant_db.json merchants dict."""
+    from app.models import MerchantAlias
+    from sqlalchemy import select
+
+    seeded = 0
+    skipped = 0
+    for raw, info in body.merchants.items():
+        key = raw.strip().lower()
+        category = info.get("category")
+        if not key or not category:
+            skipped += 1
+            continue
+        existing = (await db.execute(
+            select(MerchantAlias).where(MerchantAlias.canonical == key)
+        )).scalar_one_or_none()
+        if existing:
+            existing.hit_count += info.get("count", 0)
+            if not existing.category:
+                existing.category = category
+            skipped += 1
+        else:
+            db.add(MerchantAlias(
+                raw=key, canonical=key, category=category,
+                source="seeded", hit_count=info.get("count", 1),
+            ))
+            seeded += 1
+    await db.commit()
+    logger.info("seed-merchants: seeded=%d skipped=%d", seeded, skipped)
+    return {"seeded": seeded, "skipped": skipped}
