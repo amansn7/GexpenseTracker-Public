@@ -33,34 +33,8 @@ const App = () => {
     try {
       setLoading(true);
       setError(null);
-      const now = new Date();
-      const y = now.getFullYear();
-      const mo = now.getMonth(); // 0-indexed
-      const m = String(mo + 1).padStart(2, "0");
-      const lastDay = new Date(y, mo + 1, 0).getDate();
-      const dateFrom = `${y}-${m}-01`;
-      const dateTo   = `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
-
-      // Last 7 days of previous month for income look-back
-      const prevMonthLastDate = new Date(y, mo, 0);
-      const prevMonthLastDay  = prevMonthLastDate.getDate();
-      const prevY  = prevMonthLastDate.getFullYear();
-      const prevM  = String(prevMonthLastDate.getMonth() + 1).padStart(2, "0");
-      const prevWeekStart = String(Math.max(prevMonthLastDay - 6, 1)).padStart(2, "0");
-      const incomeFrom = `${prevY}-${prevM}-${prevWeekStart}`;
-      const incomeTo   = `${prevY}-${prevM}-${String(prevMonthLastDay).padStart(2, "0")}`;
-
-      const [txRaw, incomeRaw] = await Promise.all([
-        API.get(`/api/transactions?date_from=${dateFrom}&date_to=${dateTo}&offset=0&limit=1000`),
-        API.get(`/api/transactions?date_from=${incomeFrom}&date_to=${incomeTo}&label=income&offset=0&limit=200`),
-        API.get("/api/stats/summary"),
-        API.get("/api/stats/category-breakdown"),
-      ]);
-      const currentMonth = txRaw.items.map(transformTransaction);
-      const prevIncome   = incomeRaw.items.map(transformTransaction);
-      const seen = new Set(currentMonth.map(t => t.id));
-      const merged = [...currentMonth, ...prevIncome.filter(t => !seen.has(t.id))];
-      setTransactions(merged);
+      const txRaw = await API.get("/api/transactions?offset=0&limit=500");
+      setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
     } catch (e) {
       setError(e.message);
@@ -199,7 +173,7 @@ const App = () => {
 
   const titles = {
     health:    { title: "Financial Health", sub: "runway · savings rate · monthly net" },
-    inbox:     { title: "Inbox",          sub: `${monthYear} · ${transactions.length} emails parsed` },
+    inbox:     { title: "Inbox",          sub: `${transactions.length} emails parsed` },
     flow:      { title: "Money Flow",     sub: "how the month really unfolded" },
     dashboard: { title: "Dashboard",      sub: "one page, quick read" },
     reports:   { title: "Reports",        sub: "month-by-month" },
