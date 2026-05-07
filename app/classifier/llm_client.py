@@ -452,8 +452,13 @@ _KNOWN_BASE_URLS: dict[str, str] = {
 
 def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
     """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
+    if not api_key:
+        logger.warning("No API key for provider %r — skipping user provider", provider)
+        return llm_client
+    
     resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
-    if provider == "cloudflare" and settings.CLOUDFLARE_ACCOUNT_ID:
+    # For Cloudflare, substitute account_id from env if user didn't provide custom URL
+    if provider == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
         resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
     if not resolved_url:
         logger.warning("No base_url for provider %r and not in known list — using env-var client only", provider)
