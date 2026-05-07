@@ -108,7 +108,7 @@ class _Provider:
     model: str
     extra_headers: dict = field(default_factory=dict)
     rate_limited_until: float = field(default=0.0)
-    rate_limit_count: int = field(default=0)   # cumulative hits — used for persistent demotion
+    rate_limit_count: int = field(default=0)   # cumulative hits - used for persistent demotion
     success_count: int = field(default=0)
     fail_count: int = field(default=0)
 
@@ -120,7 +120,7 @@ class _Provider:
         self.rate_limit_count += 1
         self.rate_limited_until = time.time() + retry_after
         logger.warning(
-            "LLM provider '%s' rate limited (hit #%d) — backing off %ds",
+            "LLM provider '%s' rate limited (hit #%d) - backing off %ds",
             self.name, self.rate_limit_count, retry_after,
         )
         from app.alerts import add_alert
@@ -263,7 +263,7 @@ class MultiLLMClient:
         """
         Available providers sorted by priority_score ascending (best first).
         priority_score = (rate_limit_count * 0.25) + error_rate
-        — each rate-limit hit persistently demotes the provider by 0.25 points.
+        - each rate-limit hit persistently demotes the provider by 0.25 points.
         """
         return sorted(
             [p for p in self._providers if p.available],
@@ -454,7 +454,7 @@ _KNOWN_BASE_URLS: dict[str, str] = {
 def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
     """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
     if not api_key:
-        logger.warning("No API key for provider %r — skipping user provider", provider)
+        logger.warning("No API key for provider %r - skipping user provider", provider)
         return llm_client
     
     resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
@@ -462,7 +462,7 @@ def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_
     if provider == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
         resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
     if not resolved_url:
-        logger.warning("No base_url for provider %r and not in known list — using env-var client only", provider)
+        logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider)
         return llm_client
 
     client = MultiLLMClient(user_id=user_id)
