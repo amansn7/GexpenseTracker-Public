@@ -383,16 +383,20 @@ class MultiLLMClient:
             "temperature": 0.1,
             "max_tokens": 500,
         }
+        api_key_str = str(provider.api_key) if provider.api_key else ""
         headers = {
-            "Authorization": f"Bearer {str(provider.api_key)}",
+            "Authorization": "Bearer " + api_key_str,
             "Content-Type": "application/json",
         }
         for k, v in (provider.extra_headers or {}).items():
             if v:
                 headers[k] = str(v)
+        base_url = str(provider.base_url)
+        model = str(provider.model)
+        payload = {**payload, "model": model}
         async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(
-                f"{provider.base_url}/chat/completions",
+                base_url + "/chat/completions",
                 json=payload,
             )
             response.raise_for_status()
