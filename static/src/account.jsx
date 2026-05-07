@@ -818,6 +818,66 @@ const AdminLLMSection = ({ account, settings }) => {
   );
 };
 
+const AdminLLMTestSection = ({ account }) => {
+  const [provider, setProvider] = React.useState("openai");
+  const [testType, setTestType] = React.useState("classify");
+  const [sender, setSender] = React.useState("alerts@hdfcbank.net");
+  const [subject, setSubject] = React.useState("HDFC Bank: Rs.499.00 debited");
+  const [body, setBody] = React.useState("Rs.499.00 has been debited from your HDFC Bank account ending 1234 for payment to Swiggy.");
+  const [testing, setTesting] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+  const aiServices = account?.ai_services || [];
+
+  const test = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      let prompt;
+      if (testType === "classify") {
+        prompt = `Classify as expense, income, or ignore. Email: From: ${sender}, Subject: ${subject}, Body: ${body}. Respond JSON: {"label":"expense","amount":499,"merchant":"Swiggy","category":"Food","confidence":0.95}`;
+      } else {
+        prompt = "Say 'OK' if you can read this.";
+      }
+      const isUser = aiServices.find(s => s.provider === provider);
+      const res = await fetch("/api/admin/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, is_user_service: !!isUser, prompt })
+      });
+      const data = await res.json();
+      setResult({ ok: res.ok, data });
+    } catch(e) { setResult({ ok: false, data: { error: e.message } }); }
+    setTesting(false);
+  };
+
+  return (
+    <div style={accountStyles.section}>
+      <h3 style={accountStyles.sectionTitle}>Test LLM Provider</h3>
+      <div style={accountStyles.sectionSub}>— verify your LLM service works</div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {["classify", "raw"].map(t => (
+          <button key={t} onClick={() => setTestType(t)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: testType === t ? "var(--ink)" : "transparent", color: testType === t ? "var(--paper)" : "var(--ink-3)" }}>
+            {t === "classify" ? "Transaction" : "Raw"}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
+        <select value={provider} onChange={e => setProvider(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+          {[{ id: "openai", name: "OpenAI" },{ id: "anthropic", name: "Anthropic" },{ id: "groq", name: "Groq" },{ id: "cloudflare", name: "Cloudflare" },...aiServices.map(s => ({ id: s.provider, name: s.display_name }))].map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <button onClick={test} disabled={testing} style={{ ...accountStyles.btn, opacity: testing ? 0.5 : 1 }}>{testing ? "Testing..." : "Test"}</button>
+      </div>
+      {testType === "classify" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <input value={sender} onChange={e => setSender(e.target.value)} placeholder="Sender" style={accountStyles.input} />
+          <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject" style={accountStyles.input} />
+        </div>
+      )}
+      {result && <pre style={{ marginTop: 12, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: result.ok ? "var(--pos)" : "var(--neg)", background: "var(--paper-2)", padding: 10, borderRadius: 6 }}>{JSON.stringify(result.data, null, 2)}</pre>}
+    </div>
+  );
+};
+
 const AdminAlertsSection = () => {
   const [alerts,  setAlerts]  = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -1479,6 +1539,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <AdminFetchPreviewSection />
           <AdminClassifySection />
           <AdminLLMSection account={account} settings={settings} />
+          <AdminLLMTestSection account={account} />
           <AdminAlertsSection />
         </>
       )}

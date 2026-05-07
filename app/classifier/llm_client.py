@@ -386,13 +386,14 @@ class MultiLLMClient:
         headers = {
             "Authorization": f"Bearer {provider.api_key}",
             "Content-Type": "application/json",
-            **provider.extra_headers,
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        for k, v in (provider.extra_headers or {}).items():
+            if v:
+                headers[k] = str(v)
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(
                 f"{provider.base_url}/chat/completions",
                 json=payload,
-                headers=headers,
             )
             response.raise_for_status()
 
