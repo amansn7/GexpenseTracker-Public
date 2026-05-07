@@ -157,3 +157,65 @@ async def seed_merchants(
     await db.commit()
     logger.info("seed-merchants: seeded=%d skipped=%d", seeded, skipped)
     return {"seeded": seeded, "skipped": skipped}
+
+
+class TestProviderBody(BaseModel):
+    provider: str
+    is_user_service: bool = False
+
+
+@router.post("/admin/test-provider")
+async def test_provider(
+    body: TestProviderBody,
+    current_user: User = Depends(_require_owner),
+):
+    """Test a specific LLM provider with a simple prompt."""
+    from app.classifier.llm_client import MultiLLMClient
+
+    client = MultiLLMClient(user_id=current_user.id)
+
+    if body.is_user_service:
+        from app.models import UserAIService
+        from app.api._account_helpers import _decrypt_secret
+        from sqlalchemy import select
+        from app.database import get_db
+
+        async for db in get_db():
+            svc = (await db.execute(
+                select(UserAIService).where(
+                    UserAIService.user_id == current_user.id,
+                    UserAIService.provider == body.provider,
+                    UserAIService.enabled == True,
+                )
+            )).scalar_one_or_none()
+
+            if svc and svc.encrypted_api_key:
+                from app.classifier.llm_client import build_user_client
+
+                api_key = _decrypt_secret(svc.encrypted_api_key)
+                client = build_user_client(
+                    user_id=current_user.id,
+                    provider=svc.provider,
+                    base_url=svc.base_url,
+                    api_key=api_key,
+                    model_id=svc.model_id,
+                )
+            break
+
+    if not client._providers:
+        return {"error": "No providers available"}
+
+    try:
+        ranked = client._ranked_providers()
+        if not ranked:
+            return {"error": "No available providers"}
+
+        p = ranked[0]
+        result = await p.client.chat.completions.create(
+            model=p.model,
+            messages=[{"role": "user", "content": "Say 'OK' if you receive this."}],
+            max_tokens=10,
+        )
+        return {"provider": p.name, "model": p.model, "response": result.choices[0].message.content}
+    except Exception as e:
+        return {"error": str(e)}

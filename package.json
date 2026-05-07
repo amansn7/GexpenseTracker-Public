@@ -1,0 +1,16 @@
+{
+  "name": "claude-context-mcp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@zilliz/claude-context-mcp": "^0.1.12",
+    "langchain": "^1.3.5"
+  }
+}

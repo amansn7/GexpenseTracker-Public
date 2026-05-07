@@ -320,14 +320,29 @@ const ClassifyTestSection = () => {
 // ── Section: LLM Provider Status ──────────────────────────────────────────────
 
 const LLMStatusSection = ({ account, settings }) => {
-  const [data,    setData]    = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState(null);
+  const [testResult, setTestResult] = useState(null);
   const aiServices = (account?.ai_services || []);
   const activeId = settings?.active_ai_service_id;
 
   const load = () => {
     setLoading(true);
     API.get("/api/llm/status").then(setData).catch(() => {}).finally(() => setLoading(false));
+  };
+
+  const testProvider = async (providerName, isUserService = false) => {
+    setTesting(providerName);
+    setTestResult(null);
+    try {
+      const res = await API.post("/api/admin/test-provider", { provider: providerName, is_user_service: isUserService });
+      setTestResult(res.ok ? { success: true, result: res } : { success: false, error: res.detail || "Failed" });
+    } catch (e) {
+      setTestResult({ success: false, error: e.message || "Failed" });
+    } finally {
+      setTesting(null);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -350,7 +365,7 @@ const LLMStatusSection = ({ account, settings }) => {
             <table style={S.table}>
               <thead>
                 <tr>
-                  {["Service", "Model", "Provider", "Status"].map(h => <th key={h} style={S.th}>{h}</th>)}
+                  {["Service", "Model", "Provider", "Status", "Test"].map(h => <th key={h} style={S.th}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -366,6 +381,15 @@ const LLMStatusSection = ({ account, settings }) => {
                       <span style={{ ...S.pill, background: svc.enabled ? "var(--pos-soft)" : "var(--paper-2)", color: svc.enabled ? "var(--pos)" : "var(--ink-4)" }}>
                         {svc.enabled ? "Enabled" : "Disabled"}
                       </span>
+                    </td>
+                    <td style={S.td}>
+                      <button
+                        style={{ ...S.btn, padding: "4px 10px", fontSize: 11, opacity: !svc.enabled || testing === svc.id ? 0.5 : 1 }}
+                        disabled={!svc.enabled || testing === svc.id}
+                        onClick={() => testProvider(svc.provider, true)}
+                      >
+                        {testing === svc.id ? "..." : "Test"}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -411,6 +435,15 @@ const LLMStatusSection = ({ account, settings }) => {
                       <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>
                         {(p.error_rate * 100).toFixed(0)}%
                       </td>
+                      <td style={S.td}>
+                        <button
+                          style={{ ...S.btn, padding: "4px 10px", fontSize: 11, opacity: testing === p.name ? 0.5 : 1 }}
+                          disabled={!p.available || testing === p.name}
+                          onClick={() => testProvider(p.name, false)}
+                        >
+                          {testing === p.name ? "..." : "Test"}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -421,6 +454,21 @@ const LLMStatusSection = ({ account, settings }) => {
             <div style={{ marginTop: 14, display: "flex", gap: 24, fontSize: 13, color: "var(--ink-3)", flexWrap: "wrap" }}>
               <span>Confidence threshold: <strong style={{ color: "var(--ink)" }}>{data.config.confidence_threshold}</strong></span>
               <span>Auto-confirm threshold: <strong style={{ color: "var(--ink)" }}>{data.config.auto_confirm_threshold}</strong></span>
+            </div>
+          )}
+          {testResult && (
+            <div style={{ marginTop: 12, padding: 10, borderRadius: 6, background: testResult.success ? "rgba(46, 204, 113, 0.1)" : "rgba(231, 76, 60, 0.1)", border: `1px solid ${testResult.success ? "var(--pos)" : "var(--neg)"}` }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: testResult.success ? "var(--pos)" : "var(--neg)" }}>
+                {testResult.success ? "Test passed!" : "Test failed"}
+              </div>
+              {testResult.result && (
+                <pre style={{ marginTop: 8, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: "var(--ink-3)", maxHeight: 150, overflow: "auto" }}>
+                  {JSON.stringify(testResult.result, null, 2)}
+                </pre>
+              )}
+              {testResult.error && (
+                <div style={{ marginTop: 8, fontSize: 12, color: "var(--neg)" }}>{testResult.error}</div>
+              )}
             </div>
           )}
         </>
