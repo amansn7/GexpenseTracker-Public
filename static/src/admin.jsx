@@ -363,11 +363,15 @@ const LLMStatusSection = ({ account, settings }) => {
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Your AI Services</div>
           <div style={{ overflowX: "auto" }}>
             <table style={S.table}>
-              <thead>
-                <tr>
-                  {["Service", "Model", "Provider", "Status", "Test"].map(h => <th key={h} style={S.th}>{h}</th>)}
-                </tr>
-              </thead>
+<thead>
+                  <tr>
+                    <th key="service" style={S.th}>Service</th>
+                    <th key="model" style={S.th}>Model</th>
+                    <th key="provider" style={S.th}>Provider</th>
+                    <th key="status" style={S.th}>Status</th>
+                    <th key="test" style={S.th}>Test</th>
+                  </tr>
+                </thead>
               <tbody>
                 {aiServices.map(svc => (
                   <tr key={svc.id}>
@@ -411,9 +415,15 @@ const LLMStatusSection = ({ account, settings }) => {
               <table style={S.table}>
                 <thead>
                   <tr>
-                    {["#", "Provider", "Status", "Rate-limited", "Penalty", "OK", "Fail", "Err%", "Test"].map(h => (
-                      <th key={h} style={S.th}>{h}</th>
-                    ))}
+                    <th key="#" style={S.th}>#</th>
+                    <th key="provider" style={S.th}>Provider</th>
+                    <th key="status" style={S.th}>Status</th>
+                    <th key="ratelimit" style={S.th}>Rate-limited</th>
+                    <th key="penalty" style={S.th}>Penalty</th>
+                    <th key="ok" style={S.th}>OK</th>
+                    <th key="fail" style={S.th}>Fail</th>
+                    <th key="err" style={S.th}>Err%</th>
+                    <th key="test" style={S.th}>Test</th>
                   </tr>
                 </thead>
                 <tbody>
