@@ -377,23 +377,21 @@ class MultiLLMClient:
         payload = {
             "model": str(provider.model),
             "messages": [
-                {"role": "system", "content": _SYSTEM},
-                {"role": "user", "content": user_prompt},
+                {"role": "system", "content": str(_SYSTEM)},
+                {"role": "user", "content": str(user_prompt)},
             ],
             "temperature": 0.1,
             "max_tokens": 500,
         }
         api_key_str = str(provider.api_key) if provider.api_key else ""
         headers = {
-            "Authorization": "Bearer " + api_key_str,
+            "Authorization": f"Bearer {api_key_str}",
             "Content-Type": "application/json",
         }
         for k, v in (provider.extra_headers or {}).items():
             if v:
                 headers[k] = str(v)
         base_url = str(provider.base_url)
-        model = str(provider.model)
-        payload = {**payload, "model": model}
         async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(
                 base_url + "/chat/completions",
@@ -437,6 +435,7 @@ class MultiLLMClient:
                 last_error = exc
                 continue
             except Exception as exc:
+                logger.warning("Provider %s failed: %s", provider.name, str(exc)[:200])
                 provider.fail_count += 1
                 last_error = exc
                 continue
