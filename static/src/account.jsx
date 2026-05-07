@@ -886,6 +886,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   ];
   const [aiForm, setAiForm] = React.useState(emptyAiForm);
   const [editingAiId, setEditingAiId] = React.useState(null);
+  const [editingKeyHint, setEditingKeyHint] = React.useState(null);
   const [aiSaving, setAiSaving] = React.useState(false);
   const [aiError, setAiError] = React.useState(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
@@ -956,9 +957,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       model_id: service.model_id || "",
       base_url: service.base_url || "",
       auth_header: service.auth_header || "bearer",
-      api_key: "",
+      api_key: "",  // Not shown; if empty on save, existing key is preserved
       enabled: service.enabled !== false,
     });
+    setEditingKeyHint(service.api_key_hint || "••••••••");
     setAiError(null);
   };
 
@@ -1353,9 +1355,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div style={{ marginTop: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>API key</div>
-              <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{editingAiId ? "leave blank to keep current key" : "stored encrypted, never logged"}</span>
+              {editingKeyHint && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Current: {editingKeyHint}</span>}
             </div>
-            <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e=>patchAiForm("api_key", e.target.value)} placeholder="sk-..."/>
+            <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e=>patchAiForm("api_key", e.target.value)} placeholder={editingAiId ? "enter new key to update" : "sk-..."}/>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 10 }}>
