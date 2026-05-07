@@ -322,27 +322,12 @@ const ClassifyTestSection = () => {
 const LLMStatusSection = ({ account, settings }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [testing, setTesting] = useState(null);
-  const [testResult, setTestResult] = useState(null);
   const aiServices = (account?.ai_services || []);
   const activeId = settings?.active_ai_service_id;
 
   const load = () => {
     setLoading(true);
     API.get("/api/llm/status").then(setData).catch(() => {}).finally(() => setLoading(false));
-  };
-
-  const testProvider = async (providerName, isUserService = false) => {
-    setTesting(providerName);
-    setTestResult(null);
-    try {
-      const res = await API.post("/api/admin/test-provider", { provider: providerName, is_user_service: isUserService });
-      setTestResult(res.ok ? { success: true, result: res } : { success: false, error: res.detail || "Failed" });
-    } catch (e) {
-      setTestResult({ success: false, error: e.message || "Failed" });
-    } finally {
-      setTesting(null);
-    }
   };
 
   useEffect(() => { load(); }, []);
@@ -369,7 +354,6 @@ const LLMStatusSection = ({ account, settings }) => {
                     <th key="model" style={S.th}>Model</th>
                     <th key="provider" style={S.th}>Provider</th>
                     <th key="status" style={S.th}>Status</th>
-                    <th key="test" style={S.th}>Test</th>
                   </tr>
                 </thead>
               <tbody>
@@ -385,15 +369,6 @@ const LLMStatusSection = ({ account, settings }) => {
                       <span style={{ ...S.pill, background: svc.enabled ? "var(--pos-soft)" : "var(--paper-2)", color: svc.enabled ? "var(--pos)" : "var(--ink-4)" }}>
                         {svc.enabled ? "Enabled" : "Disabled"}
                       </span>
-                    </td>
-                    <td style={S.td}>
-                      <button
-                        style={{ ...S.btn, padding: "4px 10px", fontSize: 11, opacity: !svc.enabled || testing === svc.id ? 0.5 : 1 }}
-                        disabled={!svc.enabled || testing === svc.id}
-                        onClick={() => testProvider(svc.provider, true)}
-                      >
-                        {testing === svc.id ? "..." : "Test"}
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -423,7 +398,6 @@ const LLMStatusSection = ({ account, settings }) => {
                     <th key="ok" style={S.th}>OK</th>
                     <th key="fail" style={S.th}>Fail</th>
                     <th key="err" style={S.th}>Err%</th>
-                    <th key="test" style={S.th}>Test</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -445,15 +419,6 @@ const LLMStatusSection = ({ account, settings }) => {
                       <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.error_rate > 0.1 ? "var(--neg)" : "var(--ink-3)" }}>
                         {(p.error_rate * 100).toFixed(0)}%
                       </td>
-                      <td style={S.td}>
-                        <button
-                          style={{ ...S.btn, padding: "4px 10px", fontSize: 11, opacity: testing === p.name ? 0.5 : 1 }}
-                          disabled={!p.available || testing === p.name}
-                          onClick={() => testProvider(p.name, false)}
-                        >
-                          {testing === p.name ? "..." : "Test"}
-                        </button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -466,24 +431,65 @@ const LLMStatusSection = ({ account, settings }) => {
               <span>Auto-confirm threshold: <strong style={{ color: "var(--ink)" }}>{data.config.auto_confirm_threshold}</strong></span>
             </div>
           )}
-          {testResult && (
-            <div style={{ marginTop: 12, padding: 10, borderRadius: 6, background: testResult.success ? "rgba(46, 204, 113, 0.1)" : "rgba(231, 76, 60, 0.1)", border: `1px solid ${testResult.success ? "var(--pos)" : "var(--neg)"}` }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: testResult.success ? "var(--pos)" : "var(--neg)" }}>
-                {testResult.success ? "Test passed!" : "Test failed"}
-              </div>
-              {testResult.result && (
-                <pre style={{ marginTop: 8, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: "var(--ink-3)", maxHeight: 150, overflow: "auto" }}>
-                  {JSON.stringify(testResult.result, null, 2)}
-                </pre>
-              )}
-              {testResult.error && (
-                <div style={{ marginTop: 8, fontSize: 12, color: "var(--neg)" }}>{testResult.error}</div>
-              )}
-            </div>
-          )}
         </>
       )}
     </>
+  );
+};
+
+// ── Section: LLM Provider Test ───────────────────────────────────────────────
+
+const LLMTestSection = ({ account }) => {
+  const [provider, setProvider] = useState("openai");
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const aiServices = account?.ai_services || [];
+  const allProviders = [
+    { id: "openai", name: "OpenAI" },
+    { id: "anthropic", name: "Anthropic" },
+    { id: "groq", name: "Groq" },
+    { id: "cloudflare", name: "Cloudflare" },
+    ...aiServices.map(s => ({ id: s.provider, name: s.display_name, isUser: true }))
+  ];
+
+  const test = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const isUser = aiServices.find(s => s.provider === provider);
+      const res = await fetch("/api/admin/test-provider", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, is_user_service: !!isUser })
+      });
+      const data = await res.json();
+      setResult({ ok: res.ok, data });
+    } catch(e) {
+      setResult({ ok: false, data: { error: e.message } });
+    }
+    setTesting(false);
+  };
+
+  return (
+    <div style={S.section}>
+      <h3 style={S.sectionTitle}>Test LLM Provider</h3>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <select value={provider} onChange={e => setProvider(e.target.value)} style={S.select}>
+          {allProviders.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <button style={{ ...S.btn, opacity: testing ? 0.5 : 1 }} onClick={test} disabled={testing}>
+          {testing ? "Testing..." : "Test"}
+        </button>
+      </div>
+      {result && (
+        <pre style={{ marginTop: 12, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: result.ok ? "var(--pos)" : "var(--neg)", background: "var(--paper-2)", padding: 10, borderRadius: 6, maxHeight: 200, overflow: "auto" }}>
+          {JSON.stringify(result.data, null, 2)}
+        </pre>
+      )}
+    </div>
   );
 };
 
@@ -610,8 +616,9 @@ const AdminView = () => (
     <div style={S.section}><FetchPreviewSection /></div>
     <div style={S.section}><ClassifyTestSection /></div>
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
+    <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
     <div style={S.section}><AlertsSection /></div>
   </div>
 );
 
-Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, AlertsSection, FetchRangeSection });
+Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection });
