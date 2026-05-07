@@ -256,7 +256,7 @@ class MultiLLMClient:
             api_token_str = str(settings.CLOUDFLARE_API_TOKEN)
             self._providers.append(_Provider(
                 name="cloudflare",
-                base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1",
+                base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1/run",
                 api_key=api_token_str,
                 model="@cf/meta/llama-3.1-8b-instruct",
             ))
@@ -376,15 +376,6 @@ class MultiLLMClient:
             except Exception as e:
                 logger.warning("Groq rate limiter error: %s", e)
 
-        payload = {
-            "model": str(provider.model),
-            "messages": [
-                {"role": "system", "content": str(_SYSTEM)},
-                {"role": "user", "content": str(user_prompt)},
-            ],
-            "temperature": 0.1,
-            "max_tokens": 500,
-        }
         # Ensure api_key is valid string for headers (sanitize non-ASCII for httpx compatibility)
         api_key_val = provider.api_key
         if hasattr(api_key_val, 'decode'):
@@ -403,15 +394,40 @@ class MultiLLMClient:
             for k, v in provider.extra_headers.items():
                 if v is not None:
                     headers[str(k)] = str(v)
+        
         base_url = str(provider.base_url)
+        
+        # Cloudflare Workers AI: model goes in URL path after /run/
+        if provider.name == "cloudflare":
+            url = f"{base_url}/{provider.model}"
+            payload = {
+                "messages": [
+                    {"role": "system", "content": str(_SYSTEM)},
+                    {"role": "user", "content": str(user_prompt)},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 500,
+            }
+        else:
+            url = f"{base_url}/chat/completions"
+            payload = {
+                "model": str(provider.model),
+                "messages": [
+                    {"role": "system", "content": str(_SYSTEM)},
+                    {"role": "user", "content": str(user_prompt)},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 500,
+            }
+        
         async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
-            response = await client.post(
-                base_url + "/chat/completions",
-                json=payload,
-            )
+            response = await client.post(url, json=payload)
             response.raise_for_status()
 
-        raw = response.json()["choices"][0]["message"]["content"].strip()
+        if provider.name == "cloudflare":
+            raw = response.json()["result"]["response"].strip()
+        else:
+            raw = response.json()["choices"][0]["message"]["content"].strip()
         logger.debug("Raw LLM response: %s", raw[:500])
         return _parse_response(raw), raw
 
