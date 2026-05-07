@@ -250,6 +250,13 @@ class MultiLLMClient:
                     "X-Title": "Expense Tracker",
                 },
             ))
+        if settings.CLOUDFLARE_API_TOKEN and settings.CLOUDFLARE_ACCOUNT_ID:
+            self._providers.append(_Provider(
+                name="cloudflare",
+                base_url=f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1",
+                api_key=settings.CLOUDFLARE_API_TOKEN,
+                model="@cf/meta/llama-3.1-8b-instruct",
+            ))
 
     def _ranked_providers(self) -> List[_Provider]:
         """
@@ -439,12 +446,15 @@ _KNOWN_BASE_URLS: dict[str, str] = {
     "grok": "https://api.x.ai/v1",
     "scaleway": "https://api.scaleway.ai/v1",
     "openrouter": "https://openrouter.ai/api/v1",
+    "cloudflare": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
 }
 
 
 def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_key: str, model_id: str) -> MultiLLMClient:
     """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
     resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
+    if provider == "cloudflare" and settings.CLOUDFLARE_ACCOUNT_ID:
+        resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
     if not resolved_url:
         logger.warning("No base_url for provider %r and not in known list — using env-var client only", provider)
         return llm_client

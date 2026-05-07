@@ -47,6 +47,55 @@
   </div>
 </div>
 
+<!-- AI Services -->
+<div class="glass" style="margin-bottom:20px">
+  <div class="glass-header">
+    AI Services
+    <span style="font-size:12px;color:var(--dim)">Custom LLM providers with enable/disable</span>
+  </div>
+  <div style="padding:16px 20px">
+    <div id="ai-services-wrap"><p style="color:var(--dim);font-size:13px">Loading…</p></div>
+    <details style="margin-top:16px">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer;user-select:none;padding:6px 0">
+        Add custom AI service
+      </summary>
+      <form id="ai-service-form" onsubmit="addAIService(event)" style="margin-top:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Provider</label>
+          <select id="ai-service-provider" required style="width:140px">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google</option>
+            <option value="grok">xAI Grok</option>
+            <option value="groq">Groq</option>
+            <option value="cloudflare">Cloudflare</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="scaleway">Scaleway</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Display Name</label>
+          <input id="ai-service-name" type="text" placeholder="My API" style="width:120px" required>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Model ID</label>
+          <input id="ai-service-model" type="text" placeholder="gpt-4o-mini" style="width:140px" required>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Base URL</label>
+          <input id="ai-service-url" type="text" placeholder="https://api.openai.com/v1" style="width:200px">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">API Key</label>
+          <input id="ai-service-key" type="password" placeholder="sk-..." style="width:160px" required>
+        </div>
+        <button type="submit" class="btn-primary" style="height:34px">Add</button>
+      </form>
+    </details>
+  </div>
+</div>
+
 <div class="glass" style="margin-bottom:20px">
   <div class="glass-header">
     ML Classifier
@@ -147,6 +196,15 @@
   .source-tag.user_trained { background:var(--accent-soft); color:var(--accent); border:1px solid rgba(124,131,253,0.2); }
   .source-tag.builtin { background:rgba(255,255,255,0.04); color:var(--dim); border:1px solid rgba(255,255,255,0.06); }
   .empty-state { color:var(--dim); font-size:13px; padding:12px 0; }
+  .ai-service-table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:12px; }
+  .ai-service-table th { color:var(--muted); text-align:left; padding:6px 10px; border-bottom:1px solid var(--border); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  .ai-service-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .ai-service-table tr:last-child td { border-bottom:none; }
+  .toggle-switch { position:relative; width:40px; height:20px; background:var(--border); border-radius:10px; cursor:pointer; display:inline-block; }
+  .toggle-switch.on { background:var(--green); }
+  .toggle-switch::after { content:''; position:absolute; top:2px; left:2px; width:16px; height:16px; background:#fff; border-radius:50%; transition:transform .2s; }
+  .toggle-switch.on::after { transform:translateX(20px); }
+  .provider-badge { font-size:10px; font-weight:600; padding:2px 6px; border-radius:3px; text-transform:uppercase; background:rgba(255,255,255,0.06); color:var(--muted); }
 
   /* Responsive */
   @media (max-width: 900px) {
@@ -449,8 +507,119 @@ async function loadRuleConfig() {
   }
 }
 
+const PROVIDER_RATE_LIMITS = {
+  openai: '30 req/min (free), 500 req/min (paid)',
+  anthropic: '5 req/min (free), 50 req/min (paid)',
+  google: '15 req/min',
+  grok: '30 req/min',
+  groq: '30 req/min',
+  cloudflare: '300 req/min (Llama), 1500 req/min (Qwen 0.5B)',
+  openrouter: '50 req/min (free)',
+  scaleway: '30 req/min',
+};
+
+async function loadAIServices() {
+  const wrap = document.getElementById('ai-services-wrap');
+  try {
+    const data = await fetch('/api/account/me').then(r => r.json());
+    const services = data.ai_services || [];
+
+    if (!services.length) {
+      wrap.innerHTML = '<p class="empty-state">No custom AI services. Add one below.</p>';
+      return;
+    }
+
+    const rows = services.map(svc => `
+      <tr>
+        <td><span class="provider-badge">${svc.provider}</span></td>
+        <td><strong style="color:var(--text)">${svc.display_name}</strong></td>
+        <td style="font-family:monospace;font-size:12px;color:var(--muted)">${svc.model_id}</td>
+        <td style="color:var(--muted)">${svc.api_key_hint || '—'}</td>
+        <td style="text-align:right">
+          <div class="toggle-switch ${svc.enabled ? 'on' : ''}" title="${svc.enabled ? 'Disable' : 'Enable'}" onclick="toggleAIService('${svc.id}', ${!svc.enabled})"></div>
+        </td>
+        <td style="text-align:right">
+          <button class="del-btn" title="Delete" onclick="deleteAIService('${svc.id}')">×</button>
+        </td>
+      </tr>
+    `).join('');
+
+    wrap.innerHTML = `<table class="ai-service-table">
+      <thead><tr><th>Provider</th><th>Name</th><th>Model</th><th>Key</th><th style="width:50px">Enabled</th><th style="width:40px"></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch(e) {
+    wrap.innerHTML = `<p style="color:var(--red);font-size:13px">Failed to load: ${e.message}</p>`;
+  }
+}
+
+async function addAIService(e) {
+  e.preventDefault();
+  const provider = document.getElementById('ai-service-provider').value;
+  const display_name = document.getElementById('ai-service-name').value.trim();
+  const model_id = document.getElementById('ai-service-model').value.trim();
+  const base_url = document.getElementById('ai-service-url').value.trim();
+  const api_key = document.getElementById('ai-service-key').value;
+
+  const PROVIDER_URLS = {
+    openai: 'https://api.openai.com/v1',
+    anthropic: 'https://api.anthropic.com',
+    google: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    grok: 'https://api.x.ai/v1',
+    groq: 'https://api.groq.com/openai/v1',
+    cloudflare: '',  // requires account_id in URL
+    openrouter: 'https://openrouter.ai/api/v1',
+    scaleway: 'https://api.scaleway.ai/v1',
+  };
+
+  const resolvedUrl = base_url || PROVIDER_URLS[provider] || '';
+
+  const resp = await fetch('/api/account/ai-services', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider,
+      display_name,
+      model_id,
+      base_url: resolvedUrl || null,
+      api_key,
+    }),
+  });
+
+  if (resp.ok) {
+    showToast('AI service added', 'success');
+    document.getElementById('ai-service-form').reset();
+    loadAIServices();
+  } else {
+    const err = await resp.json();
+    showToast(err.detail || 'Error adding service', 'error');
+  }
+}
+
+async function toggleAIService(id, enabled) {
+  const resp = await fetch(`/api/account/ai-services/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (resp.ok) {
+    showToast(enabled ? 'Enabled' : 'Disabled', 'success');
+    loadAIServices();
+  }
+}
+
+async function deleteAIService(id) {
+  if (!confirm('Delete this AI service?')) return;
+  const resp = await fetch(`/api/account/ai-services/${id}`, { method: 'DELETE' });
+  if (resp.ok) {
+    showToast('Deleted', 'success');
+    loadAIServices();
+  }
+}
+
 loadSettings();
 loadRules();
 loadRuleConfig();
+loadAIServices();
 </script>
 {% endblock %}

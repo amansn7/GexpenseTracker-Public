@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""         # Groq    — https://api.groq.com/openai/v1
     GOOGLE_AI_API_KEY: str = ""     # Gemini  — https://generativelanguage.googleapis.com/v1beta/openai
     SCALEWAY_API_KEY: str = ""      # Scaleway   — https://api.scaleway.ai/v1
+    CLOUDFLARE_ACCOUNT_ID: str = ""   # Cloudflare — https://api.cloudflare.com/client/v4/accounts/
+    CLOUDFLARE_API_TOKEN: str = ""   # Workers AI token
 
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75
