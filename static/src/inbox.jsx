@@ -342,6 +342,22 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             {tx.domain}
           </span>
         </div>
+        {tx.method && (
+          <div style={inboxStyles.field}>
+            <span style={inboxStyles.fieldLabel}>Method</span>
+            <span style={{ 
+              display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, 
+              fontSize: 11, fontWeight: 600,
+              background: tx.method === "llm" ? "var(--accent-soft)" : "var(--paper-2)",
+              color: tx.method === "llm" ? "var(--accent)" : "var(--ink-3)",
+              textTransform: "uppercase",
+            }}>
+              {tx.method === "llm" && <Icon name="sparkle" size={10} stroke="var(--accent)"/>}
+              {tx.method === "rule" && "📋"}
+              {tx.method}
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={inboxStyles.panelSection}>

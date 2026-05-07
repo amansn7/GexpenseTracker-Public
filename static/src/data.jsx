@@ -78,6 +78,7 @@ const transformTransaction = (t) => {
     flag: t.flagged ?? false,
     note: t.user_notes || "",
     snippet: t.email?.body_snippet || "",
+    method: t.classifier_method || null,
   };
 };
 

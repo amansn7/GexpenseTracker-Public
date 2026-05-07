@@ -47,6 +47,7 @@ async def list_emails(db: AsyncSession = Depends(get_db), current_user: User = D
             "amount": float(t.amount) if t and t.amount is not None else None,
             "merchant": t.merchant if t else None,
             "category": t.category if t else None,
+            "classifier_method": t.classifier_method if t else None,
         }
         for e, t in rows
     ]
