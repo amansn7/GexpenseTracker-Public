@@ -17,7 +17,7 @@ from app.database import get_db
 from app.gmail.auth import get_oauth_flow, get_google_userinfo
 from app.models import (
     ConnectedAccount, Email, OAuthState, Session, User, UserProfile, UserRole,
-    UserSettings, UserStatus,
+    UserSettings, UserStatus, UserAIService,
 )
 
 router = APIRouter()
@@ -239,6 +239,10 @@ async def auth_me(
         select(UserProfile).where(UserProfile.user_id == user.id)
     )).scalar_one_or_none()
 
+    services = (await db.execute(
+        select(UserAIService).where(UserAIService.user_id == user.id)
+    )).scalars().all()
+
     return {
         "id": user.id,
         "email": user.email,
@@ -247,6 +251,12 @@ async def auth_me(
         "avatar_url": profile.avatar_url if profile else None,
         "has_seed_data": has_seed_data,
         "onboarding_complete": user.onboarding_complete,
+        "ai_services": [
+            {"id": s.id, "provider": s.provider, "display_name": s.display_name,
+             "model_id": s.model_id, "base_url": s.base_url, "api_key_hint": s.api_key_hint,
+             "enabled": s.enabled}
+            for s in services
+        ],
     }
 
 
