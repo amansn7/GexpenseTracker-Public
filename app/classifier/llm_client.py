@@ -383,14 +383,22 @@ class MultiLLMClient:
             "temperature": 0.1,
             "max_tokens": 500,
         }
-        api_key_str = str(provider.api_key) if provider.api_key else ""
-        headers = {
-            "Authorization": f"Bearer {api_key_str}",
+        # Ensure api_key is valid string for headers
+        api_key_val = provider.api_key
+        if hasattr(api_key_val, 'decode'):
+            api_key_val = api_key_val.decode('utf-8')
+        api_key_str = str(api_key_val) if api_key_val else ""
+        
+        logger.debug("LLM request: provider=%s model=%s base_url=%s", provider.name, provider.model, provider.base_url)
+        
+        headers: dict = {
+            "Authorization": "Bearer " + api_key_str,
             "Content-Type": "application/json",
         }
-        for k, v in (provider.extra_headers or {}).items():
-            if v:
-                headers[k] = str(v)
+        if provider.extra_headers:
+            for k, v in provider.extra_headers.items():
+                if v is not None:
+                    headers[str(k)] = str(v)
         base_url = str(provider.base_url)
         async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
             response = await client.post(
