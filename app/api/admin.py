@@ -164,6 +164,7 @@ async def seed_merchants(
 class TestProviderBody(BaseModel):
     provider: str
     is_user_service: bool = False
+    service_id: Optional[str] = None
     prompt: Optional[str] = None
 
 
@@ -171,6 +172,7 @@ class TestProviderBody(BaseModel):
 async def test_provider(
     body: TestProviderBody,
     current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
 ):
     """Test a specific LLM provider with a simple prompt."""
     from app.classifier.llm_client import MultiLLMClient
@@ -181,29 +183,31 @@ async def test_provider(
         from app.models import UserAIService
         from app.api._account_helpers import _decrypt_secret
         from sqlalchemy import select
-        from app.database import get_db
+        query = select(UserAIService).where(
+            UserAIService.user_id == current_user.id,
+            UserAIService.enabled == True,
+        )
+        if body.service_id:
+            query = query.where(UserAIService.id == body.service_id)
+        else:
+            query = query.where(UserAIService.provider == body.provider)
 
-        async for db in get_db():
-            svc = (await db.execute(
-                select(UserAIService).where(
-                    UserAIService.user_id == current_user.id,
-                    UserAIService.provider == body.provider,
-                    UserAIService.enabled == True,
-                )
-            )).scalar_one_or_none()
+        svc = (await db.execute(query)).scalar_one_or_none()
+        if not svc:
+            return {"error": "User service not found"}
+        if not svc.encrypted_api_key:
+            return {"error": "User service has no API key"}
 
-            if svc and svc.encrypted_api_key:
-                from app.classifier.llm_client import build_user_client
+        from app.classifier.llm_client import build_user_client
 
-                api_key = _decrypt_secret(svc.encrypted_api_key)
-                client = build_user_client(
-                    user_id=current_user.id,
-                    provider=svc.provider,
-                    base_url=svc.base_url,
-                    api_key=api_key,
-                    model_id=svc.model_id,
-                )
-            break
+        api_key = _decrypt_secret(svc.encrypted_api_key)
+        client = build_user_client(
+            user_id=current_user.id,
+            provider=svc.provider,
+            base_url=svc.base_url,
+            api_key=api_key,
+            model_id=svc.model_id,
+        )
 
     if not client._providers:
         return {"error": "No providers available"}

@@ -820,7 +820,7 @@ const AdminLLMSection = ({ account, settings }) => {
 };
 
 const AdminLLMTestSection = ({ account }) => {
-  const [provider, setProvider] = React.useState("openai");
+  const [target, setTarget] = React.useState("builtin:openai");
   const [testType, setTestType] = React.useState("classify");
   const [sender, setSender] = React.useState("alerts@hdfcbank.net");
   const [subject, setSubject] = React.useState("HDFC Bank: Rs.499.00 debited");
@@ -839,11 +839,15 @@ const AdminLLMTestSection = ({ account }) => {
       } else {
         prompt = "Say 'OK' if you can read this.";
       }
-      const isUser = aiServices.find(s => s.provider === provider);
+      const isUser = target.startsWith("service:");
+      const serviceId = isUser ? target.slice("service:".length) : null;
+      const provider = isUser
+        ? aiServices.find(s => s.id === serviceId)?.provider
+        : target.slice("builtin:".length);
       const res = await fetch("/api/admin/test-provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, is_user_service: !!isUser, prompt })
+        body: JSON.stringify({ provider, is_user_service: isUser, service_id: serviceId, prompt })
       });
       const data = await res.json();
       setResult({ ok: res.ok, data });
@@ -863,8 +867,8 @@ const AdminLLMTestSection = ({ account }) => {
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
-        <select value={provider} onChange={e => setProvider(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
-          {[{ id: "openai", name: "OpenAI" },{ id: "anthropic", name: "Anthropic" },{ id: "groq", name: "Groq" },{ id: "cloudflare", name: "Cloudflare" },...aiServices.map(s => ({ id: s.provider, name: s.display_name }))].map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <select value={target} onChange={e => setTarget(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+          {[{ id: "builtin:openai", name: "OpenAI" },{ id: "builtin:anthropic", name: "Anthropic" },{ id: "builtin:groq", name: "Groq" },{ id: "builtin:cloudflare", name: "Cloudflare" },...aiServices.map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})` }))].map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button onClick={test} disabled={testing} style={{ ...accountStyles.btn, opacity: testing ? 0.5 : 1 }}>{testing ? "Testing..." : "Test"}</button>
       </div>

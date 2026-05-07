@@ -463,7 +463,7 @@ const LLMStatusSection = ({ account, settings }) => {
 // ── Section: LLM Provider Test ───────────────────────────────────────────────
 
 const LLMTestSection = ({ account }) => {
-  const [provider, setProvider] = useState("openai");
+  const [target, setTarget] = useState("builtin:openai");
   const [testType, setTestType] = useState("classify"); // "classify" or "raw"
   const [sender, setSender] = useState("alerts@hdfcbank.net");
   const [subject, setSubject] = useState("HDFC Bank: Rs.499.00 debited from your account");
@@ -473,11 +473,11 @@ const LLMTestSection = ({ account }) => {
 
   const aiServices = account?.ai_services || [];
   const allProviders = [
-    { id: "openai", name: "OpenAI" },
-    { id: "anthropic", name: "Anthropic" },
-    { id: "groq", name: "Groq" },
-    { id: "cloudflare", name: "Cloudflare" },
-    ...aiServices.map(s => ({ id: s.provider, name: s.display_name, isUser: true }))
+    { id: "builtin:openai", name: "OpenAI" },
+    { id: "builtin:anthropic", name: "Anthropic" },
+    { id: "builtin:groq", name: "Groq" },
+    { id: "builtin:cloudflare", name: "Cloudflare" },
+    ...aiServices.map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})`, isUser: true }))
   ];
 
   const test = async () => {
@@ -505,11 +505,15 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
         prompt = "Say 'OK' if you can read this.";
       }
 
-      const isUser = aiServices.find(s => s.provider === provider);
+      const isUser = target.startsWith("service:");
+      const serviceId = isUser ? target.slice("service:".length) : null;
+      const provider = isUser
+        ? aiServices.find(s => s.id === serviceId)?.provider
+        : target.slice("builtin:".length);
       const res = await fetch("/api/admin/test-provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, is_user_service: !!isUser, prompt })
+        body: JSON.stringify({ provider, is_user_service: isUser, service_id: serviceId, prompt })
       });
       const data = await res.json();
       setResult({ ok: res.ok, data });
@@ -545,7 +549,7 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <label style={S.label}>Provider</label>
-          <select value={provider} onChange={e => setProvider(e.target.value)} style={{ ...S.input, width: "100%", maxWidth: 160 }}>
+          <select value={target} onChange={e => setTarget(e.target.value)} style={{ ...S.input, width: "100%", maxWidth: 220 }}>
             {allProviders.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
