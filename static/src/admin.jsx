@@ -713,6 +713,7 @@ const AdminView = () => (
     <div style={S.section}><ClassifyTestSection /></div>
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
     <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
+    <div style={S.section}><FetchRangeSection /></div>
     <div style={S.section}><AlertsSection /></div>
   </div>
 );
