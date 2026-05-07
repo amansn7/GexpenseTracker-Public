@@ -342,6 +342,7 @@ async function loadSettings() {
         <td>${scoreBar}</td>
         <td>${rlBadge}</td>
         <td>${stats}</td>
+        <td>${p.available ? '<button onclick="testLlmProvider(\'' + p.name + '\')" style="padding:4px 10px;font-size:11px;cursor:pointer">Test</button>' : '—'}</td>
       </tr>`;
     }).join('');
 
@@ -353,6 +354,7 @@ async function loadSettings() {
         <th>Penalty score</th>
         <th>Rate limits</th>
         <th>Calls</th>
+        <th style="width:50px">Test</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -428,13 +430,28 @@ async function setFilter(filter) {
 async function refreshLLMStatus() {
   const wrap = document.getElementById('llm-status-wrap');
   const llmStatus = await fetch('/api/llm/status').then(r => r.json());
-  // Reuse the same render logic by calling loadSettings would re-fetch everything;
-  // instead inline just the LLM section re-render
   const available = (llmStatus.providers || []).filter(p => p.available);
   if (!available.length && !(llmStatus.providers || []).length) {
     wrap.innerHTML = '<p style="color:#555;font-size:13px">No providers configured.</p>';
     return;
   }
+  await loadSettings();
+}
+
+async function testLlmProvider(providerName) {
+  try {
+    const res = await fetch('/api/admin/test-provider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: providerName, is_user_service: false }),
+    });
+    const data = await res.json();
+    alert(data.error || data.response || JSON.stringify(data, null, 2));
+    await loadSettings();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  }
+}
   // Trigger full settings reload which re-renders LLM table
   await loadSettings();
 }
