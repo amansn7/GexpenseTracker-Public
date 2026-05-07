@@ -238,6 +238,7 @@ const ClassifyTestSection = () => {
   const [sender,  setSender]  = useState("alerts@hdfcbank.net");
   const [subject, setSubject] = useState("HDFC Bank: Rs.499.00 debited from your account");
   const [body,    setBody]    = useState("Dear Customer,\n\nRs.499.00 has been debited from your HDFC Bank account ending 1234 for payment to Swiggy on 18-Apr-2026.\n\nAvailable balance: Rs.12,340.00");
+  const [useLlm, setUseLlm]   = useState(true);
   const [loading, setLoading] = useState(false);
   const [result,  setResult]  = useState(null);
   const [error,   setError]   = useState(null);
@@ -245,7 +246,7 @@ const ClassifyTestSection = () => {
   const run = async () => {
     setLoading(true); setError(null); setResult(null);
     try {
-      const r = await API.post("/api/admin/classify-test", { sender, subject, body });
+      const r = await API.post("/api/admin/classify-test", { sender, subject, body, use_llm: useLlm });
       setResult(r);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -254,7 +255,29 @@ const ClassifyTestSection = () => {
   return (
     <>
       <h3 style={S.sectionTitle}>Classifier Tester</h3>
-      <div style={S.sectionSub}>— test the LLM classification pipeline with any input, no DB writes</div>
+      <div style={S.sectionSub}>— test the classification pipeline with any input, no DB writes</div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "8px 12px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)" }}>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>Use LLM</div>
+        <button
+          type="button"
+          onClick={() => setUseLlm(!useLlm)}
+          style={{
+            width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
+            background: useLlm ? "var(--pos)" : "var(--line)",
+            display: "flex", alignItems: "center", padding: 2,
+          }}
+        >
+          <div style={{
+            width: 18, height: 18, borderRadius: "50%", background: "#fff",
+            transform: useLlm ? "translateX(20px)" : "translateX(0)",
+            transition: "transform 150ms ease",
+          }} />
+        </button>
+      </div>
+      <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 16, marginTop: -12 }}>
+        {useLlm ? "LLM enabled — uses AI for classification" : "LLM disabled — uses rules only (faster, no API calls)"}
+      </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -441,6 +464,10 @@ const LLMStatusSection = ({ account, settings }) => {
 
 const LLMTestSection = ({ account }) => {
   const [provider, setProvider] = useState("openai");
+  const [testType, setTestType] = useState("classify"); // "classify" or "raw"
+  const [sender, setSender] = useState("alerts@hdfcbank.net");
+  const [subject, setSubject] = useState("HDFC Bank: Rs.499.00 debited from your account");
+  const [body, setBody] = useState("Dear Customer,\n\nRs.499.00 has been debited from your HDFC Bank account ending 1234 for payment to Swiggy on 18-Apr-2026.\n\nAvailable balance: Rs.12,340.00");
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -457,11 +484,32 @@ const LLMTestSection = ({ account }) => {
     setTesting(true);
     setResult(null);
     try {
+      let prompt;
+      if (testType === "classify") {
+        prompt = `You are a transaction classifier. Given an email, classify it as expense, income, or ignore.
+
+Email:
+From: ${sender}
+Subject: ${subject}
+Body: ${body}
+
+Respond with JSON containing:
+- label: "expense", "income", or "ignore"
+- amount: the transaction amount (number) if found, else null
+- merchant: the merchant name if found, else null
+- category: the category (e.g., "Food", "Transport", "Banking", "Shopping")
+- confidence: 0-1 how certain you are
+
+Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"Swiggy","category":"Food","confidence":0.95}`;
+      } else {
+        prompt = "Say 'OK' if you can read this.";
+      }
+
       const isUser = aiServices.find(s => s.provider === provider);
       const res = await fetch("/api/admin/test-provider", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, is_user_service: !!isUser })
+        body: JSON.stringify({ provider, is_user_service: !!isUser, prompt })
       });
       const data = await res.json();
       setResult({ ok: res.ok, data });
@@ -474,18 +522,66 @@ const LLMTestSection = ({ account }) => {
   return (
     <div style={S.section}>
       <h3 style={S.sectionTitle}>Test LLM Provider</h3>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <select value={provider} onChange={e => setProvider(e.target.value)} style={S.select}>
-          {allProviders.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-        <button style={{ ...S.btn, opacity: testing ? 0.5 : 1 }} onClick={test} disabled={testing}>
+      <div style={S.sectionSub}>— verify your LLM service works with transaction classification</div>
+
+      {/* Test type toggle */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+        {["classify", "raw"].map(t => (
+          <button
+            key={t}
+            onClick={() => setTestType(t)}
+            style={{
+              padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12,
+              background: testType === t ? "var(--ink)" : "transparent",
+              color: testType === t ? "var(--paper)" : "var(--ink-3)",
+              fontFamily: "inherit",
+            }}
+          >
+            {t === "classify" ? "Transaction" : "Raw"}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <label style={S.label}>Provider</label>
+          <select value={provider} onChange={e => setProvider(e.target.value)} style={{ ...S.input, width: "100%", maxWidth: 160 }}>
+            {allProviders.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+        <button style={{ ...S.btn, ...S.btnPrimary, opacity: testing ? 0.5 : 1, height: 36, marginBottom: 1 }} onClick={test} disabled={testing}>
           {testing ? "Testing..." : "Test"}
         </button>
       </div>
+
+      {testType === "classify" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={S.label}>Sender</label>
+              <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />
+            </div>
+            <div>
+              <label style={S.label}>Subject</label>
+              <input value={subject} onChange={e => setSubject(e.target.value)} style={S.input} placeholder="Rs.X debited" />
+            </div>
+          </div>
+          <div>
+            <label style={S.label}>Email Body</label>
+            <textarea
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              style={{ ...S.textarea, minHeight: 100 }}
+              placeholder="Paste transaction email body here..."
+            />
+          </div>
+        </div>
+      )}
+
       {result && (
-        <pre style={{ marginTop: 12, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: result.ok ? "var(--pos)" : "var(--neg)", background: "var(--paper-2)", padding: 10, borderRadius: 6, maxHeight: 200, overflow: "auto" }}>
+        <pre style={{ marginTop: 12, fontSize: 11, fontFamily: "'Geist Mono', monospace", whiteSpace: "pre-wrap", color: result.ok ? "var(--pos)" : "var(--neg)", background: "var(--paper-2)", padding: 10, borderRadius: 6, maxHeight: 240, overflow: "auto" }}>
           {JSON.stringify(result.data, null, 2)}
         </pre>
       )}

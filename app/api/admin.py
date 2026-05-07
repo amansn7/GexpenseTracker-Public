@@ -89,6 +89,7 @@ class ClassifyTestBody(BaseModel):
     subject: str
     body: str
     email_id: Optional[str] = None
+    use_llm: bool = True
 
 
 @router.post("/admin/classify-test")
@@ -108,6 +109,7 @@ async def classify_test(
         subject=body.subject,
         body_text=body.body,
         session=None,
+        use_llm=body.use_llm,
     )
     return {
         "label": result.label.value,
@@ -162,6 +164,7 @@ async def seed_merchants(
 class TestProviderBody(BaseModel):
     provider: str
     is_user_service: bool = False
+    prompt: Optional[str] = None
 
 
 @router.post("/admin/test-provider")
@@ -205,6 +208,8 @@ async def test_provider(
     if not client._providers:
         return {"error": "No providers available"}
 
+    test_prompt = body.prompt or "Say 'OK' if you receive this."
+
     try:
         ranked = client._ranked_providers()
         if not ranked:
@@ -213,7 +218,7 @@ async def test_provider(
         p = ranked[0]
         result = await p.client.chat.completions.create(
             model=p.model,
-            messages=[{"role": "user", "content": "Say 'OK' if you receive this."}],
+            messages=[{"role": "user", "content": test_prompt}],
             max_tokens=10,
         )
         return {"provider": p.name, "model": p.model, "response": result.choices[0].message.content}

@@ -61,6 +61,7 @@ async def classify_email(
     db_rules: Optional[dict] = None,
     user_id: Optional[str] = None,
     llm_client_override: Optional[MultiLLMClient] = None,
+    use_llm: bool = True,
 ) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = body_text[:3000]
@@ -97,20 +98,29 @@ async def classify_email(
     pre_extraction = rule_engine_adapter.extract(subject, body_snippet)
     logger.debug("Pre-extraction for email %s: %s", email_id, pre_extraction)
 
-    active_client = llm_client_override or llm_client
-    try:
-        verbose = await active_client.classify_verbose(
-            sender, subject, body_snippet,
-            categories=user_categories,
-            pre_extraction=pre_extraction,
-        )
-        llm_result = verbose["result"]
-        provider = verbose["provider"]
-        model_name = verbose["model"]
-        raw_response = verbose["raw_response"]
-    except Exception as exc:
-        logger.error("LLM classification failed for email %s: %s", email_id, exc, exc_info=True)
-        result_warnings.append(f"LLM classification failed: {exc}")
+    provider = "none"
+    model_name = "none"
+    raw_response = ""
+    llm_result = None
+    result_warnings: List[str] = []
+
+    if not use_llm:
+        logger.debug("LLM disabled for email %s, using rules only", email_id)
+    else:
+        active_client = llm_client_override or llm_client
+        try:
+            verbose = await active_client.classify_verbose(
+                sender, subject, body_snippet,
+                categories=user_categories,
+                pre_extraction=pre_extraction,
+            )
+            llm_result = verbose["result"]
+            provider = verbose["provider"]
+            model_name = verbose["model"]
+            raw_response = verbose["raw_response"]
+        except Exception as exc:
+            logger.error("LLM classification failed for email %s: %s", email_id, exc, exc_info=True)
+            result_warnings.append(f"LLM classification failed: {exc}")
 
     latency_ms = round((time.monotonic() - t0) * 1000)
 
