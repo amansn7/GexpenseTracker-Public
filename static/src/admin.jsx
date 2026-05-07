@@ -411,7 +411,7 @@ const LLMStatusSection = ({ account, settings }) => {
               <table style={S.table}>
                 <thead>
                   <tr>
-                    {["#", "Provider", "Status", "Rate-limited", "Penalty", "OK", "Fail", "Err%"].map(h => (
+                    {["#", "Provider", "Status", "Rate-limited", "Penalty", "OK", "Fail", "Err%", "Test"].map(h => (
                       <th key={h} style={S.th}>{h}</th>
                     ))}
                   </tr>
