@@ -462,15 +462,18 @@ def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_
         logger.warning("No API key for provider %r - skipping user provider", provider)
         return llm_client
     
-    resolved_url = base_url or _KNOWN_BASE_URLS.get(provider)
+    provider_str = str(provider) if provider else ""
+    resolved_url = str(base_url) if base_url else None
+    if not resolved_url:
+        resolved_url = _KNOWN_BASE_URLS.get(provider_str)
     # For Cloudflare, substitute account_id from env if user didn't provide custom URL
-    if provider == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
+    if provider_str == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
         resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
     if not resolved_url:
-        logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider)
+        logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider_str)
         return llm_client
 
     client = MultiLLMClient(user_id=user_id)
-    user_provider = _Provider(name=provider, base_url=resolved_url, api_key=api_key, model=model_id)
-    client._providers = [user_provider] + [p for p in client._providers if p.name != provider]
+    user_provider = _Provider(name=provider_str, base_url=str(resolved_url), api_key=str(api_key), model=str(model_id))
+    client._providers = [user_provider] + [p for p in client._providers if p.name != provider_str]
     return client
