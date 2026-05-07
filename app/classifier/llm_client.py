@@ -381,7 +381,7 @@ class MultiLLMClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.1,
-            "max_tokens": 200,
+            "max_tokens": 500,
         }
         headers = {
             "Authorization": f"Bearer {provider.api_key}",
