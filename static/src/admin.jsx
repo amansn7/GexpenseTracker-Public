@@ -477,7 +477,7 @@ const LLMTestSection = ({ account }) => {
     { id: "builtin:anthropic", name: "Anthropic" },
     { id: "builtin:groq", name: "Groq" },
     { id: "builtin:cloudflare", name: "Cloudflare" },
-    ...aiServices.map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})`, isUser: true }))
+    ...aiServices.filter(s => !["openai","anthropic","groq","cloudflare"].includes(s.provider)).map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})`, isUser: true }))
   ];
 
   const test = async () => {

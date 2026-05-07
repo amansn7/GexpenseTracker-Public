@@ -220,11 +220,7 @@ async def test_provider(
             return {"error": "No available providers"}
 
         p = ranked[0]
-        result = await p.client.chat.completions.create(
-            model=p.model,
-            messages=[{"role": "user", "content": test_prompt}],
-            max_tokens=10,
-        )
-        return {"provider": p.name, "model": p.model, "response": result.choices[0].message.content}
+        result = await client._call_provider_raw(p, test_prompt)
+        return {"provider": p.name, "model": p.model, "response": result}
     except Exception as e:
         return {"error": str(e)}
