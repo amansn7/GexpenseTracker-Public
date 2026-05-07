@@ -27,9 +27,9 @@ _SYSTEM = (
     "Respond ONLY with a single valid JSON object. No explanation, no markdown, no code blocks."
 )
 
-# Full classify + extract — used during initial sync / reclassify
+# Full classify + extract - used during initial sync / reclassify
 _PRE_EXTRACTION_BLOCK = """
-PRE-EXTRACTED FACTS (regex-based — verify against email; override if contradicted):
+PRE-EXTRACTED FACTS (regex-based - verify against email; override if contradicted):
 {lines}
 """
 
@@ -40,6 +40,7 @@ def _build_pre_extraction_block(pre: dict) -> str:
         lines.append(f"- Amount: {pre['amount']} INR")
     if pre.get("date"):
         lines.append(f"- Date: {pre['date']}")
+    return "\n".join(lines)
     if pre.get("direction") not in (None, "unknown"):
         lines.append(f"- Direction: {pre['direction']}")
     if pre.get("mode") not in (None, "unknown"):
@@ -69,10 +70,10 @@ Body: {body_snippet}
 
 EXTRACTION RULES:
 - amount    : INR number, no currency symbols or commas. Found in subject ("Rs.488.00") or body. null if absent.
-- merchant  : payee / store / service — NOT the bank itself. Clean raw merchant codes:
+- merchant  : payee / store / service - NOT the bank itself. Clean raw merchant codes:
               "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
               "NETFLIX.COM" → "Netflix", "SPOTIFY" → "Spotify". null if no identifiable payee.
-- category  : one of — {categories}
+- category  : one of - {categories}
 - txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
 - confidence: 0.9–1.0 for clear bank/UPI alerts · 0.7–0.9 for merchant emails · 0.5–0.7 for ambiguous
 
