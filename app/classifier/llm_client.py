@@ -385,11 +385,13 @@ class MultiLLMClient:
             "temperature": 0.1,
             "max_tokens": 500,
         }
-        # Ensure api_key is valid string for headers
+        # Ensure api_key is valid string for headers (sanitize non-ASCII for httpx compatibility)
         api_key_val = provider.api_key
         if hasattr(api_key_val, 'decode'):
             api_key_val = api_key_val.decode('utf-8')
         api_key_str = str(api_key_val) if api_key_val else ""
+        # Strip non-ASCII characters that cause httpx headers to fail
+        api_key_str = api_key_str.encode('ascii', 'ignore').decode('ascii')
         
         logger.debug("LLM request: provider=%s model=%s base_url=%s", provider.name, provider.model, provider.base_url)
         
