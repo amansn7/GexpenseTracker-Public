@@ -868,7 +868,7 @@ const AdminLLMTestSection = ({ account }) => {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
         <select value={target} onChange={e => setTarget(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
-          {[{ id: "builtin:openai", name: "OpenAI" },{ id: "builtin:anthropic", name: "Anthropic" },{ id: "builtin:groq", name: "Groq" },{ id: "builtin:cloudflare", name: "Cloudflare" }].concat(aiServices.filter(s => !["openai","anthropic","groq","cloudflare"].includes(s.provider)).map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})` }))).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          {[{ id: "builtin:openai", name: "OpenAI (built-in)" },{ id: "builtin:anthropic", name: "Anthropic (built-in)" },{ id: "builtin:groq", name: "Groq (built-in)" },{ id: "builtin:cloudflare", name: "Cloudflare (built-in)" },...aiServices.map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (custom)` }))].map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         <button onClick={test} disabled={testing} style={{ ...accountStyles.btn, opacity: testing ? 0.5 : 1 }}>{testing ? "Testing..." : "Test"}</button>
       </div>

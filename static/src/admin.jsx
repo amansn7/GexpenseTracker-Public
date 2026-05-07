@@ -473,11 +473,11 @@ const LLMTestSection = ({ account }) => {
 
   const aiServices = account?.ai_services || [];
   const allProviders = [
-    { id: "builtin:openai", name: "OpenAI" },
-    { id: "builtin:anthropic", name: "Anthropic" },
-    { id: "builtin:groq", name: "Groq" },
-    { id: "builtin:cloudflare", name: "Cloudflare" },
-    ...aiServices.filter(s => !["openai","anthropic","groq","cloudflare"].includes(s.provider)).map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (${s.provider})`, isUser: true }))
+    { id: "builtin:openai", name: "OpenAI (built-in)" },
+    { id: "builtin:anthropic", name: "Anthropic (built-in)" },
+    { id: "builtin:groq", name: "Groq (built-in)" },
+    { id: "builtin:cloudflare", name: "Cloudflare (built-in)" },
+    ...aiServices.map(s => ({ id: `service:${s.id}`, name: `${s.display_name} (custom)`, isUser: true }))
   ];
 
   const test = async () => {
