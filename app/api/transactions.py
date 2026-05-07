@@ -368,6 +368,8 @@ async def reclassify_preview(
         subject=e.subject or "",
         body_text=e.body_text or e.body_snippet or "",
         session=None,  # no DB writes
+        rule_engine_enabled=False,
+        user_id=str(current_user.id),
     )
     return {
         "label":      cls.label.value,
@@ -397,6 +399,8 @@ async def reclassify_transaction(
         subject=e.subject or "",
         body_text=e.body_text or e.body_snippet or "",
         session=db,
+        rule_engine_enabled=False,
+        user_id=str(current_user.id),
     )
 
     t.label     = cls.label.value
