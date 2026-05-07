@@ -252,10 +252,12 @@ class MultiLLMClient:
                 },
             ))
         if settings.CLOUDFLARE_API_TOKEN and settings.CLOUDFLARE_ACCOUNT_ID:
+            account_id_str = str(settings.CLOUDFLARE_ACCOUNT_ID)
+            api_token_str = str(settings.CLOUDFLARE_API_TOKEN)
             self._providers.append(_Provider(
                 name="cloudflare",
-                base_url=f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1",
-                api_key=settings.CLOUDFLARE_API_TOKEN,
+                base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1",
+                api_key=api_token_str,
                 model="@cf/meta/llama-3.1-8b-instruct",
             ))
 
