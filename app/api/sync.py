@@ -164,13 +164,17 @@ async def fetch_range(
 
 
 @router.get("/alerts")
-async def get_alerts():
+async def get_alerts(current_user: User = Depends(get_current_user)):
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(403, "Admin only")
     from app.alerts import get_alerts as _get
     return _get()
 
 
 @router.post("/alerts/clear")
-async def clear_alerts(current_user=Depends(get_current_user)):
+async def clear_alerts(current_user: User = Depends(get_current_user)):
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(403, "Admin only")
     from app.alerts import clear_alerts as _clear
     _clear()
     return {"cleared": True}

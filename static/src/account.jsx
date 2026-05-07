@@ -499,8 +499,9 @@ const AccessSection = ({ account }) => {
 
 const AdminFetchRangeSection = () => {
   const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [afterDate,  setAfterDate]  = React.useState(today);
-  const [beforeDate, setBeforeDate] = React.useState(today);
+  const [beforeDate, setBeforeDate]  = React.useState(tomorrow);
   const [loading, setLoading] = React.useState(false);
   const [result,  setResult]  = React.useState(null);
   const [error,   setError]   = React.useState(null);
