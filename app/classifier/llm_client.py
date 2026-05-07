@@ -2,7 +2,7 @@
 Multi-provider LLM client with automatic rate-limit fallback.
 
 Priority order (best error-rate first, then configured order):
-  OpenRouter → Google Gemini → Grok (xAI) → Scaleway
+  OpenRouter - Google Gemini - Grok (xAI) - Scaleway
 
 When a provider returns 429 it is marked rate-limited for `Retry-After`
 seconds (default 60 s).  The next available provider is tried automatically.
@@ -62,7 +62,7 @@ CLASSIFICATION RULES:
 - "ignore"   = no real transaction: OTP, login alert, low-balance warning, statement ready, promotional offer,
                delivery/shipment status, password reset, newsletter, KYC reminder
 
-REFUND / REVERSAL → always "income" (money returning to you)
+REFUND / REVERSAL - always "income" (money returning to you)
 
 From: {sender}
 Subject: {subject}
@@ -71,19 +71,19 @@ Body: {body_snippet}
 EXTRACTION RULES:
 - amount    : INR number, no currency symbols or commas. Found in subject ("Rs.488.00") or body. null if absent.
 - merchant  : payee / store / service - NOT the bank itself. Clean raw merchant codes:
-              "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER" → "Zomato",
-              "NETFLIX.COM" → "Netflix", "SPOTIFY" → "Spotify". null if no identifiable payee.
-- category  : one of - {categories}
+              "WWW SWIGGY IN" - "Swiggy", "AMZN MKTP IN" - "Amazon", "ZOMATO*ORDER" - "Zomato",
+              "NETFLIX.COM" - "Netflix", "SPOTIFY" - "Spotify". null if no identifiable payee.
+- category: one of - {categories}
 - txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
 - confidence: 0.9–1.0 for clear bank/UPI alerts · 0.7–0.9 for merchant emails · 0.5–0.7 for ambiguous
 
 COMMON INDIAN BANK PATTERNS:
-  "Rs.X debited from your account/card ... towards MERCHANT" → expense
-  "INR X credited to your account" → income
-  "Rs.X refunded / reversed to your account" → income, category=Refund
-  "You have paid Rs.X to MERCHANT via UPI" → expense, category=UPI Payment
-  "X debited from a/c XXXX" → expense (find merchant in body)
-  "Cashback of Rs.X credited" → income, category=Income
+  "Rs.X debited from your account/card ... towards MERCHANT" - expense
+  "INR X credited to your account" - income
+  "Rs.X refunded / reversed to your account" - income, category=Refund
+  "You have paid Rs.X to MERCHANT via UPI" - expense, category=UPI Payment
+  "X debited from a/c XXXX" - expense (find merchant in body)
+  "Cashback of Rs.X credited" - income, category=Income
 
 JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
 
@@ -207,7 +207,7 @@ class MultiLLMClient:
     def _build_providers(self) -> None:
         """
         Register providers in default priority order (lowest score = tried first).
-        Default order: Google → Grok → Scaleway → OpenRouter.
+        Default order: Google - Grok - Scaleway - OpenRouter.
         OpenRouter starts last because it has the tightest free-tier rate limits.
         At runtime _ranked_providers() re-sorts by priority_score so any provider
         that accumulates rate-limit hits falls further down automatically.
