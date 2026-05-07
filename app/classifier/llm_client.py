@@ -375,7 +375,7 @@ class MultiLLMClient:
                 logger.warning("Groq rate limiter error: %s", e)
 
         payload = {
-            "model": provider.model,
+            "model": str(provider.model),
             "messages": [
                 {"role": "system", "content": _SYSTEM},
                 {"role": "user", "content": user_prompt},
@@ -384,7 +384,7 @@ class MultiLLMClient:
             "max_tokens": 500,
         }
         headers = {
-            "Authorization": f"Bearer {provider.api_key}",
+            "Authorization": f"Bearer {str(provider.api_key)}",
             "Content-Type": "application/json",
         }
         for k, v in (provider.extra_headers or {}).items():
