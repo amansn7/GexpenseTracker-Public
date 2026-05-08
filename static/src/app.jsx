@@ -6,6 +6,22 @@ const App = () => {
   const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [renderError, setRenderError] = useState(null);
+
+  React.useEffect(() => {
+    const onError = (e) => { setRenderError(e.error?.message || "Something went wrong"); };
+    window.addEventListener("error", onError);
+    return () => window.removeEventListener("error", onError);
+  }, []);
+
+  if (renderError) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
+      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
+      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
+      <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Reload</button>
+    </div>
+  );
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
@@ -87,7 +103,11 @@ const App = () => {
     setLoadingMore(false);
   };
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+    const timer = setTimeout(() => { if (loading) setLoadingTimeout(true); }, 10000);
+    return () => clearTimeout(timer);
+  }, [loadData]);
 
   useEffect(() => {
     const loadAccount = () => {
@@ -225,6 +245,7 @@ const App = () => {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16 }}>
       <div style={{ width:32, height:32, border:"2px solid var(--line)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 700ms linear infinite" }}/>
       <div style={{ fontSize:13, color:"var(--ink-3)", fontFamily:"'Fraunces',serif" }}>Loading your inbox…</div>
+      {loadingTimeout && <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"8px 16px", background:"var(--paper-2)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:12, cursor:"pointer" }}>Reload page</button>}
     </div>
   );
 
