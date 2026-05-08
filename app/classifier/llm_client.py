@@ -17,6 +17,7 @@ from typing import List, Optional
 import httpx
 
 from app.config import settings
+from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,32 @@ class MultiLLMClient:
             for p in all_providers
         ]
 
+    def get_user_client(self, user_id: str) -> Optional["MultiLLMClient"]:
+        """Return user-specific LLM client from their DB config, or None if not configured."""
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession
+        from app.models import UserLLMConfig
+        
+        async def _get():
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(UserLLMConfig).where(UserLLMConfig.user_id == user_id)
+                )
+                return result.scalar_one_or_none()
+        
+        import asyncio
+        config = asyncio.run(_get()) if user_id else None
+        if not config:
+            return None
+        
+        return build_user_client(
+            user_id=user_id,
+            provider=config.provider,
+            base_url=config.base_url,
+            api_key=config.api_key,
+            model_id=config.model_id,
+        )
+
     _DEFAULT_CATEGORIES = (
         "Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment, "
         "Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other"
@@ -477,9 +504,10 @@ LLMClient = MultiLLMClient
 _KNOWN_BASE_URLS: dict[str, str] = {
     "google": "https://generativelanguage.googleapis.com/v1beta/openai",
     "grok": "https://api.x.ai/v1",
+    "groq": "https://api.groq.com/openai/v1",
     "scaleway": "https://api.scaleway.ai/v1",
     "openrouter": "https://openrouter.ai/api/v1",
-    "cloudflare": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1",
+    "cloudflare": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/run",
 }
 
 
@@ -495,7 +523,7 @@ def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_
         resolved_url = _KNOWN_BASE_URLS.get(provider_str)
     # For Cloudflare, substitute account_id from env if user didn't provide custom URL
     if provider_str == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
-        resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
+        resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1/run"
     if not resolved_url:
         logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider_str)
         return llm_client
