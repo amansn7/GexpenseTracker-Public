@@ -33,7 +33,11 @@ const App = () => {
     try {
       setLoading(true);
       setError(null);
-      const txRaw = await API.get("/api/transactions?offset=0&limit=500");
+      const params = new URLSearchParams({ offset: 0, limit: 50 });
+      const labelMap = { expenses: "expense", income: "income" };
+      const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
+      if (apiLabel) params.append("label", apiLabel);
+      const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
     } catch (e) {
@@ -41,7 +45,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [inboxFilter]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -49,11 +53,20 @@ const App = () => {
     _loadingRef.current = true;
     setLoadingMore(true);
     try {
-      const data = await API.get(`/api/transactions?offset=${transactions.length}&limit=200`);
+      const params = new URLSearchParams({
+        offset: transactions.length,
+        limit: 50,
+      });
+      // Map frontend filter values to backend label values
+      const labelMap = { expenses: "expense", income: "income" };
+      const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
+      if (apiLabel) params.append("label", apiLabel);
+      const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
         const seen = new Set(ts.map(t => t.id));
         return [...ts, ...data.items.map(transformTransaction).filter(t => !seen.has(t.id))];
       });
+      setTotalTransactions(data.total);
     } catch (_) {}
     _loadingRef.current = false;
     setLoadingMore(false);
