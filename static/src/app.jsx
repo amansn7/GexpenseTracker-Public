@@ -62,11 +62,11 @@ const App = () => {
       const labelMap = { expenses: "expense", income: "income" };
       const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
       if (apiLabel) params.append("label", apiLabel);
-      // Add date range - default to current month if not set
-      const range = dateRange.from ? dateRange : getCurrentMonthRange();
-      params.append("date_from", range.from);
-      params.append("date_to", range.to);
+      const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
+      if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
+      console.log("Loading transactions with params:", params.toString());
       const txRaw = await API.get(`/api/transactions?${params}`);
+      console.log("Transactions response:", txRaw);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
     } catch (e) {

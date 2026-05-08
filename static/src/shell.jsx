@@ -290,13 +290,14 @@ const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu
 
 const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
   const fmt = d => { const off = d.getTimezoneOffset() * 60000; return new Date(d - off).toISOString().slice(0, 10); };
-  const presets = [["7d", 7], ["30d", 30], ["90d", 90], ["1y", 365]];
+  const presets = [["all", "All"], ["7d", "7d"], ["30d", "30d"], ["90d", "90d"], ["1y", "1y"]];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       {presets.map(([label, days]) => (
         <button
           key={label}
           onClick={() => {
+            if (label === "all") { onChange(null, null, "all"); return; }
             const end = new Date();
             const start = new Date(); start.setDate(end.getDate() - days + 1);
             onChange(fmt(start), fmt(end), label);
