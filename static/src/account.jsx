@@ -1488,8 +1488,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                   </button>
                 </div>
               </div>
-            </details>
-          </div>
+            </div>
+          </details>
+        </div>
 
           {/* AI Preferences */}
           <div style={{ ...accountStyles.section, marginTop: 20 }}>
