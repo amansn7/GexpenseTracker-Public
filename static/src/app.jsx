@@ -180,28 +180,31 @@ const App = () => {
     if (syncing) return;
     setSyncing(true);
     try {
-      await API.post("/api/sync/trigger");
-      // Poll /sync/progress (real-time running flag) until sync completes.
-      // Track whether sync has started so we don't bail on a stale "idle" state.
+      const trigger = await API.post("/api/sync/trigger");
+      console.log("Sync triggered:", trigger);
       let started = false;
       let attempts = 0;
       const poll = setInterval(async () => {
         attempts++;
         try {
           const p = await API.get("/api/sync/progress");
+          console.log("Sync progress:", p);
           if (p.running) started = true;
           const done = !p.running && (started || p.phase === "error" || p.phase === "done");
-          if (done || attempts >= 180) {  // 180 × 2s = 6-minute ceiling
+          if (done || attempts >= 180) {
             clearInterval(poll);
             await loadData();
             API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
             setSyncing(false);
           }
-        } catch (_) {
+        } catch (e) {
+          console.error("Poll error:", e);
           if (attempts >= 180) { clearInterval(poll); setSyncing(false); }
         }
       }, 2000);
-    } catch (_) {
+    } catch (e) {
+      console.error("Sync trigger error:", e);
+      alert("Failed to start sync: " + (e.message || "Unknown error"));
       setSyncing(false);
     }
   };
