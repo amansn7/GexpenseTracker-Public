@@ -535,5 +535,7 @@ def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_
 
     client = MultiLLMClient(user_id=user_id)
     user_provider = _Provider(name=provider_str, base_url=str(resolved_url), api_key=str(api_key), model=str(model_id))
-    client._providers = [user_provider] + [p for p in client._providers if p.name != provider_str]
+    # Add user's provider first, then fallbacks from global llm_client (exclude duplicate provider names)
+    global_fallbacks = [p for p in llm_client._providers if p.name != provider_str]
+    client._providers = [user_provider] + global_fallbacks
     return client
