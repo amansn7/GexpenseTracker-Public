@@ -525,7 +525,7 @@ def build_user_client(user_id: str, provider: str, base_url: Optional[str], api_
         resolved_url = _KNOWN_BASE_URLS.get(provider_str)
     # For Cloudflare, substitute account_id from env if user didn't provide custom URL
     if provider_str == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
-        resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1/run"
+        resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/run"
     if not resolved_url:
         logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider_str)
         return llm_client

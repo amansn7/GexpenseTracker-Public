@@ -945,7 +945,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     { provider: "openrouter", display_name: "OpenRouter", model_id: "google/gemini-2.0-flash-exp:free", base_url: "https://openrouter.ai/api/v1" },
     { provider: "gemini", display_name: "Google Gemini", model_id: "gemini-2.0-flash", base_url: "https://generativelanguage.googleapis.com/v1beta/openai" },
     { provider: "grok", display_name: "Grok", model_id: "grok-3-mini", base_url: "https://api.x.ai/v1" },
-    { provider: "cloudflare", display_name: "Cloudflare", model_id: "@cf/meta/llama-3.1-8b-instruct", base_url: "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1" },
+    { provider: "cloudflare", display_name: "Cloudflare", model_id: "@cf/meta/llama-3-8b-instruct", base_url: "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai" },
     { provider: "scaleway", display_name: "Scaleway", model_id: "llama-3.3-70b-instruct", base_url: "https://api.scaleway.ai/v1" },
     { provider: "custom", display_name: "Custom service", model_id: "", base_url: "" },
   ];
