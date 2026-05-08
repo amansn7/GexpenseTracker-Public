@@ -90,14 +90,22 @@ const App = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
+    const loadAccount = () => {
+      API.get("/api/auth/me")
+        .then(data => {
+          if (!data) return; // 401 redirect in flight
+          setAccount(data);
+          if (data.has_seed_data) setShowSeedModal(true);
+        })
+        .catch(() => {});
+    };
+    loadAccount();
+    const timer = setTimeout(loadAccount, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-    API.get("/api/auth/me")
-      .then(data => {
-        if (!data) return; // 401 redirect in flight
-        setAccount(data);
-        if (data.has_seed_data) setShowSeedModal(true);
-      })
-      .catch(() => {});
   }, []);
 
   // Tweaks panel edit-mode bridge
@@ -279,8 +287,8 @@ const App = () => {
         {view === "reports"   && <ReportsView />}
         {view === "recurring" && <RecurringView />}
         {view === "debt"      && <DebtView />}
-        {view === "profile"   && <ProfileView transactions={transactions} account={account} setAccount={setAccount}/>}
-        {view === "settings"  && <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/>}
+        {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
+        {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
       </main>
 
       {showSeedModal && (
