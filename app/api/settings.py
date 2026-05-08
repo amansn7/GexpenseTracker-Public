@@ -383,18 +383,27 @@ async def validate_ai_service(
     body: AIServiceValidateBody,
     user: User = Depends(get_current_user),
 ):
-    payload = {
-        "model": body.model_id,
-        "messages": [{"role": "user", "content": "hi"}],
-        "max_tokens": 1,
-    }
     headers = {
         "Authorization": f"Bearer {body.api_key}",
         "Content-Type": "application/json",
     }
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(f"{body.base_url}/chat/completions", json=payload, headers=headers)
+            # Cloudflare uses /run/{model}, others use /chat/completions
+            if body.provider == "cloudflare":
+                url = f"{body.base_url}/run/{body.model_id}"
+                payload = {
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "max_tokens": 1,
+                }
+            else:
+                url = f"{body.base_url}/chat/completions"
+                payload = {
+                    "model": body.model_id,
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "max_tokens": 1,
+                }
+            response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         truncated = exc.response.text[:200]
