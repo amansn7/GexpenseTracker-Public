@@ -467,6 +467,7 @@ class MultiLLMClient:
     ) -> dict:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
+        logger.debug("classify_verbose: %d providers available: %s", len(ranked), [p.name for p in ranked])
         if not ranked:
             raise RuntimeError("No LLM providers available")
 
@@ -477,7 +478,9 @@ class MultiLLMClient:
         if pre_extraction:
             prompt = _build_pre_extraction_block(pre_extraction) + prompt
         last_error: Optional[Exception] = None
+        logger.debug("classify_verbose: trying %d providers: %s", len(ranked), [p.name for p in ranked])
         for provider in ranked:
+            logger.debug("  Trying provider: %s", provider.name)
             try:
                 result, raw = await self._call_provider_verbose(provider, prompt)
                 provider.success_count += 1

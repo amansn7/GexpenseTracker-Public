@@ -166,7 +166,10 @@ async def _run_sync_inner(user_id: str = None) -> dict:
                         api_key=decrypted_key,
                         model_id=ai_svc.model_id,
                     )
-                    logger.info("Using DB AI service: %s (%s)", ai_svc.display_name, ai_svc.provider)
+                    logger.info("Using DB AI service: %s (%s), total providers in client: %d", 
+                        ai_svc.display_name, ai_svc.provider, len(user_llm_client._providers))
+                    for i, p in enumerate(user_llm_client._providers):
+                        logger.info("  Provider[%d]: %s available=%s", i, p.name, p.available)
                 except Exception as exc:
                     logger.error("Failed to build user LLM client from DB service: %s", exc)
 
