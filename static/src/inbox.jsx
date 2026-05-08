@@ -573,13 +573,26 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
   );
 };
 
-const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false }) => {
+const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, dateRange, setDateRange = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
   const [selectAllFlag, setSelectAllFlag] = React.useState(false);
   const listRef = React.useRef(null);
+
+  // Date range presets
+  const datePresets = [
+    { label: "This Month", get: () => { const now = new Date(); return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0] }; } },
+    { label: "Last Month", get: () => { const now = new Date(); return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0] }; } },
+    { label: "Last 7 Days", get: () => { const now = new Date(); const d = new Date(now); d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }; } },
+    { label: "Last 30 Days", get: () => { const now = new Date(); const d = new Date(now); d.setDate(d.getDate() - 30); return { from: d.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }; } },
+    { label: "All Time", get: () => ({ from: null, to: null }) },
+  ];
+  const currentPreset = datePresets.find(p => {
+    const range = dateRange.from ? dateRange : datePresets[0].get();
+    return range.from === p.get().from && range.to === p.get().to;
+  }) || null;
   const [bulkReclassState, setBulkReclassState] = React.useState("idle"); // idle | running | done
   const [bulkProgress, setBulkProgress] = React.useState({ done: 0, total: 0 });
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
@@ -802,7 +815,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   </button>
                 ))}
                 <div style={{ flex: 1 }}/>
-                {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions · {new Date().toLocaleString("en-US",{month:"long",year:"numeric"})}</span>}
+                <select
+                  value={currentPreset?.label || "This Month"}
+                  onChange={(e) => { const preset = datePresets.find(p => p.label === e.target.value); if (preset) setDateRange(preset.get()); }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}
+                >
+                  {datePresets.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
+                </select>
+                {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions</span>}
               </>
             )}
           </div>

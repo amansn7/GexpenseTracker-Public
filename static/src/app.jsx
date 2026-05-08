@@ -9,6 +9,7 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
+  const [dateRange, setDateRange] = useState({ from: null, to: null }); // null = current month
   const [tweaksOn, setTweaksOn] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
@@ -20,6 +21,14 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
+
+  // Helper to get current month range
+  const getCurrentMonthRange = () => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { from: first.toISOString().split("T")[0], to: last.toISOString().split("T")[0] };
+  };
 
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
@@ -37,6 +46,10 @@ const App = () => {
       const labelMap = { expenses: "expense", income: "income" };
       const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
       if (apiLabel) params.append("label", apiLabel);
+      // Add date range - default to current month if not set
+      const range = dateRange.from ? dateRange : getCurrentMonthRange();
+      params.append("date_from", range.from);
+      params.append("date_to", range.to);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
@@ -45,7 +58,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [inboxFilter]);
+  }, [inboxFilter, dateRange]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -57,10 +70,12 @@ const App = () => {
         offset: transactions.length,
         limit: 50,
       });
-      // Map frontend filter values to backend label values
       const labelMap = { expenses: "expense", income: "income" };
       const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
       if (apiLabel) params.append("label", apiLabel);
+      const range = dateRange.from ? dateRange : getCurrentMonthRange();
+      params.append("date_from", range.from);
+      params.append("date_to", range.to);
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
         const seen = new Set(ts.map(t => t.id));
@@ -250,6 +265,8 @@ const App = () => {
             setSelectedId={setSelectedId}
             filter={inboxFilter}
             setFilter={setInboxFilter}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
             loadMore={loadMore}
             totalTransactions={totalTransactions}
             loadingMore={loadingMore}
