@@ -15,13 +15,6 @@ const App = () => {
     return () => window.removeEventListener("error", onError);
   }, []);
 
-  if (renderError) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
-      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
-      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
-      <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Reload</button>
-    </div>
-  );
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
@@ -64,9 +57,7 @@ const App = () => {
       if (apiLabel) params.append("label", apiLabel);
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
-      console.log("Loading transactions with params:", params.toString());
       const txRaw = await API.get(`/api/transactions?${params}`);
-      console.log("Transactions response:", txRaw);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
     } catch (e) {
@@ -89,9 +80,8 @@ const App = () => {
       const labelMap = { expenses: "expense", income: "income" };
       const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
       if (apiLabel) params.append("label", apiLabel);
-      const range = dateRange.from ? dateRange : getCurrentMonthRange();
-      params.append("date_from", range.from);
-      params.append("date_to", range.to);
+      const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
+      if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
         const seen = new Set(ts.map(t => t.id));
@@ -260,14 +250,21 @@ const App = () => {
     </div>
   );
 
-  if (!loading && transactions.length === 0) return (
+  if (renderError) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
+      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
+      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
+      <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Reload</button>
+    </div>
+  );
+
+  if (!loading && view === "inbox" && transactions.length === 0) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
       <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--ink)" }}>No transactions yet</div>
       <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>Connect your Gmail account to start tracking your spending.</div>
       <button onClick={handleRescan} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Sync now</button>
     </div>
   );
-
 
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>

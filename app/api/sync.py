@@ -187,7 +187,7 @@ async def llm_limits(current_user: User = Depends(get_current_user)):
 
     result = {"providers": {}}
     try:
-        user_client = llm_client.get_user_client(current_user.id)
+        user_client = await llm_client.get_user_client(current_user.id)
         if user_client:
             result["providers"] = user_client.get_status()
     except Exception as e:

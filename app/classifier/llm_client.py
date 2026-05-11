@@ -295,25 +295,23 @@ class MultiLLMClient:
             for p in all_providers
         ]
 
-    def get_user_client(self, user_id: str) -> Optional["MultiLLMClient"]:
+    async def get_user_client(self, user_id: str) -> Optional["MultiLLMClient"]:
         """Return user-specific LLM client from their DB config, or None if not configured."""
         from sqlalchemy import select
-        from sqlalchemy.ext.asyncio import AsyncSession
         from app.models import UserAIService
         from app.api._account_helpers import _decrypt_secret
-        
-        async def _get():
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    select(UserAIService).where(UserAIService.user_id == user_id)
-                )
-                return result.scalar_one_or_none()
-        
-        import asyncio
-        config = asyncio.run(_get()) if user_id else None
+
+        if not user_id:
+            return None
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(UserAIService).where(UserAIService.user_id == user_id)
+            )
+            config = result.scalar_one_or_none()
         if not config:
             return None
-        
+
+
         decrypted_key = _decrypt_secret(config.encrypted_api_key) if config.encrypted_api_key else None
         return build_user_client(
             user_id=user_id,
