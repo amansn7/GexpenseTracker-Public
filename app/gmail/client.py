@@ -96,7 +96,7 @@ def _extract_body_text(payload: dict) -> str:
 
 def _passes_filter(msg: dict, email_filter: str) -> bool:
     """Return True if message matches the email_filter setting."""
-    if email_filter == "all":
+    if email_filter in ("all", "financial"):
         return True
     label_ids = msg.get("labelIds", [])
     if email_filter == "unread":
@@ -104,6 +104,41 @@ def _passes_filter(msg: dict, email_filter: str) -> bool:
     if email_filter == "read":
         return "UNREAD" not in label_ids
     return True
+
+
+# Financial relevance filter — used when email_filter == "financial"
+# Gmail search operators appended to the query to pre-filter at server level
+_FINANCIAL_GMAIL_QUERY = (
+    "(subject:debited OR subject:credited OR subject:transaction OR "
+    "subject:payment OR subject:UPI OR subject:NEFT OR subject:IMPS OR subject:RTGS OR "
+    "subject:salary OR subject:cashback OR subject:refund OR subject:EMI OR "
+    "subject:\"Rs.\" OR subject:INR OR subject:transfer)"
+)
+
+# Compiled regex for fast pre-storage check (catches history API path where query filter isn't applied)
+_FINANCIAL_RE = re.compile(
+    r"\b(debit|credit|transaction|payment|UPI|NEFT|IMPS|RTGS|NACH|salary|cashback|refund|"
+    r"EMI|transfer|charged|purchased|spent|received|deposited|withdrawn|"
+    r"Rs\.?\s*\d|INR\s*\d|\d\s*(?:INR|Rs))\b",
+    re.IGNORECASE,
+)
+
+_FINANCIAL_DOMAINS = {
+    "hdfcbank.com", "axisbank.com", "sbi.co.in", "icicibank.com", "kotak.com",
+    "yesbank.in", "indusind.com", "idfcfirstbank.com", "rbl.co.in", "federalbank.co.in",
+    "paytm.com", "phonepe.com", "gpay.com", "googlepay.com", "amazonpay.in",
+    "npci.org.in", "razorpay.com", "cashfree.com", "billdesk.com", "mobikwik.com",
+    "freecharge.in", "pnbindia.in", "canarabank.in", "unionbankofindia.co.in",
+    "bankofbaroda.in", "upi.npci.org.in",
+}
+
+
+def is_likely_financial(subject: str, snippet: str, sender_domain: str) -> bool:
+    """Return True if email looks like a financial transaction notification."""
+    if sender_domain in _FINANCIAL_DOMAINS:
+        return True
+    text = f"{subject} {snippet}"
+    return bool(_FINANCIAL_RE.search(text))
 
 
 _FETCH_CONCURRENCY = 40  # Gmail quota: messages.get is 5 units; stay well under 250/sec burst
@@ -138,6 +173,8 @@ def fetch_new_messages(
                 query += " is:unread"
             elif email_filter == "read":
                 query += " is:read"
+            elif email_filter == "financial":
+                query += f" {_FINANCIAL_GMAIL_QUERY}"
 
         # Paginate through all results, not just the first 500
         message_ids = []

@@ -41,7 +41,6 @@ def _build_pre_extraction_block(pre: dict) -> str:
         lines.append(f"- Amount: {pre['amount']} INR")
     if pre.get("date"):
         lines.append(f"- Date: {pre['date']}")
-    return "\n".join(lines)
     if pre.get("direction") not in (None, "unknown"):
         lines.append(f"- Direction: {pre['direction']}")
     if pre.get("mode") not in (None, "unknown"):

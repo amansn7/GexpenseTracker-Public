@@ -118,10 +118,22 @@ async def _run_sync_inner(user_id: str = None) -> dict:
         )
         already_stored = {row[0] for row in existing_result.all()}
 
+        filter_financial = email_filter == "financial"
+
         for msg in messages:
             if msg["gmail_id"] in already_stored:
                 skipped += 1
                 continue
+            # Pre-storage relevance check: history API path doesn't support query filters
+            if filter_financial:
+                from app.gmail.client import is_likely_financial
+                if not is_likely_financial(
+                    msg.get("subject", ""),
+                    msg.get("body_snippet", ""),
+                    msg.get("sender_domain", ""),
+                ):
+                    skipped += 1
+                    continue
             email = Email(**msg)
             if user_id:
                 email.user_id = user_id
