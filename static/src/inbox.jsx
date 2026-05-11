@@ -573,7 +573,47 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
   );
 };
 
-const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, dateRange, setDateRange = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false }) => {
+const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
+  const [loading, setLoading] = React.useState(false);
+
+  const handleAction = async (action) => {
+    setLoading(true);
+    try {
+      await API.post(`/api/emails/${email.id}/review`, { action });
+      if (action === "keep") onKeep(email.id);
+      else onDiscard(email.id);
+    } catch(e) {
+      console.error("Review action failed", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Needs Review</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
+      </div>
+      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{email.sender || email.sender_domain || ""}</div>
+      {email.body_snippet && <div style={{ fontSize: 12, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.body_snippet}</div>}
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <button
+          disabled={loading}
+          onClick={() => handleAction("keep")}
+          style={{ fontSize: 12, padding: "4px 12px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: loading ? "wait" : "pointer", fontWeight: 500 }}
+        >Keep</button>
+        <button
+          disabled={loading}
+          onClick={() => handleAction("discard")}
+          style={{ fontSize: 12, padding: "4px 12px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer" }}
+        >Discard</button>
+      </div>
+    </div>
+  );
+};
+
+const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, dateRange, setDateRange = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
@@ -809,6 +849,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["flagged","Flagged"],
                   ["low","Needs review"],
                   ["duplicates","Duplicates"],
+                  ["review","Review Queue", reviewEmails.length],
                 ].map(([k,label,count]) => (
                   <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
                     {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
@@ -827,7 +868,22 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             )}
           </div>
 
-          {filter === "duplicates" ? (
+          {filter === "review" ? (
+            <div>
+              {reviewEmails.length === 0 ? (
+                <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No emails pending review.</div>
+              ) : (
+                reviewEmails.map(email => (
+                  <ReviewEmailRow
+                    key={email.id}
+                    email={email}
+                    onKeep={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                    onDiscard={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                  />
+                ))
+              )}
+            </div>
+          ) : filter === "duplicates" ? (
             dupLoading ? (
               <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>
             ) : dupPairs.length === 0 ? (

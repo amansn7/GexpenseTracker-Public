@@ -5,6 +5,7 @@ const { useState, useEffect, useCallback } = React;
 const App = () => {
   const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
   const [transactions, setTransactions] = useState([]);
+  const [reviewEmails, setReviewEmails] = React.useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [renderError, setRenderError] = useState(null);
@@ -19,6 +20,13 @@ const App = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
   const [dateRange, setDateRange] = useState({ from: null, to: null }); // null = current month
+
+  React.useEffect(() => {
+    if (inboxFilter !== "review") return;
+    API.get("/api/emails?status=review_pending")
+      .then(data => setReviewEmails(data))
+      .catch(() => {});
+  }, [inboxFilter]);
   const [tweaksOn, setTweaksOn] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
@@ -307,6 +315,8 @@ const App = () => {
             loadMore={loadMore}
             totalTransactions={totalTransactions}
             loadingMore={loadingMore}
+            reviewEmails={reviewEmails}
+            setReviewEmails={setReviewEmails}
           />
         )}
         {view === "search"    && <SearchView query={searchQuery}/>}
