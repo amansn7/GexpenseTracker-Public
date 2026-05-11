@@ -114,3 +114,44 @@ async def test_tier3_fallback_to_review_when_no_llm():
     )
     assert result.decision == "review"
     assert result.tier == 3
+
+
+@pytest.mark.asyncio
+async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user, monkeypatch):
+    """An email that fails Tier 2 scoring gets stored with pre_filter_status=review_pending."""
+    import asyncio
+    from sqlalchemy import select
+    from app.models import Email
+    from app.sync import sync_emails
+
+    # Patch Gmail fetch to return one non-financial email
+    async def _fake_fetch(*a, **kw):
+        return (
+            [{
+                "gmail_id": "fake-001",
+                "subject": "Flash sale: 50% off everything!",
+                "body_snippet": "Shop now and save big.",
+                "sender": "promo@deals.com",
+                "sender_domain": "deals.com",
+                "body_text": "Shop now and save big.",
+                "received_at": None,
+                "gmail_link": None,
+            }],
+            "hist-001",
+        )
+
+    monkeypatch.setattr("app.sync.asyncio.to_thread", lambda fn, *a, **kw: _fake_fetch())
+
+    # Patch Gmail creds
+    async def _fake_creds(*a, **kw):
+        return "fake-creds"
+    monkeypatch.setattr("app.sync.get_credentials_for_user", _fake_creds)
+
+    await sync_emails(db_session, user_id=mock_user.id)
+
+    email = (await db_session.execute(
+        select(Email).where(Email.gmail_id == "fake-001")
+    )).scalar_one_or_none()
+
+    assert email is not None, "Email should be stored even when pre-filter flags it"
+    assert email.pre_filter_status == "review_pending"

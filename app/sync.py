@@ -26,7 +26,7 @@ _sync_progress: Dict[str, Any] = {
     "phase": "idle",      # idle | fetching | classifying | done | error
     "current": 0,
     "total": 0,
-    "tally": {"expense": 0, "income": 0, "ignore": 0},
+    "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
     "previews": [],       # last 8 classified emails (newest first)
     "result": None,
     "error": None,
@@ -43,7 +43,7 @@ def _reset_progress():
         "phase": "fetching",
         "current": 0,
         "total": 0,
-        "tally": {"expense": 0, "income": 0, "ignore": 0},
+        "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
         "previews": [],
         "result": None,
         "error": None,
@@ -73,72 +73,79 @@ async def run_sync(user_id: str = None) -> dict:
     _reset_progress()
     logger.info("Gmail sync starting")
     try:
-        return await _run_sync_inner(user_id=user_id)
+        async with AsyncSessionLocal() as session:
+            return await sync_emails(session, user_id=user_id)
     except Exception as exc:
         logger.error("Sync crashed: %s", exc, exc_info=True)
         _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
         raise
 
 
-async def _run_sync_inner(user_id: str = None) -> dict:
-    async with AsyncSessionLocal() as session:
-        state_result = await session.execute(select(SyncState))
-        sync_state = state_result.scalar_one_or_none()
-        last_history_id = sync_state.last_history_id if sync_state else None
-        email_filter = getattr(sync_state, "email_filter", "all") or "all"
+async def sync_emails(session, user_id: str = None) -> dict:
+    """Core sync logic operating on an injected session. Exposed for testing."""
+    state_result = await session.execute(select(SyncState))
+    sync_state = state_result.scalar_one_or_none()
+    last_history_id = sync_state.last_history_id if sync_state else None
+    email_filter = getattr(sync_state, "email_filter", "all") or "all"
 
-        # ── Phase 1: fetch from Gmail ──────────────────────────────────────────
-        new_history_id = last_history_id
-        logger.info("Fetching messages with filter=%s", email_filter)
-        try:
-            creds = await get_credentials_for_user(session, user_id) if user_id else None
-            if not creds:
-                raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
-            messages, new_history_id = await asyncio.to_thread(
-                fetch_new_messages, last_history_id, email_filter, creds
-            )
-        except Exception as exc:
-            logger.error("Gmail fetch failed: %s", exc, exc_info=True)
-            _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
-            return {"error": str(exc), "processed": 0}
-
-        total = len(messages)
-        logger.info("Fetched %d messages, classifying...", total)
-
-        # ── Phase 2: deduplicate + insert Email rows ───────────────────────────
-        _sync_progress.update({"phase": "classifying", "total": total, "current": 0})
-
-        new_pairs: List[Tuple[Email, dict]] = []  # (email_orm, raw_msg)
-        skipped = 0
-
-        # Batch dedup: one query instead of N individual SELECTs
-        incoming_ids = [m["gmail_id"] for m in messages]
-        existing_result = await session.execute(
-            select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
+    # ── Phase 1: fetch from Gmail ──────────────────────────────────────────
+    new_history_id = last_history_id
+    logger.info("Fetching messages with filter=%s", email_filter)
+    try:
+        creds = await get_credentials_for_user(session, user_id) if user_id else None
+        if not creds:
+            raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
+        messages, new_history_id = await asyncio.to_thread(
+            fetch_new_messages, last_history_id, email_filter, creds
         )
-        already_stored = {row[0] for row in existing_result.all()}
+    except Exception as exc:
+        logger.error("Gmail fetch failed: %s", exc, exc_info=True)
+        _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
+        return {"error": str(exc), "processed": 0}
 
-        filter_financial = email_filter == "financial"
+    total = len(messages)
+    logger.info("Fetched %d messages, classifying...", total)
 
-        for msg in messages:
-            if msg["gmail_id"] in already_stored:
-                skipped += 1
-                continue
-            # Pre-storage relevance check: history API path doesn't support query filters
-            if filter_financial:
-                from app.gmail.client import is_likely_financial
-                if not is_likely_financial(
-                    msg.get("subject", ""),
-                    msg.get("body_snippet", ""),
-                    msg.get("sender_domain", ""),
-                ):
-                    skipped += 1
-                    continue
-            email = Email(**msg)
-            if user_id:
-                email.user_id = user_id
-            session.add(email)
+    # ── Phase 2: deduplicate + insert Email rows ───────────────────────────
+    _sync_progress.update({"phase": "classifying", "total": total, "current": 0})
+
+    new_pairs: List[Tuple[Email, dict]] = []  # (email_orm, raw_msg)
+    skipped = 0
+
+    # Batch dedup: one query instead of N individual SELECTs
+    incoming_ids = [m["gmail_id"] for m in messages]
+    existing_result = await session.execute(
+        select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
+    )
+    already_stored = {row[0] for row in existing_result.all()}
+
+    from app.classifier.pre_filter import load_engine_from_db
+    pre_filter_engine = await load_engine_from_db(session)
+
+    for msg in messages:
+        if msg["gmail_id"] in already_stored:
+            skipped += 1
+            continue
+
+        pf_result = await pre_filter_engine.evaluate(
+            subject=msg.get("subject", ""),
+            snippet=msg.get("body_snippet", ""),
+            sender_domain=msg.get("sender_domain", ""),
+            session=session,
+            user_llm_client=None,
+        )
+
+        email = Email(**msg)
+        if user_id:
+            email.user_id = user_id
+        email.pre_filter_status = "passed" if pf_result.decision == "pass" else "review_pending"
+        session.add(email)
+        if pf_result.decision == "pass":
             new_pairs.append((email, msg))
+        else:
+            skipped += 1
+            _sync_progress["tally"]["review"] = _sync_progress["tally"].get("review", 0) + 1
+            logger.debug("Pre-filter review: %s (tier=%d conf=%.2f)", msg.get("subject", ""), pf_result.tier, pf_result.confidence)
 
         await session.flush()  # assign IDs to all new Email rows at once
 
