@@ -19,6 +19,7 @@ class Email(Base):
     body_text: Mapped[Optional[str]] = mapped_column(Text)
     gmail_link: Mapped[Optional[str]] = mapped_column(String(500))
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    pre_filter_status: Mapped[str] = mapped_column(String(20), default="passed", server_default="passed")
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     transaction: Mapped[Optional["Transaction"]] = relationship(back_populates="email", uselist=False)

@@ -22,6 +22,10 @@ from .email import (
     SyncState,
 )
 
+from .filter_rule import (
+    FilterRule,
+)
+
 from .transaction import (
     Label,
     TransactionStatus,
@@ -62,6 +66,8 @@ __all__ = [
     # email
     "Email",
     "SyncState",
+    # filter_rule
+    "FilterRule",
     # transaction
     "Label",
     "TransactionStatus",
