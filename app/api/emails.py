@@ -21,13 +21,20 @@ router = APIRouter()
 
 
 @router.get("/emails")
-async def list_emails(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    result = await db.execute(
+async def list_emails(
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = (
         select(Email, Transaction)
         .outerjoin(Transaction, Transaction.email_id == Email.id)
         .where(Email.user_id == current_user.id)
         .order_by(desc(Email.received_at))
     )
+    if status:
+        q = q.where(Email.pre_filter_status == status)
+    result = await db.execute(q)
     rows = result.all()
 
     return [
@@ -41,6 +48,7 @@ async def list_emails(db: AsyncSession = Depends(get_db), current_user: User = D
             "body_snippet": e.body_snippet,
             "body_text": e.body_text,
             "gmail_link": e.gmail_link,
+            "pre_filter_status": e.pre_filter_status,
             "txn_id": t.id if t else None,
             "label": t.label if t else None,
             "status": t.status if t else None,
@@ -51,6 +59,91 @@ async def list_emails(db: AsyncSession = Depends(get_db), current_user: User = D
         }
         for e, t in rows
     ]
+
+
+class ReviewAction(BaseModel):
+    action: str  # "keep" | "discard"
+
+
+@router.post("/emails/{email_id}/review")
+async def review_email(
+    email_id: str,
+    payload: ReviewAction,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.models import FilterRule
+    from fastapi import HTTPException
+
+    email = (await db.execute(
+        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    if payload.action == "keep":
+        result = await classify_email(
+            email_id=email.id,
+            sender=email.sender or "",
+            sender_domain=email.sender_domain or "",
+            subject=email.subject or "",
+            body_text=email.body_text or email.body_snippet or "",
+            session=db,
+            user_id=current_user.id,
+        )
+        txn = Transaction(
+            email_id=email.id,
+            label=result.label,
+            amount=result.amount,
+            merchant=result.merchant,
+            category=result.category,
+            confidence=result.confidence,
+            classifier_method=result.classifier_method,
+        )
+        db.add(txn)
+        email.pre_filter_status = "passed"
+
+        if email.sender_domain:
+            existing_rule = (await db.execute(
+                select(FilterRule).where(
+                    FilterRule.rule_type == "allowlist_domain",
+                    FilterRule.value == email.sender_domain,
+                    FilterRule.source == "user",
+                )
+            )).scalar_one_or_none()
+            if existing_rule:
+                existing_rule.hit_count += 1
+            else:
+                db.add(FilterRule(
+                    rule_type="allowlist_domain",
+                    value=email.sender_domain,
+                    source="user",
+                ))
+
+    elif payload.action == "discard":
+        email.pre_filter_status = "discarded"
+
+        if email.sender_domain:
+            existing_rule = (await db.execute(
+                select(FilterRule).where(
+                    FilterRule.rule_type == "blocklist_domain",
+                    FilterRule.value == email.sender_domain,
+                    FilterRule.source == "user",
+                )
+            )).scalar_one_or_none()
+            if existing_rule:
+                existing_rule.hit_count += 1
+            else:
+                db.add(FilterRule(
+                    rule_type="blocklist_domain",
+                    value=email.sender_domain,
+                    source="user",
+                ))
+    else:
+        raise HTTPException(status_code=400, detail="action must be 'keep' or 'discard'")
+
+    await db.commit()
+    return {"ok": True, "status": email.pre_filter_status}
 
 
 class RetrainPayload(BaseModel):

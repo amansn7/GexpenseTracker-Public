@@ -20,10 +20,10 @@ class ClassificationResult:
     amount: Optional[float]
     merchant: Optional[str]
     category: Optional[str]
-    txn_date: Optional[date]
     confidence: float
-    status: TransactionStatus
     classifier_method: ClassifierMethod
+    txn_date: Optional[date] = None
+    status: TransactionStatus = TransactionStatus.needs_review
     warnings: List[str] = field(default_factory=list)
 
 
