@@ -352,6 +352,24 @@ async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
     return t, e
 
 
+async def _load_user_llm_client(user_id: str, db: AsyncSession):
+    from sqlalchemy import select as _sel
+    from app.models import UserSettings
+    from app.models.user import UserAIService
+    from app.api._account_helpers import _decrypt_secret
+    from app.classifier.llm_client import build_user_client
+    user_settings = (await db.execute(_sel(UserSettings).where(UserSettings.user_id == user_id))).scalar_one_or_none()
+    if not (user_settings and user_settings.active_ai_service_id):
+        return None
+    ai_svc = (await db.execute(_sel(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id))).scalar_one_or_none()
+    if not (ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key):
+        return None
+    try:
+        return build_user_client(user_id=user_id, provider=ai_svc.provider, base_url=ai_svc.base_url, api_key=_decrypt_secret(ai_svc.encrypted_api_key), model_id=ai_svc.model_id)
+    except Exception:
+        return None
+
+
 @router.post("/transactions/{transaction_id}/reclassify/preview")
 async def reclassify_preview(
     transaction_id: str,
@@ -360,6 +378,7 @@ async def reclassify_preview(
 ):
     """Run LLM classification without writing to DB. Returns preview for user confirmation."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
+    user_llm_client = await _load_user_llm_client(str(current_user.id), db)
     from app.classifier.classifier import classify_email
     cls = await classify_email(
         email_id=e.id,
@@ -370,6 +389,7 @@ async def reclassify_preview(
         session=None,  # no DB writes
         rule_engine_enabled=False,
         user_id=str(current_user.id),
+        llm_client_override=user_llm_client,
     )
     return {
         "label":      cls.label.value,
@@ -391,6 +411,7 @@ async def reclassify_transaction(
 ):
     """Commit LLM reclassification to DB and return the updated transaction."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
+    user_llm_client = await _load_user_llm_client(str(current_user.id), db)
     from app.classifier.classifier import classify_email
     cls = await classify_email(
         email_id=e.id,
@@ -401,6 +422,7 @@ async def reclassify_transaction(
         session=db,
         rule_engine_enabled=False,
         user_id=str(current_user.id),
+        llm_client_override=user_llm_client,
     )
 
     t.label     = cls.label.value
