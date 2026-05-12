@@ -191,10 +191,15 @@ def _extract_json(text: str) -> str:
         text = text[1:-1]
     if text.startswith("'") and text.endswith("'"):
         text = text[1:-1]
-    brace_open = text.find("{")
-    brace_close = text.rfind("}")
-    if brace_open >= 0 and brace_close > brace_open:
-        text = text[brace_open : brace_close + 1]
+    bracket_open = text.find("[")
+    if bracket_open >= 0 and text.rfind("]") > bracket_open and (bracket_open < text.find("{") or text.find("{") < 0):
+        brace_close = text.rfind("]")
+        text = text[bracket_open : brace_close + 1]
+    else:
+        brace_open = text.find("{")
+        brace_close = text.rfind("}")
+        if brace_open >= 0 and brace_close > brace_open:
+            text = text[brace_open : brace_close + 1]
     return text
 
 
