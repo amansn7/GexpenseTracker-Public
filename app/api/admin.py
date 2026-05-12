@@ -224,3 +224,61 @@ async def test_provider(
         return {"provider": p.name, "model": p.model, "response": result}
     except Exception as e:
         return {"error": str(e)}
+
+
+@router.post("/admin/reset-my-data")
+async def reset_my_data(
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reset the owner's data back to first-time-onboarding state.
+    Keeps: user credentials, system classification rules (filter_rules, sender_rules, etc.)
+    Clears: transactions, emails, connected accounts, AI services, settings, sessions.
+    """
+    from sqlalchemy import text
+    uid = str(current_user.id)
+
+    wipe = [
+        "DELETE FROM classification_log WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = :uid)",
+        "DELETE FROM duplicate_pairs       WHERE user_id = :uid",
+        "DELETE FROM transactions          WHERE user_id = :uid",
+        "DELETE FROM emails                WHERE user_id = :uid",
+        "DELETE FROM sync_state            WHERE user_id = :uid",
+        "DELETE FROM budgets               WHERE user_id = :uid",
+        "DELETE FROM debts                 WHERE user_id = :uid",
+        "DELETE FROM recurring_expenses    WHERE user_id = :uid",
+        "DELETE FROM user_merchant_overrides WHERE user_id = :uid",
+        "DELETE FROM user_ai_services      WHERE user_id = :uid",
+        "DELETE FROM user_categories       WHERE user_id = :uid",
+        "DELETE FROM connected_accounts    WHERE user_id = :uid",
+        "DELETE FROM sessions              WHERE user_id = :uid",
+        "DELETE FROM oauth_states          WHERE user_id = :uid",
+        "DELETE FROM user_profiles         WHERE user_id = :uid",
+    ]
+    deleted = {}
+    for sql in wipe:
+        table = sql.split("FROM")[1].strip().split()[0]
+        r = await db.execute(text(sql), {"uid": uid})
+        if r.rowcount:
+            deleted[table] = r.rowcount
+
+    await db.execute(text("""
+        UPDATE user_settings SET
+            active_ai_service_id  = NULL,
+            monthly_ai_budget     = NULL,
+            auto_categorize       = TRUE,
+            use_rule_engine       = TRUE,
+            show_confidence       = FALSE,
+            daily_digest          = FALSE,
+            low_confidence_alerts = FALSE
+        WHERE user_id = :uid
+    """), {"uid": uid})
+
+    await db.execute(
+        text("UPDATE users SET onboarding_complete = FALSE WHERE id = :uid"),
+        {"uid": uid},
+    )
+
+    await db.commit()
+    return {"ok": True, "deleted": deleted, "message": "Data reset. Reload the app to start onboarding."}
