@@ -12,6 +12,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/filter/rules")
+async def list_filter_rules(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    rows = (await db.execute(
+        select(FilterRule).order_by(FilterRule.rule_type, FilterRule.created_at)
+    )).scalars().all()
+    return [
+        {
+            "id": r.id,
+            "rule_type": r.rule_type,
+            "value": r.value,
+            "source": r.source,
+            "hit_count": r.hit_count,
+        }
+        for r in rows
+    ]
+
+
 @router.post("/filter/refine")
 async def refine_filter_rules(
     db: AsyncSession = Depends(get_db),
@@ -115,4 +135,4 @@ async def refine_filter_rules(
             added.append({"rule_type": rule_type, "value": value})
 
     await db.commit()
-    return {"added": added, "updated": updated}
+    return {"added": added, "updated": updated, "generated": len(added)}

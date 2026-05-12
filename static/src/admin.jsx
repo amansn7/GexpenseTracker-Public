@@ -704,6 +704,89 @@ const FetchRangeSection = () => {
   );
 };
 
+// ── Section: Filter Rules ─────────────────────────────────────────────────────
+
+const FilterRulesSection = () => {
+  const [rules,    setRules]    = useState([]);
+  const [loading,  setLoading]  = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [result,   setResult]   = useState(null);
+  const [error,    setError]    = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    API.get("/api/filter/rules").then(setRules).catch(() => setRules([])).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const refine = async () => {
+    setRefining(true); setResult(null); setError(null);
+    try {
+      const r = await API.post("/api/filter/refine");
+      setResult(r);
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setRefining(false); }
+  };
+
+  const sourceColor = (s) => ({
+    system: { background: "var(--paper-2)",   color: "var(--ink-3)" },
+    user:   { background: "var(--pos-soft)",   color: "var(--pos)" },
+    llm:    { background: "var(--accent-soft)", color: "var(--accent)" },
+  }[s] || { background: "var(--paper-2)", color: "var(--ink-3)" });
+
+  const typeLabel = (t) => ({ allowlist_domain: "allow", blocklist_domain: "block", keyword_pattern: "keyword" }[t] || t);
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={S.sectionTitle}>Filter Rules</h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load} disabled={loading}>
+            <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+          </button>
+          <button style={{ ...S.btn, ...(refining ? {} : S.btnPrimary), display: "flex", alignItems: "center", gap: 6 }} onClick={refine} disabled={refining}>
+            {refining ? <><Spinner /> Refining…</> : "✦ Refine Filter Rules"}
+          </button>
+        </div>
+      </div>
+      <div style={{ ...S.sectionSub, marginBottom: 16 }}>
+        — LLM mines recent keep/discard decisions to generate new allowlist/blocklist rules
+      </div>
+      {result && (
+        <div style={{ fontSize: 12, color: "var(--pos)", marginBottom: 12 }}>
+          ✓ {result.generated ?? 0} new rule{result.generated !== 1 ? "s" : ""} generated
+        </div>
+      )}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>✗ {error}</div>}
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
+      {!loading && rules.length > 0 && (
+        <table style={S.table}>
+          <thead>
+            <tr>
+              {["Type", "Value", "Source", "Hits"].map(h => <th key={h} style={S.th}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map(r => (
+              <tr key={r.id}>
+                <td style={S.td}><span style={{ ...S.badge, background: "var(--paper-2)", color: "var(--ink-3)", fontSize: 11 }}>{typeLabel(r.rule_type)}</span></td>
+                <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{r.value}</td>
+                <td style={S.td}><span style={{ ...S.badge, ...sourceColor(r.source), fontSize: 11 }}>{r.source}</span></td>
+                <td style={{ ...S.td, color: r.hit_count > 0 ? "var(--ink)" : "var(--ink-4)", fontVariantNumeric: "tabular-nums" }}>{r.hit_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {!loading && rules.length === 0 && (
+        <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>No filter rules found.</div>
+      )}
+    </>
+  );
+};
+
 // ── AdminView (exported) ───────────────────────────────────────────────────────
 
 const AdminView = () => (
@@ -718,6 +801,7 @@ const AdminView = () => (
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
     <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
     <div style={S.section}><FetchRangeSection /></div>
+    <div style={S.section}><FilterRulesSection /></div>
     <div style={S.section}><AlertsSection /></div>
   </div>
 );
