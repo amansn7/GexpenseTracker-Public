@@ -10,15 +10,10 @@ from app.models import Email, Transaction, SyncState, Label, UserSettings
 from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import fetch_new_messages
 from app.alerts import add_alert
-from app.classifier.classifier import classify_email
-from app.classifier.protocol import ClassificationResult
+from app.classifier.classifier import batch_classify_emails
+from app.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Max concurrent LLM calls
-_LLM_CONCURRENCY = 8
-_LLM_MAX_RETRIES = 3
-_LLM_RETRY_DELAY = 2  # seconds between retries
 
 # Global sync progress — read by /api/sync/progress polling endpoint
 _sync_progress: Dict[str, Any] = {
@@ -147,170 +142,126 @@ async def sync_emails(session, user_id: str = None) -> dict:
             _sync_progress["tally"]["review"] = _sync_progress["tally"].get("review", 0) + 1
             logger.debug("Pre-filter review: %s (tier=%d conf=%.2f)", msg.get("subject", ""), pf_result.tier, pf_result.confidence)
 
-        await session.flush()  # assign IDs to all new Email rows at once
+    await session.flush()
 
-        # ── Phase 2b: load rule engine settings ───────────────────────────────
-        _settings_q = select(UserSettings)
-        if user_id:
-            _settings_q = _settings_q.where(UserSettings.user_id == user_id)
-        else:
-            _settings_q = _settings_q.limit(1)
-        user_settings = (await session.execute(_settings_q)).scalar_one_or_none()
-        rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
-
-        db_rules: dict = {}
-        if rule_engine_enabled:
-            from app.classifier.rules import build_domain_rules
-            db_rules = await build_domain_rules(session)
-            logger.info("Rule engine enabled: loaded %d learned domain rules", len(db_rules))
-        else:
-            logger.info("Rule engine disabled: all emails go to LLM")
-
-        # ── Phase 2c: build per-user LLM client from DB-stored AI service ─────
-        user_llm_client = None
-        if user_settings and user_settings.active_ai_service_id:
-            from app.models.user import UserAIService
-            from app.api._account_helpers import _decrypt_secret
-            from app.classifier.llm_client import build_user_client
-            ai_svc = (await session.execute(
-                select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
-            )).scalar_one_or_none()
-            if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
-                try:
-                    decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
-                    user_llm_client = build_user_client(
-                        user_id=user_id,
-                        provider=ai_svc.provider,
-                        base_url=ai_svc.base_url,
-                        api_key=decrypted_key,
-                        model_id=ai_svc.model_id,
-                    )
-                    logger.info("Using DB AI service: %s (%s), total providers in client: %d", 
-                        ai_svc.display_name, ai_svc.provider, len(user_llm_client._providers))
-                    for i, p in enumerate(user_llm_client._providers):
-                        logger.info("  Provider[%d]: %s available=%s", i, p.name, p.available)
-                except Exception as exc:
-                    logger.error("Failed to build user LLM client from DB service: %s", exc)
-
-        # ── Phase 3: classify all new emails concurrently ─────────────────────
-        sem = asyncio.Semaphore(_LLM_CONCURRENCY)
-        done_counter = 0
-        failed_items: List[Tuple[Email, dict]] = []
-        pair_index: dict[int, int] = {id(e): i for i, (e, _) in enumerate(new_pairs)}
-
-        async def _classify_one(email: Email, msg: dict) -> ClassificationResult:
-            nonlocal done_counter
-            async with sem:
-                result = await classify_email(
-                    email_id=email.id,
-                    sender=msg["sender"],
-                    sender_domain=msg["sender_domain"],
-                    subject=msg["subject"] or "",
-                    body_text=msg.get("body_text") or msg.get("body_snippet") or "",
-                    session=session,
-                    rule_engine_enabled=rule_engine_enabled,
-                    db_rules=db_rules,
-                    llm_client_override=user_llm_client,
-                )
-            for warning in result.warnings:
-                add_alert("error", warning, source="classifier")
-            done_counter += 1
-            _sync_progress["current"] = skipped + done_counter
-            _add_preview(msg, result.label.value, result.category, result.amount)
-            return result
-
-        classifications = await asyncio.gather(
-            *[_classify_one(e, m) for e, m in new_pairs],
-            return_exceptions=True,
-        )
-
-        # Collect failed items for retry (rate limit or provider errors)
-        for (email, msg), cls in zip(new_pairs, classifications):
-            if isinstance(cls, Exception):
-                failed_items.append((email, msg))
-                logger.warning("Classification failed (will retry): %s - %s", msg["gmail_id"], cls)
-
-        # ── Retry Phase: retry failed emails up to N times ─────────────────────
-        for retry_round in range(1, _LLM_MAX_RETRIES + 1):
-            if not failed_items:
-                break
-            await asyncio.sleep(_LLM_RETRY_DELAY * retry_round)
-            logger.info("Retry round %d: retrying %d failed emails", retry_round, len(failed_items))
-
-            new_classifications = await asyncio.gather(
-                *[_classify_one(e, m) for e, m in failed_items],
-                return_exceptions=True,
-            )
-
-            retry_failed = []
-            for (email, msg), cls in zip(failed_items, new_classifications):
-                if isinstance(cls, Exception):
-                    retry_failed.append((email, msg))
-                    logger.warning("Retry failed: %s - %s", msg["gmail_id"], cls)
-                else:
-                    idx = pair_index[id(email)]
-                    classifications[idx] = cls
-                    logger.info("Retry succeeded for: %s", msg["gmail_id"])
-
-            failed_items = retry_failed
-
-        # ── Phase 4: write Transaction rows + run dedup detection ─────────────
-        processed = 0
-        new_transactions: list = []  # (transaction_orm, email_orm) for dedup pass
-        for (email, msg), cls in zip(new_pairs, classifications):
-            if isinstance(cls, Exception):
-                logger.error("Classification failed for %s: %s", msg["gmail_id"], cls,
-                             exc_info=(type(cls), cls, cls.__traceback__))
-                t = Transaction(
-                    email_id=email.id,
-                    label=Label.ignore.value,
-                    currency="INR",
-                    status="needs_review",
-                    classifier_method="llm",
-                    confidence=0.0,
-                )
-                session.add(t)
-                new_transactions.append((t, email))
-            else:
-                t = Transaction(
-                    email_id=email.id,
-                    label=cls.label.value,
-                    amount=cls.amount,
-                    currency="INR",
-                    merchant=cls.merchant,
-                    category=cls.category,
-                    txn_date=cls.txn_date,
-                    confidence=cls.confidence,
-                    status=cls.status.value,
-                    classifier_method=cls.classifier_method.value,
-                )
-                session.add(t)
-                new_transactions.append((t, email))
-                processed += 1
-
-        await session.flush()  # ensure Transaction IDs exist before dedup queries
-
-        # ── Phase 4b: duplicate detection ─────────────────────────────────────
-        from app.dedup.service import detect_and_record_duplicates
-        for t, email in new_transactions:
-            try:
-                await detect_and_record_duplicates(t, email, session)
-            except Exception as exc:
-                logger.error("Dedup detection failed for tx email %s: %s", email.id, exc)
-
-        # ── Phase 4c: persist fuzzy-learned merchant aliases ──────────────────
-        from app.classifier.merchant import learn_pending_aliases
-        await learn_pending_aliases(session)
-
-        # ── Phase 5: update SyncState + commit ────────────────────────────────
-        if sync_state is None:
-            session.add(SyncState(id=1, last_history_id=new_history_id,
-                                  last_synced_at=datetime.now(timezone.utc)))
-        else:
-            sync_state.last_history_id = new_history_id
+    if not new_pairs:
+        if sync_state is not None:
             sync_state.last_synced_at = datetime.now(timezone.utc)
-
+            sync_state.last_history_id = new_history_id
         await session.commit()
+        result = {"processed": 0, "total_fetched": total, "skipped": skipped}
+        _sync_progress.update({"running": False, "phase": "done", "result": result})
+        logger.info("Sync complete (no new emails): %s", result)
+        return result
+
+    # ── Phase 2b: load rule engine settings (once) ──────────────────────────
+    _sync_progress.update({"phase": "classifying", "total": len(new_pairs), "current": skipped})
+
+    _settings_q = select(UserSettings)
+    if user_id:
+        _settings_q = _settings_q.where(UserSettings.user_id == user_id)
+    else:
+        _settings_q = _settings_q.limit(1)
+    user_settings = (await session.execute(_settings_q)).scalar_one_or_none()
+    rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
+
+    db_rules: dict = {}
+    if rule_engine_enabled:
+        from app.classifier.rules import build_domain_rules
+        db_rules = await build_domain_rules(session)
+        logger.info("Rule engine enabled: loaded %d learned domain rules", len(db_rules))
+    else:
+        logger.info("Rule engine disabled: all emails go to LLM")
+
+    # ── Phase 2c: build per-user LLM client (once) ─────────────────────────
+    user_llm_client = None
+    if user_settings and user_settings.active_ai_service_id:
+        from app.models.user import UserAIService
+        from app.api._account_helpers import _decrypt_secret
+        from app.classifier.llm_client import build_user_client
+        ai_svc = (await session.execute(
+            select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
+        )).scalar_one_or_none()
+        if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
+            try:
+                decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
+                user_llm_client = build_user_client(
+                    user_id=user_id,
+                    provider=ai_svc.provider,
+                    base_url=ai_svc.base_url,
+                    api_key=decrypted_key,
+                    model_id=ai_svc.model_id,
+                )
+                logger.info("Using DB AI service: %s (%s), total providers in client: %d", 
+                    ai_svc.display_name, ai_svc.provider, len(user_llm_client._providers))
+                for i, p in enumerate(user_llm_client._providers):
+                    logger.info("  Provider[%d]: %s available=%s", i, p.name, p.available)
+            except Exception as exc:
+                logger.error("Failed to build user LLM client from DB service: %s", exc)
+
+    # ── Phase 3: batch classify all new emails ─────────────────────────────
+    items = [(email.id, msg["sender"], msg["sender_domain"],
+              msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
+             for email, msg in new_pairs]
+
+    classifications = await batch_classify_emails(
+        items,
+        session=session,
+        rule_engine_enabled=rule_engine_enabled,
+        db_rules=db_rules,
+        user_id=user_id,
+        llm_client_override=user_llm_client,
+        batch_size=settings.LLM_BATCH_SIZE,
+    )
+
+    for i, (email, msg) in enumerate(new_pairs):
+        _sync_progress["current"] = skipped + i + 1
+        cls = classifications[i]
+        _add_preview(msg, cls.label.value, cls.category, cls.amount)
+
+    # ── Phase 4: write Transaction rows ─────────────────────────────────────
+    processed = 0
+    new_transactions: list = []
+    for (email, msg), cls in zip(new_pairs, classifications):
+        t = Transaction(
+            email_id=email.id,
+            label=cls.label.value,
+            amount=cls.amount,
+            currency="INR",
+            merchant=cls.merchant,
+            category=cls.category,
+            txn_date=cls.txn_date,
+            confidence=cls.confidence,
+            status=cls.status.value,
+            classifier_method=cls.classifier_method.value,
+        )
+        session.add(t)
+        new_transactions.append((t, email))
+        processed += 1
+
+    await session.flush()
+
+    # ── Phase 4b: duplicate detection ───────────────────────────────────────
+    from app.dedup.service import detect_and_record_duplicates
+    for t, email in new_transactions:
+        try:
+            await detect_and_record_duplicates(t, email, session)
+        except Exception as exc:
+            logger.error("Dedup detection failed for tx email %s: %s", email.id, exc)
+
+    # ── Phase 4c: persist fuzzy-learned merchant aliases ────────────────────
+    from app.classifier.merchant import learn_pending_aliases
+    await learn_pending_aliases(session)
+
+    # ── Phase 5: update SyncState + commit ──────────────────────────────────
+    if sync_state is None:
+        session.add(SyncState(id=1, last_history_id=new_history_id,
+                              last_synced_at=datetime.now(timezone.utc)))
+    else:
+        sync_state.last_history_id = new_history_id
+        sync_state.last_synced_at = datetime.now(timezone.utc)
+
+    await session.commit()
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}
     _sync_progress.update({"running": False, "phase": "done", "result": result})
@@ -385,53 +336,36 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
                 except Exception as exc:
                     logger.error("fetch-range: failed to build user LLM client: %s", exc)
 
-        sem = asyncio.Semaphore(_LLM_CONCURRENCY)
+        items = [(email.id, msg["sender"], msg["sender_domain"],
+                  msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
+                 for email, msg in new_pairs]
 
-        async def _classify_one(email: Email, msg: dict):
-            async with sem:
-                return await classify_email(
-                    email_id=email.id,
-                    sender=msg["sender"],
-                    sender_domain=msg["sender_domain"],
-                    subject=msg["subject"] or "",
-                    body_text=msg.get("body_text") or msg.get("body_snippet") or "",
-                    session=session,
-                    rule_engine_enabled=rule_engine_enabled,
-                    db_rules=db_rules,
-                    llm_client_override=user_llm_client,
-                )
-
-        classifications = await asyncio.gather(
-            *[_classify_one(e, m) for e, m in new_pairs],
-            return_exceptions=True,
+        classifications = await batch_classify_emails(
+            items,
+            session=session,
+            rule_engine_enabled=rule_engine_enabled,
+            db_rules=db_rules,
+            user_id=user_id,
+            llm_client_override=user_llm_client,
+            batch_size=settings.LLM_BATCH_SIZE,
         )
 
         inserted = 0
         for (email, _), cls in zip(new_pairs, classifications):
-            if isinstance(cls, Exception):
-                t = Transaction(
-                    email_id=email.id,
-                    label=Label.ignore.value,
-                    currency="INR",
-                    status="needs_review",
-                    classifier_method="llm",
-                    confidence=0.0,
-                )
-            else:
-                t = Transaction(
-                    email_id=email.id,
-                    label=cls.label.value,
-                    amount=cls.amount,
-                    currency="INR",
-                    merchant=cls.merchant,
-                    category=cls.category,
-                    txn_date=cls.txn_date,
-                    confidence=cls.confidence,
-                    status=cls.status.value,
-                    classifier_method=cls.classifier_method.value,
-                )
-                inserted += 1
+            t = Transaction(
+                email_id=email.id,
+                label=cls.label.value,
+                amount=cls.amount,
+                currency="INR",
+                merchant=cls.merchant,
+                category=cls.category,
+                txn_date=cls.txn_date,
+                confidence=cls.confidence,
+                status=cls.status.value,
+                classifier_method=cls.classifier_method.value,
+            )
             session.add(t)
+            inserted += 1
 
         await session.flush()
 

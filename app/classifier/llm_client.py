@@ -87,6 +87,30 @@ COMMON INDIAN BANK PATTERNS:
 
 JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
 
+_BATCH_USER_TEMPLATE = """You have {count} financial emails to classify. Process ALL of them.
+
+{email_blocks}
+
+CLASSIFICATION RULES:
+- "expense" = money going OUT: debited, charged, paid, purchase, bill payment, subscription, EMI, fee
+- "income" = money coming IN: credited, received, salary, cashback, refund, reversal, reward points redeemed
+- "ignore" = no real transaction: OTP, login alert, low-balance warning, statement ready, promotional offer,
+             delivery/shipment status, password reset, newsletter, KYC reminder
+
+REFUND / REVERSAL - always "income" (money returning to you)
+
+EXTRACTION RULES:
+- amount    : INR number, no currency symbols or commas. null if absent.
+- merchant  : payee / store / service - NOT the bank itself. Clean raw codes:
+              "WWW SWIGGY IN" -> "Swiggy", "AMZN MKTP IN" -> "Amazon", "ZOMATO*ORDER" -> "Zomato",
+              "NETFLIX.COM" -> "Netflix", "SPOTIFY" -> "Spotify". null if no identifiable payee.
+- category: one of - {categories}
+- txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
+- confidence: 0.9-1.0 for clear bank/UPI alerts · 0.7-0.9 for merchant emails · 0.5-0.7 for ambiguous
+
+Respond ONLY with a JSON array — one object per email, in order:
+[{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0}},...]"""
+
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
@@ -194,6 +218,42 @@ def _parse_response(raw: str) -> LLMClassification:
         txn_date=data.get("txn_date"),
         confidence=float(data.get("confidence", 0.5)),
     )
+
+
+def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassification]:
+    """Parse a JSON array response into individual LLMClassification objects."""
+    cleaned = _extract_json(raw)
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError:
+        raise ValueError(f"Cannot parse batch response: {cleaned[:200]}")
+
+    if not isinstance(data, list):
+        data = [data]
+
+    results: List[LLMClassification] = []
+    for item in data:
+        if not isinstance(item, dict):
+            results.append(LLMClassification(
+                label="ignore", amount=None, merchant=None,
+                category=None, txn_date=None, confidence=0.0,
+            ))
+            continue
+        results.append(LLMClassification(
+            label=str(item.get("label", "ignore")),
+            amount=float(item["amount"]) if item.get("amount") is not None else None,
+            merchant=item.get("merchant"),
+            category=item.get("category"),
+            txn_date=item.get("txn_date"),
+            confidence=float(item.get("confidence", 0.5)),
+        ))
+
+    while len(results) < expected_count:
+        results.append(LLMClassification(
+            label="ignore", amount=None, merchant=None,
+            category=None, txn_date=None, confidence=0.0,
+        ))
+    return results[:expected_count]
 
 
 # ── Multi-provider client ─────────────────────────────────────────────────────
@@ -380,10 +440,11 @@ class MultiLLMClient:
         result, _ = await self._call_provider_verbose(provider, user_prompt)
         return result
 
-    async def _call_provider_verbose(
-        self, provider: _Provider, user_prompt: str
-    ) -> tuple:
-        """Returns (LLMClassification, raw_response_str)."""
+    async def _provider_http_call(
+        self, provider: _Provider, user_prompt: str,
+        timeout: float = 30.0, max_tokens: int = 500,
+    ) -> str:
+        """Execute HTTP call to a provider and return raw response text."""
         if provider.name == "groq":
             try:
                 from app.classifier.groq_rate_limiter import get_groq_limiter
@@ -402,16 +463,14 @@ class MultiLLMClient:
             except Exception as e:
                 logger.warning("Groq rate limiter error: %s", e)
 
-        # Ensure api_key is valid string for headers (sanitize non-ASCII for httpx compatibility)
         api_key_val = provider.api_key
         if hasattr(api_key_val, 'decode'):
             api_key_val = api_key_val.decode('utf-8')
         api_key_str = str(api_key_val) if api_key_val else ""
-        # Strip non-ASCII characters that cause httpx headers to fail
         api_key_str = api_key_str.encode('ascii', 'ignore').decode('ascii')
-        
+
         logger.debug("LLM request: provider=%s model=%s base_url=%s", provider.name, provider.model, provider.base_url)
-        
+
         headers: dict = {
             "Authorization": "Bearer " + api_key_str,
             "Content-Type": "application/json",
@@ -420,10 +479,9 @@ class MultiLLMClient:
             for k, v in provider.extra_headers.items():
                 if v is not None:
                     headers[str(k)] = str(v)
-        
+
         base_url = str(provider.base_url)
-        
-        # Cloudflare Workers AI: model goes in URL path after /run/
+
         if provider.name == "cloudflare":
             url = f"{base_url}/{provider.model}"
             payload = {
@@ -432,7 +490,7 @@ class MultiLLMClient:
                     {"role": "user", "content": str(user_prompt)},
                 ],
                 "temperature": 0.1,
-                "max_tokens": 500,
+                "max_tokens": max_tokens,
             }
         else:
             url = f"{base_url}/chat/completions"
@@ -443,17 +501,22 @@ class MultiLLMClient:
                     {"role": "user", "content": str(user_prompt)},
                 ],
                 "temperature": 0.1,
-                "max_tokens": 500,
+                "max_tokens": max_tokens,
             }
-        
-        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+
+        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
             response = await client.post(url, json=payload)
             response.raise_for_status()
 
         if provider.name == "cloudflare":
-            raw = response.json()["result"]["response"].strip()
-        else:
-            raw = response.json()["choices"][0]["message"]["content"].strip()
+            return response.json()["result"]["response"].strip()
+        return response.json()["choices"][0]["message"]["content"].strip()
+
+    async def _call_provider_verbose(
+        self, provider: _Provider, user_prompt: str
+    ) -> tuple:
+        """Returns (LLMClassification, raw_response_str)."""
+        raw = await self._provider_http_call(provider, user_prompt)
         logger.debug("Raw LLM response: %s", raw[:500])
         return _parse_response(raw), raw
 
@@ -497,6 +560,84 @@ class MultiLLMClient:
                 last_error = exc
                 continue
         raise last_error or RuntimeError("All LLM providers failed")
+
+    async def batch_classify_verbose(
+        self,
+        email_list: List[Tuple[str, str, str, Optional[dict]]],
+        categories: Optional[str] = None,
+    ) -> dict:
+        """Classify multiple emails in one LLM call.
+
+        Args:
+            email_list: (sender, subject, body_snippet, pre_extraction) tuples
+            categories: Comma-separated category names
+
+        Returns:
+            dict with "results" (list of LLMClassification), "provider", "model",
+            "raw_response", "prompt"
+        """
+        ranked = self._ranked_providers()
+        logger.debug("batch_classify_verbose: %d providers available: %s", len(ranked), [p.name for p in ranked])
+        if not ranked:
+            raise RuntimeError("No LLM providers available")
+
+        email_blocks: List[str] = []
+        for i, (sender, subject, body, pre) in enumerate(email_list, 1):
+            block = f"Email {i}:\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
+            if pre:
+                pre_text = _build_pre_extraction_block(pre)
+                if pre_text:
+                    block += "\n" + pre_text
+            email_blocks.append(block)
+
+        email_text = "\n---\n".join(email_blocks)
+
+        prompt = _BATCH_USER_TEMPLATE.format(
+            count=len(email_list),
+            email_blocks=email_text,
+            categories=categories or self._DEFAULT_CATEGORIES,
+        )
+
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            logger.debug("  Trying batch provider: %s", provider.name)
+            try:
+                raw = await self._provider_http_call(
+                    provider, prompt,
+                    timeout=60.0,
+                    max_tokens=max(500, 500 * len(email_list)),
+                )
+                provider.success_count += 1
+                results = _parse_batch_response(raw, len(email_list))
+                return {
+                    "results": results,
+                    "provider": provider.name,
+                    "model": provider.model,
+                    "raw_response": raw,
+                    "prompt": prompt,
+                }
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                last_error = exc
+                continue
+            except Exception as exc:
+                logger.warning("Provider %s batch failed: %s", provider.name, str(exc)[:200])
+                provider.fail_count += 1
+                last_error = exc
+                continue
+        raise last_error or RuntimeError("All LLM providers failed")
+
+    async def batch_classify(
+        self,
+        email_list: List[Tuple[str, str, str, Optional[dict]]],
+        categories: Optional[str] = None,
+    ) -> List[Optional[LLMClassification]]:
+        result = await self.batch_classify_verbose(email_list, categories=categories)
+        return result["results"]
 
 
 llm_client = MultiLLMClient()

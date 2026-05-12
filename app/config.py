@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     ML_MODEL_PATH: str = "data/ml_classifier.json"
     LEARNING_STATS_PATH: str = "data/learning_stats.json"
 
+    LLM_BATCH_SIZE: int = 5
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
     FERNET_KEY: str = ""   # base64 Fernet key; if empty, tokens stored plaintext
