@@ -1392,53 +1392,76 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         </>
       )}
 
-      {/* AI Services Tab - shows for all users, includes both Settings AI content and Admin LLM content */}
+      {/* AI Services Tab */}
       {settingsTab === "ai" && (<>
+        {/* Unified LLM Providers table */}
         <div style={accountStyles.section}>
-          <h3 style={accountStyles.sectionTitle}>Your AI Services</h3>
-          <div style={accountStyles.sectionSub}>— custom LLM providers with enable/disable</div>
-          {aiServices.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--ink-4)", padding: "12px 0", fontStyle: "italic" }}>No custom AI services. Add one below.</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <h3 style={accountStyles.sectionTitle}>LLM Providers</h3>
+            <button style={{ ...accountStyles.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={() => API.get("/api/llm/status").then(setLlmStatus).catch(() => {})}>
+              <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+            </button>
+          </div>
+          <div style={accountStyles.sectionSub}>— custom services + server-configured providers in priority order</div>
+          {aiServices.length === 0 && (!llmStatus || llmStatus.providers.length === 0) ? (
+            <div style={{ fontSize: 13, color: "var(--ink-4)", padding: "12px 0", fontStyle: "italic" }}>No providers configured. Add a custom service below.</div>
           ) : (
             <div style={{ overflowX: "auto", marginBottom: 16 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={{ ...accountStyles.th }}>Service</th>
-                    <th style={{ ...accountStyles.th }}>Model</th>
-                    <th style={{ ...accountStyles.th }}>Provider</th>
-                    <th style={{ ...accountStyles.th }}>Status</th>
-                    <th style={{ ...accountStyles.th }}></th>
+                    {["Source","Service","Model","Status","Rate-limited","OK / Fail",""].map(h => <th key={h} style={accountStyles.th}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {aiServices.map(svc => (
                     <tr key={svc.id}>
+                      <td style={accountStyles.td}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span></td>
                       <td style={{ ...accountStyles.td, fontWeight: 600 }}>
                         {svc.display_name}
-                        {svc.id === settings.active_ai_service_id && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                        {svc.id === settings.active_ai_service_id && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
                       </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{svc.model_id}</td>
-                      <td style={{ ...accountStyles.td, fontSize: 12, color: "var(--ink-3)" }}>{svc.provider}</td>
-                      <td style={accountStyles.td}>
-                        <Toggle on={svc.enabled} onChange={() => toggleAiService(svc)} label={svc.enabled ? "Disable" : "Enable"} />
-                      </td>
-                      <td style={{ ...accountStyles.td, textAlign: "right", display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
+                      <td style={accountStyles.td}><Toggle on={svc.enabled} onChange={() => toggleAiService(svc)} /></td>
+                      <td style={{ ...accountStyles.td, color: "var(--ink-4)" }}>—</td>
+                      <td style={{ ...accountStyles.td, color: "var(--ink-4)" }}>—</td>
+                      <td style={{ ...accountStyles.td, textAlign: "right", whiteSpace: "nowrap" }}>
                         {svc.id !== settings.active_ai_service_id && svc.enabled && (
-                          <button onClick={() => updateSetting("active_ai_service_id", svc.id)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11 }}>Set active</button>
+                          <button onClick={() => updateSetting("active_ai_service_id", svc.id)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Set active</button>
                         )}
                         <button onClick={() => { setEditingAiId(svc.id); setAiForm({ ...svc, api_key: "" }); }} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11 }}>Edit</button>
                       </td>
+                    </tr>
+                  ))}
+                  {(llmStatus?.providers || []).map(p => (
+                    <tr key={`builtin-${p.name}`}>
+                      <td style={accountStyles.td}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
+                      <td style={{ ...accountStyles.td, fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
+                      <td style={accountStyles.td}>
+                        <span style={{ ...accountStyles.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
+                          {p.available ? "Ready" : "Limited"}
+                        </span>
+                      </td>
+                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>
+                        {p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}
+                      </td>
+                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
+                        <span style={{ color: "var(--pos)" }}>{p.ok_count ?? p.success ?? 0}</span>
+                        <span style={{ color: "var(--ink-4)" }}> / </span>
+                        <span style={{ color: (p.fail_count ?? p.fail ?? 0) > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail_count ?? p.fail ?? 0}</span>
+                      </td>
+                      <td style={accountStyles.td}></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          {/* Add new service form */}
-          <details>
+          {/* Add / Edit service form */}
+          <details open={!!editingAiId}>
             <summary style={{ fontSize: 12, color: "var(--ink-3)", cursor: "pointer", userSelect: "none", padding: "6px 0" }}>
-              Add custom AI service
+              {editingAiId ? "Edit service" : "Add custom service"}
             </summary>
             <div style={{ marginTop: 12, padding: "16px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 12 }}>
@@ -1450,23 +1473,23 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Display name</div>
-                  <input style={accountStyles.input} value={aiForm.display_name} onChange={e => setAiForm({ ...aiForm, display_name: e.target.value })} placeholder="e.g. My API"/>
+                  <input style={accountStyles.input} value={aiForm.display_name} onChange={e => setAiForm({ ...aiForm, display_name: e.target.value })} placeholder="e.g. My Cloudflare"/>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Model ID</div>
-                  <input style={accountStyles.input} value={aiForm.model_id} onChange={e => setAiForm({ ...aiForm, model_id: e.target.value })} placeholder="gpt-4o-mini"/>
+                  <input style={accountStyles.input} value={aiForm.model_id} onChange={e => setAiForm({ ...aiForm, model_id: e.target.value })} placeholder="@cf/meta/llama-3.1-8b-instruct"/>
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Base URL</div>
-                <input style={accountStyles.input} value={aiForm.base_url} onChange={e => setAiForm({ ...aiForm, base_url: e.target.value })} placeholder="https://api.openai.com/v1"/>
+                <input style={accountStyles.input} value={aiForm.base_url} onChange={e => setAiForm({ ...aiForm, base_url: e.target.value })} placeholder="https://api.cloudflare.com/client/v4/accounts/…/ai/run"/>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>API key</div>
                   {editingKeyHint && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Current: {editingKeyHint}</span>}
                 </div>
-                <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e => setAiForm({ ...aiForm, api_key: e.target.value })} placeholder={editingAiId ? "enter new key to update" : "sk-..."}/>
+                <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e => setAiForm({ ...aiForm, api_key: e.target.value })} placeholder={editingAiId ? "enter new key to update" : "sk-…"}/>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div>
@@ -1484,8 +1507,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                 </div>
                 <div style={{ flex: 1, textAlign: "right" }}>
                   {editingAiId && <button onClick={() => { setEditingAiId(null); setAiForm(emptyAiForm); }} style={{ ...accountStyles.btn, marginRight: 8 }}>Cancel</button>}
-<button onClick={saveAiService} disabled={aiSaving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: aiSaving ? 0.65 : 1 }}>
-                    {aiSaving ? "Saving..." : editingAiId ? "Save changes" : "Save service"}
+                  <button onClick={saveAiService} disabled={aiSaving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: aiSaving ? 0.65 : 1 }}>
+                    {aiSaving ? "Saving…" : editingAiId ? "Save changes" : "Save service"}
                   </button>
                 </div>
               </div>
@@ -1493,66 +1516,25 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </details>
         </div>
 
-          {/* AI Preferences */}
-          <div style={{ ...accountStyles.section, marginTop: 20 }}>
-            <h3 style={accountStyles.sectionTitle}>AI Preferences</h3>
-            <div style={accountStyles.sectionSub}>— pick which service classifies your emails (auto-saved)</div>
-            <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6, marginBottom: 14 }}>
-              <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Active AI service</div>
-              <select style={{ ...accountStyles.input, maxWidth: 400 }} value={settings.active_ai_service_id || "default"} onChange={e => updateSetting("active_ai_service_id", e.target.value === "default" ? null : e.target.value)}>
-                <option value="default">— none (no LLM configured) —</option>
-                {aiServices.filter(s => s.enabled !== false || s.id === settings.active_ai_service_id).map(service => (
-                  <option key={service.id} value={service.id}>{service.display_name} · {service.model_id}{service.enabled === false ? " (disabled)" : ""}</option>
-                ))}
-              </select>
-              <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 8 }}>
-                {settings.active_ai_service_id
-                  ? "This service is used for email classification and inbox reclassify."
-                  : "No service selected — email classification will fall back to rule-based logic only."}
-              </div>
+        {/* AI Preferences */}
+        <div style={{ ...accountStyles.section, marginTop: 20 }}>
+          <h3 style={accountStyles.sectionTitle}>AI Preferences</h3>
+          <div style={accountStyles.sectionSub}>— pick which service classifies your emails (auto-saved)</div>
+          <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
+            <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Active service</div>
+            <select style={{ ...accountStyles.input, maxWidth: 420 }} value={settings.active_ai_service_id || "default"} onChange={e => updateSetting("active_ai_service_id", e.target.value === "default" ? null : e.target.value)}>
+              <option value="default">— none (rule-based fallback only) —</option>
+              {aiServices.filter(s => s.enabled !== false || s.id === settings.active_ai_service_id).map(s => (
+                <option key={s.id} value={s.id}>{s.display_name} · {s.model_id}{s.enabled === false ? " (disabled)" : ""}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 8 }}>
+              {settings.active_ai_service_id
+                ? "Used for email classification and inbox reclassify."
+                : "No service selected — classification falls back to rules only."}
             </div>
           </div>
-
-        {/* LLM Provider Status — only shown when built-in env-var providers are configured */}
-        {llmStatus && llmStatus.providers.length > 0 && (
-          <div style={accountStyles.section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-              <h3 style={accountStyles.sectionTitle}>Built-in Providers</h3>
-              <button style={{ ...accountStyles.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={() => API.get("/api/llm/status").then(setLlmStatus).catch(() => {})}>
-                <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
-              </button>
-            </div>
-            <div style={accountStyles.sectionSub}>— server-configured providers, auto-rotated on rate-limit</div>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    {["#","Provider","Status","Rate-limited","Penalty","OK","Fail"].map(h => <th key={h} style={{ ...accountStyles.th }}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {llmStatus.providers.map((p, i) => (
-                    <tr key={p.name}>
-                      <td style={{ ...accountStyles.td, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{i + 1}</td>
-                      <td style={{ ...accountStyles.td, fontWeight: 600 }}>{p.name}</td>
-                      <td style={accountStyles.td}>
-                        <span style={{ ...accountStyles.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
-                          {p.available ? "Ready" : "Limited"}
-                        </span>
-                      </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>
-                        {p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}
-                      </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.ok_count}</td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.fail_count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Classifier Tester */}
         <AdminLLMTestSection account={account} />
