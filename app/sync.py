@@ -296,14 +296,26 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
             select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
         )).all()} if incoming_ids else set()
 
+        from app.classifier.pre_filter import load_engine_from_db
+        pre_filter_engine = await load_engine_from_db(session)
+
         new_pairs = []
         for msg in messages:
             if msg["gmail_id"] in existing:
                 continue
+            pf_result = await pre_filter_engine.evaluate(
+                subject=msg.get("subject", ""),
+                snippet=msg.get("body_snippet", ""),
+                sender_domain=msg.get("sender_domain", ""),
+                session=session,
+                user_llm_client=None,
+            )
             email = Email(**msg)
             email.user_id = user_id
+            email.pre_filter_status = "passed" if pf_result.decision == "pass" else "review_pending"
             session.add(email)
-            new_pairs.append((email, msg))
+            if pf_result.decision == "pass":
+                new_pairs.append((email, msg))
 
         await session.flush()
 

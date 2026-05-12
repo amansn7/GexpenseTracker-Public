@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 from dataclasses import dataclass, field
@@ -10,6 +11,8 @@ from app.classifier.merchant import extract_raw_merchant, normalize_merchant
 from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
+
+_AMOUNT_RE = re.compile(r'(?:Rs\.?\s*|INR\s*|₹\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)', re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
 
@@ -212,7 +215,7 @@ def _rules_fallback_result(
         merchant = merchant_meta.get("display") or (normalized_merchant.title() if normalized_merchant else None)
         merchant_category = merchant_meta.get("category")
     label = rule_result.label or Label.ignore
-    amount = None
+    amount = _extract_amount(body_text)
     category = rule_result.category or merchant_category
     confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
     status = (
@@ -225,6 +228,17 @@ def _rules_fallback_result(
         txn_date=None, confidence=confidence, status=status,
         classifier_method=ClassifierMethod.rule,
     )
+
+
+def _extract_amount(text: str) -> Optional[float]:
+    m = _AMOUNT_RE.search(text)
+    if m:
+        raw = m.group(1).replace(",", "")
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+    return None
 
 
 async def batch_classify_emails(

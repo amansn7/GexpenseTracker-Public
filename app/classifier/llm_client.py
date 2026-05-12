@@ -583,6 +583,7 @@ class MultiLLMClient:
 
         email_blocks: List[str] = []
         for i, (sender, subject, body, pre) in enumerate(email_list, 1):
+            body = body[:600]
             block = f"Email {i}:\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
             if pre:
                 pre_text = _build_pre_extraction_block(pre)
