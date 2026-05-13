@@ -926,30 +926,26 @@ const RuleEngineSection = () => {
 // ── Section: Clean Email Bodies ──────────────────────────────────────────────
 
 const CleanBodiesSection = () => {
-  const [running, setRunning] = React.useState(false);
+  const { progress, running, start, dismiss } = useBackgroundJob();
   const [result, setResult] = React.useState(null);
-  const [error, setError] = React.useState(null);
 
-  const run = async () => {
-    setRunning(true); setError(null); setResult(null);
-    try {
-      const r = await API.post("/api/sync/clean-bodies");
-      setResult(r);
-    } catch (e) { setError(e.message); }
-    finally { setRunning(false); }
-  };
+  React.useEffect(() => {
+    if (progress?.result) setResult(progress.result);
+  }, [progress]);
+
+  const run = () => start("/api/sync/trigger-clean-bodies");
 
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>Clean Email Bodies</h3>
         <button onClick={run} disabled={running} style={{ ...S.btn, ...S.btnPrimary, opacity: running ? 0.65 : 1 }}>
-          {running ? "Scanning…" : "Clean bodies"}
+          {running ? "Running…" : "Clean bodies"}
         </button>
       </div>
       <div style={S.sectionSub}>— re-fetch emails with undecoded HTML entities / invisible Unicode and re-extract clean text</div>
-      {result && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
-      {error && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
+      {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
     </>
   );
 };

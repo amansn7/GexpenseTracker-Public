@@ -139,47 +139,18 @@ _DIRTY_BODY_RE = re.compile(
 )
 
 
-@router.post("/sync/clean-bodies")
-async def clean_bodies(
-    db: AsyncSession = Depends(get_db),
+@router.post("/sync/trigger-clean-bodies")
+async def trigger_clean_bodies(
     current_user: User = Depends(get_current_user),
 ):
-    """Re-fetch emails with dirty body text (undecoded HTML entities / invisible Unicode)
-    and re-extract using the updated _clean_body pipeline."""
+    """Trigger a background job to re-fetch and clean dirty email body text."""
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
-    from app.models import Email
-    from app.gmail.auth import get_credentials_for_user
-    from app.gmail.client import _build_service, _extract_body_text
-
-    all_emails = (await db.execute(select(Email))).scalars().all()
-    candidates = [e for e in all_emails if e.body_text and _DIRTY_BODY_RE.search(e.body_text)]
-    if not candidates:
-        return {"cleaned": 0, "total_candidates": 0, "message": "All bodies look clean"}
-
-    creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
-    if not creds:
-        raise HTTPException(status_code=503, detail="Gmail not authenticated")
-    service = await asyncio.to_thread(_build_service, creds)
-
-    cleaned = 0
-    for email in candidates:
-        try:
-            msg = await asyncio.to_thread(
-                lambda eid=email.gmail_id: service.users().messages().get(
-                    userId="me", id=eid, format="full"
-                ).execute()
-            )
-            body = _extract_body_text(msg.get("payload", {}))
-            if body and body != email.body_text:
-                email.body_text = body
-                cleaned += 1
-        except Exception as exc:
-            logger.warning("clean-bodies: failed for %s: %s", email.gmail_id, exc)
-
-    await db.commit()
-    logger.info("clean-bodies: cleaned=%d of %d candidates", cleaned, len(candidates))
-    return {"cleaned": cleaned, "total_candidates": len(candidates)}
+    from app.sync import clean_bodies_job
+    task = asyncio.create_task(clean_bodies_job(user_id=current_user.id))
+    _background_tasks.add(task)
+    task.add_done_callback(_log_task_result)
+    return {"message": "Clean-bodies started"}
 
 
 class FetchRangeBody(BaseModel):

@@ -515,3 +515,80 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
     _log_event(f"Fetch-range done: {inserted} inserted, {backfilled} backfilled", "success")
     logger.info("fetch-range: fetched=%d inserted=%d backfilled=%d errors=%d", *result.values())
     return result
+
+
+_DIRTY_BODY_RE = re.compile(
+    r'&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]'
+)
+
+
+async def clean_bodies_job(user_id: str):
+    """Re-fetch emails with dirty body text and re-extract via _clean_body pipeline."""
+    from app.gmail.client import _build_service, _extract_body_text
+    from app.models import Email
+
+    _reset_progress()
+    _sync_progress["phase"] = "fetching"
+    _sync_progress["phase_detail"] = "Scanning for dirty email bodies..."
+    _log_event("Starting clean-bodies job...")
+
+    async with AsyncSessionLocal() as session:
+        try:
+            all_emails = (await session.execute(select(Email))).scalars().all()
+        except Exception as exc:
+            _sync_progress.update({"phase": "error", "running": False, "error": str(exc)})
+            _log_event(f"DB query failed: {exc}", "error")
+            return
+
+        candidates = [e for e in all_emails if e.body_text and _DIRTY_BODY_RE.search(e.body_text)]
+        total = len(candidates)
+        _sync_progress["total"] = total
+        _log_event(f"Found {total} emails with dirty body text")
+
+        if not candidates:
+            _sync_progress.update({
+                "phase": "done", "running": False, "phase_detail": "All bodies clean",
+                "result": {"cleaned": 0, "total_candidates": 0},
+            })
+            _log_event("All email bodies are clean", "success")
+            return
+
+        try:
+            creds = await get_credentials_for_user(session, user_id)
+            if not creds:
+                raise RuntimeError("Gmail not authenticated")
+        except Exception as exc:
+            _sync_progress.update({"phase": "error", "running": False, "error": str(exc)})
+            _log_event(f"Auth failed: {exc}", "error")
+            return
+
+        service = await asyncio.to_thread(_build_service, creds)
+        cleaned = 0
+
+        for i, email in enumerate(candidates):
+            _sync_progress["current"] = i + 1
+            _sync_progress["current_email"] = {
+                "subject": (email.subject or "")[:72],
+                "sender": (email.sender or email.sender_domain or "")[:48],
+            }
+            _sync_progress["phase_detail"] = f"Cleaning {i+1}/{total}: {(email.subject or '(no subject)')[:50]}"
+            try:
+                msg = await asyncio.to_thread(
+                    lambda eid=email.gmail_id: service.users().messages().get(
+                        userId="me", id=eid, format="full"
+                    ).execute()
+                )
+                body = _extract_body_text(msg.get("payload", {}))
+                if body and body != email.body_text:
+                    email.body_text = body
+                    cleaned += 1
+            except Exception as exc:
+                logger.warning("clean-bodies: failed for %s: %s", email.gmail_id, exc)
+
+        await session.commit()
+        _sync_progress.update({
+            "phase": "done", "running": False,
+            "phase_detail": f"Cleaned {cleaned} of {total} emails",
+            "result": {"cleaned": cleaned, "total_candidates": total},
+        })
+        _log_event(f"Done: cleaned {cleaned} of {total} emails", "success")

@@ -183,4 +183,36 @@ const API = {
   },
 };
 
-Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat });
+const useBackgroundJob = () => {
+  const [progress, setProgress] = React.useState(null);
+  const [running, setRunning] = React.useState(false);
+  const intervalRef = React.useRef(null);
+
+  React.useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  const start = async (triggerUrl, body = {}) => {
+    if (running) return;
+    setRunning(true);
+    setProgress(null);
+    try {
+      await API.post(triggerUrl, body);
+      intervalRef.current = setInterval(async () => {
+        try {
+          const p = await API.get("/api/sync/progress");
+          setProgress(p);
+          if (!p.running && p.phase && p.phase !== "idle") {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            setRunning(false);
+          }
+        } catch (_) { clearInterval(intervalRef.current); intervalRef.current = null; setRunning(false); }
+      }, 1200);
+    } catch (_) { setRunning(false); }
+  };
+
+  const dismiss = () => setProgress(null);
+
+  return { progress, running, start, dismiss };
+};
+
+Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, useBackgroundJob });

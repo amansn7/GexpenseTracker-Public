@@ -498,40 +498,22 @@ const AccessSection = ({ account }) => {
 // ── Admin sections (inline, use accountStyles directly) ────────────────────────
 
 const AdminFetchRangeSection = () => {
+  const { progress, running, start, dismiss } = useBackgroundJob();
   const today = new Date().toISOString().slice(0, 10);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [afterDate,  setAfterDate]  = React.useState(today);
   const [beforeDate, setBeforeDate]  = React.useState(tomorrow);
   const [llmPriority, setLlmPriority] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [result,  setResult]  = React.useState(null);
-  const [error,   setError]   = React.useState(null);
-  const [frProgress, setFrProgress] = React.useState(null);
-  const [frSyncing, setFrSyncing] = React.useState(false);
+  const [result, setResult] = React.useState(null);
 
   React.useEffect(() => {
-    if (!frSyncing) return;
-    const poll = setInterval(async () => {
-      try {
-        const p = await API.get("/api/sync/progress");
-        setFrProgress(p);
-        if (!p.running && p.phase && p.phase !== "idle") {
-          clearInterval(poll);
-          setFrSyncing(false);
-          setResult(p.result || {});
-        }
-      } catch (_) { clearInterval(poll); setFrSyncing(false); }
-    }, 1200);
-    return () => clearInterval(poll);
-  }, [frSyncing]);
+    if (progress?.result) setResult(progress.result);
+  }, [progress]);
 
-  const run = async () => {
-    if (!afterDate || !beforeDate || loading || frSyncing) return;
-    setLoading(true); setError(null); setResult(null); setFrProgress(null);
-    try {
-      const r = await API.post("/api/sync/trigger-fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
-      if (r.message) { setLoading(false); setFrSyncing(true); }
-    } catch (e) { setError(e.message); setLoading(false); }
+  const run = () => {
+    if (!afterDate || !beforeDate) return;
+    setResult(null);
+    start("/api/sync/trigger-fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
   };
 
   return (
@@ -553,13 +535,12 @@ const AdminFetchRangeSection = () => {
       <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
         <div/>
         <div/>
-        <button onClick={run} disabled={loading || frSyncing} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: (loading || frSyncing) ? 0.65 : 1 }}>
-          {frSyncing ? "In progress…" : loading ? "Starting…" : "Fetch + Backfill"}
+        <button onClick={run} disabled={running} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: running ? 0.65 : 1 }}>
+          {running ? "In progress…" : "Fetch + Backfill"}
         </button>
       </div>
-      {result && !frSyncing && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}</div>}
-      {error  && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
-      {frProgress && (() => { const O = window.SyncProgressOverlay; return O ? <O progress={frProgress} syncing={frSyncing} onClose={() => setFrProgress(null)} position="bottom-right" /> : null; })()}
+      {result && !progress && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}</div>}
+      {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
     </div>
   );
 };
@@ -996,30 +977,26 @@ const AdminDomainRulesSection = () => {
 };
 
 const AdminCleanBodiesSection = () => {
-  const [running, setRunning] = React.useState(false);
+  const { progress, running, start, dismiss } = useBackgroundJob();
   const [result, setResult] = React.useState(null);
-  const [error, setError] = React.useState(null);
 
-  const run = async () => {
-    setRunning(true); setError(null); setResult(null);
-    try {
-      const r = await API.post("/api/sync/clean-bodies");
-      setResult(r);
-    } catch (e) { setError(e.message); }
-    finally { setRunning(false); }
-  };
+  React.useEffect(() => {
+    if (progress?.result) setResult(progress.result);
+  }, [progress]);
+
+  const run = () => start("/api/sync/trigger-clean-bodies");
 
   return (
     <div style={accountStyles.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={accountStyles.sectionTitle}>Clean Email Bodies</h3>
         <button onClick={run} disabled={running} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: running ? 0.65 : 1 }}>
-          {running ? "Scanning…" : "Clean bodies"}
+          {running ? "Running…" : "Clean bodies"}
         </button>
       </div>
       <div style={accountStyles.sectionSub}>— re-fetch emails with undecoded HTML entities or invisible Unicode and re-extract clean text</div>
-      {result && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
-      {error && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
+      {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
     </div>
   );
 };
