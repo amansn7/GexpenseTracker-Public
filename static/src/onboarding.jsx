@@ -5,24 +5,11 @@
 const { useState, useEffect, useRef } = React;
 
 // ---------------------------------------------------------------------------
-// Provider presets (Step 3)
-// ---------------------------------------------------------------------------
-const providerPresets = [
-  { provider: "openai",     display_name: "OpenAI",         model_id: "gpt-4o-mini",                          base_url: "https://api.openai.com/v1" },
-  { provider: "openrouter", display_name: "OpenRouter",     model_id: "google/gemini-2.0-flash-exp:free",     base_url: "https://openrouter.ai/api/v1" },
-  { provider: "gemini",     display_name: "Google Gemini",  model_id: "gemini-2.0-flash",                     base_url: "https://generativelanguage.googleapis.com/v1beta/openai" },
-  { provider: "grok",       display_name: "Grok",           model_id: "grok-3-mini",                          base_url: "https://api.x.ai/v1" },
-  { provider: "scaleway",   display_name: "Scaleway",       model_id: "llama-3.3-70b-instruct",               base_url: "https://api.scaleway.ai/v1" },
-  { provider: "custom",     display_name: "Custom",         model_id: "",                                     base_url: "" },
-];
-
-// ---------------------------------------------------------------------------
 // Shared styles
 // ---------------------------------------------------------------------------
 const S = {
   label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 5, display: "block" },
   input: { width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
-  inputReadonly: { background: "var(--paper-2)", color: "var(--ink-3)", cursor: "default" },
   btnPrimary: { padding: "10px 20px", background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
   btnSecondary: { padding: "10px 20px", background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
   error: { padding: "10px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 16 },
@@ -225,50 +212,37 @@ const StepAI = ({ advance }) => {
     }
   }, []);
 
-  const [selected, setSelected] = useState(providerPresets[0]);
+  const [displayName, setDisplayName] = useState("");
+  const [modelId, setModelId] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [customModelId, setCustomModelId] = useState("");
-  const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState(null);
 
-  const isCustom = selected.provider === "custom";
-  const modelId = isCustom ? customModelId : selected.model_id;
-  const baseUrl = isCustom ? customBaseUrl : selected.base_url;
-
-  const choosePreset = (preset) => {
-    setSelected(preset);
-    setError(null);
-    if (preset.provider !== "custom") {
-      setCustomModelId("");
-      setCustomBaseUrl("");
-    }
-  };
-
   const validate = async () => {
+    if (!displayName.trim()) { setError("Please enter a display name."); return; }
+    if (!modelId.trim()) { setError("Please enter a model ID."); return; }
+    if (!baseUrl.trim()) { setError("Please enter a base URL."); return; }
     if (!apiKey.trim()) { setError("Please enter an API key."); return; }
-    if (isCustom && !customModelId.trim()) { setError("Please enter a model ID."); return; }
-    if (isCustom && !customBaseUrl.trim()) { setError("Please enter a base URL."); return; }
 
     setValidating(true);
     setError(null);
     try {
       await API.post("/api/account/ai-services/validate", {
-        provider: selected.provider,
+        provider: "custom",
         api_key: apiKey.trim(),
-        model_id: modelId,
-        base_url: baseUrl,
+        model_id: modelId.trim(),
+        base_url: baseUrl.trim(),
       });
-      // Validation succeeded — persist the service
       await API.post("/api/account/ai-services", {
-        provider: selected.provider,
-        display_name: selected.display_name,
-        model_id: modelId,
-        base_url: baseUrl,
+        provider: "custom",
+        display_name: displayName.trim(),
+        model_id: modelId.trim(),
+        base_url: baseUrl.trim(),
         api_key: apiKey.trim(),
         enabled: true,
       });
-      advance(4, { aiProvider: selected.display_name });
+      advance(4, { aiProvider: displayName });
     } catch (err) {
       setError(err.message || "API key validation failed. Please check your key and try again.");
     } finally {
@@ -278,94 +252,32 @@ const StepAI = ({ advance }) => {
 
   return (
     <div>
-      {showGmailBanner && (
-        <div style={S.success}>
-          Gmail connected ✓
-        </div>
-      )}
+      {showGmailBanner && <div style={S.success}>Gmail connected ✓</div>}
 
       <h2 style={S.h2}>Set up AI</h2>
       <p style={S.sub}>MoneyFlow uses an AI model to parse your emails. Bring your own API key — you control the model and budget.</p>
 
-      {/* Provider pills */}
-      <div style={{ marginBottom: 16 }}>
-        <span style={S.label}>Provider</span>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {providerPresets.map(p => (
-            <button
-              key={p.provider}
-              onClick={() => choosePreset(p)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 20,
-                border: "1px solid var(--line)",
-                background: selected.provider === p.provider ? "var(--ink)" : "var(--paper)",
-                color: selected.provider === p.provider ? "var(--paper)" : "var(--ink-2)",
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "background 120ms",
-              }}
-            >
-              {p.display_name}
-            </button>
-          ))}
-        </div>
+      <div style={S.fieldWrap}>
+        <label style={S.label}>Display name</label>
+        <input style={S.input} value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. My OpenAI"/>
       </div>
 
-      {/* Model ID */}
       <div style={S.fieldWrap}>
         <label style={S.label}>Model ID</label>
-        <input
-          style={{ ...S.input, ...(!isCustom ? S.inputReadonly : {}) }}
-          value={modelId}
-          readOnly={!isCustom}
-          onChange={isCustom ? e => setCustomModelId(e.target.value) : undefined}
-          placeholder={isCustom ? "e.g. meta-llama/llama-3-70b-instruct" : ""}
-        />
+        <input style={S.input} value={modelId} onChange={e => setModelId(e.target.value)} placeholder="gpt-4o-mini"/>
       </div>
 
-      {/* Base URL */}
       <div style={S.fieldWrap}>
         <label style={S.label}>Base URL</label>
-        <input
-          style={{ ...S.input, ...(!isCustom ? S.inputReadonly : {}) }}
-          value={baseUrl}
-          readOnly={!isCustom}
-          onChange={isCustom ? e => setCustomBaseUrl(e.target.value) : undefined}
-          placeholder={isCustom ? "https://your-endpoint/v1" : ""}
-        />
+        <input style={S.input} value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1"/>
       </div>
 
-      {/* API key */}
       <div style={S.fieldWrap}>
         <label style={S.label}>API key</label>
-        <input
-          type="password"
-          style={{ ...S.input, fontFamily: "'Geist Mono', monospace" }}
-          value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
-          placeholder="sk-…"
-          autoComplete="off"
-        />
+        <input type="password" style={{ ...S.input, fontFamily: "'Geist Mono', monospace" }} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-…" autoComplete="off"/>
       </div>
 
-      {error && (
-        <div style={S.error}>
-          {error}
-          <div style={{ marginTop: 8 }}>
-            <a
-              href="https://console.scaleway.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 12, color: "var(--neg)", fontWeight: 600 }}
-            >
-              Try Scaleway (free tier, no credit card) →
-            </a>
-          </div>
-        </div>
-      )}
+      {error && <div style={S.error}>{error}</div>}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
         <button onClick={validate} disabled={validating} style={{ ...S.btnPrimary, opacity: validating ? 0.65 : 1 }}>

@@ -950,15 +950,6 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     api_key: "",
     enabled: true,
   };
-  const providerPresets = [
-    { provider: "openai", display_name: "OpenAI", model_id: "gpt-4o-mini", base_url: "https://api.openai.com/v1" },
-    { provider: "openrouter", display_name: "OpenRouter", model_id: "google/gemini-2.0-flash-exp:free", base_url: "https://openrouter.ai/api/v1" },
-    { provider: "gemini", display_name: "Google Gemini", model_id: "gemini-2.0-flash", base_url: "https://generativelanguage.googleapis.com/v1beta/openai" },
-    { provider: "grok", display_name: "Grok", model_id: "grok-3-mini", base_url: "https://api.x.ai/v1" },
-    { provider: "cloudflare", display_name: "Cloudflare", model_id: "@cf/meta/llama-3-8b-instruct", base_url: "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai" },
-    { provider: "scaleway", display_name: "Scaleway", model_id: "llama-3.3-70b-instruct", base_url: "https://api.scaleway.ai/v1" },
-    { provider: "custom", display_name: "Custom service", model_id: "", base_url: "" },
-  ];
   const [aiForm, setAiForm] = React.useState(emptyAiForm);
   const [editingAiId, setEditingAiId] = React.useState(null);
   const [editingKeyHint, setEditingKeyHint] = React.useState(null);
@@ -972,15 +963,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
   const [settingsTab, setSettingsTab] = React.useState("general"); // "general" | "ai" | "admin"
-  const [llmStatus, setLlmStatus] = React.useState(null);
 
   React.useEffect(() => {
     setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
   }, [settings.monthly_ai_budget]);
-
-  React.useEffect(() => {
-    API.get("/api/llm/status").then(setLlmStatus).catch(() => {});
-  }, []);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -1012,16 +998,6 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     } finally {
       setFilterSaving(false);
     }
-  };
-
-  const patchAiForm = (key, value) => setAiForm(f => ({ ...f, [key]: value }));
-
-  const chooseAiPreset = (provider) => {
-    const preset = providerPresets.find(p => p.provider === provider);
-    if (!preset) return;
-    setAiForm(f => ({ ...f, ...preset, api_key: "", enabled: true }));
-    setEditingAiId(null);
-    setAiError(null);
   };
 
   const editAiService = (service) => {
@@ -1493,48 +1469,23 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Source","Service","Model","Status","Rate-limited","OK / Fail",""].map(h => <th key={h} style={accountStyles.th}>{h}</th>)}
+                    {["Service","Model",""].map(h => <th key={h} style={accountStyles.th}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {aiServices.map(svc => (
                     <tr key={svc.id}>
-                      <td style={accountStyles.td}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span></td>
                       <td style={{ ...accountStyles.td, fontWeight: 600 }}>
                         {svc.display_name}
                         {svc.id === settings.active_ai_service_id && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
                       </td>
                       <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
-                      <td style={accountStyles.td}><Toggle on={svc.enabled} onChange={() => toggleAiService(svc)} /></td>
-                      <td style={{ ...accountStyles.td, color: "var(--ink-4)" }}>—</td>
-                      <td style={{ ...accountStyles.td, color: "var(--ink-4)" }}>—</td>
                       <td style={{ ...accountStyles.td, textAlign: "right", whiteSpace: "nowrap" }}>
                         {svc.id !== settings.active_ai_service_id && svc.enabled && (
                           <button onClick={() => updateSetting("active_ai_service_id", svc.id)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Set active</button>
                         )}
                         <button onClick={() => { setEditingAiId(svc.id); setAiForm({ ...svc, api_key: "" }); }} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11 }}>Edit</button>
                       </td>
-                    </tr>
-                  ))}
-                  {(llmStatus?.providers || []).map(p => (
-                    <tr key={`builtin-${p.name}`}>
-                      <td style={accountStyles.td}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
-                      <td style={{ ...accountStyles.td, fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
-                      <td style={accountStyles.td}>
-                        <span style={{ ...accountStyles.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
-                          {p.available ? "Ready" : "Limited"}
-                        </span>
-                      </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>
-                        {p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}
-                      </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
-                        <span style={{ color: "var(--pos)" }}>{p.ok_count ?? p.success ?? 0}</span>
-                        <span style={{ color: "var(--ink-4)" }}> / </span>
-                        <span style={{ color: (p.fail_count ?? p.fail ?? 0) > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail_count ?? p.fail ?? 0}</span>
-                      </td>
-                      <td style={accountStyles.td}></td>
                     </tr>
                   ))}
                 </tbody>
@@ -1549,18 +1500,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             <div style={{ marginTop: 12, padding: "16px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Provider</div>
-                  <select style={accountStyles.input} value={aiForm.provider} onChange={e => { const p = providerPresets.find(x => x.provider === e.target.value) || providerPresets[6]; setAiForm({ ...aiForm, provider: e.target.value, display_name: p.display_name, model_id: p.model_id, base_url: p.base_url }); }}>
-                    {providerPresets.map(p => <option key={p.provider} value={p.provider}>{p.display_name}</option>)}
-                  </select>
-                </div>
-                <div>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Display name</div>
-                  <input style={accountStyles.input} value={aiForm.display_name} onChange={e => setAiForm({ ...aiForm, display_name: e.target.value })} placeholder="e.g. My Cloudflare"/>
+                  <input style={accountStyles.input} value={aiForm.display_name} onChange={e => setAiForm({ ...aiForm, display_name: e.target.value })} placeholder="e.g. My OpenAI"/>
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Model ID</div>
-                  <input style={accountStyles.input} value={aiForm.model_id} onChange={e => setAiForm({ ...aiForm, model_id: e.target.value })} placeholder="@cf/meta/llama-3.1-8b-instruct"/>
+                  <input style={accountStyles.input} value={aiForm.model_id} onChange={e => setAiForm({ ...aiForm, model_id: e.target.value })} placeholder="gpt-4o-mini"/>
                 </div>
               </div>
               <div style={{ marginBottom: 12 }}>
