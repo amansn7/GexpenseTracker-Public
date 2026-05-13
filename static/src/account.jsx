@@ -1384,6 +1384,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--neg)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20 }}>
             // Admin — Owner Only
           </div>
+          <AdminLLMSection account={account} settings={settings} />
           <AdminFetchRangeSection />
           <AdminSyncSection />
           <AdminFetchPreviewSection />
