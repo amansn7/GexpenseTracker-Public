@@ -64,7 +64,7 @@ const App = () => {
       setError(null);
       const params = new URLSearchParams({ offset: 0, limit: 50 });
       const labelMap = { expenses: "expense", income: "income" };
-      const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
+      const apiLabel = labelMap[inboxFilter] || null;
       if (apiLabel) params.append("label", apiLabel);
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
@@ -89,7 +89,7 @@ const App = () => {
         limit: 50,
       });
       const labelMap = { expenses: "expense", income: "income" };
-      const apiLabel = labelMap[inboxFilter] || (inboxFilter === "all" ? null : inboxFilter);
+      const apiLabel = labelMap[inboxFilter] || null;
       if (apiLabel) params.append("label", apiLabel);
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
