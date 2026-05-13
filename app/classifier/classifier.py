@@ -3,7 +3,7 @@ import time
 import logging
 from dataclasses import dataclass, field
 from datetime import date
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
 from app.classifier.llm_client import llm_client, MultiLLMClient

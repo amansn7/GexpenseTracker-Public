@@ -12,7 +12,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import httpx
 
@@ -215,6 +215,8 @@ def _parse_response(raw: str) -> LLMClassification:
             data = json.loads(fixed)
         except json.JSONDecodeError:
             raise ValueError(f"Cannot parse response: {cleaned[:200]}")
+    if isinstance(data, list):
+        data = data[0] if data else {}
     return LLMClassification(
         label=data.get("label", "ignore"),
         amount=float(data["amount"]) if data.get("amount") is not None else None,
@@ -253,6 +255,8 @@ def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificati
             confidence=float(item.get("confidence", 0.5)),
         ))
 
+    if len(results) != expected_count:
+        logger.warning("LLM returned %d results for batch of %d; padding/truncating", len(results), expected_count)
     while len(results) < expected_count:
         results.append(LLMClassification(
             label="ignore", amount=None, merchant=None,
