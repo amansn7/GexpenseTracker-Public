@@ -616,10 +616,12 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
   );
 };
 
-const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard }) => {
-  const [collapsed, setCollapsed] = React.useState(false);
+const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: forceCollapsed }) => {
+  const [collapsed, setCollapsed] = React.useState(!!forceCollapsed);
   const [busy, setBusy] = React.useState(false);
   const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+
+  React.useEffect(() => { setCollapsed(!!forceCollapsed); }, [forceCollapsed]);
 
   const handleDiscardAll = async () => {
     setBusy(true);
@@ -677,6 +679,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
   const [selectAllFlag, setSelectAllFlag] = React.useState(false);
+  const [collapsedAll, setCollapsedAll] = React.useState(null); // null=default, true=all collapsed, false=all expanded
   const listRef = React.useRef(null);
 
   // Date range presets
@@ -930,23 +933,34 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             <div>
               {reviewEmails.length === 0 ? (
                 <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No emails pending review.</div>
-              ) : (() => {
-                const groups = {};
-                reviewEmails.forEach(e => {
-                  const domain = e.sender_domain || e.sender || "unknown";
-                  if (!groups[domain]) groups[domain] = [];
-                  groups[domain].push(e);
-                });
-                return Object.entries(groups).map(([domain, emails]) => {
-                  const hasTxs = emails.some(_looksLikeTx);
-                  return (
-                    <GroupSection key={domain} domain={domain} emails={emails} hasTxs={hasTxs}
-                      onKeep={id => setReviewEmails(es => es.filter(e => e.id !== id))}
-                      onDiscard={id => setReviewEmails(es => es.filter(e => e.id !== id))}
-                    />
-                  );
-                });
-              })()}
+              ) : (
+                <>
+                <div style={{ display: "flex", gap: 8, padding: "8px 14px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500 }}>{reviewEmails.length} pending</span>
+                  <div style={{ flex: 1 }}/>
+                  <button onClick={() => setCollapsedAll(c => c === true ? null : true)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid var(--line)", background: collapsedAll === true ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Collapse all</button>
+                  <button onClick={() => setCollapsedAll(c => c === false ? null : false)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "1px solid var(--line)", background: collapsedAll === false ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Expand all</button>
+                </div>
+                {(() => {
+                  const groups = {};
+                  reviewEmails.forEach(e => {
+                    const domain = e.sender_domain || e.sender || "unknown";
+                    if (!groups[domain]) groups[domain] = [];
+                    groups[domain].push(e);
+                  });
+                  return Object.entries(groups).map(([domain, emails]) => {
+                    const hasTxs = emails.some(_looksLikeTx);
+                    return (
+                      <GroupSection key={domain} domain={domain} emails={emails} hasTxs={hasTxs}
+                        collapsed={collapsedAll}
+                        onKeep={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                        onDiscard={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                      />
+                    );
+                  });
+                })()}
+                </>
+              )}
             </div>
           ) : filter === "duplicates" ? (
             dupLoading ? (
