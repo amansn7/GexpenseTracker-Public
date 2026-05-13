@@ -237,7 +237,8 @@ async def sync_emails(session, user_id: str = None) -> dict:
         )
         session.add(t)
         new_transactions.append((t, email))
-        processed += 1
+        if cls.label != Label.ignore:
+            processed += 1
 
     await session.flush()
 

@@ -12,7 +12,7 @@ from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
 
-_AMOUNT_RE = re.compile(r'(?:Rs\.?\s*|INR\s*|₹\s*)?(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)', re.IGNORECASE)
+_AMOUNT_RE = re.compile(r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)', re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
 
@@ -274,11 +274,8 @@ async def batch_classify_emails(
 
     n = len(items)
     body_snippets: List[str] = []
-    pre_extractions: List[dict] = []
-    for _, _, _, subject, body_text in items:
-        snippet = body_text[:3000]
-        body_snippets.append(snippet)
-        pre_extractions.append(rule_engine_adapter.extract(subject, snippet))
+    for _, _, _, _, body_text in items:
+        body_snippets.append(body_text[:600])
 
     results: List[ClassificationResult] = [None] * n  # type: ignore[list-item]
     need_llm: List[Tuple[int, Optional[str], str, str, str, str]] = []
@@ -312,7 +309,10 @@ async def batch_classify_emails(
         for batch_start in range(0, len(need_llm), batch_size):
             batch = need_llm[batch_start:batch_start + batch_size]
             batch_args = [
-                (items[idx][1], items[idx][3], body_snippets[idx], pre_extractions[idx])
+                (
+                    items[idx][1], items[idx][3], body_snippets[idx],
+                    rule_engine_adapter.extract(items[idx][3], body_snippets[idx]),
+                )
                 for idx, _, _, _, _, _ in batch
             ]
             batch_ts = time.monotonic()
@@ -378,11 +378,20 @@ async def batch_classify_emails(
             except Exception as exc:
                 logger.error("Batch classification failed for %d emails: %s", len(batch), exc, exc_info=True)
 
-    # ── Phase 3: fill remaining (batch failures) with rules fallback ──
+    # ── Phase 3: retry remaining with per-email LLM, fall back to rules ──
     for i in range(n):
         if results[i] is not None:
             continue
-        _, sender, sender_domain, subject, body_text = items[i]
-        results[i] = _rules_fallback_result(sender_domain, subject, body_text, db_rules)
+        email_id, sender, sender_domain, subject, body_text = items[i]
+        try:
+            results[i] = await classify_email(
+                email_id=email_id, sender=sender, sender_domain=sender_domain,
+                subject=subject, body_text=body_text, session=session,
+                rule_engine_enabled=rule_engine_enabled, db_rules=db_rules,
+                user_id=user_id, llm_client_override=llm_client_override,
+                use_llm=use_llm,
+            )
+        except Exception:
+            results[i] = _rules_fallback_result(sender_domain, subject, body_text, db_rules)
 
     return results  # type: ignore[return-value]

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.classifier.classifier import (
     _extract_amount, _rules_fallback_result, batch_classify_emails,
     ClassificationResult,
@@ -19,8 +19,8 @@ def test_extract_amount_inr():
 def test_extract_amount_rupee_symbol():
     assert _extract_amount("₹ 349 paid") == 349.0
 
-def test_extract_amount_bare_number():
-    assert _extract_amount("amount 500.00") == 500.0
+def test_extract_amount_bare_number_requires_prefix():
+    assert _extract_amount("amount 500.00") is None
 
 def test_extract_amount_zero():
     assert _extract_amount("Rs.0") == 0.0
@@ -33,6 +33,12 @@ def test_extract_amount_no_match():
 
 def test_extract_amount_empty():
     assert _extract_amount("") is None
+
+def test_extract_amount_bare_int_no_match():
+    assert _extract_amount("5 unread messages") is None
+
+def test_extract_amount_date_no_match():
+    assert _extract_amount("Payment due on 2026-05-15") is None
 
 
 # ── _rules_fallback_result ───────────────────────────────────────────────────
@@ -305,3 +311,73 @@ async def test_batch_llm_bad_label_defaults_to_ignore():
     )
     assert results[0].label == Label.ignore
     assert results[0].classifier_method == ClassifierMethod.llm
+
+
+@pytest.mark.asyncio
+async def test_batch_failure_triggers_per_email_classify():
+    """When batch LLM fails, each email gets a fresh classify_email attempt
+    (retrying providers) before falling back to rules."""
+    mock_client = AsyncMock()
+    mock_client.batch_classify_verbose = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+    items = [("e1", "noreply@swiggy.in", "swiggy.in", "Order", "Rs. 349 debited")]
+    with patch("app.classifier.classifier.classify_email") as mock_ce:
+        mock_ce.return_value = ClassificationResult(
+            label=Label.expense, amount=349.0, merchant="Swiggy",
+            category="Food", txn_date=None, confidence=0.92,
+            status=TransactionStatus.needs_review,
+            classifier_method=ClassifierMethod.llm,
+        )
+        results = await batch_classify_emails(
+            items, llm_client_override=mock_client, rule_engine_enabled=False,
+        )
+    mock_ce.assert_awaited_once()
+    assert results[0].label == Label.expense
+    assert results[0].amount == 349.0
+    assert results[0].classifier_method == ClassifierMethod.llm
+
+
+@pytest.mark.asyncio
+async def test_batch_failure_classify_email_also_fails():
+    """When both batch and per-email LLM fail, falls back to rules."""
+    mock_client = AsyncMock()
+    mock_client.batch_classify_verbose = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+    items = [("e1", "noreply@swiggy.in", "swiggy.in", "Order", "Rs. 349 debited")]
+    with patch("app.classifier.classifier.classify_email") as mock_ce:
+        mock_ce.side_effect = RuntimeError("Per-email LLM also down")
+        results = await batch_classify_emails(
+            items, llm_client_override=mock_client, rule_engine_enabled=False,
+        )
+    assert results[0].label == Label.expense
+    assert results[0].amount == 349.0
+    assert results[0].classifier_method == ClassifierMethod.rule
+
+
+@pytest.mark.asyncio
+async def test_batch_log_body_snippet_600_chars():
+    """ClassificationLog stores 600-char snippet matching what LLM saw."""
+    mock_client = AsyncMock()
+    long_body = "x" * 5000
+    mock_client.batch_classify_verbose = AsyncMock(return_value={
+        "results": [
+            LLMClassification(label="expense", amount=100.0, merchant="Test",
+                              category="Misc", txn_date=None, confidence=0.8),
+        ],
+        "provider": "test",
+        "model": "test-model",
+        "raw_response": "...",
+        "prompt": "...",
+    })
+    mock_session = MagicMock()
+    mock_session.add = MagicMock()
+
+    items = [("e-log", "t@test.com", "test.com", "Subject", long_body)]
+    await batch_classify_emails(
+        items, session=mock_session, llm_client_override=mock_client, rule_engine_enabled=False,
+    )
+    log_row = mock_session.add.call_args[0][0]
+    from app.models import ClassificationLog
+    assert isinstance(log_row, ClassificationLog)
+    assert len(log_row.body_snippet) == 600
+    assert log_row.body_snippet == "x" * 600

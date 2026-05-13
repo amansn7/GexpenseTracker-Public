@@ -570,6 +570,8 @@ class MultiLLMClient:
                 continue
         raise last_error or RuntimeError("All LLM providers failed")
 
+    _MAX_BATCH_TOKENS = 2500
+
     async def batch_classify_verbose(
         self,
         email_list: List[Tuple[str, str, str, Optional[dict]]],
@@ -615,7 +617,7 @@ class MultiLLMClient:
                 raw = await self._provider_http_call(
                     provider, prompt,
                     timeout=60.0,
-                    max_tokens=max(500, 500 * len(email_list)),
+                    max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
                 )
                 provider.success_count += 1
                 results = _parse_batch_response(raw, len(email_list))
