@@ -1,11 +1,18 @@
-// Floating sync progress panel — draggable, minimizable, persistent across nav
+// Floating sync progress panel — minimizable, persistent across nav
 const { useState, useEffect, useRef } = React;
-const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView }) => {
+const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position = "bottom-right" }) => {
   const [minimized, setMinimized] = useState(false);
   const logEndRef = useRef(null);
   const isError = progress.phase === "error";
   const isDone = progress.phase === "done";
   const isComplete = isDone || isError;
+
+  const posStyles = {
+    "bottom-right": { bottom: 16, right: 16 },
+    "bottom-center": { bottom: 16, left: "50%", transform: "translateX(-50%)" },
+    "bottom-left": { bottom: 16, left: 16 },
+  };
+  const panelPos = posStyles[position] || posStyles["bottom-right"];
 
   // Auto-scroll log
   useEffect(() => {
@@ -47,7 +54,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView }) => {
   // Full panel
   return (
     <div style={{
-      position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)",
+      position: "fixed", ...panelPos,
       zIndex: 999, width: 420, maxWidth: "calc(100vw - 32px)",
       background: "var(--card)", border: "1px solid var(--line)",
       borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)",

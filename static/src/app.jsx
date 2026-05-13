@@ -35,6 +35,7 @@ const App = () => {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncPanelDismissed, setSyncPanelDismissed] = useState(false);
+  const [syncPanelPosition, setSyncPanelPosition] = useState(() => localStorage.getItem("mf_sync_panel_pos") || "bottom-right");
   const [account, setAccount] = useState(null);
   const [showSeedModal, setShowSeedModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,6 +127,12 @@ const App = () => {
 
   useEffect(() => {
     API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => setSyncPanelPosition(e.detail);
+    window.addEventListener("sync-pos-change", handler);
+    return () => window.removeEventListener("sync-pos-change", handler);
   }, []);
 
   // Tweaks panel edit-mode bridge
@@ -389,6 +396,7 @@ const App = () => {
           syncing={syncing}
           onClose={() => setSyncPanelDismissed(true)}
           onFullView={() => setView("settings")}
+          position={syncPanelPosition}
         />
       )}
     </div>

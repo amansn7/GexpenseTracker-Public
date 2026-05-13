@@ -1236,6 +1236,43 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             })}
           </div>
         </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Sync panel position</div>
+          <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)" }}>
+            {[
+              ["bottom-right", "Bottom Right"],
+              ["bottom-center", "Bottom Center"],
+              ["bottom-left", "Bottom Left"],
+            ].map(([value, label]) => {
+              const active = (window._syncPanelPosition || localStorage.getItem("mf_sync_panel_pos") || "bottom-right") === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem("mf_sync_panel_pos", value);
+                    window._syncPanelPosition = value;
+                    // force re-render by dispatching custom event
+                    window.dispatchEvent(new CustomEvent("sync-pos-change", { detail: value }));
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    border: "none",
+                    borderRadius: 4,
+                    background: active ? "var(--ink)" : "transparent",
+                    color: active ? "var(--paper)" : "var(--ink-3)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Parsing */}
