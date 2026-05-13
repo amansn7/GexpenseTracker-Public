@@ -27,6 +27,7 @@ const _CAT_ALIAS = {
   travel: "travel", transport: "travel", commute: "travel", flight: "travel",
   subscriptions: "sub", subscription: "sub", sub: "sub",
   income: "income", salary: "income", freelance: "income",
+  "cc payment": "other", cc: "other",
   other: "other",
 };
 

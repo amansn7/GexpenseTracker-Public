@@ -25,6 +25,7 @@ DEFAULT_CATEGORIES = [
     ("Travel", "#d4dde5", "expense"),
     ("Subscriptions", "#dccfe0", "expense"),
     ("Utilities", "#d9dbc9", "expense"),
+    ("CC Payment", "#d4c4b7", "expense"),
     ("Income", "#c9dcc8", "income"),
     ("Other", "#dcd5c3", "expense"),
 ]

@@ -206,7 +206,7 @@ const DashboardView = ({ transactions }) => {
               : <div style={dashStyles.catGrid}>
                   {catSorted.map((e, idx) => {
                     const pct = totalExpense > 0 ? (e.amount / totalExpense) * 100 : 0;
-                    const c = CATEGORIES[e.cat];
+                    const c = CATEGORIES[e.cat] || { label: e.cat || "Other", bg: "var(--paper-2)", ink: "var(--ink-3)" };
                     return (
                       <div key={idx} style={dashStyles.catCard}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>

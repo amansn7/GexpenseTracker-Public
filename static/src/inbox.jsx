@@ -82,7 +82,7 @@ const MerchantLogo = ({ merchant, size = 26 }) => {
 };
 
 const CategoryChip = ({ cat, onClick, editable }) => {
-  const c = CATEGORIES[cat];
+  const c = CATEGORIES[cat] || { label: cat || "Other", bg: "var(--paper-2)", ink: "var(--ink-3)" };
   return (
     <span style={{ ...inboxStyles.catChip, background: c.bg, color: c.ink, cursor: editable ? "pointer" : "default" }} onClick={onClick}>
       <span style={{ width: 5, height: 5, borderRadius: 999, background: c.ink, opacity: 0.7 }}/>

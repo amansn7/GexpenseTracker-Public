@@ -177,8 +177,17 @@ REFUND / CASHBACK:
 
 CARD / EMI:
   "EMI of Rs.X debited for MERCHANT"                                      → expense, category=EMI
-  "Credit card bill payment of Rs.X"                                      → expense
-  "Minimum amount due: Rs.X"                                              → ignore (reminder, not a charge)
+
+  CREDIT CARD BILL PAYMENTS — user is paying their card bill, not making
+  a new purchase. The individual transactions were already recorded.
+  These are "ignore", category=CC Payment:
+  "Credit card bill payment of Rs.X"                                      → ignore, category=CC Payment
+  "We have received payment of Rs.X on your Credit Card"                  → ignore, category=CC Payment
+  "Payment received towards your credit card"                             → ignore, category=CC Payment
+  "Thank you for your payment of Rs.X"                                    → ignore, category=CC Payment
+  "Autopay: Rs.X debited for credit card bill"                            → ignore, category=CC Payment
+
+  "Minimum amount due: Rs.X"                                              → ignore (reminder)
   "Your credit card statement is ready"                                   → ignore
 
 ATM:
@@ -242,6 +251,7 @@ EXTRACTION RULES:
 
 - category  : one of — {categories}. Use "Other" if none fits.
               Refunds → "Refund" if available. EMIs → "EMI" if available.
+              Credit card bill payments → "CC Payment" if available.
 
 - txn_date  : actual transaction date from body (YYYY-MM-DD). null if absent.
 
@@ -551,7 +561,7 @@ class MultiLLMClient:
         )
 
     _DEFAULT_CATEGORIES = (
-        "Food, Rent, Shopping, Travel, Subscriptions, Utilities, Income, Other"
+        "Food, Rent, Shopping, Travel, Subscriptions, Utilities, CC Payment, Income, Other"
     )
 
     async def classify(

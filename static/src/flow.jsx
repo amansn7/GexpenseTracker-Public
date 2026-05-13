@@ -127,8 +127,8 @@ const SankeyDiagram = ({ data }) => {
         {/* Right nodes */}
         {rightNodes.map((n, idx) => {
           const isSav = n.kind === "sav";
-          const catInfo = !isSav ? CATEGORIES[n.cat] : null;
-          const fill = isSav ? "var(--pos)" : catInfo.ink;
+          const catInfo = !isSav ? (CATEGORIES[n.cat] || { label: n.cat, ink: "var(--ink-3)", bg: "var(--paper-2)" }) : null;
+          const fill = isSav ? "var(--pos)" : (catInfo ? catInfo.ink : "var(--ink-3)");
           return (
             <g key={`nr-${idx}`}>
               <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"/>
