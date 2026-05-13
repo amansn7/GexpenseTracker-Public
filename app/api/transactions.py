@@ -440,6 +440,40 @@ async def reclassify_transaction(
     return _fmt(t, e)
 
 
+@router.post("/transactions/{transaction_id}/fetch-body")
+async def fetch_transaction_body(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-fetch clean body text for a transaction's email from Gmail API.
+    Updates email.body_text in DB and returns the fresh text."""
+    import asyncio
+    t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
+    from app.gmail.auth import get_credentials_for_user
+    from app.gmail.client import _build_service, _extract_body_text
+
+    creds = await get_credentials_for_user(db, current_user.id)
+    if not creds:
+        raise HTTPException(status_code=503, detail="Gmail not authenticated")
+    service = await asyncio.to_thread(_build_service, creds)
+
+    try:
+        msg = await asyncio.to_thread(
+            lambda eid=e.gmail_id: service.users().messages().get(
+                userId="me", id=eid, format="full"
+            ).execute()
+        )
+        body = _extract_body_text(msg.get("payload", {}))
+        if body:
+            e.body_text = body
+            await db.commit()
+            return {"body_text": body, "body_chars": len(body)}
+        return {"body_text": e.body_text or "", "body_chars": len(e.body_text or ""), "note": "Could not extract body from Gmail"}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gmail fetch failed: {str(exc)}")
+
+
 @router.get("/transactions/duplicates")
 async def find_duplicates(
     current_user: User = Depends(get_current_user),

@@ -212,6 +212,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const isIncome = tx.amount > 0;
   const sign = isIncome ? "+" : "−";
   const { isMobile } = useViewport();
+  const [fetchBodyOn, setFetchBodyOn] = React.useState(false);
+  const [fetchedBody, setFetchedBody] = React.useState(null);
 
   React.useEffect(() => {
     setAmtDraft(Math.abs(tx.amount));
@@ -219,11 +221,20 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setEditingAmt(false);
     setReclass("idle");
     setReclassResult(null);
+    setFetchBodyOn(false);
+    setFetchedBody(null);
   }, [tx.id]);
+
+  const handleFetchBody = async () => {
+    const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
+    if (r?.body_text) setFetchedBody(r.body_text);
+    return r;
+  };
 
   const handlePreview = async () => {
     setReclass("previewing");
     try {
+      if (fetchBodyOn) await handleFetchBody();
       const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview`);
       setReclassResult(result);
       setReclass("preview");
@@ -235,6 +246,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const handleConfirm = async () => {
     setReclass("saving");
     try {
+      if (fetchBodyOn) await handleFetchBody();
       const result = await API.post(`/api/transactions/${tx.id}/reclassify`);
       setReclassResult(result);
       setReclass("done");
@@ -361,11 +373,29 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       </div>
 
       <div style={inboxStyles.panelSection}>
-        <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Email excerpt</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email excerpt</div>
+          <button onClick={handleFetchBody} style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}>
+            Fetch body
+          </button>
+        </div>
         <div style={{ padding: 14, background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5, borderLeft: "2px solid var(--accent)" }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: "var(--ink-4)", marginBottom: 6 }}>{tx.subject}</div>
-          {tx.snippet || <span style={{ color: "var(--ink-4)", fontStyle: "italic" }}>No preview available</span>}
+          {fetchedBody ? (
+            <>
+              <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                <Icon name="check" size={10} stroke="var(--pos)"/> Body refreshed ({fetchedBody.length} chars)
+              </div>
+              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
+            </>
+          ) : (
+            tx.snippet || <span style={{ color: "var(--ink-4)", fontStyle: "italic" }}>No preview available</span>
+          )}
         </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "var(--ink-3)", cursor: "pointer" }}>
+          <input type="checkbox" checked={fetchBodyOn} onChange={e => setFetchBodyOn(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
+          Refresh body before reclassify
+        </label>
       </div>
 
       <div style={inboxStyles.panelSection}>
