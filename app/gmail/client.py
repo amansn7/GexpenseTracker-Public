@@ -54,10 +54,11 @@ def _clean_body(text: str) -> str:
     text = html_module.unescape(text)
     text = text.replace("&INR;", "₹")
     text = _INVISIBLE_CHARS_RE.sub('', text)
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
     text = re.sub(r'[ \t]+', ' ', text)
     text = re.sub(r'^[ \t]+|[ \t]+$', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\n[ \t]*\n', '\n\n', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'\n[ \t]*\n', '\n', text)
+    text = re.sub(r'\n{2,}', '\n', text)
     return text.strip()[:4000]
 
 
