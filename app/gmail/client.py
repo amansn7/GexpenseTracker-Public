@@ -48,9 +48,40 @@ _INVISIBLE_CHARS_RE = re.compile(
     r'[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]'
 )
 
+_FOOTER_SIGNPOSTS = [
+    re.compile(r, re.IGNORECASE) for r in [
+        r"if this transaction was not initiated by you",
+        r"to block (?:upi|card|account)",
+        r"call us at",
+        r"always open to help you",
+        r"system generated (?:communication|message)",
+        r"reach us at",
+        r"please do not share your",
+        r"rbi never deals with individuals",
+        r"do not click on links",
+        r"this e[\-_]?mail is confidential",
+        r"copyright\s+\w+.*all rights reserved",
+        r"terms\s*&\s*conditions apply",
+        r"do not reply",
+        r"this is an auto[\- ]generated",
+        r"for (?:any\s+)?queries",
+        r"thank you for (?:being|choosing)",
+        r"to (?:unsubscribe|manage preferences)",
+    ]
+]
+
+
+def _strip_footer(text: str) -> str:
+    """Remove boilerplate/footer content starting from the first known signpost."""
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if any(p.search(line) for p in _FOOTER_SIGNPOSTS):
+            return '\n'.join(lines[:i])
+    return text
+
 
 def _clean_body(text: str) -> str:
-    """Decode HTML entities + strip invisible Unicode chars + normalize whitespace."""
+    """Decode HTML entities + strip invisible Unicode chars + normalize whitespace + strip footer."""
     text = html_module.unescape(text)
     text = text.replace("&INR;", "₹")
     text = _INVISIBLE_CHARS_RE.sub('', text)
@@ -59,6 +90,7 @@ def _clean_body(text: str) -> str:
     text = re.sub(r'^[ \t]+|[ \t]+$', '', text, flags=re.MULTILINE)
     text = re.sub(r'\n[ \t]*\n', '\n', text)
     text = re.sub(r'\n{2,}', '\n', text)
+    text = _strip_footer(text)
     return text.strip()[:4000]
 
 
