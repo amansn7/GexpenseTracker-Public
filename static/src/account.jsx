@@ -930,6 +930,16 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const aiServices = account?.ai_services || [];
   const gmailAccount = connectedAccounts.find(a => a.provider === "gmail");
   const gmailConnected = gmailAccount?.status === "connected";
+  const handleDisconnectGmail = async () => {
+    if (!gmailAccount) return;
+    try {
+      await API.delete(`/api/account/connected-accounts/${gmailAccount.id}`);
+      setAccount(a => ({
+        ...a,
+        connected_accounts: a.connected_accounts.filter(c => c.id !== gmailAccount.id),
+      }));
+    } catch (_) {}
+  };
   const [filterSaving, setFilterSaving] = React.useState(false);
   const emptyAiForm = {
     provider: "openai",
@@ -1194,9 +1204,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             {gmailConnected ? (
               <>
                 <button onClick={onRescan} disabled={syncing} style={{ ...accountStyles.btn, opacity: syncing ? 0.6 : 1 }}>
-                  {syncing ? "Syncing…" : "Re-sync"}
+                  {syncing ? "Syncing\u2026" : "Re-sync"}
                 </button>
-                <button onClick={() => window.location.href = "/api/auth/google"} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Reconnect</button>
+                <button onClick={handleDisconnectGmail} style={{ ...accountStyles.btn, ...accountStyles.btnDanger }}>Disconnect</button>
               </>
             ) : (
               <button onClick={() => window.location.href = "/api/auth/google"} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>Connect Gmail</button>
