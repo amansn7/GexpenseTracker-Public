@@ -277,14 +277,6 @@ const App = () => {
     </div>
   );
 
-  if (!loading && view === "inbox" && transactions.length === 0) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
-      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--ink)" }}>No transactions yet</div>
-      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>Connect your Gmail account to start tracking your spending.</div>
-      <button onClick={handleRescan} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Sync now</button>
-    </div>
-  );
-
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
       <Sidebar
@@ -313,7 +305,14 @@ const App = () => {
           </button>
         </Topbar>
 
-        {view === "inbox" && (
+        {view === "inbox" && !loading && transactions.length === 0 && (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)", textAlign:"center" }}>
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>No transactions yet</div>
+            <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>Connect your Gmail account to start tracking your spending.</div>
+            <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+          </div>
+        )}
+        {view === "inbox" && (transactions.length > 0 || loading) && (
           <InboxView
             transactions={transactions}
             setTransactions={setTransactions}
