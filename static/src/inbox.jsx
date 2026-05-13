@@ -847,9 +847,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["income","Income"],
                   ["sub","Subscriptions"],
                   ["flagged","Flagged"],
-                  ["low","Needs review"],
+                  ["low","Low conf."],
                   ["duplicates","Duplicates"],
-                  ["review","Review Queue", reviewEmails.length],
+                  ["review","Pending", reviewEmails.length],
                 ].map(([k,label,count]) => (
                   <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
                     {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
