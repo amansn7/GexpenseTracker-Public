@@ -923,6 +923,37 @@ const RuleEngineSection = () => {
   );
 };
 
+// ── Section: Clean Email Bodies ──────────────────────────────────────────────
+
+const CleanBodiesSection = () => {
+  const [running, setRunning] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  const run = async () => {
+    setRunning(true); setError(null); setResult(null);
+    try {
+      const r = await API.post("/api/sync/clean-bodies");
+      setResult(r);
+    } catch (e) { setError(e.message); }
+    finally { setRunning(false); }
+  };
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={S.sectionTitle}>Clean Email Bodies</h3>
+        <button onClick={run} disabled={running} style={{ ...S.btn, ...S.btnPrimary, opacity: running ? 0.65 : 1 }}>
+          {running ? "Scanning…" : "Clean bodies"}
+        </button>
+      </div>
+      <div style={S.sectionSub}>— re-fetch emails with undecoded HTML entities / invisible Unicode and re-extract clean text</div>
+      {result && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
+      {error && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+    </>
+  );
+};
+
 // ── AdminView (exported) ───────────────────────────────────────────────────────
 
 const AdminView = () => (
@@ -937,10 +968,11 @@ const AdminView = () => (
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
     <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
     <div style={S.section}><RuleEngineSection /></div>
+    <div style={S.section}><CleanBodiesSection /></div>
     <div style={S.section}><FetchRangeSection /></div>
     <div style={S.section}><FilterRulesSection /></div>
     <div style={S.section}><AlertsSection /></div>
   </div>
 );
 
-Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection });
+Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection, CleanBodiesSection });
