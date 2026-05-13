@@ -573,15 +573,23 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
   );
 };
 
+const _looksLikeTx = (email) => {
+  const text = `${email.subject || ""} ${email.body_snippet || ""}`;
+  return /Rs\.?\s*[\d,]+|INR\s*[\d,]+|₹\s*[\d,]+|debited|credited|spent|purchased?|paid|refund|cashback|received.*(?:payment|amount|rupees)/i.test(text);
+};
+
 const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
   const [loading, setLoading] = React.useState(false);
+  const [learned, setLearned] = React.useState(null);
+  const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
 
   const handleAction = async (action) => {
     setLoading(true);
+    setLearned(null);
     try {
       await API.post(`/api/emails/${email.id}/review`, { action });
-      if (action === "keep") onKeep(email.id);
-      else onDiscard(email.id);
+      if (action === "keep") { onKeep(email.id); setLearned("allowlisted"); }
+      else { onDiscard(email.id); setLearned("blocklisted"); }
     } catch(e) {
       console.error("Review action failed", e);
     } finally {
@@ -590,25 +598,75 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
   };
 
   return (
-    <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Needs Review</span>
+    <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {looksLikeTx && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)", flexShrink: 0 }} title="Looks like a transaction"/>}
+        <span style={{ fontSize: 11, fontWeight: 600, color: looksLikeTx ? "#b45309" : "var(--ink-4)", background: looksLikeTx ? "#fef3c7" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "#fde68a" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
+          {looksLikeTx ? "Tx" : "Noise"}
+        </span>
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
       </div>
-      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{email.sender || email.sender_domain || ""}</div>
-      {email.body_snippet && <div style={{ fontSize: 12, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.body_snippet}</div>}
-      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-        <button
-          disabled={loading}
-          onClick={() => handleAction("keep")}
-          style={{ fontSize: 12, padding: "4px 12px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: loading ? "wait" : "pointer", fontWeight: 500 }}
-        >Keep</button>
-        <button
-          disabled={loading}
-          onClick={() => handleAction("discard")}
-          style={{ fontSize: 12, padding: "4px 12px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer" }}
-        >Discard</button>
+      <div style={{ fontSize: 11, color: "var(--ink-4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.sender || email.sender_domain || ""} {email.body_snippet ? `· ${email.body_snippet.slice(0, 120)}` : ""}</div>
+      {learned && <div style={{ fontSize: 10, color: "var(--pos)", fontStyle: "italic" }}>✓ {email.sender_domain} {learned}</div>}
+      <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+        <button disabled={loading} onClick={() => handleAction("keep")} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>Keep</button>
+        <button disabled={loading} onClick={() => handleAction("discard")} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", opacity: loading ? 0.6 : 1 }}>Discard</button>
       </div>
+    </div>
+  );
+};
+
+const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard }) => {
+  const [collapsed, setCollapsed] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
+
+  const handleDiscardAll = async () => {
+    setBusy(true);
+    for (const e of emails) {
+      try {
+        await API.post(`/api/emails/${e.id}/review`, { action: "discard" });
+        onDiscard(e.id);
+      } catch (_) {}
+    }
+    setBusy(false);
+    setConfirmDiscard(false);
+  };
+
+  const handleKeepAll = async () => {
+    setBusy(true);
+    for (const e of emails) {
+      try {
+        await API.post(`/api/emails/${e.id}/review`, { action: "keep" });
+        onKeep(e.id);
+      } catch (_) {}
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ border: "1px solid var(--line)", borderRadius: 7, marginBottom: 10, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--paper-2)", borderBottom: collapsed ? "none" : "1px solid var(--line)", cursor: "pointer", userSelect: "none" }} onClick={() => setCollapsed(!collapsed)}>
+        <span style={{ fontSize: 10, color: "var(--ink-4)", transition: "transform 120ms", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", flex: 1, fontFamily: "'Geist Mono', monospace" }}>{domain}</span>
+        <span style={{ fontSize: 10, color: "var(--ink-4)", padding: "1px 6px", borderRadius: 3, background: "var(--card)" }}>{emails.length}</span>
+        <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: hasTxs ? "var(--accent-soft)" : "var(--paper-2)", color: hasTxs ? "var(--accent)" : "var(--ink-4)" }}>{hasTxs ? `${emails.filter(e => _looksLikeTx(e)).length} tx` : "noise"}</span>
+        <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+          <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
+          {!confirmDiscard ? (
+            <button onClick={() => { if (hasTxs) setConfirmDiscard(true); else handleDiscardAll(); }} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
+          ) : (
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "var(--neg)", maxWidth: 180, lineHeight: 1.3 }}>{emails.filter(e => _looksLikeTx(e)).length} look like transactions. Discard anyway?</span>
+              <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "none", background: "var(--neg)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Yes</button>
+              <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {!collapsed && emails.map(e => (
+        <ReviewEmailRow key={e.id} email={e} onKeep={onKeep} onDiscard={onDiscard} />
+      ))}
     </div>
   );
 };
@@ -872,16 +930,23 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             <div>
               {reviewEmails.length === 0 ? (
                 <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No emails pending review.</div>
-              ) : (
-                reviewEmails.map(email => (
-                  <ReviewEmailRow
-                    key={email.id}
-                    email={email}
-                    onKeep={id => setReviewEmails(es => es.filter(e => e.id !== id))}
-                    onDiscard={id => setReviewEmails(es => es.filter(e => e.id !== id))}
-                  />
-                ))
-              )}
+              ) : (() => {
+                const groups = {};
+                reviewEmails.forEach(e => {
+                  const domain = e.sender_domain || e.sender || "unknown";
+                  if (!groups[domain]) groups[domain] = [];
+                  groups[domain].push(e);
+                });
+                return Object.entries(groups).map(([domain, emails]) => {
+                  const hasTxs = emails.some(_looksLikeTx);
+                  return (
+                    <GroupSection key={domain} domain={domain} emails={emails} hasTxs={hasTxs}
+                      onKeep={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                      onDiscard={id => setReviewEmails(es => es.filter(e => e.id !== id))}
+                    />
+                  );
+                });
+              })()}
             </div>
           ) : filter === "duplicates" ? (
             dupLoading ? (
