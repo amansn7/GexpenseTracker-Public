@@ -1,6 +1,6 @@
 // MoneyFlow — main app
 
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef } = React;
 
 const App = () => {
   const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
@@ -33,6 +33,8 @@ const App = () => {
   const [theme, setTheme] = useState(() => localStorage.getItem("mf_theme") || "paper");
   const [syncStatus, setSyncStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(null);
+  const [syncPanelDismissed, setSyncPanelDismissed] = useState(false);
   const [account, setAccount] = useState(null);
   const [showSeedModal, setShowSeedModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -177,6 +179,8 @@ const App = () => {
   const handleRescan = async () => {
     if (syncing) return;
     setSyncing(true);
+    setSyncPanelDismissed(false);
+    setSyncProgress(null);
     try {
       const trigger = await API.post("/api/sync/trigger");
       console.log("Sync triggered:", trigger);
@@ -186,7 +190,7 @@ const App = () => {
         attempts++;
         try {
           const p = await API.get("/api/sync/progress");
-          console.log("Sync progress:", p);
+          setSyncProgress(p);
           if (p.running) started = true;
           const done = !p.running && (started || p.phase === "error" || p.phase === "done");
           if (done || attempts >= 180) {
@@ -199,7 +203,7 @@ const App = () => {
           console.error("Poll error:", e);
           if (attempts >= 180) { clearInterval(poll); setSyncing(false); }
         }
-      }, 2000);
+      }, 1200);
     } catch (e) {
       console.error("Sync trigger error:", e);
       alert("Failed to start sync: " + (e.message || "Unknown error"));
@@ -377,6 +381,15 @@ const App = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {syncProgress && !syncPanelDismissed && (
+        <SyncProgressOverlay
+          progress={syncProgress}
+          syncing={syncing}
+          onClose={() => setSyncPanelDismissed(true)}
+          onFullView={() => setView("settings")}
+        />
       )}
     </div>
   );

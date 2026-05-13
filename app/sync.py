@@ -18,14 +18,30 @@ logger = logging.getLogger(__name__)
 # Global sync progress — read by /api/sync/progress polling endpoint
 _sync_progress: Dict[str, Any] = {
     "running": False,
-    "phase": "idle",      # idle | fetching | classifying | done | error
+    "phase": "idle",         # idle | fetching | classifying | done | error
+    "phase_detail": "",      # human-readable sub-phase description
     "current": 0,
     "total": 0,
     "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
-    "previews": [],       # last 8 classified emails (newest first)
+    "previews": [],          # last 8 classified emails (newest first)
+    "current_email": None,   # {subject, sender, label, amount} of email being processed
+    "log": [],               # rolling log of events [{time, message, type}]
     "result": None,
     "error": None,
+    "minimized": False,      # frontend state preserved across polls
 }
+
+
+def _log_event(message: str, event_type: str = "info"):
+    """Append a timestamped event to the rolling log."""
+    log = _sync_progress.setdefault("log", [])
+    log.append({
+        "time": datetime.now(timezone.utc).isoformat(),
+        "message": message,
+        "type": event_type,
+    })
+    if len(log) > 50:
+        log[:] = log[-50:]
 
 
 def get_sync_progress() -> dict:
@@ -36,12 +52,16 @@ def _reset_progress():
     _sync_progress.update({
         "running": True,
         "phase": "fetching",
+        "phase_detail": "",
         "current": 0,
         "total": 0,
         "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
         "previews": [],
+        "current_email": None,
+        "log": [],
         "result": None,
         "error": None,
+        "minimized": False,
     })
 
 
@@ -50,14 +70,16 @@ def _add_preview(msg: dict, label: str, category: Optional[str], amount: Optiona
     sender = msg.get("sender") or ""
     m = re.search(r"<([^>]+)>", sender)
     sender_short = m.group(1) if m else sender
-    _sync_progress["previews"] = ([{
+    entry = {
         "subject": subject[:72],
         "sender": sender_short[:48],
         "label": label,
         "category": category,
         "amount": float(amount) if amount is not None else None,
-    }] + _sync_progress["previews"])[:8]
+    }
+    _sync_progress["previews"] = [entry] + _sync_progress["previews"][:7]
     _sync_progress["tally"][label] = _sync_progress["tally"].get(label, 0) + 1
+    _sync_progress["current_email"] = entry
 
 
 
@@ -72,6 +94,7 @@ async def run_sync(user_id: str = None) -> dict:
             return await sync_emails(session, user_id=user_id)
     except Exception as exc:
         logger.error("Sync crashed: %s", exc, exc_info=True)
+        _log_event(f"Sync failed: {exc}", "error")
         _sync_progress.update({"running": False, "phase": "error", "error": str(exc)})
         raise
 
@@ -100,6 +123,8 @@ async def sync_emails(session, user_id: str = None) -> dict:
 
     total = len(messages)
     logger.info("Fetched %d messages, classifying...", total)
+    _log_event(f"Fetched {total} messages from Gmail")
+    _sync_progress.update({"phase_detail": "Deduplicating incoming emails…"})
 
     # ── Phase 2: deduplicate + insert Email rows ───────────────────────────
     _sync_progress.update({"phase": "classifying", "total": total, "current": 0})
@@ -113,6 +138,7 @@ async def sync_emails(session, user_id: str = None) -> dict:
         select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
     )
     already_stored = {row[0] for row in existing_result.all()}
+    _log_event(f"{len(already_stored)} already synced, {len(messages) - len(already_stored)} new")
 
     from app.classifier.pre_filter import load_engine_from_db
     pre_filter_engine = await load_engine_from_db(session)
@@ -122,6 +148,8 @@ async def sync_emails(session, user_id: str = None) -> dict:
             skipped += 1
             continue
 
+        _sync_progress.update({"phase_detail": "Pre-filtering…", "current": len(new_pairs) + skipped + 1})
+
         pf_result = await pre_filter_engine.evaluate(
             subject=msg.get("subject", ""),
             snippet=msg.get("body_snippet", ""),
@@ -130,6 +158,7 @@ async def sync_emails(session, user_id: str = None) -> dict:
             user_llm_client=None,
         )
 
+        subject_short = (msg.get("subject") or "(no subject)")[:48]
         email = Email(**msg)
         if user_id:
             email.user_id = user_id
@@ -140,6 +169,7 @@ async def sync_emails(session, user_id: str = None) -> dict:
         else:
             skipped += 1
             _sync_progress["tally"]["review"] = _sync_progress["tally"].get("review", 0) + 1
+            _log_event(f"Review: {subject_short} — {pf_result.decision} (tier {pf_result.tier})")
             logger.debug("Pre-filter review: %s (tier=%d conf=%.2f)", msg.get("subject", ""), pf_result.tier, pf_result.confidence)
 
     await session.flush()
@@ -150,12 +180,18 @@ async def sync_emails(session, user_id: str = None) -> dict:
             sync_state.last_history_id = new_history_id
         await session.commit()
         result = {"processed": 0, "total_fetched": total, "skipped": skipped}
-        _sync_progress.update({"running": False, "phase": "done", "result": result})
+        _log_event("All emails already synced or sent to review — nothing to classify", "info")
+        _sync_progress.update({
+            "running": False, "phase": "done", "result": result,
+            "phase_detail": "No new emails to process",
+        })
         logger.info("Sync complete (no new emails): %s", result)
         return result
 
     # ── Phase 2b: load rule engine settings (once) ──────────────────────────
     _sync_progress.update({"phase": "classifying", "total": len(new_pairs), "current": skipped})
+
+    _sync_progress.update({"phase_detail": "Loading settings & LLM client…"})
 
     _settings_q = select(UserSettings)
     if user_id:
@@ -169,9 +205,9 @@ async def sync_emails(session, user_id: str = None) -> dict:
     if rule_engine_enabled:
         from app.classifier.rules import build_domain_rules
         db_rules = await build_domain_rules(session)
-        logger.info("Rule engine enabled: loaded %d learned domain rules", len(db_rules))
+        _log_event(f"Loaded {len(db_rules)} learned domain rules")
     else:
-        logger.info("Rule engine disabled: all emails go to LLM")
+        _log_event("Rule engine disabled — all emails go to LLM")
 
     # ── Phase 2c: build per-user LLM client (once) ─────────────────────────
     user_llm_client = None
@@ -200,6 +236,9 @@ async def sync_emails(session, user_id: str = None) -> dict:
                 logger.error("Failed to build user LLM client from DB service: %s", exc)
 
     # ── Phase 3: batch classify all new emails ─────────────────────────────
+    _sync_progress.update({"phase_detail": f"Classifying {len(new_pairs)} emails…"})
+    _log_event(f"Classifying {len(new_pairs)} emails with batch LLM")
+
     items = [(email.id, msg["sender"], msg["sender_domain"],
               msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
              for email, msg in new_pairs]
@@ -217,9 +256,19 @@ async def sync_emails(session, user_id: str = None) -> dict:
     for i, (email, msg) in enumerate(new_pairs):
         _sync_progress["current"] = skipped + i + 1
         cls = classifications[i]
+        label_val = cls.label.value
         _add_preview(msg, cls.label.value, cls.category, cls.amount)
+        _sync_progress["current_email"] = {
+            "subject": (msg.get("subject") or "(no subject)")[:60],
+            "sender": (msg.get("sender") or "")[:48],
+            "label": label_val,
+            "amount": cls.amount,
+        }
+        amount_str = f" — Rs.{cls.amount:.0f}" if cls.amount else ""
+        _log_event(f"{label_val}: {_sync_progress['current_email']['subject']}{amount_str}")
 
     # ── Phase 4: write Transaction rows ─────────────────────────────────────
+    _sync_progress.update({"phase_detail": "Writing transactions…"})
     processed = 0
     new_transactions: list = []
     for (email, msg), cls in zip(new_pairs, classifications):
@@ -241,8 +290,10 @@ async def sync_emails(session, user_id: str = None) -> dict:
             processed += 1
 
     await session.flush()
+    _log_event(f"Wrote {len(new_transactions)} transaction rows")
 
     # ── Phase 4b: duplicate detection ───────────────────────────────────────
+    _sync_progress.update({"phase_detail": "Checking for duplicates…"})
     from app.dedup.service import detect_and_record_duplicates
     for t, email in new_transactions:
         try:
@@ -265,7 +316,12 @@ async def sync_emails(session, user_id: str = None) -> dict:
     await session.commit()
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}
-    _sync_progress.update({"running": False, "phase": "done", "result": result})
+    _sync_progress.update({
+        "running": False, "phase": "done", "result": result,
+        "phase_detail": f"Sync complete: {processed} processed, {skipped} skipped",
+        "current_email": None,
+    })
+    _log_event(f"Done — {processed} processed, {skipped} skipped, {total} total", "success")
     logger.info("Sync complete: %s", result)
     return result
 
