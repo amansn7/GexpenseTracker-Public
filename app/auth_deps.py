@@ -40,4 +40,12 @@ async def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
+    # Block login if deletion time has passed but cleanup hasn't run yet
+    if user.scheduled_deletion_at:
+        sched = user.scheduled_deletion_at
+        if sched.tzinfo is None:
+            sched = sched.replace(tzinfo=UTC)
+        if sched <= datetime.now(UTC):
+            raise HTTPException(status_code=403, detail="Account deleted")
+
     return user

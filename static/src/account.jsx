@@ -1362,11 +1362,38 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       <div style={{ ...accountStyles.section, border: "1px solid var(--neg-soft)" }}>
         <h3 style={{ ...accountStyles.sectionTitle, color: "var(--neg)" }}>Danger zone</h3>
         <div style={accountStyles.sectionSub}>— irreversible things</div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, borderBottom: "none" }}>
-          <div><div style={accountStyles.label}>Delete account</div><div style={accountStyles.sub}>removes all parsed data, forever</div></div>
-          <div/>
-          <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }} onClick={() => { setShowDeleteModal(true); setConfirmEmail(""); setDeleteError(null); }}>Delete…</button>
-        </div>
+
+        {account?.scheduled_deletion_at && new Date(account.scheduled_deletion_at) > new Date() && (
+          <div style={{ padding: 12, borderRadius: 8, background: "var(--neg-soft)", border: "1px solid var(--neg)", marginBottom: 12, fontSize: 12, lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 600, color: "var(--neg)", marginBottom: 4 }}>Account deletion scheduled</div>
+            <div style={{ color: "var(--ink-2)", marginBottom: 8 }}>
+              Your account is scheduled for deletion on{" "}
+              {new Date(account.scheduled_deletion_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}.
+              You can cancel this at any time.
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await API.post("/api/account/cancel-deletion");
+                  setAccount(a => ({ ...a, scheduled_deletion_at: null }));
+                } catch (e) {
+                  alert("Failed to cancel: " + (e.message || "Unknown error"));
+                }
+              }}
+              style={{ padding: "6px 14px", background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Cancel deletion
+            </button>
+          </div>
+        )}
+
+        {!account?.scheduled_deletion_at && (
+          <div style={{ ...accountStyles.row, ...accountStyles.rowLast, borderBottom: "none" }}>
+            <div><div style={accountStyles.label}>Delete account</div><div style={accountStyles.sub}>removes all parsed data, forever</div></div>
+            <div/>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }} onClick={() => { setShowDeleteModal(true); setConfirmEmail(""); setDeleteError(null); }}>Delete…</button>
+          </div>
+        )}
       </div>
 
       {showDeleteModal && (
@@ -1387,6 +1414,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               autoFocus
             />
             {deleteError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{deleteError}</div>}
+            {deleting && !deleteError && (
+              <div style={{ color: "var(--ink-3)", fontSize: 12, marginBottom: 12, lineHeight: 1.5, padding: 10, background: "var(--paper)", borderRadius: 6 }}>
+                Your account will be permanently deleted within the next 24 to 48 hours. You have been signed out.
+                If this was a mistake, sign back in and cancel from Settings before the deletion date.
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button style={accountStyles.btn} onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
               <button
@@ -1396,15 +1429,17 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                   setDeleting(true);
                   setDeleteError(null);
                   try {
-                    await API.delete("/api/account");
-                    window.location.href = "/";
+                    const resp = await API.patch("/api/account/schedule-deletion");
+                    setDeleting(false);
+                    setShowDeleteModal(false);
+                    setAccount(a => ({ ...a, scheduled_deletion_at: resp.deletion_at }));
                   } catch (e) {
-                    setDeleteError(e.message || "Delete failed. Try again.");
+                    setDeleteError(e.message || "Failed to schedule deletion. Try again.");
                     setDeleting(false);
                   }
                 }}
               >
-                {deleting ? "Deleting…" : "Delete account"}
+                {deleting ? "Scheduling…" : "Delete account"}
               </button>
             </div>
           </div>

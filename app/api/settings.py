@@ -1,6 +1,7 @@
 import base64
 import logging
-from datetime import datetime, date
+import random
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -501,50 +502,83 @@ async def disable_2fa(
     return {"ok": True}
 
 
-@router.delete("/account")
-async def delete_account(
-    response: Response,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    uid = str(user.id)
-
-    # ── Step 1: Duplicate pairs (FK to transactions — delete before transactions) ──
+async def _delete_user_data(db: AsyncSession, uid: str):
+    """Full deletion pipeline — used by scheduled cleanup and admin reset."""
+    # Step 1: Duplicate pairs (FK to transactions)
     await db.execute(text("""
         DELETE FROM duplicate_pairs WHERE
             primary_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
             OR duplicate_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
     """), {"uid": uid})
 
-    # ── Step 2: Personal data (direct FK to users.id) ──
-    personal = [
-        "connected_accounts",
-        "sessions",
-        "user_settings",
-        "user_profiles",
-        "user_categories",
-        "user_ai_services",
-        "budgets",
-        "debts",
-        "recurring_expenses",
-        "user_merchant_overrides",
-        "sender_rules",
-    ]
-    for table in personal:
+    # Step 2: Personal data
+    for table in [
+        "connected_accounts", "sessions", "user_settings", "user_profiles",
+        "user_categories", "user_ai_services", "budgets", "debts",
+        "recurring_expenses", "user_merchant_overrides", "sender_rules",
+    ]:
         await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
 
-    # ── Step 3: Classification logs (FK to emails.id — delete before emails) ──
+    # Step 3: Classification logs (FK to emails)
     await db.execute(text("DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
 
-    # ── Step 4: Transactions (FK to emails.id — delete before emails) ──
+    # Step 4: Transactions (FK to emails)
     await db.execute(text("DELETE FROM transactions WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
 
-    # ── Step 5: Emails (FK to users.id with CASCADE) ──
+    # Step 5: Emails (FK to users)
     await db.execute(text("DELETE FROM emails WHERE user_id = :uid"), {"uid": uid})
 
-    # ── Step 6: User row (all dependents gone) ──
+    # Step 6: User row
     await db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
 
+
+@router.patch("/account/schedule-deletion")
+async def schedule_account_deletion(
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Schedule account deletion in 24-48 hours. Signs user out immediately."""
+    delay_hours = random.uniform(24, 48)
+    deletion_at = datetime.now(timezone.utc) + timedelta(hours=delay_hours)
+
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    user_row.scheduled_deletion_at = deletion_at
+    await db.commit()
+
+    response.delete_cookie("session", path="/")
+    return {
+        "scheduled": True,
+        "deletion_at": deletion_at.isoformat(),
+        "message": "Your account will be permanently deleted within the next 24 to 48 hours. "
+                   "You have been signed out. If this was a mistake, sign back in and cancel "
+                   "from Settings before the deletion date.",
+    }
+
+
+@router.post("/account/cancel-deletion")
+async def cancel_account_deletion(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel pending account deletion."""
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    if not user_row.scheduled_deletion_at:
+        raise HTTPException(status_code=404, detail="No deletion scheduled")
+    user_row.scheduled_deletion_at = None
+    await db.commit()
+    return {"cancelled": True, "message": "Account deletion cancelled. Your data is safe."}
+
+
+@router.delete("/account")
+async def delete_account(
+    response: Response,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Immediate account deletion (kept for admin/compat) — schedules instead for normal users."""
+    uid = str(user.id)
+    await _delete_user_data(db, uid)
     response.delete_cookie("session", path="/")
     await db.commit()
     return {"deleted": True}
