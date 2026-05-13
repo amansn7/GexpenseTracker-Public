@@ -724,8 +724,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const range = dateRange.from ? dateRange : datePresets[0].get();
     return range.from === p.get().from && range.to === p.get().to;
   }) || null;
-  const [bulkReclassState, setBulkReclassState] = React.useState("idle"); // idle | running | done
-  const [bulkProgress, setBulkProgress] = React.useState({ done: 0, total: 0 });
+  const [bulkReclassItems, setBulkReclassItems] = React.useState([]);  // each: { id, subject, snippet, current, preview, status }
+  const [bulkReclassIdx, setBulkReclassIdx] = React.useState(0);       // index of currently-displayed item
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
@@ -739,6 +739,20 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selectMode]);
+
+  // Bulk reclass keyboard shortcuts
+  React.useEffect(() => {
+    if (bulkReclassItems.length === 0) return;
+    const item = bulkReclassItems[bulkReclassIdx];
+    if (!item || item.status !== "preview") return;
+    const onKey = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); bulkAccept(); }
+      else if (e.key === "s" || e.key === "S") { e.preventDefault(); bulkSkip(); }
+      else if (e.key === "Escape") { bulkSkipAll(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [bulkReclassItems, bulkReclassIdx]);
 
   // Reset selection when switching filter tabs
   React.useEffect(() => {
@@ -816,25 +830,87 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   const bulkReclassify = async () => {
     const ids = [...selectedIds];
-    setBulkReclassState("running");
-    setBulkProgress({ done: 0, total: ids.length });
-    for (let i = 0; i < ids.length; i++) {
-      try {
-        const result = await API.post(`/api/transactions/${ids[i]}/reclassify`);
-        const isIncome = result.label === "income";
-        const cat = normCat(result.category, isIncome);
-        setTransactions(ts => ts.map(t => t.id === ids[i] ? {
-          ...t,
-          cat,
-          tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
-          conf: result.confidence ?? t.conf,
-          merchant: result.merchant || t.merchant,
-        } : t));
-      } catch (_) {}
-      setBulkProgress({ done: i + 1, total: ids.length });
+    const items = ids.map(id => {
+      const t = transactions.find(tx => tx.id === id);
+      return {
+        id,
+        subject: t?.subject || "",
+        snippet: t?.snippet || "",
+        current: {
+          label: t?.tag === "income" ? "income" : "expense",
+          amount: t?.amount || 0,
+          merchant: t?.merchant || "",
+          category: t?.cat || "",
+          confidence: t?.conf || 0,
+        },
+        preview: null,
+        status: "pending", // pending | previewing | accepted | skipped | error
+      };
+    });
+    setBulkReclassItems(items);
+    setBulkReclassIdx(0);
+    // start processing the first item
+    processBulkItem(0, items);
+  };
+
+  const processBulkItem = async (idx, itemsRef) => {
+    // Use a copy via closure — itemsRef is the array from the call site
+    if (idx >= itemsRef.length) return; // all done
+    setBulkReclassIdx(idx);
+    // mark current as previewing
+    const updated = itemsRef.map((it, i) => i === idx ? { ...it, status: "previewing" } : it);
+    setBulkReclassItems(updated);
+    try {
+      const result = await API.post(`/api/transactions/${itemsRef[idx].id}/reclassify/preview`);
+      const next = updated.map((it, i) => i === idx ? { ...it, preview: result, status: "preview" } : it);
+      setBulkReclassItems(next);
+    } catch (_) {
+      const next = updated.map((it, i) => i === idx ? { ...it, status: "error" } : it);
+      setBulkReclassItems(next);
     }
-    setBulkReclassState("done");
-    setTimeout(() => { setBulkReclassState("idle"); clearSelect(); }, 1500);
+  };
+
+  const bulkAccept = async () => {
+    const items = bulkReclassItems;
+    const idx = bulkReclassIdx;
+    const item = items[idx];
+    if (!item || item.status !== "preview") return;
+    // mark as applying
+    setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "applying" } : it));
+    try {
+      const result = await API.post(`/api/transactions/${item.id}/reclassify`);
+      const isIncome = result.label === "income";
+      const cat = normCat(result.category, isIncome);
+      setTransactions(ts => ts.map(t => t.id === item.id ? {
+        ...t,
+        cat,
+        tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+        conf: result.confidence ?? t.conf,
+        merchant: result.merchant || t.merchant,
+      } : t));
+      setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "accepted" } : it));
+    } catch (_) {
+      setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "error" } : it));
+      return;
+    }
+    processBulkItem(idx + 1, items);
+  };
+
+  const bulkSkip = () => {
+    const items = bulkReclassItems;
+    const idx = bulkReclassIdx;
+    setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "skipped" } : it));
+    processBulkItem(idx + 1, items);
+  };
+
+  const bulkSkipAll = () => {
+    clearSelect();
+    setBulkReclassItems([]);
+  };
+
+  const bulkCloseReclass = () => {
+    clearSelect();
+    setBulkReclassItems([]);
   };
 
   const bulkManualApply = async () => {
@@ -1051,8 +1127,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
           <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
           <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
-          <button onClick={bulkReclassify} disabled={bulkReclassState==="running"} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassState==="running"?"default":"pointer", fontWeight: 500 }}>
-            {bulkReclassState==="running" ? `${bulkProgress.done}/${bulkProgress.total} done` : bulkReclassState==="done" ? <><Icon name="check" size={12} stroke="currentColor"/> Done</> : "Re-classify (LLM)"}
+          <button onClick={bulkReclassify} disabled={bulkReclassItems.length > 0} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassItems.length > 0 ? "default" : "pointer", fontWeight: 500 }}>
+            Re-classify (LLM)
           </button>
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Re-classify (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
@@ -1084,6 +1160,174 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               <button onClick={()=>setBulkManualOpen(false)} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
               <button onClick={bulkManualApply} style={{ flex: 2, padding: "9px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply to {selectedIds.size}</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {bulkReclassItems.length > 0 && (
+        <div onClick={bulkCloseReclass} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.3)" }}>
+          <div onClick={e => { if (e.target === e.currentTarget) return; e.stopPropagation(); }} style={{ position: "absolute", top: isMobile ? 60 : "15%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 0, width: isMobile ? "calc(100vw - 20px)" : 520, maxHeight: isMobile ? "calc(100dvh - 80px)" : "70vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px -20px rgba(0,0,0,0.4)" }}>
+            {/* Header */}
+            <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Re-classify {bulkReclassItems.length} emails</span>
+                <button onClick={bulkCloseReclass} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}><Icon name="x" size={14} stroke="currentColor"/></button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
+                  {(() => {
+                    const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing").length;
+                    const pct = bulkReclassItems.length > 0 ? (done / bulkReclassItems.length * 100) : 0;
+                    return <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 300ms" }} />;
+                  })()}
+                </div>
+                <span style={{ fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>{bulkReclassIdx + 1}/{bulkReclassItems.length}</span>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", gap: 10 }}>
+                <span style={{ color: "var(--pos)" }}>{bulkReclassItems.filter(it => it.status === "accepted").length} accepted</span>
+                <span>{bulkReclassItems.filter(it => it.status === "skipped").length} skipped</span>
+                <span style={{ color: "var(--neg)" }}>{bulkReclassItems.filter(it => it.status === "error").length} error</span>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+              {(() => {
+                const item = bulkReclassItems[bulkReclassIdx];
+                if (!item) return null;
+
+                if (item.status === "previewing") {
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>
+                      <div style={{ width: 16, height: 16, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                      Classifying…
+                    </div>
+                  );
+                }
+
+                if (item.status === "error") {
+                  return (
+                    <div style={{ padding: "40px 0", textAlign: "center", color: "var(--neg)", fontSize: 13 }}>
+                      Classification failed for this email. <span style={{ cursor: "pointer", color: "var(--accent)", textDecoration: "underline" }} onClick={() => processBulkItem(bulkReclassIdx, bulkReclassItems)}>Retry</span>
+                    </div>
+                  );
+                }
+
+                if (item.status === "pending") {
+                  return (
+                    <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>Waiting…</div>
+                  );
+                }
+
+                if (item.status === "accepted" || item.status === "skipped" || item.status === "applying") {
+                  const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing").length;
+                  const isAllDone = done >= bulkReclassItems.length;
+                  if (isAllDone) {
+                    const accepted = bulkReclassItems.filter(it => it.status === "accepted").length;
+                    const skipped = bulkReclassItems.filter(it => it.status === "skipped").length;
+                    const errors = bulkReclassItems.filter(it => it.status === "error").length;
+                    return (
+                      <div style={{ padding: "24px 0", textAlign: "center" }}>
+                        <div style={{ fontSize: 28, marginBottom: 8 }}>
+                          {errors === 0 && skipped === 0 ? <Icon name="check" size={28} stroke="var(--pos)"/> :
+                           errors === 0 ? <Icon name="check" size={28} stroke="var(--accent)"/> :
+                           <Icon name="x" size={28} stroke="var(--neg)"/>}
+                        </div>
+                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4, color: "var(--ink)" }}>Done</div>
+                        <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 16 }}>
+                          {accepted ? `${accepted} accepted` : ""}
+                          {accepted && skipped ? " · " : ""}
+                          {skipped ? `${skipped} skipped` : ""}
+                          {errors ? ` · ${errors} error${errors > 1 ? "s" : ""}` : ""}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>
+                      {item.status === "applying" ? (
+                        <><div style={{ width: 16, height: 16, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Applying…</>
+                      ) : (
+                        "Loading next…"
+                      )}
+                    </div>
+                  );
+                }
+
+                // preview ready
+                const p = item.preview;
+                const isIncome = p.label === "income";
+                const curr = item.current;
+                return (
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {item.subject || "(no subject)"}
+                    </div>
+                    {item.snippet && (
+                      <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 12, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {item.snippet}
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 12 }}>
+                      {[
+                        ["Label",      curr.label,           p.label || "—"],
+                        ["Amount",     curr.amount ? `₹${Math.abs(curr.amount).toLocaleString("en-IN")}` : "—", p.amount != null ? `₹${Math.abs(p.amount).toLocaleString("en-IN")}` : "—"],
+                        ["Merchant",   curr.merchant || "—", p.merchant || "—"],
+                        ["Category",   curr.category || "—", (normCat(p.category, isIncome)) || "—"],
+                        ["Confidence", `${Math.round((curr.confidence ?? 0) * 100)}%`, `${Math.round((p.confidence ?? 0) * 100)}%`],
+                      ].map(([k, cv, pv]) => {
+                        const changed = cv !== pv && !(k === "Confidence" && (Math.round((item.current.confidence ?? 0) * 100) === Math.round((p.confidence ?? 0) * 100)));
+                        return (
+                          <div key={k} style={{ background: "var(--paper-2)", borderRadius: 6, padding: "8px 10px" }}>
+                            <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>{k}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                              <span style={{ color: "var(--ink-2)" }}>{cv}</span>
+                              <span style={{ color: "var(--ink-4)", fontSize: 10 }}>→</span>
+                              <span style={{ color: changed ? "var(--accent)" : "var(--ink)", fontWeight: changed ? 600 : 400 }}>{pv}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {(p.txn_date && p.txn_date !== curr.txn_date) && (
+                      <div style={{ fontSize: 11, color: "var(--accent)", marginBottom: 4 }}>
+                        Date: {curr.txn_date || "—"} → {p.txn_date}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            {(() => {
+              const item = bulkReclassItems[bulkReclassIdx];
+              if (!item) return null;
+              const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing" && it.status !== "preview").length;
+              const isAllDone = done >= bulkReclassItems.length && item.status !== "preview";
+              if (isAllDone) {
+                return (
+                  <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
+                    <button onClick={bulkCloseReclass} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Close</button>
+                  </div>
+                );
+              }
+              if (item.status !== "preview") return null;
+              return (
+                <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button onClick={bulkSkipAll} style={{ padding: "9px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-3)", fontSize: 12, cursor: "pointer" }}>
+                    Skip all
+                  </button>
+                  <div style={{ flex: 1 }}/>
+                  <button onClick={bulkSkip} style={{ padding: "9px 16px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
+                    Skip
+                  </button>
+                  <button onClick={bulkAccept} style={{ padding: "9px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Accept & Next
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
