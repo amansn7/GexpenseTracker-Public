@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
 _SYSTEM = (
-    "You are a financial email classifier for an Indian user. "
-    "Respond ONLY with a single valid JSON object. No explanation, no markdown, no code blocks."
+    "You are a financial email classifier for Indian banking, UPI, and payment emails. "
+    "Identify whether an email contains a real financial transaction or is a non-transaction "
+    "(OTP, offer, alert, newsletter, etc.). "
+    "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
 )
 
 # Full classify + extract - used during initial sync / reclassify
@@ -55,61 +57,203 @@ def _build_pre_extraction_block(pre: dict) -> str:
 
 
 _USER_TEMPLATE = """Classify this financial email and extract transaction details.
+========================================
 
 CLASSIFICATION RULES:
-- "expense"  = money going OUT: debited, charged, paid, purchase, bill payment, subscription, EMI, fee
-- "income"   = money coming IN: credited, received, salary, cashback, refund, reversal, reward points redeemed
-- "ignore"   = no real transaction: OTP, login alert, low-balance warning, statement ready, promotional offer,
-               delivery/shipment status, password reset, newsletter, KYC reminder
+========================================
 
-REFUND / REVERSAL - always "income" (money returning to you)
+EXPENSE — money going OUT:
+  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee
+  Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
+  ATM withdrawals, wallet deductions, insurance premiums
+  → label: "expense"
 
+INCOME — money coming IN:
+  Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+  Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
+  reward points redeemed
+  → label: "income"
+
+REFUND / REVERSAL → always "income" (money returning to you)
+
+IGNORE — no real transaction occurred:
+  • OTP / 2FA codes — "OTP for transaction", "login OTP", "verification code"
+  • Security alerts — "new device login", "password changed", "unusual activity"
+  • Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
+  • Statement ready — "monthly statement", "account summary", "transaction report"
+  • Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
+  • Delivery/shipment — "order shipped", "out for delivery", "item delivered"
+  • Newsletters — "weekly digest", "tips & tricks", "recommendations"
+  • KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
+  • Password resets — "reset password", "password change request"
+  • Confirmations — welcome email, terms updated, fee change notification
+  → label: "ignore"
+
+========================================
 From: {sender}
 Subject: {subject}
 Body: {body_snippet}
+========================================
 
 EXTRACTION RULES:
-- amount    : INR number, no currency symbols or commas. Found in subject ("Rs.488.00") or body. null if absent.
-- merchant  : payee / store / service - NOT the bank itself. Clean raw merchant codes:
-              "WWW SWIGGY IN" - "Swiggy", "AMZN MKTP IN" - "Amazon", "ZOMATO*ORDER" - "Zomato",
-              "NETFLIX.COM" - "Netflix", "SPOTIFY" - "Spotify". null if no identifiable payee.
-- category: one of - {categories}
-- txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
-- confidence: 0.9–1.0 for clear bank/UPI alerts · 0.7–0.9 for merchant emails · 0.5–0.7 for ambiguous
+========================================
+- amount    : INR in rupees (number only, no currency symbols or commas).
+              Extract from subject or body text.
+              "Rs.499.00" → 499, "INR 1,200.50" → 1200.5, "₹1,299" → 1299
+              null if no INR amount found or email is non-transaction
 
-COMMON INDIAN BANK PATTERNS:
-  "Rs.X debited from your account/card ... towards MERCHANT" - expense
-  "INR X credited to your account" - income
-  "Rs.X refunded / reversed to your account" - income, category=Refund
-  "You have paid Rs.X to MERCHANT via UPI" - expense, category=UPI Payment
-  "X debited from a/c XXXX" - expense (find merchant in body)
-  "Cashback of Rs.X credited" - income, category=Income
+- merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
+              Clean raw merchant codes to readable names:
+              "WWW SWIGGY IN"/"SWIGGY*" → "Swiggy"
+              "AMZN MKTP IN"/"AMAZON.IN"/"AMZ*" → "Amazon"
+              "ZOMATO*ORDER"/"ZOMATO" → "Zomato"
+              "NETFLIX.COM"/"Netflix" → "Netflix"
+              "SPOTIFY" → "Spotify"
+              "UBER TRIP"/"UBER" → "Uber"
+              "BLINKIT IN" → "Blinkit"
+              "ZEITO" → "Zepto"
+              "PHONEPE*"/"PHONEPE" → "PhonePe" (UPI app, not merchant)
+              null if no identifiable payee
 
-JSON only: {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0}}"""
+- category  : one of — {categories}
+              Pick the closest match. If none fits, use "Other".
+              Refunds → "Refund" if available, else "Income"
+              EMIs → "EMI" if available, else "Subscriptions"
+              UPI person-to-person → "Bank Transfer" if available
+              ATM withdrawal → "Cash" or "Other"
+
+- txn_date  : actual transaction date from body (YYYY-MM-DD). NOT email received date.
+              "on 18-Apr-2026" → "2026-04-18"
+              "dated 15/03/2026" → "2026-03-15"
+              "on 18 April 2026" → "2026-04-18"
+              null if date is absent or ambiguous
+
+- confidence: 0.9–1.0 for clear structured bank/UPI alerts
+              0.7–0.9 for merchant emails with some uncertainty
+              0.5–0.7 for ambiguous emails with partial data
+              0.0 for ignore / non-transaction emails
+
+- email_type: classify the EMAIL itself (not the transaction):
+              "bank_alert"       — bank debit/credit transaction notification
+              "upi_notification" — UPI payment confirmation
+              "merchant_receipt" — e-commerce / service receipt
+              "bill_reminder"    — bill due date / payment reminder
+              "otp"              — one-time password / 2FA code
+              "offer"            — promotional / marketing email
+              "alert"            — security / low-balance / account alert
+              "newsletter"       — subscription tips / updates
+              "statement"        — periodic account summary
+              null               — unsure or other
+
+========================================
+COMMON INDIAN EMAIL PATTERNS:
+========================================
+
+BANK DEBIT:
+  "Rs.X debited from your account/card ... towards MERCHANT"              → expense
+  "INR X has been debited from a/c XXXX"                                 → expense (merchant in body)
+  "Card purchase of INR X at MERCHANT"                                    → expense
+  "X spent on your card at MERCHANT"                                      → expense
+  "Your card has been used for INR X at MERCHANT"                         → expense
+
+UPI:
+  "You have paid Rs.X to MERCHANT via UPI"                                → expense, category=UPI Payment
+  "UPI transaction of Rs.X debited"                                       → expense
+  "Rs.X has been sent to MERCHANT via UPI"                                → expense
+  "Rs.X received from SENDER via UPI"                                     → income
+  "You have received Rs.X from SENDER"                                    → income
+
+CREDIT / INCOME:
+  "INR X credited to your account"                                        → income
+  "Salary of Rs.X credited"                                               → income, category=Income
+  "Rs.X deposited in your account"                                        → income
+  "NEFT / IMPS credit of Rs.X from SENDER"                                → income
+  "Interest of Rs.X credited to your account"                             → income
+
+REFUND / CASHBACK:
+  "Rs.X refunded / reversed to your account"                              → income, category=Refund
+  "Cashback of Rs.X credited"                                             → income, category=Cashback
+  "Refund of Rs.X processed for MERCHANT"                                 → income, category=Refund
+
+CARD / EMI:
+  "EMI of Rs.X debited for MERCHANT"                                      → expense, category=EMI
+  "Credit card bill payment of Rs.X"                                      → expense
+  "Minimum amount due: Rs.X"                                              → ignore (reminder, not a charge)
+  "Your credit card statement is ready"                                   → ignore
+
+ATM:
+  "Rs.X withdrawn from ATM"                                               → expense, category=Cash
+  "Cash withdrawal of Rs.X at ATM location"                               → expense, category=Cash
+
+OFFER / PROMO:
+  "Special offer just for you" / "Festive sale" / "Get X% cashback"      → ignore
+  "Book now at discounted prices" / "Limited period offer"                → ignore
+
+========================================
+Respond ONLY with valid JSON:
+{{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0,"email_type":"type or null"}}"""
 
 _BATCH_USER_TEMPLATE = """You have {count} financial emails to classify. Process ALL of them.
 
 {email_blocks}
 
+========================================
 CLASSIFICATION RULES:
-- "expense" = money going OUT: debited, charged, paid, purchase, bill payment, subscription, EMI, fee
-- "income" = money coming IN: credited, received, salary, cashback, refund, reversal, reward points redeemed
-- "ignore" = no real transaction: OTP, login alert, low-balance warning, statement ready, promotional offer,
-             delivery/shipment status, password reset, newsletter, KYC reminder
+========================================
 
-REFUND / REVERSAL - always "income" (money returning to you)
+EXPENSE — money going OUT:
+  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee
+  Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
+  ATM withdrawals, wallet deductions, insurance premiums
+  → label: "expense"
 
+INCOME — money coming IN:
+  Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+  Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
+  reward points redeemed
+  → label: "income"
+
+REFUND / REVERSAL → always "income" (money returning to you)
+
+IGNORE — no real transaction occurred:
+  • OTP / 2FA codes
+  • Security alerts — new device login, password changed, unusual activity
+  • Balance/limit alerts — low balance, minimum amount due, credit limit
+  • Statement ready — monthly statement, account summary, transaction report
+  • Offers / promos — special offer, festive sale, discount, cashback offer
+  • Delivery/shipment — order shipped, out for delivery, item delivered
+  • Newsletters — weekly digest, tips, recommendations
+  • KYC / compliance — update KYC, Aadhaar linking, PAN verification
+  • Password resets, welcome emails, terms updates, fee change notifications
+  → label: "ignore"
+
+========================================
 EXTRACTION RULES:
-- amount    : INR number, no currency symbols or commas. null if absent.
-- merchant  : payee / store / service - NOT the bank itself. Clean raw codes:
-              "WWW SWIGGY IN" -> "Swiggy", "AMZN MKTP IN" -> "Amazon", "ZOMATO*ORDER" -> "Zomato",
-              "NETFLIX.COM" -> "Netflix", "SPOTIFY" -> "Spotify". null if no identifiable payee.
-- category: one of - {categories}
-- txn_date  : actual payment date from body (YYYY-MM-DD). NOT the email received date. null if absent.
-- confidence: 0.9-1.0 for clear bank/UPI alerts · 0.7-0.9 for merchant emails · 0.5-0.7 for ambiguous
+========================================
+- amount    : INR in rupees (number only, no currency symbols or commas).
+              "Rs.499" → 499, "INR 1200.50" → 1200.5, "₹1,299" → 1299
+              null if no INR amount found
 
+- merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
+              Clean raw codes: "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon",
+              "ZOMATO*ORDER" → "Zomato", "NETFLIX.COM" → "Netflix",
+              "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
+              null if no identifiable payee
+
+- category  : one of — {categories}. Use "Other" if none fits.
+              Refunds → "Refund" if available. EMIs → "EMI" if available.
+
+- txn_date  : actual transaction date from body (YYYY-MM-DD). null if absent.
+
+- confidence: 0.9–1.0 clear bank/UPI alerts · 0.7–0.9 merchant emails · 0.5–0.7 ambiguous · 0.0 for ignore
+
+- email_type: classify the EMAIL itself:
+              "bank_alert" | "upi_notification" | "merchant_receipt" | "bill_reminder"
+              | "otp" | "offer" | "alert" | "newsletter" | "statement" | null
+
+========================================
 Respond ONLY with a JSON array — one object per email, in order:
-[{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0}},...]"""
+[{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0,"email_type":"..."}},...]"""
 
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -122,6 +266,7 @@ class LLMClassification:
     category: Optional[str]
     txn_date: Optional[str]
     confidence: float
+    email_type: Optional[str] = None
 
 
 @dataclass
@@ -233,6 +378,7 @@ def _parse_response(raw: str) -> LLMClassification:
         category=data.get("category"),
         txn_date=data.get("txn_date"),
         confidence=float(data.get("confidence", 0.5)),
+        email_type=data.get("email_type"),
     )
 
 
@@ -266,6 +412,7 @@ def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificati
             category=item.get("category"),
             txn_date=item.get("txn_date"),
             confidence=float(item.get("confidence", 0.5)),
+            email_type=item.get("email_type"),
         ))
 
     if len(results) != expected_count:
@@ -274,6 +421,7 @@ def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificati
         results.append(LLMClassification(
             label="ignore", amount=None, merchant=None,
             category=None, txn_date=None, confidence=0.0,
+            email_type=None,
         ))
     return results[:expected_count]
 
@@ -403,8 +551,7 @@ class MultiLLMClient:
         )
 
     _DEFAULT_CATEGORIES = (
-        "Food, Groceries, Shopping, Travel, Transport, Utilities, Entertainment, "
-        "Healthcare, Education, UPI Payment, Bank Transfer, EMI, Rent, Refund, Income, Other"
+        "Food, Rent, Shopping, Travel, Subscriptions, Utilities, Income, Other"
     )
 
     async def classify(
@@ -610,7 +757,7 @@ class MultiLLMClient:
 
         email_blocks: List[str] = []
         for i, (sender, subject, body, pre) in enumerate(email_list, 1):
-            body = body[:600]
+            body = (body or "")[:600]
             block = f"Email {i}:\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
             if pre:
                 pre_text = _build_pre_extraction_block(pre)

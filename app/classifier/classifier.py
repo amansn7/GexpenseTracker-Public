@@ -67,7 +67,7 @@ async def classify_email(
     use_llm: bool = True,
 ) -> ClassificationResult:
     t0 = time.monotonic()
-    body_snippet = body_text[:3000]
+    body_snippet = (body_text or "")[:3000]
 
     user_categories = await _load_user_categories(session, user_id)
 
