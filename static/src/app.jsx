@@ -117,6 +117,9 @@ const App = () => {
           if (!data) return; // 401 redirect in flight
           setAccount(data);
           if (data.has_seed_data) setShowSeedModal(true);
+          API.get("/api/account/me").then(bundle => {
+            if (bundle) setAccount(prev => ({ ...prev, ...bundle }));
+          }).catch(() => {});
         })
         .catch(() => {});
     };
