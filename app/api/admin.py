@@ -244,7 +244,7 @@ async def reset_my_data(
         "DELETE FROM duplicate_pairs       WHERE user_id = :uid",
         "DELETE FROM transactions          WHERE user_id = :uid",
         "DELETE FROM emails                WHERE user_id = :uid",
-        "DELETE FROM sync_state            WHERE user_id = :uid",
+        "DELETE FROM sync_state",
         "DELETE FROM budgets               WHERE user_id = :uid",
         "DELETE FROM debts                 WHERE user_id = :uid",
         "DELETE FROM recurring_expenses    WHERE user_id = :uid",
@@ -253,7 +253,6 @@ async def reset_my_data(
         "DELETE FROM user_categories       WHERE user_id = :uid",
         "DELETE FROM connected_accounts    WHERE user_id = :uid",
         "DELETE FROM sessions              WHERE user_id = :uid",
-        "DELETE FROM oauth_states          WHERE user_id = :uid",
         "DELETE FROM user_profiles         WHERE user_id = :uid",
     ]
     deleted = {}

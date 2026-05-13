@@ -5,7 +5,7 @@ from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -504,10 +504,36 @@ async def delete_account(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
-    await db.delete(user_row)
-    await db.commit()
+    uid = str(user.id)
+
+    # Delete personal/identity data — keeps transaction data for rule engine
+    personal = [
+        "connected_accounts",
+        "sessions",
+        "user_settings",
+        "user_profiles",
+        "user_categories",
+        "user_ai_services",
+        "budgets",
+        "debts",
+        "recurring_expenses",
+        "user_merchant_overrides",
+        "sender_rules",
+    ]
+    for table in personal:
+        await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
+
+    # Anonymize + disable user row (keeps Email FK satisfied, no cascade)
+    user_row = (await db.execute(select(User).where(User.id == uid))).scalar_one()
+    user_row.email = f"deleted-{uid[:8]}"
+    user_row.status = "disabled"
+    user_row.onboarding_complete = False
+    user_row.totp_secret = None
+    user_row.totp_secret_pending = None
+    user_row.totp_enabled = False
+
     response.delete_cookie("session", path="/")
+    await db.commit()
     return {"deleted": True}
 
 
