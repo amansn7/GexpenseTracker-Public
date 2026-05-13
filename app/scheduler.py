@@ -46,6 +46,7 @@ def setup_scheduler() -> None:
         logger.info("Scheduled Gmail sync starting")
         try:
             async with AsyncSessionLocal() as owner_db:
+                from sqlalchemy import select
                 from app.models import User, UserRole
                 owner = (await owner_db.execute(
                     select(User).where(User.role == UserRole.owner, User.email != "service@localhost")
