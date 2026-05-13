@@ -48,7 +48,9 @@ _INVISIBLE_CHARS_RE = re.compile(
     r'[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]'
 )
 
-_FOOTER_SIGNPOSTS = [
+_AMOUNT_PRESENT_RE = re.compile(r'(?:Rs\.?|INR|₹)\s*\d', re.IGNORECASE)
+
+_BOILERPLATE_PATTERNS = [
     re.compile(r, re.IGNORECASE) for r in [
         r"if this transaction was not initiated by you",
         r"to block (?:upi|card|account)",
@@ -67,21 +69,53 @@ _FOOTER_SIGNPOSTS = [
         r"for (?:any\s+)?queries",
         r"thank you for (?:being|choosing)",
         r"to (?:unsubscribe|manage preferences)",
+        r"to check your available balance",
     ]
 ]
 
 
+def _truncate_after_transaction(text: str) -> str:
+    """
+    Find the last UPI/IMPS/NEFT/RTGS reference and truncate everything
+    from the first boilerplate signpost after it.
+    Handles compact single-line emails where boilerplate follows the
+    transaction ref on the same line (e.g. Axis Bank IMPS format).
+    """
+    last_pos = -1
+    for kw in ('UPI/', 'IMPS/', 'NEFT/', 'RTGS/', 'NACH/'):
+        pos = text.rfind(kw)
+        if pos > last_pos:
+            last_pos = pos
+
+    if last_pos < 0:
+        m = _AMOUNT_PRESENT_RE.search(text)
+        if m:
+            return text[:m.end() + 150].strip()
+        return text
+
+    rest = text[last_pos:]
+    earliest = len(rest)
+    for p in _BOILERPLATE_PATTERNS:
+        m = p.search(rest)
+        if m and m.start() < earliest:
+            earliest = m.start()
+
+    if earliest < len(rest):
+        return text[:last_pos + earliest].rstrip()
+    return text
+
+
 def _strip_footer(text: str) -> str:
-    """Remove boilerplate/footer content starting from the first known signpost."""
+    """Remove boilerplate/footer lines starting from the first signpost match."""
     lines = text.split('\n')
     for i, line in enumerate(lines):
-        if any(p.search(line) for p in _FOOTER_SIGNPOSTS):
+        if any(p.search(line) for p in _BOILERPLATE_PATTERNS):
             return '\n'.join(lines[:i])
     return text
 
 
 def _clean_body(text: str) -> str:
-    """Decode HTML entities + strip invisible Unicode chars + normalize whitespace + strip footer."""
+    """Decode HTML entities + strip invisible Unicode chars + normalize whitespace + strip boilerplate."""
     text = html_module.unescape(text)
     text = text.replace("&INR;", "₹")
     text = _INVISIBLE_CHARS_RE.sub('', text)
@@ -90,6 +124,7 @@ def _clean_body(text: str) -> str:
     text = re.sub(r'^[ \t]+|[ \t]+$', '', text, flags=re.MULTILINE)
     text = re.sub(r'\n[ \t]*\n', '\n', text)
     text = re.sub(r'\n{2,}', '\n', text)
+    text = _truncate_after_transaction(text)
     text = _strip_footer(text)
     return text.strip()[:4000]
 
