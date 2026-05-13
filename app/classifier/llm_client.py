@@ -113,7 +113,9 @@ EXTRACTION RULES:
               "BLINKIT IN" → "Blinkit"
               "ZEITO" → "Zepto"
               "PHONEPE*"/"PHONEPE" → "PhonePe" (UPI app, not merchant)
-              null if no identifiable payee
+              WARNING: Bank emails contain marketing footers ("offers", "discounts",
+              "recommendations in your city"). NEVER use footer text as merchant.
+              Read only the transaction body. null if no identifiable payee.
 
 - category  : one of — {categories}
               Pick the closest match. If none fits, use "Other".
@@ -162,6 +164,17 @@ UPI:
   "Rs.X has been sent to MERCHANT via UPI"                                → expense
   "Rs.X received from SENDER via UPI"                                     → income
   "You have received Rs.X from SENDER"                                    → income
+
+IMPS / NEFT / RTGS BANK TRANSFERS:
+  "debited with INR X ... by IMPS / NEFT / RTGS"                         → expense (money out)
+  "INR X transferred from your account via IMPS"                          → expense
+  "Funds transferred from your a/c XXXX via NEFT"                         → expense
+  "INR X credited to your account via IMPS"                               → income (money in)
+  "IMPS credit of INR X from SENDER NAME"                                 → income, merchant=SENDER NAME
+  "NEFT credit — INR X from SENDER NAME"                                  → income, merchant=SENDER NAME
+  WARNING: The transaction reference (e.g. "IMPS/P2A/612320192552")
+  contains a coded recipient. Read the body for the actual sender/recipient
+  name. NEVER use email footer/marketing text as the merchant name.
 
 CREDIT / INCOME:
   "INR X credited to your account"                                        → income
@@ -247,7 +260,8 @@ EXTRACTION RULES:
               Clean raw codes: "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon",
               "ZOMATO*ORDER" → "Zomato", "NETFLIX.COM" → "Netflix",
               "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
-              null if no identifiable payee
+              WARNING: Bank emails have marketing footers. NEVER use footer
+              text as merchant. null if no identifiable payee
 
 - category  : one of — {categories}. Use "Other" if none fits.
               Refunds → "Refund" if available. EMIs → "EMI" if available.
