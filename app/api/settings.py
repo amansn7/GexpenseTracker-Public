@@ -1,4 +1,5 @@
 import base64
+import logging
 from datetime import datetime, date
 from typing import Optional
 
@@ -13,6 +14,7 @@ from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import (
     ConnectedAccount,
+    Email,
     User,
     UserAIService,
     UserCategory,
@@ -33,6 +35,7 @@ from app.api._account_helpers import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SettingsPatch(BaseModel):
@@ -506,7 +509,14 @@ async def delete_account(
 ):
     uid = str(user.id)
 
-    # Delete personal/identity data — keeps transaction data for rule engine
+    # ── Step 1: Duplicate pairs (FK to transactions — delete before transactions) ──
+    await db.execute(text("""
+        DELETE FROM duplicate_pairs WHERE
+            primary_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
+            OR duplicate_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
+    """), {"uid": uid})
+
+    # ── Step 2: Personal data (direct FK to users.id) ──
     personal = [
         "connected_accounts",
         "sessions",
@@ -523,14 +533,17 @@ async def delete_account(
     for table in personal:
         await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
 
-    # Anonymize + disable user row (keeps Email FK satisfied, no cascade)
-    user_row = (await db.execute(select(User).where(User.id == uid))).scalar_one()
-    user_row.email = f"deleted-{uid[:8]}"
-    user_row.status = "disabled"
-    user_row.onboarding_complete = False
-    user_row.totp_secret = None
-    user_row.totp_secret_pending = None
-    user_row.totp_enabled = False
+    # ── Step 3: Classification logs (FK to emails.id — delete before emails) ──
+    await db.execute(text("DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
+
+    # ── Step 4: Transactions (FK to emails.id — delete before emails) ──
+    await db.execute(text("DELETE FROM transactions WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
+
+    # ── Step 5: Emails (FK to users.id with CASCADE) ──
+    await db.execute(text("DELETE FROM emails WHERE user_id = :uid"), {"uid": uid})
+
+    # ── Step 6: User row (all dependents gone) ──
+    await db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
 
     response.delete_cookie("session", path="/")
     await db.commit()
