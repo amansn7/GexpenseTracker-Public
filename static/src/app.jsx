@@ -293,19 +293,21 @@ const App = () => {
             <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
             <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Reload</button>
           </div>
-        ) : loading && transactions.length === 0 ? (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, height:"calc(100vh - 72px)" }}>
-            <div style={{ width:32, height:32, border:"2px solid var(--line)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 700ms linear infinite" }}/>
-            <div style={{ fontSize:13, color:"var(--ink-3)", fontFamily:"'Fraunces',serif" }}>Loading your inbox\u2026</div>
-            {loadingTimeout && <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"8px 16px", background:"var(--paper-2)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>Reload page</button>}
-          </div>
         ) : (
           <>
           {view === "inbox" && !loading && transactions.length === 0 && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>No transactions yet</div>
-              <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>Connect your Gmail account to start tracking your spending.</div>
-              <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>
+                {totalTransactions > 0 ? `No ${inboxFilter === "all" ? "" : inboxFilter + " "}transactions found` : "No transactions yet"}
+              </div>
+              <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>
+                {totalTransactions > 0
+                  ? `No transactions match the "${inboxFilter}" filter. Try a different filter.`
+                  : "Connect your Gmail account to start tracking your spending."}
+              </div>
+              {totalTransactions === 0 && (
+                <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+              )}
             </div>
           )}
           {view === "inbox" && (transactions.length > 0 || loading) && (
