@@ -253,7 +253,11 @@ async def llm_status(
     for p in providers:
         p["source"] = "builtin"
 
-    user_client = await llm_client.get_user_client(current_user.id)
+    user_client = None
+    try:
+        user_client = await llm_client.get_user_client(current_user.id)
+    except Exception as exc:
+        logger.warning("llm_status: get_user_client failed: %s", exc)
     provider_runtime = {}
     if user_client and user_client is not llm_client:
         for p in user_client.get_status():

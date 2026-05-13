@@ -568,9 +568,10 @@ class MultiLLMClient:
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(UserAIService).where(UserAIService.user_id == user_id)
+                select(UserAIService).where(UserAIService.user_id == user_id).order_by(UserAIService.created_at)
             )
-            config = result.scalar_one_or_none()
+            services = result.scalars().all()
+        config = next((s for s in services if s.enabled), services[0] if services else None)
         if not config:
             self._user_clients[user_id] = None
             return None
