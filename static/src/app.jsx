@@ -253,30 +253,6 @@ const App = () => {
     search:    { title: "Search",         sub: searchQuery ? `"${searchQuery}"` : "search your transactions" },
   };
 
-  if (loading) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:16 }}>
-      <div style={{ width:32, height:32, border:"2px solid var(--line)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 700ms linear infinite" }}/>
-      <div style={{ fontSize:13, color:"var(--ink-3)", fontFamily:"'Fraunces',serif" }}>Loading your inbox…</div>
-      {loadingTimeout && <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"8px 16px", background:"var(--paper-2)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:12, cursor:"pointer" }}>Reload page</button>}
-    </div>
-  );
-
-  if (error) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
-      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Could not load data</div>
-      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{error}</div>
-      <button onClick={loadData} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Retry</button>
-    </div>
-  );
-
-  if (renderError) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", flexDirection:"column", gap:12 }}>
-      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
-      <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
-      <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer" }}>Reload</button>
-    </div>
-  );
-
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
       <Sidebar
@@ -301,43 +277,65 @@ const App = () => {
             style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, ...(viewport.isMobile ? { padding: "9px 10px" } : {}), opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
           >
             <Icon name="sparkle" size={13} stroke="currentColor"/>
-            {!viewport.isMobile && (syncing ? "Scanning…" : "Re-scan")}
+            {!viewport.isMobile && (syncing ? "Scanning\u2026" : "Re-scan")}
           </button>
         </Topbar>
 
-        {view === "inbox" && !loading && transactions.length === 0 && (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)", textAlign:"center" }}>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>No transactions yet</div>
-            <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>Connect your Gmail account to start tracking your spending.</div>
-            <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+        {error ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)" }}>
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Could not load data</div>
+            <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{error}</div>
+            <button onClick={loadData} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Retry</button>
           </div>
+        ) : renderError ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)" }}>
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
+            <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
+            <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Reload</button>
+          </div>
+        ) : loading && transactions.length === 0 ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, height:"calc(100vh - 72px)" }}>
+            <div style={{ width:32, height:32, border:"2px solid var(--line)", borderTopColor:"var(--accent)", borderRadius:"50%", animation:"spin 700ms linear infinite" }}/>
+            <div style={{ fontSize:13, color:"var(--ink-3)", fontFamily:"'Fraunces',serif" }}>Loading your inbox\u2026</div>
+            {loadingTimeout && <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"8px 16px", background:"var(--paper-2)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>Reload page</button>}
+          </div>
+        ) : (
+          <>
+          {view === "inbox" && !loading && transactions.length === 0 && (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)", textAlign:"center" }}>
+              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>No transactions yet</div>
+              <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>Connect your Gmail account to start tracking your spending.</div>
+              <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+            </div>
+          )}
+          {view === "inbox" && (transactions.length > 0 || loading) && (
+            <InboxView
+              transactions={transactions}
+              setTransactions={setTransactions}
+              selectedId={selectedId}
+              setSelectedId={setSelectedId}
+              filter={inboxFilter}
+              setFilter={setInboxFilter}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              loadMore={loadMore}
+              totalTransactions={totalTransactions}
+              loadingMore={loadingMore}
+              reviewEmails={reviewEmails}
+              setReviewEmails={setReviewEmails}
+            />
+          )}
+          {view === "search"    && <SearchView query={searchQuery}/>}
+          {view === "flow"      && <FlowView transactions={transactions}/>}
+          {view === "dashboard" && <DashboardView transactions={transactions}/>}
+          {view === "health"    && <HealthView />}
+          {view === "reports"   && <ReportsView />}
+          {view === "recurring" && <RecurringView />}
+          {view === "debt"      && <DebtView />}
+          {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
+          {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
+          </>
         )}
-        {view === "inbox" && (transactions.length > 0 || loading) && (
-          <InboxView
-            transactions={transactions}
-            setTransactions={setTransactions}
-            selectedId={selectedId}
-            setSelectedId={setSelectedId}
-            filter={inboxFilter}
-            setFilter={setInboxFilter}
-            dateRange={dateRange}
-            setDateRange={setDateRange}
-            loadMore={loadMore}
-            totalTransactions={totalTransactions}
-            loadingMore={loadingMore}
-            reviewEmails={reviewEmails}
-            setReviewEmails={setReviewEmails}
-          />
-        )}
-        {view === "search"    && <SearchView query={searchQuery}/>}
-        {view === "flow"      && <FlowView transactions={transactions}/>}
-        {view === "dashboard" && <DashboardView transactions={transactions}/>}
-        {view === "health"    && <HealthView />}
-        {view === "reports"   && <ReportsView />}
-        {view === "recurring" && <RecurringView />}
-        {view === "debt"      && <DebtView />}
-        {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
-        {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
       </main>
 
       {showSeedModal && (
