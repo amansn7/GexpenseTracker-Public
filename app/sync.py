@@ -326,7 +326,7 @@ async def sync_emails(session, user_id: str = None) -> dict:
     return result
 
 
-async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dict:
+async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_priority: bool = False) -> dict:
     """
     Fetch + classify emails in a specific date range, then backfill missing bodies.
     Does NOT update SyncState (history_id or last_synced_at).
@@ -418,6 +418,7 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
                 db_rules=db_rules,
                 user_id=user_id,
                 llm_client_override=user_llm_client,
+                llm_priority=llm_priority,
                 batch_size=settings.LLM_BATCH_SIZE,
             )
 

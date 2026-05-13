@@ -136,6 +136,7 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
 class FetchRangeBody(BaseModel):
     after_date: _date
     before_date: _date
+    llm_priority: bool = False
 
     @model_validator(mode="after")
     def _check_range(self):
@@ -159,6 +160,7 @@ async def fetch_range(
         user_id=current_user.id,
         after_date=body.after_date.strftime("%Y/%m/%d"),
         before_date=body.before_date.strftime("%Y/%m/%d"),
+        llm_priority=body.llm_priority,
     )
     return result
 

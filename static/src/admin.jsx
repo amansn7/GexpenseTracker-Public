@@ -778,6 +778,151 @@ const FilterRulesSection = () => {
   );
 };
 
+// ── Section: Rule Engine Feedback ────────────────────────────────────────────
+
+const RuleEngineSection = () => {
+  const [builtinRules, setBuiltinRules] = useState([]);
+  const [learnedRules, setLearnedRules] = useState([]);
+  const [senderRules, setSenderRules] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState(null);
+  const [error, setError] = useState(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    API.get("/api/admin/domain-rules").then(d => {
+      setBuiltinRules(d.builtin || []);
+      setLearnedRules(d.learned || []);
+    }).catch(e => setError(e.message));
+    API.get("/api/admin/sender-rules").then(d => setSenderRules(d.rules || [])).catch(() => {});
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const generate = async () => {
+    setGenerating(true);
+    setGenerated(null);
+    setError(null);
+    try {
+      const r = await API.post("/api/admin/generate-domain-rules");
+      setGenerated(r);
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setGenerating(false); }
+  };
+
+  const labelColor = (l) => ({
+    expense: { background: "var(--neg-soft, #fee2e2)", color: "var(--neg, #ef4444)" },
+    income:  { background: "var(--pos-soft, #d1fae5)", color: "var(--pos, #059669)" },
+    ignore:  { background: "var(--paper-2)",            color: "var(--ink-3)" },
+  }[l] || { background: "var(--paper-2)", color: "var(--ink-3)" });
+
+  const TD = { padding: "6px 10px", borderBottom: "1px solid var(--line)", fontSize: 13, verticalAlign: "top" };
+  const TH = { ...TD, fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, borderBottom: "1px solid var(--ink-4)", textAlign: "left" };
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={S.sectionTitle}>Domain Rules</h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={S.btn} onClick={load} disabled={loading}>↻ Refresh</button>
+          <button style={{ ...S.btn, ...S.btnPrimary }} onClick={generate} disabled={generating}>
+            {generating ? "Generating…" : "✦ Generate from data"}
+          </button>
+        </div>
+      </div>
+      <div style={{ ...S.sectionSub, marginBottom: 16 }}>
+        — learned domain→label mappings used by the rule engine during classification
+      </div>
+
+      {error && <div style={{ padding: 10, background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+
+      {generated && (
+        <div style={{ padding: 10, background: "var(--pos-soft)", color: "var(--pos)", borderRadius: 6, fontSize: 13, marginBottom: 12 }}>
+          Generated {generated.count} domain rule{generated.count !== 1 ? "s" : ""}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 }}>Built-in rules ({builtinRules.length})</div>
+      {builtinRules.length > 0 ? (
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: 13 }}>
+          <thead><tr>
+            <th style={TH}>Domain</th>
+            <th style={TH}>Label</th>
+            <th style={TH}>Category</th>
+          </tr></thead>
+          <tbody>
+            {builtinRules.map((r, i) => (
+              <tr key={i}>
+                <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{r.domain}</td>
+                <td style={TD}><span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, ...labelColor(r.label) }}>{r.label}</span></td>
+                <td style={TD}>{r.category || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div style={{ fontSize: 12, color: "var(--ink-4)", fontStyle: "italic", marginBottom: 16 }}>No built-in rules</div>
+      )}
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6 }}>Learned from data ({learnedRules.length})</div>
+      {learnedRules.length > 0 ? (
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: 13 }}>
+          <thead><tr>
+            <th style={TH}>Domain</th>
+            <th style={TH}>Label</th>
+            <th style={TH}>Category</th>
+          </tr></thead>
+          <tbody>
+            {learnedRules.map((r, i) => (
+              <tr key={i}>
+                <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{r.domain}</td>
+                <td style={TD}><span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, ...labelColor(r.label) }}>{r.label}</span></td>
+                <td style={TD}>{r.category || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div style={{ fontSize: 12, color: "var(--ink-4)", fontStyle: "italic", marginBottom: 16 }}>No learned rules yet. Use "Generate from data".</div>
+      )}
+
+      <details>
+        <summary style={{ fontSize: 12, color: "var(--ink-3)", cursor: "pointer", userSelect: "none", padding: "4px 0" }}>
+          User corrections ({senderRules.length})
+        </summary>
+        <div style={{ marginTop: 8 }}>
+          {senderRules.length > 0 ? (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr>
+                <th style={TH}>Domain</th>
+                <th style={TH}>Label</th>
+                <th style={TH}>Category</th>
+                <th style={TH}>Date</th>
+              </tr></thead>
+              <tbody>
+                {senderRules.map(r => (
+                  <tr key={r.id}>
+                    <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{r.sender_domain}</td>
+                    <td style={TD}><span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, ...labelColor(r.label) }}>{r.label}</span></td>
+                    <td style={TD}>{r.category || "—"}</td>
+                    <td style={{ ...TD, fontSize: 11, color: "var(--ink-4)" }}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ fontSize: 12, color: "var(--ink-4)", fontStyle: "italic" }}>No user corrections yet.</div>
+          )}
+        </div>
+      </details>
+    </>
+  );
+};
+
 // ── AdminView (exported) ───────────────────────────────────────────────────────
 
 const AdminView = () => (
@@ -791,10 +936,11 @@ const AdminView = () => (
     <div style={S.section}><ClassifyTestSection /></div>
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
     <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
+    <div style={S.section}><RuleEngineSection /></div>
     <div style={S.section}><FetchRangeSection /></div>
     <div style={S.section}><FilterRulesSection /></div>
     <div style={S.section}><AlertsSection /></div>
   </div>
 );
 
-Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection });
+Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection });

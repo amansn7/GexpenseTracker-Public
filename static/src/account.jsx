@@ -502,6 +502,7 @@ const AdminFetchRangeSection = () => {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [afterDate,  setAfterDate]  = React.useState(today);
   const [beforeDate, setBeforeDate]  = React.useState(tomorrow);
+  const [llmPriority, setLlmPriority] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [result,  setResult]  = React.useState(null);
   const [error,   setError]   = React.useState(null);
@@ -510,7 +511,7 @@ const AdminFetchRangeSection = () => {
     if (!afterDate || !beforeDate || loading) return;
     setLoading(true); setError(null); setResult(null);
     try {
-      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate });
+      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
       setResult(r);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -527,6 +528,10 @@ const AdminFetchRangeSection = () => {
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>→</span>
           <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={accountStyles.input} />
         </div>
+      </div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>LLM priority</div><div style={accountStyles.sub}>skip rule pre-filter, always classify with LLM first</div></div>
+        <Toggle on={llmPriority} onChange={setLlmPriority} />
       </div>
       <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
         <div/>
@@ -920,6 +925,54 @@ const AdminAlertsSection = () => {
           </div>
         </div>
       ))}
+    </div>
+  );
+};
+
+const AdminDomainRulesSection = () => {
+  const [builtinRules, setBuiltinRules] = React.useState([]);
+  const [learnedRules, setLearnedRules] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [generating, setGenerating] = React.useState(false);
+  const [generated, setGenerated] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  const load = () => {
+    setLoading(true); setError(null);
+    API.get("/api/admin/domain-rules").then(d => { setBuiltinRules(d.builtin || []); setLearnedRules(d.learned || []); }).catch(e => setError(e.message));
+    setLoading(false);
+  };
+
+  React.useEffect(() => { load(); }, []);
+
+  const generate = async () => {
+    setGenerating(true); setGenerated(null); setError(null);
+    try { const r = await API.post("/api/admin/generate-domain-rules"); setGenerated(r); load(); }
+    catch (e) { setError(e.message); }
+    finally { setGenerating(false); }
+  };
+
+  const labelColor = (l) => ({ expense: { background: "var(--neg-soft)", color: "var(--neg)" }, income: { background: "var(--pos-soft)", color: "var(--pos)" }, ignore: { background: "var(--paper-2)", color: "var(--ink-3)" } }[l] || { background: "var(--paper-2)", color: "var(--ink-3)" });
+
+  return (
+    <div style={accountStyles.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={accountStyles.sectionTitle}>Domain Rules</h3>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={load} style={accountStyles.btn}>↻ Refresh</button>
+          <button onClick={generate} disabled={generating} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>{generating ? "Generating…" : "✦ Generate from data"}</button>
+        </div>
+      </div>
+      <div style={accountStyles.sectionSub}>— learned domain mappings used for rule-based classification</div>
+      {error && <div style={{ padding: 10, background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+      {generated && <div style={{ padding: 10, background: "var(--pos-soft)", color: "var(--pos)", borderRadius: 6, fontSize: 13, marginBottom: 12 }}>Generated {generated.count} domain rule{generated.count !== 1 ? "s" : ""}</div>}
+      {learnedRules.length > 0 ? learnedRules.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, flex: 1 }}>{r.domain}</span>
+          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 3, ...labelColor(r.label) }}>{r.label}</span>
+          <span style={{ fontSize: 12, color: "var(--ink-4)" }}>{r.category || "—"}</span>
+        </div>
+      )) : <div style={{ fontSize: 13, color: "var(--ink-4)", padding: "8px 0", fontStyle: "italic" }}>No learned rules yet. Run "Generate from data".</div>}
     </div>
   );
 };
@@ -1448,6 +1501,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <AdminSyncSection />
           <AdminFetchPreviewSection />
           <AdminClassifySection />
+          <AdminDomainRulesSection />
           <AdminAlertsSection />
         </>
       )}

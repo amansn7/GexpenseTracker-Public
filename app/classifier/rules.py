@@ -110,9 +110,9 @@ async def build_domain_rules(
     min_confidence: float = 0.75,
 ) -> dict[str, tuple[Label, Optional[str]]]:
     """
-    Learn domain→(label, category) from high-confidence existing transactions.
-    A domain gets a rule when >= min_count of its transactions agree on the same
-    label and that label represents >= 80% of that domain's total.
+    Learn domain→(label, category) from high-confidence existing transactions
+    and user-trained SenderRule entries. SenderRule entries always take priority
+    over transaction-based learning.
     """
     from sqlalchemy import func, select
     from app.models import Transaction, Email
@@ -149,6 +149,19 @@ async def build_domain_rules(
             label_str, category = best_key
             try:
                 result[domain] = (Label(label_str), category)
+            except ValueError:
+                pass
+
+    # Merge in SenderRule entries (user-trained, always overrides transaction data)
+    from app.models.financial import SenderRule
+    sender_rules = (await session.execute(
+        select(SenderRule).where(SenderRule.sender_domain.isnot(None))
+    )).scalars().all()
+    for sr in sender_rules:
+        domain = sr.sender_domain.lower().strip()
+        if sr.label:
+            try:
+                result[domain] = (Label(sr.label), sr.category)
             except ValueError:
                 pass
 

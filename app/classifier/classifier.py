@@ -65,6 +65,7 @@ async def classify_email(
     user_id: Optional[str] = None,
     llm_client_override: Optional[MultiLLMClient] = None,
     use_llm: bool = True,
+    llm_priority: bool = False,
 ) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = (body_text or "")[:3000]
@@ -72,7 +73,7 @@ async def classify_email(
     user_categories = await _load_user_categories(session, user_id)
 
     # Stage 1 pre-filter: skip LLM for clear non-financial emails
-    if rule_engine_enabled:
+    if rule_engine_enabled and not llm_priority:
         rule_pre = apply_rules(sender_domain, subject, body_text, db_rules or {})
         if rule_pre.label == Label.ignore and rule_pre.confidence >= 0.82:
             logger.debug("Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", sender_domain, rule_pre.confidence)
@@ -249,6 +250,7 @@ async def batch_classify_emails(
     user_id: Optional[str] = None,
     llm_client_override: Optional[MultiLLMClient] = None,
     use_llm: bool = True,
+    llm_priority: bool = False,
     batch_size: int = 5,
 ) -> List[ClassificationResult]:
     """Classify multiple emails, batching LLM calls for efficiency.
@@ -264,6 +266,7 @@ async def batch_classify_emails(
         user_id: for loading user-specific categories
         llm_client_override: per-user LLM client
         use_llm: whether to use LLM at all
+        llm_priority: skip rules pre-filter, always try LLM first
         batch_size: max emails per batch
 
     Returns:
@@ -282,7 +285,7 @@ async def batch_classify_emails(
 
     # ── Phase 1: rules pre-check per email ────────────────────────────
     for i, (email_id, sender, sender_domain, subject, body_text) in enumerate(items):
-        if rule_engine_enabled and use_llm:
+        if rule_engine_enabled and not llm_priority and use_llm:
             rule_pre = apply_rules(sender_domain, subject, body_text, db_rules or {})
             if rule_pre.label == Label.ignore and rule_pre.confidence >= 0.82:
                 status = (

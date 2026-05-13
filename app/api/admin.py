@@ -281,3 +281,60 @@ async def reset_my_data(
 
     await db.commit()
     return {"ok": True, "deleted": deleted, "message": "Data reset. Reload the app to start onboarding."}
+
+
+@router.get("/admin/domain-rules")
+async def list_domain_rules(
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current domain rules: built-in + learned from data."""
+    from app.classifier.rules import BUILTIN_DOMAIN_RULES, build_domain_rules
+
+    builtin = [{"domain": d, "label": l.value, "category": c} for d, (l, c) in BUILTIN_DOMAIN_RULES.items()]
+    learned = await build_domain_rules(db)
+    learned_list = [{"domain": d, "label": l.value, "category": c} for d, (l, c) in learned.items()]
+    return {"builtin": builtin, "learned": learned_list}
+
+
+@router.post("/admin/generate-domain-rules")
+async def generate_domain_rules(
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run build_domain_rules and return what was generated."""
+    from app.classifier.rules import build_domain_rules
+
+    rules = await build_domain_rules(db)
+    return {
+        "count": len(rules),
+        "rules": [{"domain": d, "label": l.value, "category": c} for d, (l, c) in rules.items()],
+    }
+
+
+@router.get("/admin/sender-rules")
+async def list_sender_rules(
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all SenderRule entries (user-trained corrections)."""
+    from sqlalchemy import select
+    from app.models.financial import SenderRule
+
+    rows = (await db.execute(
+        select(SenderRule).order_by(SenderRule.created_at.desc()).limit(100)
+    )).scalars().all()
+    return {
+        "count": len(rows),
+        "rules": [
+            {
+                "id": r.id,
+                "sender_domain": r.sender_domain,
+                "label": r.label,
+                "category": r.category,
+                "source": r.source.value if r.source else None,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
