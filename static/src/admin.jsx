@@ -345,8 +345,7 @@ const ClassifyTestSection = () => {
 const LLMStatusSection = ({ account, settings }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const aiServices = (account?.ai_services || []);
-  const activeId = settings?.active_ai_service_id;
+  const activeId = data?.active_service_id || settings?.active_ai_service_id;
 
   const load = () => {
     setLoading(true);
@@ -365,44 +364,6 @@ const LLMStatusSection = ({ account, settings }) => {
       </div>
       <div style={S.sectionSub}>— priority-ordered dispatch list, rate-limit hits persistently demote providers</div>
 
-      {/* User AI Services from DB */}
-      {aiServices.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Your AI Services</div>
-          <div style={{ overflowX: "auto" }}>
-            <table style={S.table}>
-<thead>
-                  <tr>
-                    <th key="service" style={S.th}>Service</th>
-                    <th key="model" style={S.th}>Model</th>
-                    <th key="provider" style={S.th}>Provider</th>
-                    <th key="status" style={S.th}>Status</th>
-                  </tr>
-                </thead>
-              <tbody>
-                {aiServices.map(svc => (
-                  <tr key={svc.id}>
-                    <td style={{ ...S.td, fontWeight: 600 }}>
-                      {svc.display_name}
-                      {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
-                    </td>
-                    <td style={{ ...S.td, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{svc.model_id}</td>
-                    <td style={{ ...S.td, fontSize: 12, color: "var(--ink-3)" }}>{svc.provider}{svc.base_url ? ` · ${svc.base_url}` : ""}</td>
-                    <td style={S.td}>
-                      <span style={{ ...S.pill, background: svc.enabled ? "var(--pos-soft)" : "var(--paper-2)", color: svc.enabled ? "var(--pos)" : "var(--ink-4)" }}>
-                        {svc.enabled ? "Enabled" : "Disabled"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Global LLM providers (built-in) */}
-      <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>Built-in providers</div>
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
       {!loading && data && (
         <>
@@ -425,9 +386,18 @@ const LLMStatusSection = ({ account, settings }) => {
                 </thead>
                 <tbody>
                   {data.providers.map((p, i) => (
-                    <tr key={p.name}>
+                    <tr key={p.source === "custom" ? `cust-${p.service_id}` : p.name}>
                       <td style={{ ...S.td, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{i + 1}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>
+                        {p.source === "custom" ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            {p.display_name}
+                            {p.service_id === activeId && <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                            <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span>
+                            <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 400, fontFamily: "'Geist Mono', monospace" }}>{p.model}</span>
+                          </span>
+                        ) : p.name}
+                      </td>
                       <td style={S.td}>
                         <span style={{ ...S.pill, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>
                           {p.available ? "Ready" : "Limited"}

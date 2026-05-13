@@ -12,7 +12,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import httpx
 
@@ -453,6 +453,8 @@ def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificati
 # ── Multi-provider client ─────────────────────────────────────────────────────
 
 class MultiLLMClient:
+    _user_clients: Dict[str, "MultiLLMClient"] = {}
+
     def __init__(self, user_id: Optional[str] = None):
         self._providers: List[_Provider] = []
         self._user_id = user_id
@@ -528,51 +530,62 @@ class MultiLLMClient:
 
     def get_status(self) -> List[dict]:
         now = time.time()
-        # Return sorted by current priority so UI shows actual dispatch order
         ranked_names = [p.name for p in self._ranked_providers()]
         all_providers = sorted(
             self._providers,
             key=lambda p: ranked_names.index(p.name) if p.name in ranked_names else 999,
         )
         return [
-            {
-                "name": p.name,
-                "available": p.available,
-                "rate_limited_secs": max(0, round(p.rate_limited_until - now)) if p.rate_limited_until > now else 0,
-                "rate_limit_count": p.rate_limit_count,
-                "priority_score": round(p.priority_score, 3),
-                "success": p.success_count,
-                "fail": p.fail_count,
-                "error_rate": round(p.error_rate, 3),
-            }
+            self._provider_status_dict(p, now)
             for p in all_providers
         ]
 
+    @staticmethod
+    def _provider_status_dict(p: _Provider, now: float) -> dict:
+        return {
+            "name": p.name,
+            "available": p.available,
+            "rate_limited_secs": max(0, round(p.rate_limited_until - now)) if p.rate_limited_until > now else 0,
+            "rate_limit_count": p.rate_limit_count,
+            "priority_score": round(p.priority_score, 3),
+            "success": p.success_count,
+            "fail": p.fail_count,
+            "error_rate": round(p.error_rate, 3),
+        }
+
     async def get_user_client(self, user_id: str) -> Optional["MultiLLMClient"]:
-        """Return user-specific LLM client from their DB config, or None if not configured."""
+        """Return user-specific LLM client from their DB config, or None if not configured.
+        Clients are cached per user_id so provider stats (rate-limit, success/fail) persist."""
+        if not user_id:
+            return None
+        cached = self._user_clients.get(user_id)
+        if cached is not None:
+            return cached
+
         from sqlalchemy import select
         from app.models import UserAIService
         from app.api._account_helpers import _decrypt_secret
 
-        if not user_id:
-            return None
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(UserAIService).where(UserAIService.user_id == user_id)
             )
             config = result.scalar_one_or_none()
         if not config:
+            self._user_clients[user_id] = None
             return None
 
 
         decrypted_key = _decrypt_secret(config.encrypted_api_key) if config.encrypted_api_key else None
-        return build_user_client(
+        client = build_user_client(
             user_id=user_id,
             provider=config.provider,
             base_url=config.base_url,
             api_key=decrypted_key,
             model_id=config.model_id,
         )
+        self._user_clients[user_id] = client
+        return client
 
     _DEFAULT_CATEGORIES = (
         "Food, Rent, Shopping, Travel, Subscriptions, Utilities, CC Payment, Income, Other"

@@ -240,13 +240,52 @@ async def llm_limits(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/llm/status")
-async def llm_status(current_user: User = Depends(get_current_user)):
+async def llm_status(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.classifier.llm_client import llm_client
+    from app.models import UserAIService
+
+    providers = llm_client.get_status()
+    for p in providers:
+        p["source"] = "builtin"
+
+    user_client = await llm_client.get_user_client(current_user.id)
+    provider_runtime = {}
+    if user_client and user_client is not llm_client:
+        for p in user_client.get_status():
+            provider_runtime[p["name"]] = p
+
+    services_result = await db.execute(
+        select(UserAIService).where(UserAIService.user_id == current_user.id)
+    )
+    custom_services = services_result.scalars().all()
+
+    for svc in custom_services:
+        runtime = provider_runtime.get(svc.provider, {})
+        providers.append({
+            "source": "custom",
+            "service_id": svc.id,
+            "name": svc.display_name,
+            "display_name": svc.display_name,
+            "model": svc.model_id,
+            "model_id": svc.model_id,
+            "enabled": svc.enabled,
+            "available": svc.enabled,
+            "rate_limited_secs": runtime.get("rate_limited_secs", 0),
+            "rate_limit_count": runtime.get("rate_limit_count", 0),
+            "priority_score": runtime.get("priority_score", 0),
+            "success": runtime.get("success", 0),
+            "fail": runtime.get("fail", 0),
+            "error_rate": runtime.get("error_rate", 0),
+        })
 
     result = {
-        "providers": llm_client.get_status(),
+        "providers": providers,
+        "active_service_id": getattr(current_user, "active_ai_service_id", None),
         "config": {
             "confidence_threshold": settings.LLM_CONFIDENCE_THRESHOLD,
             "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,

@@ -749,8 +749,7 @@ const AdminClassifySection = () => {
 const AdminLLMSection = ({ account, settings }) => {
   const [data,    setData]    = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const aiServices = account?.ai_services || [];
-  const activeId   = settings?.active_ai_service_id;
+  const activeId   = data?.active_service_id || settings?.active_ai_service_id;
 
   const load = () => { setLoading(true); API.get("/api/llm/status").then(setData).catch(() => {}).finally(() => setLoading(false)); };
   React.useEffect(() => { load(); }, []);
@@ -767,45 +766,49 @@ const AdminLLMSection = ({ account, settings }) => {
       </div>
       <div style={accountStyles.sectionSub}>— priority dispatch list, rate-limit hits persistently demote providers</div>
 
-      {/* Unified table: DB services + built-in providers */}
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
       {!loading && (
         <>
-          {aiServices.length === 0 && (data?.providers || []).length === 0 ? (
+          {(!data?.providers || data.providers.length === 0) ? (
             <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No AI services configured.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr>{["Source","Service","Model","Status","Rate-limited","Penalty","OK/Fail"].map(h => <th key={h} style={TH}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {aiServices.map(svc => (
-                    <tr key={`db-${svc.id}`}>
-                      <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span></td>
-                      <td style={{ ...TD, fontWeight: 600 }}>
-                        {svc.display_name}
-                        {svc.id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 5px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
-                      </td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
-                      <td style={TD}><Pill on={svc.enabled} text={svc.enabled ? "Enabled" : "Disabled"}/></td>
-                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
-                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
-                      <td style={{ ...TD, color: "var(--ink-4)" }}>—</td>
-                    </tr>
-                  ))}
-                  {(data?.providers || []).map((p, i) => (
-                    <tr key={`builtin-${p.name}`}>
-                      <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
-                      <td style={{ ...TD, fontWeight: 600 }}>{p.name}</td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
-                      <td style={TD}><span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>{p.available ? "Ready" : "Limited"}</span></td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
-                      <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
-                        <span style={{ color: "var(--pos)" }}>{p.success}</span>
-                        <span style={{ color: "var(--ink-4)" }}> / </span>
-                        <span style={{ color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail}</span>
-                      </td>
-                    </tr>
+                  {data.providers.map((p, i) => (
+                    p.source === "custom" ? (
+                      <tr key={`cust-${p.service_id}`}>
+                        <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 600, textTransform: "uppercase" }}>Custom</span></td>
+                        <td style={{ ...TD, fontWeight: 600 }}>
+                          {p.display_name}
+                          {p.service_id === activeId && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 5px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
+                        </td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model_id}</td>
+                        <td style={TD}><Pill on={p.enabled} text={p.enabled ? "Enabled" : "Disabled"}/></td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
+                          <span style={{ color: "var(--pos)" }}>{p.success}</span>
+                          <span style={{ color: "var(--ink-4)" }}> / </span>
+                          <span style={{ color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail}</span>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={`builtin-${p.name}`}>
+                        <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
+                        <td style={{ ...TD, fontWeight: 600 }}>{p.name}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
+                        <td style={TD}><span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>{p.available ? "Ready" : "Limited"}</span></td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>{p.priority_score.toFixed(3)}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>
+                          <span style={{ color: "var(--pos)" }}>{p.success}</span>
+                          <span style={{ color: "var(--ink-4)" }}> / </span>
+                          <span style={{ color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail}</span>
+                        </td>
+                      </tr>
+                    )
                   ))}
                 </tbody>
               </table>
