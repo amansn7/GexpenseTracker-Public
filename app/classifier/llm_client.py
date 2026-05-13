@@ -203,22 +203,29 @@ def _extract_json(text: str) -> str:
     return text
 
 
+_REPAIRERS = [
+    ("original", lambda t: t),
+    ("trailing commas", lambda t: re.sub(r",(\s*[}\]])", r"\1", t)),
+    ("single quotes", lambda t: t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")),
+    ("unquoted keys", lambda t: re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t)),
+    ("trailing commas + single quotes", lambda t: re.sub(r",(\s*[}\]])", r"\1", t).replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")),
+    ("trailing commas + unquoted keys", lambda t: re.sub(r",(\s*[}\]])", r"\1", re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t))),
+    ("all fixes", lambda t: re.sub(r",(\s*[}\]])", r"\1", re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")))),
+]
+
+
 def _parse_response(raw: str) -> LLMClassification:
     cleaned = _extract_json(raw)
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        logger.warning("JSON parse failed, attempting repair: %s", exc)
-        fixed = re.sub(r",(\s*[}\]])", r"\1", cleaned)
-        fixed = re.sub(r'([{,]\s*)"(\w+)":\s*"', r'\1"\2": "', fixed)
+    for name, fix in _REPAIRERS:
         try:
-            data = json.loads(fixed)
+            data = json.loads(fix(cleaned))
+            if name != "original":
+                logger.info("Repair strategy '%s' succeeded", name)
+            break
         except json.JSONDecodeError:
-            fixed = cleaned.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")
-            try:
-                data = json.loads(fixed)
-            except json.JSONDecodeError:
-                raise ValueError(f"Cannot parse response: {cleaned[:200]}")
+            continue
+    else:
+        raise ValueError(f"Cannot parse response: {cleaned[:200]}")
     return LLMClassification(
         label=data.get("label", "ignore"),
         amount=float(data["amount"]) if data.get("amount") is not None else None,
@@ -232,9 +239,13 @@ def _parse_response(raw: str) -> LLMClassification:
 def _parse_batch_response(raw: str, expected_count: int) -> List[LLMClassification]:
     """Parse a JSON array response into individual LLMClassification objects."""
     cleaned = _extract_json(raw)
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError:
+    for _, fix in _REPAIRERS:
+        try:
+            data = json.loads(fix(cleaned))
+            break
+        except json.JSONDecodeError:
+            continue
+    else:
         raise ValueError(f"Cannot parse batch response: {cleaned[:200]}")
 
     if not isinstance(data, list):
