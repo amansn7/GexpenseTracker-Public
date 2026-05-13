@@ -320,67 +320,68 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str) -> dic
 
         await session.flush()
 
-        user_settings = (await session.execute(
-            select(UserSettings).where(UserSettings.user_id == user_id)
-        )).scalar_one_or_none()
-        rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
-        db_rules: dict = {}
-        if rule_engine_enabled:
-            from app.classifier.rules import build_domain_rules
-            db_rules = await build_domain_rules(session)
-
-        user_llm_client = None
-        if user_settings and user_settings.active_ai_service_id:
-            from app.models.user import UserAIService
-            from app.api._account_helpers import _decrypt_secret
-            from app.classifier.llm_client import build_user_client
-            ai_svc = (await session.execute(
-                select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
-            )).scalar_one_or_none()
-            if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
-                try:
-                    user_llm_client = build_user_client(
-                        user_id=user_id,
-                        provider=ai_svc.provider,
-                        base_url=ai_svc.base_url,
-                        api_key=_decrypt_secret(ai_svc.encrypted_api_key),
-                        model_id=ai_svc.model_id,
-                    )
-                except Exception as exc:
-                    logger.error("fetch-range: failed to build user LLM client: %s", exc)
-
-        items = [(email.id, msg["sender"], msg["sender_domain"],
-                  msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
-                 for email, msg in new_pairs]
-
-        classifications = await batch_classify_emails(
-            items,
-            session=session,
-            rule_engine_enabled=rule_engine_enabled,
-            db_rules=db_rules,
-            user_id=user_id,
-            llm_client_override=user_llm_client,
-            batch_size=settings.LLM_BATCH_SIZE,
-        )
-
         inserted = 0
-        for (email, _), cls in zip(new_pairs, classifications):
-            t = Transaction(
-                email_id=email.id,
-                label=cls.label.value,
-                amount=cls.amount,
-                currency="INR",
-                merchant=cls.merchant,
-                category=cls.category,
-                txn_date=cls.txn_date,
-                confidence=cls.confidence,
-                status=cls.status.value,
-                classifier_method=cls.classifier_method.value,
-            )
-            session.add(t)
-            inserted += 1
+        if new_pairs:
+            user_settings = (await session.execute(
+                select(UserSettings).where(UserSettings.user_id == user_id)
+            )).scalar_one_or_none()
+            rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
+            db_rules: dict = {}
+            if rule_engine_enabled:
+                from app.classifier.rules import build_domain_rules
+                db_rules = await build_domain_rules(session)
 
-        await session.flush()
+            user_llm_client = None
+            if user_settings and user_settings.active_ai_service_id:
+                from app.models.user import UserAIService
+                from app.api._account_helpers import _decrypt_secret
+                from app.classifier.llm_client import build_user_client
+                ai_svc = (await session.execute(
+                    select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
+                )).scalar_one_or_none()
+                if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
+                    try:
+                        user_llm_client = build_user_client(
+                            user_id=user_id,
+                            provider=ai_svc.provider,
+                            base_url=ai_svc.base_url,
+                            api_key=_decrypt_secret(ai_svc.encrypted_api_key),
+                            model_id=ai_svc.model_id,
+                        )
+                    except Exception as exc:
+                        logger.error("fetch-range: failed to build user LLM client: %s", exc)
+
+            items = [(email.id, msg["sender"], msg["sender_domain"],
+                      msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
+                     for email, msg in new_pairs]
+
+            classifications = await batch_classify_emails(
+                items,
+                session=session,
+                rule_engine_enabled=rule_engine_enabled,
+                db_rules=db_rules,
+                user_id=user_id,
+                llm_client_override=user_llm_client,
+                batch_size=settings.LLM_BATCH_SIZE,
+            )
+
+            for (email, _), cls in zip(new_pairs, classifications):
+                t = Transaction(
+                    email_id=email.id,
+                    label=cls.label.value,
+                    amount=cls.amount,
+                    currency="INR",
+                    merchant=cls.merchant,
+                    category=cls.category,
+                    txn_date=cls.txn_date,
+                    confidence=cls.confidence,
+                    status=cls.status.value,
+                    classifier_method=cls.classifier_method.value,
+                )
+                session.add(t)
+                inserted += 1
+
+            await session.flush()
 
         # Backfill missing bodies for emails in this date range
         from datetime import datetime as _dt

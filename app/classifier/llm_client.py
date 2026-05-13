@@ -215,8 +215,6 @@ def _parse_response(raw: str) -> LLMClassification:
             data = json.loads(fixed)
         except json.JSONDecodeError:
             raise ValueError(f"Cannot parse response: {cleaned[:200]}")
-    if isinstance(data, list):
-        data = data[0] if data else {}
     return LLMClassification(
         label=data.get("label", "ignore"),
         amount=float(data["amount"]) if data.get("amount") is not None else None,
