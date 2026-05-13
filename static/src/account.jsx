@@ -506,15 +506,32 @@ const AdminFetchRangeSection = () => {
   const [loading, setLoading] = React.useState(false);
   const [result,  setResult]  = React.useState(null);
   const [error,   setError]   = React.useState(null);
+  const [frProgress, setFrProgress] = React.useState(null);
+  const [frSyncing, setFrSyncing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!frSyncing) return;
+    const poll = setInterval(async () => {
+      try {
+        const p = await API.get("/api/sync/progress");
+        setFrProgress(p);
+        if (!p.running && p.phase && p.phase !== "idle") {
+          clearInterval(poll);
+          setFrSyncing(false);
+          setResult(p.result || {});
+        }
+      } catch (_) { clearInterval(poll); setFrSyncing(false); }
+    }, 1200);
+    return () => clearInterval(poll);
+  }, [frSyncing]);
 
   const run = async () => {
-    if (!afterDate || !beforeDate || loading) return;
-    setLoading(true); setError(null); setResult(null);
+    if (!afterDate || !beforeDate || loading || frSyncing) return;
+    setLoading(true); setError(null); setResult(null); setFrProgress(null);
     try {
-      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
-      setResult(r);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+      const r = await API.post("/api/sync/trigger-fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
+      if (r.message) { setLoading(false); setFrSyncing(true); }
+    } catch (e) { setError(e.message); setLoading(false); }
   };
 
   return (
@@ -536,12 +553,13 @@ const AdminFetchRangeSection = () => {
       <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
         <div/>
         <div/>
-        <button onClick={run} disabled={loading} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: loading ? 0.65 : 1 }}>
-          {loading ? "Fetching…" : "Fetch + Backfill"}
+        <button onClick={run} disabled={loading || frSyncing} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: (loading || frSyncing) ? 0.65 : 1 }}>
+          {frSyncing ? "In progress…" : loading ? "Starting…" : "Fetch + Backfill"}
         </button>
       </div>
-      {result && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}</div>}
+      {result && !frSyncing && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}</div>}
       {error  && <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--neg-soft)", borderRadius: 6, fontSize: 13, color: "var(--neg)" }}>✗ {error}</div>}
+      {frProgress && (() => { const O = window.SyncProgressOverlay; return O ? <O progress={frProgress} syncing={frSyncing} onClose={() => setFrProgress(null)} position="bottom-right" /> : null; })()}
     </div>
   );
 };

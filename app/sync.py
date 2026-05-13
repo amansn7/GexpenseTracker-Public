@@ -331,7 +331,12 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
     Fetch + classify emails in a specific date range, then backfill missing bodies.
     Does NOT update SyncState (history_id or last_synced_at).
     after_date / before_date: "YYYY/MM/DD" (Gmail query format).
+    Writes progress to _sync_progress for the frontend overlay.
     """
+    _reset_progress()
+    _sync_progress["phase"] = "fetching"
+    _log_event("Starting fetch-range backfill...")
+
     from sqlalchemy import or_
     from app.gmail.client import _build_service, _extract_body_text
 
@@ -345,9 +350,14 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
             )
         except Exception as exc:
             logger.error("fetch-range: Gmail fetch failed: %s", exc)
+            _sync_progress.update({"phase": "error", "running": False, "error": str(exc)})
+            _log_event(f"Gmail fetch failed: {exc}", "error")
             return {"fetched": 0, "inserted": 0, "backfilled": 0, "errors": 1}
 
         fetched = len(messages)
+        _log_event(f"Fetched {fetched} emails from Gmail")
+        _sync_progress["total"] = fetched
+
         incoming_ids = [m["gmail_id"] for m in messages]
         existing = {row[0] for row in (await session.execute(
             select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
@@ -356,8 +366,9 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
         from app.classifier.pre_filter import load_engine_from_db
         pre_filter_engine = await load_engine_from_db(session)
 
+        _sync_progress["phase_detail"] = "Deduplicating and pre-filtering..."
         new_pairs = []
-        for msg in messages:
+        for idx, msg in enumerate(messages):
             if msg["gmail_id"] in existing:
                 continue
             pf_result = await pre_filter_engine.evaluate(
@@ -373,8 +384,12 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
             session.add(email)
             if pf_result.decision == "pass":
                 new_pairs.append((email, msg))
+            _sync_progress["current"] = idx + 1
 
         await session.flush()
+
+        _log_event(f"{len(new_pairs)} new emails after dedup + pre-filter")
+        _sync_progress["phase_detail"] = "Classifying emails..."
 
         inserted = 0
         if new_pairs:
@@ -411,6 +426,11 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
                       msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
                      for email, msg in new_pairs]
 
+            _sync_progress["phase"] = "classifying"
+            _sync_progress["total"] = len(items)
+            _sync_progress["current"] = 0
+            _sync_progress["phase_detail"] = f"Classifying {len(items)} emails..."
+
             classifications = await batch_classify_emails(
                 items,
                 session=session,
@@ -437,8 +457,12 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
                 )
                 session.add(t)
                 inserted += 1
+                msg = {"subject": email.subject, "sender": email.sender}
+                _add_preview(msg, cls.label.value, cls.category, cls.amount)
 
             await session.flush()
+
+        _sync_progress["phase_detail"] = "Backfilling missing body text..."
 
         # Backfill missing bodies for emails in this date range
         from datetime import datetime as _dt
@@ -459,8 +483,9 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
             )
             missing_emails = (await session.execute(missing_q)).scalars().all()
             if missing_emails:
+                _sync_progress["phase_detail"] = f"Backfilling {len(missing_emails)} bodies..."
                 service = await asyncio.to_thread(_build_service, creds)
-                for email in missing_emails:
+                for backfill_idx, email in enumerate(missing_emails):
                     try:
                         msg = await asyncio.to_thread(
                             lambda eid=email.gmail_id: service.users().messages().get(
@@ -474,8 +499,19 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
                     except Exception as exc:
                         logger.warning("fetch-range backfill: failed for %s: %s", email.gmail_id, exc)
                         errors += 1
+                    _sync_progress["current"] = fetched + backfill_idx + 1
+                    _sync_progress["total"] = fetched + len(missing_emails)
 
         await session.commit()
 
-    logger.info("fetch-range: fetched=%d inserted=%d backfilled=%d errors=%d", fetched, inserted, backfilled, errors)
-    return {"fetched": fetched, "inserted": inserted, "backfilled": backfilled, "errors": errors}
+    result = {"fetched": fetched, "inserted": inserted, "backfilled": backfilled, "errors": errors}
+    _sync_progress.update({
+        "running": False,
+        "phase": "done",
+        "phase_detail": f"Done: {inserted} transactions, {backfilled} bodies backfilled",
+        "current": _sync_progress["total"],
+        "result": result,
+    })
+    _log_event(f"Fetch-range done: {inserted} inserted, {backfilled} backfilled", "success")
+    logger.info("fetch-range: fetched=%d inserted=%d backfilled=%d errors=%d", *result.values())
+    return result

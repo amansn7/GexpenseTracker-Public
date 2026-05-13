@@ -165,6 +165,25 @@ async def fetch_range(
     return result
 
 
+@router.post("/sync/trigger-fetch-range")
+async def trigger_fetch_range(
+    body: FetchRangeBody,
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in (UserRole.owner, "owner"):
+        raise HTTPException(status_code=403, detail="Owner only")
+    from app.sync import run_sync_range
+    task = asyncio.create_task(run_sync_range(
+        user_id=current_user.id,
+        after_date=body.after_date.strftime("%Y/%m/%d"),
+        before_date=body.before_date.strftime("%Y/%m/%d"),
+        llm_priority=body.llm_priority,
+    ))
+    _background_tasks.add(task)
+    task.add_done_callback(_log_task_result)
+    return {"message": "Fetch-range started"}
+
+
 @router.get("/alerts")
 async def get_alerts(current_user: User = Depends(get_current_user)):
     if current_user.role not in (UserRole.owner, "owner"):
