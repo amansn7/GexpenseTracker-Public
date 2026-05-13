@@ -516,7 +516,10 @@ class MultiLLMClient:
             response.raise_for_status()
 
         if provider.name == "cloudflare":
-            return response.json()["result"]["response"].strip()
+            raw = response.json()
+            result = raw.get("result", {})
+            text = result.get("response", "") if isinstance(result, dict) else str(result)
+            return str(text).strip()
         return response.json()["choices"][0]["message"]["content"].strip()
 
     async def _call_provider_verbose(
