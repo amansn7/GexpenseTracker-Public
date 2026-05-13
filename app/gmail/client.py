@@ -1,4 +1,5 @@
 import base64
+import html as html_module
 import logging
 import re
 from datetime import datetime, timezone
@@ -34,28 +35,29 @@ def _decode_part(part: dict) -> str:
 
 def _strip_html(html: str) -> str:
     """HTML → plain text suitable for LLM input. Removes noise aggressively."""
-    # Drop entire head section (CSS, fonts, meta)
     html = re.sub(r'<head[^>]*>.*?</head>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-    # Drop style/script blocks wherever they appear
     html = re.sub(r'<(style|script)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-    # Drop HTML comments (often contain template noise)
     html = re.sub(r'<!--.*?-->', ' ', html, flags=re.DOTALL)
-    # Drop img tags — tracking pixels and decorative images add nothing
     html = re.sub(r'<img[^>]*>', ' ', html, flags=re.IGNORECASE)
-    # Replace block-level tags with newlines to preserve sentence boundaries
     html = re.sub(r'<(br|p|div|tr|li|h[1-6]|td|th)[^>]*>', '\n', html, flags=re.IGNORECASE)
-    # Strip all remaining tags
     html = re.sub(r'<[^>]+>', ' ', html)
-    # Decode numeric entities first (&#8377; = ₹, &#160; = nbsp, etc.)
-    html = re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))), html)
-    html = re.sub(r'&#x([0-9a-fA-F]+);', lambda m: chr(int(m.group(1), 16)), html)
-    # Decode named entities
-    for ent, ch in [('&amp;', '&'), ('&lt;', '<'), ('&gt;', '>'),
-                    ('&nbsp;', ' '), ('&#39;', "'"), ('&quot;', '"'), ('&rsquo;', "'"),
-                    ('&ldquo;', '"'), ('&rdquo;', '"'), ('&mdash;', '—'), ('&ndash;', '–'),
-                    ('&INR;', '₹'), ('&raquo;', '»'), ('&laquo;', '«')]:
-        html = html.replace(ent, ch)
     return html
+
+
+_INVISIBLE_CHARS_RE = re.compile(
+    r'[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]'
+)
+
+
+def _clean_body(text: str) -> str:
+    """Decode HTML entities + strip invisible Unicode chars + normalize whitespace."""
+    text = html_module.unescape(text)
+    # Handle non-standard entities that html.unescape misses
+    text = text.replace("&INR;", "₹")
+    text = _INVISIBLE_CHARS_RE.sub('', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'[ \t]+', ' ', text)
+    return text.strip()[:4000]
 
 
 def _extract_body_text(payload: dict) -> str:
@@ -89,9 +91,7 @@ def _extract_body_text(payload: dict) -> str:
     else:
         return ""
 
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    text = re.sub(r'[ \t]+', ' ', text)
-    return text.strip()[:4000]
+    return _clean_body(text)
 
 
 def _passes_filter(msg: dict, email_filter: str) -> bool:
