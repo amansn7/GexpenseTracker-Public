@@ -8,7 +8,12 @@ from typing import Optional
 
 # ── Amount ────────────────────────────────────────────────────────────────────
 
-_AMOUNT_RE = re.compile(r'(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)', re.IGNORECASE)
+_AMOUNT_RE = re.compile(
+    r'(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)'  # prefix: ₹2754, Rs. 2754, INR 2754
+    r'|'
+    r'([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)',  # suffix: 2754 INR, 2754 Rs, 2754₹
+    re.IGNORECASE
+)
 
 # ── Date ─────────────────────────────────────────────────────────────────────
 
@@ -217,10 +222,12 @@ def extract(subject: str, body: str) -> dict:
     amount: Optional[float] = None
     m = _AMOUNT_RE.search(text_clean)
     if m:
-        try:
-            amount = float(m.group(1).replace(',', ''))
-        except ValueError:
-            pass
+        raw = m.group(1) or m.group(2) or m.group(3)
+        if raw:
+            try:
+                amount = float(raw.replace(',', ''))
+            except ValueError:
+                pass
 
     date: Optional[str] = None
     dm = _DATE_RE.search(text_clean)

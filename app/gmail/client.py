@@ -52,11 +52,12 @@ _INVISIBLE_CHARS_RE = re.compile(
 def _clean_body(text: str) -> str:
     """Decode HTML entities + strip invisible Unicode chars + normalize whitespace."""
     text = html_module.unescape(text)
-    # Handle non-standard entities that html.unescape misses
     text = text.replace("&INR;", "₹")
     text = _INVISIBLE_CHARS_RE.sub('', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
     text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'^[ \t]+|[ \t]+$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\n[ \t]*\n', '\n\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()[:4000]
 
 

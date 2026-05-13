@@ -82,7 +82,11 @@ IGNORE — no real transaction occurred:
   • Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
   • Statement ready — "monthly statement", "account summary", "transaction report"
   • Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
-  • Delivery/shipment — "order shipped", "out for delivery", "item delivered"
+  • Delivery/shipment notifications (standalone tracking only — "order shipped",
+    "out for delivery", "item delivered", "package delivered").
+    IMPORTANT: Order confirmation / receipt emails ("Thanks for your order",
+    "Order confirmation", "Your order of") that contain product details AND a
+    total amount are EXPENSES, not delivery notifications.
   • Newsletters — "weekly digest", "tips & tricks", "recommendations"
   • KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
   • Password resets — "reset password", "password change request"
@@ -211,6 +215,11 @@ OFFER / PROMO:
   "Special offer just for you" / "Festive sale" / "Get X% cashback"      → ignore
   "Book now at discounted prices" / "Limited period offer"                → ignore
 
+E-COMMERCE / ORDER CONFIRMATION — contains product details + total:
+  "Thanks for your order" / "Order confirmation" / "Your order of"        → expense
+  "Order #..." + product name + quantity + total amount                    → expense
+  Email contains both delivery status AND purchase details with total      → expense
+
 ========================================
 Respond ONLY with valid JSON:
 {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0,"email_type":"type or null"}}"""
@@ -243,11 +252,14 @@ IGNORE — no real transaction occurred:
   • Balance/limit alerts — low balance, minimum amount due, credit limit
   • Statement ready — monthly statement, account summary, transaction report
   • Offers / promos — special offer, festive sale, discount, cashback offer
-  • Delivery/shipment — order shipped, out for delivery, item delivered
+  • Delivery/shipment notifications (standalone tracking only).
   • Newsletters — weekly digest, tips, recommendations
   • KYC / compliance — update KYC, Aadhaar linking, PAN verification
   • Password resets, welcome emails, terms updates, fee change notifications
   → label: "ignore"
+
+E-COMMERCE / ORDER CONFIRMATION — "Thanks for your order", "Your order of",
+  Order # + product + quantity + total. These are EXPENSES, not delivery notifications.
 
 ========================================
 EXTRACTION RULES:

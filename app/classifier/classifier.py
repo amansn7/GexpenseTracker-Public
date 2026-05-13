@@ -12,7 +12,12 @@ from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
 
-_AMOUNT_RE = re.compile(r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)', re.IGNORECASE)
+_AMOUNT_RE = re.compile(
+    r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)'  # prefix: Rs. 2754, INR 2754, ₹2754
+    r'|'
+    r'(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)',  # suffix: 2754 INR, 2754 Rs, 2754₹
+    re.IGNORECASE
+)
 
 logger = logging.getLogger(__name__)
 
@@ -234,11 +239,13 @@ def _rules_fallback_result(
 def _extract_amount(text: str) -> Optional[float]:
     m = _AMOUNT_RE.search(text)
     if m:
-        raw = m.group(1).replace(",", "")
-        try:
-            return float(raw)
-        except ValueError:
-            return None
+        raw = m.group(1) or m.group(2)
+        if raw:
+            raw = raw.replace(",", "")
+            try:
+                return float(raw)
+            except ValueError:
+                return None
     return None
 
 
