@@ -64,6 +64,25 @@ INCOME_KEYWORDS = (
     "received",
 )
 
+DELIVERY_SIGNALS = (
+    "delivered",
+    "out for delivery",
+    "out-for-delivery",
+    "shipment delivered",
+    "package delivered",
+    "item delivered",
+)
+
+_ORDER_SIGNALS = (
+    "order confirmed",
+    "order confirmation",
+    "order placed",
+    "order receipt",
+    "thanks for your order",
+    "thank you for your order",
+    "order received",
+)
+
 IGNORE_KEYWORDS = (
     "unsubscribe",
     "newsletter",
@@ -81,6 +100,12 @@ def apply_rules(
 ) -> RuleResult:
     domain = (sender_domain or "").strip().lower()
     text = f"{subject or ''} {body or ''}".lower()
+
+    subject_lower = (subject or "").lower()
+    has_delivery_only = any(sig in subject_lower for sig in DELIVERY_SIGNALS) and not any(sig in subject_lower for sig in _ORDER_SIGNALS)
+
+    if has_delivery_only:
+        return RuleResult(label=Label.ignore, confidence=0.85)
 
     if db_rules and domain in db_rules:
         label, category = db_rules[domain]
