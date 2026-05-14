@@ -240,7 +240,6 @@ const App = () => {
       />
       <main role="main" style={shellStyles.main}>
         <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
-          {!viewport.isMobile && <button style={shellStyles.topBtn}><Icon name="filter" size={13}/> Filter</button>}
           <button
             onClick={handleRescan}
             disabled={syncing}
