@@ -17,7 +17,7 @@ const useViewport = () => {
 
 const shellStyles = {
   app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100vh", position: "relative", zIndex: 2 },
-  side: { borderRight: "1px solid var(--line)", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 0, height: "100vh", background: "var(--paper)" },
+  side: { borderRight: "1px solid var(--line)", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 0, height: "100vh", background: "var(--paper)", overflowY: "auto" },
   brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "6px 8px 28px" },
   brandMark: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
   brandSlash: { color: "var(--accent)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 20 },
@@ -62,7 +62,7 @@ const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
 const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
   const sideStyle = mobile
-    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease" }
+    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
     : shellStyles.side;
   const navigate = (fn) => {
     fn();
