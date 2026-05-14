@@ -86,8 +86,8 @@ IGNORE — no real transaction occurred:
   • Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
   • Delivery/shipment notifications (standalone tracking only — "order shipped",
     "out for delivery", "item delivered", "package delivered").
-    EXCEPTION: Food delivery apps (Swiggy, Zomato, UberEats, Zepto, Blinkit) send
-    order+delivery emails that ARE expenses — see FOOD DELIVERY section below.
+    NOTE: App-level savings/discount numbers ("₹145 saved", "₹69 saved") in
+    delivery notifications are promotional, NOT transaction amounts. Ignore them.
     IMPORTANT: Order confirmation / receipt emails ("Thanks for your order",
     "Order confirmation", "Your order of") that contain product details AND a
     total amount are EXPENSES, not delivery notifications.
@@ -112,17 +112,23 @@ EXTRACTION RULES:
 
 - merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
               Clean raw merchant codes to readable names:
-              "WWW SWIGGY IN"/"SWIGGY*" → "Swiggy"
+              "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy"
               "AMZN MKTP IN"/"AMAZON.IN"/"AMZ*" → "Amazon"
-              "ZOMATO*ORDER"/"ZOMATO" → "Zomato"
+              "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato"
               "NETFLIX.COM"/"Netflix" → "Netflix"
               "SPOTIFY" → "Spotify"
               "UBER TRIP"/"UBER" → "Uber"
               "BLINKIT IN" → "Blinkit"
               "ZEITO" → "Zepto"
               "PHONEPE*"/"PHONEPE" → "PhonePe" (UPI app, not merchant)
+              WARNING: Payment gateway descriptors (Razorpay, Billdesk, CC Avenue,
+              PayU, CCAvenue, Paytm) are NOT merchants — the real merchant is in
+              the email body. null merchant rather than using gateway name.
               WARNING: Bank emails contain marketing footers ("offers", "discounts",
               "recommendations in your city"). NEVER use footer text as merchant.
+              IMPORTANT: If the merchant code is a parent/entity company, scan
+              the email subject and body for the consumer-facing brand name.
+              "BUNDL TECHNOLOGIES" in debit alert → body says "Swiggy".
               Read only the transaction body. null if no identifiable payee.
 
 - category  : one of — {categories}
@@ -240,18 +246,6 @@ OFFER / PROMO:
   "Special offer just for you" / "Festive sale" / "Get X% cashback"      → ignore
   "Book now at discounted prices" / "Limited period offer"                → ignore
 
-FOOD DELIVERY — Swiggy / Zomato / UberEats / Blinkit / Zepto order emails:
-  Subject: "order delivered", "order was delivered", "order is out for delivery"
-  Body: restaurant name, order items, delivery time, savings/discounts
-  IMPORTANT: These ARE expenses (paid via UPI/card at order time).
-  Do NOT classify as "ignore" just because they mention delivery.
-  → label: "expense", category: "Food"
-  merchant: the restaurant name from the body (e.g. "Just Fresh Point",
-            "Dominos", "McDonalds"), NOT the app name (Swiggy/Zomato).
-  amount: Look for "₹X saved" or "You paid ₹X" or "Total ₹X" in body.
-          Do NOT use individual savings/discount numbers as the amount.
-          null if total truly absent (body truncated).
-
 E-COMMERCE / ORDER CONFIRMATION — contains product details + total:
   "Thanks for your order" / "Order confirmation" / "Your order of"        → expense
   "Order #..." + product name + quantity + total amount                    → expense
@@ -292,7 +286,6 @@ IGNORE — no real transaction occurred:
   • Statement ready — monthly statement, account summary, transaction report
   • Offers / promos — special offer, festive sale, discount, cashback offer
   • Delivery/shipment notifications (standalone tracking only).
-    EXCEPTION: Food delivery apps (Swiggy, Zomato, UberEats, Zepto, Blinkit)
   • Newsletters — weekly digest, tips, recommendations
   • KYC / compliance — update KYC, Aadhaar linking, PAN verification
   • Password resets, welcome emails, terms updates, fee change notifications
@@ -314,14 +307,6 @@ INSURANCE — money going OUT for insurance premiums:
   → label: "expense", category: "Insurance"
   merchant: the insurance company name (e.g. "Axis Max Life Insurance")
 
-FOOD DELIVERY — Swiggy / Zomato / UberEats / Blinkit / Zepto order emails:
-  Subject mentions "delivered", "out for delivery", "order was delivered"
-  Body: restaurant name + items + savings/discounts
-  IMPORTANT: These ARE expenses, not delivery notifications to ignore.
-  → label: "expense", category: "Food"
-  merchant: the restaurant name, NOT the app name.
-  amount: look for actual total paid. Do NOT use savings/discount numbers.
-
 ========================================
 EXTRACTION RULES:
 ========================================
@@ -330,9 +315,11 @@ EXTRACTION RULES:
               null if no INR amount found
 
 - merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
-              Clean raw codes: "WWW SWIGGY IN" → "Swiggy", "AMZN MKTP IN" → "Amazon",
-              "ZOMATO*ORDER" → "Zomato", "NETFLIX.COM" → "Netflix",
-              "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
+              Clean raw codes: "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy",
+              "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",
+              "NETFLIX.COM" → "Netflix", "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
+              WARNING: Payment gateway names (Razorpay, Billdesk, CC Avenue, PayU,
+              CCAvenue, Paytm) are NOT merchants. null instead of using gateway.
               WARNING: Bank emails have marketing footers. NEVER use footer
               text as merchant. null if no identifiable payee
 
