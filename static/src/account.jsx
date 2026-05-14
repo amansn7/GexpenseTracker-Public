@@ -1583,7 +1583,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                         {svc.id !== settings.active_ai_service_id && svc.enabled && (
                           <button onClick={() => updateSetting("active_ai_service_id", svc.id)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Set active</button>
                         )}
-                        <button onClick={() => { setEditingAiId(svc.id); setAiForm({ ...svc, api_key: "" }); }} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11 }}>Edit</button>
+                        <button onClick={() => { setEditingAiId(svc.id); setAiForm({ ...svc, api_key: "" }); }} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Edit</button>
+                        <button onClick={() => deleteAiService(svc)} style={{ ...accountStyles.btn, ...accountStyles.btnDanger, padding: "4px 10px", fontSize: 11 }}>Delete</button>
                       </td>
                     </tr>
                   ))}
