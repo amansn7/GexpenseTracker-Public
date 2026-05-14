@@ -481,6 +481,19 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
 const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
   const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
+  const [fetchedBody, setFetchedBody] = React.useState(null);
+  const [fetching, setFetching] = React.useState(false);
+
+  const handleFetchBody = async () => {
+    if (fetching) return;
+    setFetching(true);
+    try {
+      const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
+      if (r?.body_text) setFetchedBody(r.body_text);
+    } catch (_) {}
+    setFetching(false);
+  };
+
   return (
     <div style={{ flex: 1, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: isPrimary ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
       {isPrimary && <div style={{ fontSize: 10, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Suggested primary</div>}
@@ -490,6 +503,28 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
       <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 18, marginTop: 8 }}>{fmtAmt(tx.amount)}</div>
       <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.txn_date || ""}</div>
       <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email?.subject || ""}</div>
+
+      <div style={{ marginTop: 10, padding: 10, background: "var(--paper)", borderRadius: 6, fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, borderLeft: "2px solid var(--line)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email body</span>
+          <button onClick={handleFetchBody} disabled={fetching} style={{ fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
+            {fetching ? "Fetching…" : "Fetch clean body"}
+          </button>
+        </div>
+        {fetchedBody ? (
+          <>
+            <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+              <Icon name="check" size={10} stroke="var(--pos)"/> Body refreshed ({fetchedBody.length} chars)
+            </div>
+            <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
+          </>
+        ) : (
+          <div style={{ color: "var(--ink-4)", fontStyle: "italic" }}>
+            {tx.email?.body_snippet || "Click 'Fetch clean body' to load the full email text."}
+          </div>
+        )}
+      </div>
+
       <button
         onClick={async ()=>{ if(resolving) return; await onResolve(pairId, "confirmed", tx.id); }}
         disabled={resolving}
@@ -875,8 +910,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const idx = bulkReclassIdx;
     const item = items[idx];
     if (!item || item.status !== "preview") return;
-    // mark as applying
-    setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "applying" } : it));
+    const marked = items.map((it, i) => i === idx ? { ...it, status: "applying" } : it);
+    setBulkReclassItems(marked);
     try {
       const result = await API.post(`/api/transactions/${item.id}/reclassify`);
       const isIncome = result.label === "income";
@@ -888,19 +923,21 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         conf: result.confidence ?? t.conf,
         merchant: result.merchant || t.merchant,
       } : t));
-      setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "accepted" } : it));
+      const next = items.map((it, i) => i === idx ? { ...it, status: "accepted" } : it);
+      setBulkReclassItems(next);
+      processBulkItem(idx + 1, next);
     } catch (_) {
       setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "error" } : it));
       return;
     }
-    processBulkItem(idx + 1, items);
   };
 
   const bulkSkip = () => {
     const items = bulkReclassItems;
     const idx = bulkReclassIdx;
-    setBulkReclassItems(items.map((it, i) => i === idx ? { ...it, status: "skipped" } : it));
-    processBulkItem(idx + 1, items);
+    const next = items.map((it, i) => i === idx ? { ...it, status: "skipped" } : it);
+    setBulkReclassItems(next);
+    processBulkItem(idx + 1, next);
   };
 
   const bulkSkipAll = () => {

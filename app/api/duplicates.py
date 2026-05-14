@@ -26,6 +26,7 @@ def _fmt_tx(t: Transaction, e: Optional[Email]) -> dict:
             "sender": e.sender if e else None,
             "sender_domain": e.sender_domain if e else None,
             "received_at": e.received_at.isoformat() if e and e.received_at else None,
+            "body_snippet": e.body_snippet if e else None,
         },
     }
 
