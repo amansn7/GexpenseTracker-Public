@@ -63,9 +63,11 @@ CLASSIFICATION RULES:
 ========================================
 
 EXPENSE — money going OUT:
-  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee
+  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee,
+            invested, SIP, subscribed (mutual fund), purchased (shares/units)
   Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
-  ATM withdrawals, wallet deductions, insurance premiums
+  ATM withdrawals, wallet deductions, insurance premiums,
+  SIP investments, mutual fund purchases, stock/share purchases, demat transactions
   → label: "expense"
 
 INCOME — money coming IN:
@@ -162,6 +164,16 @@ BANK DEBIT:
   "X spent on your card at MERCHANT"                                      → expense
   "Your card has been used for INR X at MERCHANT"                         → expense
 
+INVESTMENT / SIP — money going OUT to buy financial assets:
+  "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
+  "Your SIP has been processed", "investment successfully placed",
+  "mutual fund units purchased", "demat transaction"
+  IMPORTANT: These are expenses (money leaving your account to buy assets).
+  Do NOT classify as "ignore" — a real financial outflow occurred.
+  → label: "expense", category: "Investment"
+  merchant: the fund/stock name (e.g. "ICICI Prudential BHARAT 22 FOF Direct - Growth")
+  If the email only says "Order Sent to AMC" with a fund name below, use that fund name as merchant.
+
 UPI:
   "You have paid Rs.X to MERCHANT via UPI"                                → expense, category=UPI Payment
   "UPI transaction of Rs.X debited"                                       → expense
@@ -233,9 +245,11 @@ CLASSIFICATION RULES:
 ========================================
 
 EXPENSE — money going OUT:
-  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee
+  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee,
+            invested, SIP, subscribed (mutual fund), purchased (shares/units)
   Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
-  ATM withdrawals, wallet deductions, insurance premiums
+  ATM withdrawals, wallet deductions, insurance premiums,
+  SIP investments, mutual fund purchases, stock/share purchases
   → label: "expense"
 
 INCOME — money coming IN:
@@ -260,6 +274,13 @@ IGNORE — no real transaction occurred:
 
 E-COMMERCE / ORDER CONFIRMATION — "Thanks for your order", "Your order of",
   Order # + product + quantity + total. These are EXPENSES, not delivery notifications.
+
+INVESTMENT / SIP — money going OUT to buy financial assets:
+  "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
+  "Your SIP has been processed", "mutual fund units purchased"
+  These are expenses (real outflow). Do NOT classify as "ignore".
+  → label: "expense", category: "Investment"
+  merchant: the fund/stock name
 
 ========================================
 EXTRACTION RULES:
