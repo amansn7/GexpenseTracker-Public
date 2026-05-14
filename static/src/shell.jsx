@@ -106,6 +106,17 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
         <span>{c.label}</span>
       </button>
     ))}
+    {(account?.categories || []).filter(c => {
+      const lower = c.name.toLowerCase().trim();
+      return lower !== "income" && lower !== "other" && !CATEGORIES[lower];
+    }).map(c => (
+      <button key={c.id} className={"focus-ring nav-btn" + (categoryFilter === c.name ? " active" : "")}
+        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("all"); onCategoryFilter && onCategoryFilter(c.name); })}
+        style={{ ...shellStyles.navItem, ...(categoryFilter === c.name ? shellStyles.navItemActive : {}) }}>
+        <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color || "var(--ink-3)", border: "1px solid var(--line)", flexShrink: 0 }} />
+        <span>{c.name}</span>
+      </button>
+    ))}
 
     <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
       {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"]].map(([k,bg,label]) => (

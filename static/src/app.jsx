@@ -282,7 +282,10 @@ const App = () => {
                     <span>{c.label}</span>
                   </button>
                 ))}
-                {(account?.categories || []).filter(c => !CATEGORIES[c.name]).map(c => (
+                {(account?.categories || []).filter(c => {
+                  const lower = c.name.toLowerCase().trim();
+                  return lower !== "other" && lower !== "income" && !CATEGORIES[lower];
+                }).map(c => (
                   <button key={c.id}
                     onClick={() => { setCategoryFilter(c.name); setCatOpen(false); }}
                     style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: categoryFilter === c.name ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: categoryFilter === c.name ? 600 : 400 }}
