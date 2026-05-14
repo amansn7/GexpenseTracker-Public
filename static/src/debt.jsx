@@ -97,7 +97,7 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
             <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--neg)", fontSize: 13, cursor: "pointer" }}>Delete</button>
           )}
           {item && confirming && (
-            <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "#fff", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
+            <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
           )}
           <button onClick={onClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--ink)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>
@@ -171,8 +171,8 @@ const DebtView = () => {
 
       <div style={secBand}>
         <span style={secTitle}>Debt Reduction</span>
-        <button onClick={() => setModal("new")} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-          <Icon name="plus" size={12} stroke="#fff"/> Add Debt
+        <button onClick={() => setModal("new")} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <Icon name="plus" size={12} stroke="var(--paper)"/> Add Debt
         </button>
       </div>
 

@@ -96,7 +96,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
             <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--neg)", fontSize: 13, cursor: "pointer" }}>Delete</button>
           )}
           {item && confirming && (
-            <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "#fff", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
+            <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
           )}
           <button onClick={onClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--ink)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>
@@ -173,8 +173,8 @@ const RecurringView = () => {
           {[["active","Active"],["all","All"]].map(([k, l]) => (
             <button key={k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>{l}</button>
           ))}
-          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-            <Icon name="plus" size={12} stroke="#fff"/> Add
+          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="plus" size={12} stroke="var(--paper)"/> Add
           </button>
         </div>
       </div>
@@ -205,7 +205,7 @@ const RecurringView = () => {
                     onClick={() => toggleActive(item)}
                     title={item.active ? "Deactivate" : "Activate"}
                     style={{ width: 28, height: 16, borderRadius: 99, border: "none", background: item.active ? "var(--pos)" : "var(--line)", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 140ms" }}>
-                    <span style={{ position: "absolute", top: 2, left: item.active ? 14 : 2, width: 12, height: 12, borderRadius: 99, background: "#fff", transition: "left 140ms" }} />
+                    <span style={{ position: "absolute", top: 2, left: item.active ? 14 : 2, width: 12, height: 12, borderRadius: 99, background: "var(--paper)", transition: "left 140ms" }} />
                   </button>
                   <button onClick={() => setModal(item)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-4)", padding: 4, borderRadius: 4 }}>
                     <Icon name="edit" size={14} />

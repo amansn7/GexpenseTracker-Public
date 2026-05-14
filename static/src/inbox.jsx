@@ -666,7 +666,7 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
     <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {looksLikeTx && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)", flexShrink: 0 }} title="Looks like a transaction"/>}
-        <span style={{ fontSize: 11, fontWeight: 600, color: looksLikeTx ? "#b45309" : "var(--ink-4)", background: looksLikeTx ? "#fef3c7" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "#fde68a" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: looksLikeTx ? "var(--amber)" : "var(--ink-4)", background: looksLikeTx ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "color-mix(in srgb, var(--amber) 40%, transparent)" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
           {looksLikeTx ? "Tx" : "Noise"}
         </span>
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
@@ -674,7 +674,7 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard }) => {
       <div style={{ fontSize: 11, color: "var(--ink-4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.sender || email.sender_domain || ""} {email.body_snippet ? `· ${email.body_snippet.slice(0, 120)}` : ""}</div>
       {learned && <div style={{ fontSize: 10, color: "var(--pos)", fontStyle: "italic" }}>✓ {email.sender_domain} {learned}</div>}
       <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-        <button disabled={loading} onClick={() => handleAction("keep")} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>Keep</button>
+        <button disabled={loading} onClick={() => handleAction("keep")} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>Keep</button>
         <button disabled={loading} onClick={() => handleAction("discard")} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", opacity: loading ? 0.6 : 1 }}>Discard</button>
       </div>
     </div>
@@ -719,7 +719,7 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
         <span style={{ fontSize: 10, color: "var(--ink-4)", padding: "1px 6px", borderRadius: 3, background: "var(--card)" }}>{emails.length}</span>
         <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: hasTxs ? "var(--accent-soft)" : "var(--paper-2)", color: hasTxs ? "var(--accent)" : "var(--ink-4)" }}>{hasTxs ? `${emails.filter(e => _looksLikeTx(e)).length} tx` : "noise"}</span>
         <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
-          <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
+          <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
           {!confirmDiscard ? (
             <button onClick={() => setConfirmDiscard(true)} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
           ) : (
@@ -729,7 +729,7 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
               ) : (
                 <span style={{ fontSize: 10, color: "var(--ink-3)", maxWidth: 180, lineHeight: 1.3 }}>Discard {emails.length} email{emails.length > 1 ? "s" : ""}?</span>
               )}
-              <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "none", background: "var(--neg)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Yes</button>
+              <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "none", background: "var(--neg)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>Yes</button>
               <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
             </div>
           )}

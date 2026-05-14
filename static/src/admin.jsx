@@ -269,7 +269,7 @@ const ClassifyTestSection = () => {
           }}
         >
           <div style={{
-            width: 18, height: 18, borderRadius: "50%", background: "#fff",
+            width: 18, height: 18, borderRadius: "50%", background: "var(--paper)",
             transform: useLlm ? "translateX(20px)" : "translateX(0)",
             transition: "transform 150ms ease",
           }} />

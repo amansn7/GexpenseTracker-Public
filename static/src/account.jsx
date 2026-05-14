@@ -387,7 +387,7 @@ const CategoriesSection = ({ categories, onRefresh }) => {
         ) : (
           <div key={c.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 12px", border:"1px solid var(--line)", borderRadius:6, background:"var(--paper)", opacity:c.active===false?0.5:1 }}>
             <span style={{ width:28, height:28, borderRadius:6, background:c.color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-              <Icon name={getCatIcon(c.name)} size={13} stroke="rgba(0,0,0,0.45)"/>
+              <Icon name={getCatIcon(c.name)} size={13} stroke="var(--ink-4)"/>
             </span>
             <span style={{ fontWeight:500, fontSize:13, flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.name}</span>
             <button onClick={()=>setEditing({id:c.id,name:c.name,color:c.color})} style={{ border:"none", background:"transparent", cursor:"pointer", color:"var(--ink-3)", padding:2 }} title="Edit">
@@ -1236,9 +1236,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             onClick={() => setSettingsTab("admin")}
             style={{
               padding: "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
-              border: "1.5px dashed #ef4444",
-              background: settingsTab === "admin" ? "rgba(239,68,68,0.08)" : "transparent",
-              color: "#ef4444",
+              border: "1.5px dashed var(--red)",
+              background: settingsTab === "admin" ? "color-mix(in srgb, var(--red) 10%, transparent)" : "transparent",
+              color: "var(--red)",
               fontFamily: "inherit",
               letterSpacing: "0.3px",
             }}
