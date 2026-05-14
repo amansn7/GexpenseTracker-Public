@@ -4,11 +4,13 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, extract, or_, delete
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import Optional, List, Literal
 from datetime import date
 from app.auth_deps import get_current_user
 from app.database import get_db
+from app.dedup.service import detect_and_record_duplicates
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User
 from app.classifier.merchant_store import merchant_store
 router = APIRouter()
@@ -26,7 +28,7 @@ class TransactionPatch(BaseModel):
 
 class BulkAction(BaseModel):
     ids: List[str] = []
-    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete"]
+    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates"]
     select_all: bool = False
 
 
@@ -41,12 +43,14 @@ async def bulk_transactions(
             select(Transaction)
             .join(Email, Transaction.email_id == Email.id)
             .where(Email.user_id == current_user.id)
+            .options(selectinload(Transaction.email))
         )).scalars().all()
     else:
         rows = (await db.execute(
             select(Transaction)
             .join(Email, Transaction.email_id == Email.id)
             .where(Transaction.id.in_(payload.ids), Email.user_id == current_user.id)
+            .options(selectinload(Transaction.email))
         )).scalars().all()
 
     if payload.action == "mark_read":
@@ -71,6 +75,9 @@ async def bulk_transactions(
                     await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
                     await db.delete(email)
                 t.email_id = None
+    elif payload.action == "detect_duplicates":
+        for t in rows:
+            await detect_and_record_duplicates(t, t.email, db)
 
     await db.commit()
     return {"updated": len(rows)}

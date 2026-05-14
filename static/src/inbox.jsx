@@ -868,6 +868,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     await API.post("/api/transactions/bulk", { ids, action: "delete" }).catch(() => {});
   };
 
+  const bulkDetectDuplicates = async () => {
+    const ids = [...selectedIds];
+    clearSelect();
+    await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" }).catch(() => {});
+  };
+
   const bulkReclassify = async () => {
     const ids = [...selectedIds];
     const items = ids.map(id => {
@@ -1214,6 +1220,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           </button>
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Recategorize (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
+          <button onClick={bulkDetectDuplicates} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Detect Duplicates</button>
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
       )}
