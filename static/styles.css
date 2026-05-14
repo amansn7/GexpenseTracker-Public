@@ -33,21 +33,21 @@
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
-  --cat-food: #8a7a5a;
+  --cat-food: #5a4a32;
   --cat-food-ink: #e8d5b7;
-  --cat-rent: #6a8a78;
+  --cat-rent: #3a5a48;
   --cat-rent-ink: #cdd8d1;
-  --cat-shop: #8a6a7a;
+  --cat-shop: #5a3a4a;
   --cat-shop-ink: #e5d1d9;
-  --cat-travel: #6a7a8a;
+  --cat-travel: #3a4a5a;
   --cat-travel-ink: #d4dde5;
-  --cat-sub: #8a6a9a;
+  --cat-sub: #5a3a6a;
   --cat-sub-ink: #dccfe0;
-  --cat-util: #7a8a6a;
+  --cat-util: #4a5a3a;
   --cat-util-ink: #d9dbc9;
-  --cat-inc: #6a9a6a;
+  --cat-inc: #2a5a2a;
   --cat-inc-ink: #c9dcc8;
-  --cat-other: #8a7a6a;
+  --cat-other: #5a4a3a;
   --cat-other-ink: #dcd5c3;
 }
 
