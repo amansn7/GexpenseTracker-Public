@@ -12,6 +12,7 @@ __pycache__/
 venv/
 *.egg-info/
 dist/
+!static/dist/
 build/
 .mypy_cache/
 .coverage

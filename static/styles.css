@@ -299,8 +299,8 @@ body {
 }
 
 @keyframes barGrow {
-  from { width: 0; }
-  to   { width: var(--pct, 0%); }
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
 }
 
 @keyframes toastIn  { from { opacity:0; transform:translateX(120%); } to { opacity:1; transform:translateX(0); } }
@@ -403,7 +403,9 @@ a.link:hover { text-decoration: underline; }
 }
 .budget-bar-fill {
   height: 5px; border-radius: 3px;
-  width: var(--pct, 0%);
+  width: 100%;
+  transform: scaleX(var(--pct-ratio, 0));
+  transform-origin: left;
   animation: barGrow 600ms ease-out both;
 }
 

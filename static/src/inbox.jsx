@@ -116,9 +116,9 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   return (
     <div
       onClick={onRowClick}
-      style={{ ...rowStyle, ...(selected ? inboxStyles.rowSelected : {}), ...(!tx.read && !selected ? inboxStyles.rowUnread : {}) }}
-      onMouseEnter={e => { setHovered(true); if (!selected) e.currentTarget.style.background = "var(--paper-2)"; }}
-      onMouseLeave={e => { setHovered(false); if (!selected) e.currentTarget.style.background = (!selectMode && !tx.read) ? "var(--card)" : "transparent"; }}
+      style={{ ...rowStyle, ...((selected || hovered) ? inboxStyles.rowSelected : {}), ...(!selected && !hovered && !tx.read ? inboxStyles.rowUnread : {}) }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div
         style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: 20, justifyContent: "center" }}
@@ -305,9 +305,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             />
           </div>
         ) : (
-          <div onClick={()=>setEditingAmt(true)} style={{ cursor: "text", display: "inline-block", borderBottom: "1px dashed transparent" }}
-            onMouseEnter={e=>e.currentTarget.style.borderBottomColor="var(--line)"}
-            onMouseLeave={e=>e.currentTarget.style.borderBottomColor="transparent"}>
+          <div onClick={()=>setEditingAmt(true)} className="hover-border-bottom" style={{ cursor: "text", display: "inline-block" }}>
             <div style={{ ...inboxStyles.bigAmount, ...(isMobile ? { fontSize: 40 } : {}), color: isIncome ? "var(--pos)" : "var(--ink)" }}>
               {sign}₹{Math.abs(tx.amount).toLocaleString("en-IN")}
             </div>
