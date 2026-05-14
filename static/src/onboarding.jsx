@@ -218,6 +218,7 @@ const StepAI = ({ advance }) => {
   const [apiKey, setApiKey] = useState("");
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState(null);
+  const [showSkip, setShowSkip] = useState(false);
 
   const validate = async () => {
     if (!displayName.trim()) { setError("Please enter a display name."); return; }
@@ -227,13 +228,20 @@ const StepAI = ({ advance }) => {
 
     setValidating(true);
     setError(null);
+    setShowSkip(false);
     try {
-      await API.post("/api/account/ai-services/validate", {
+      const result = await API.post("/api/account/ai-services/validate", {
         provider: "custom",
         api_key: apiKey.trim(),
         model_id: modelId.trim(),
         base_url: baseUrl.trim(),
       });
+      if (!result.ok) {
+        setError(result.error || "Validation failed");
+        setShowSkip(true);
+        setValidating(false);
+        return;
+      }
       await API.post("/api/account/ai-services", {
         provider: "custom",
         display_name: displayName.trim(),
@@ -244,10 +252,15 @@ const StepAI = ({ advance }) => {
       });
       advance(4, { aiProvider: displayName });
     } catch (err) {
-      setError(err.message || "API key validation failed. Please check your key and try again.");
+      setError(err.message || "Validation failed. Please check your details.");
+      setShowSkip(true);
     } finally {
       setValidating(false);
     }
+  };
+
+  const skipAI = () => {
+    advance(4, { aiProvider: null });
   };
 
   return (
@@ -277,9 +290,23 @@ const StepAI = ({ advance }) => {
         <input type="password" style={{ ...S.input, fontFamily: "'Geist Mono', monospace" }} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-…" autoComplete="off"/>
       </div>
 
-      {error && <div style={S.error}>{error}</div>}
+      {error && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={S.error}>{error}</div>
+          {showSkip && (
+            <div style={{ fontSize: 12, color: "var(--ink-3)", lineHeight: 1.5 }}>
+              You can skip AI setup and configure it later in Settings.
+            </div>
+          )}
+        </div>
+      )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
+        {showSkip && (
+          <button onClick={skipAI} style={S.btnSecondary}>
+            Skip AI Setup
+          </button>
+        )}
         <button onClick={validate} disabled={validating} style={{ ...S.btnPrimary, opacity: validating ? 0.65 : 1 }}>
           {validating ? "Validating…" : "Validate & Continue →"}
         </button>
