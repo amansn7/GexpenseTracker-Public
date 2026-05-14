@@ -258,7 +258,7 @@ body {
 .hover-bg.active { background: var(--paper-2); }
 
 /* Nav button hover in sidebar */
-.nav-btn { transition: background 120ms, color 120ms; }
+.nav-btn { background: transparent; transition: background 120ms, color 120ms; }
 .nav-btn:hover { background: var(--paper-2); color: var(--ink); }
 .nav-btn.active { background: var(--paper-2); color: var(--ink); }
 
