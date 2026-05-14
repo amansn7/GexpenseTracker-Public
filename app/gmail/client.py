@@ -218,12 +218,16 @@ def fetch_new_messages(
     creds: Credentials | None = None,
     after_date: str | None = None,
     before_date: str | None = None,
+    query_extra: str | None = None,
 ):
     """
     Returns (messages, new_history_id).
     last_history_id=None triggers full 90-day fetch with pagination.
 
     email_filter: "all" | "unread" | "read"
+
+    query_extra: additional Gmail search operators (e.g. "from:x subject:y")
+                 appended to the after+date query. Ignored in history mode.
 
     Each message dict keys:
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
@@ -236,6 +240,8 @@ def fetch_new_messages(
             query = f"after:{after_date}"
             if before_date:
                 query += f" before:{before_date}"
+            if query_extra:
+                query += f" {query_extra}"
         else:
             query = "newer_than:90d"
             if email_filter == "unread":

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from datetime import timedelta, date as _date
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -157,6 +158,8 @@ class FetchRangeBody(BaseModel):
     after_date: _date
     before_date: _date
     llm_priority: bool = False
+    sender: Optional[str] = None
+    subject: Optional[str] = None
 
     @model_validator(mode="after")
     def _check_range(self):
@@ -181,6 +184,8 @@ async def fetch_range(
         after_date=body.after_date.strftime("%Y/%m/%d"),
         before_date=body.before_date.strftime("%Y/%m/%d"),
         llm_priority=body.llm_priority,
+        sender=body.sender,
+        subject=body.subject,
     )
     return result
 
@@ -198,6 +203,8 @@ async def trigger_fetch_range(
         after_date=body.after_date.strftime("%Y/%m/%d"),
         before_date=body.before_date.strftime("%Y/%m/%d"),
         llm_priority=body.llm_priority,
+        sender=body.sender,
+        subject=body.subject,
     ))
     _background_tasks.add(task)
     task.add_done_callback(_log_task_result)

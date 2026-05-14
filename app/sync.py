@@ -326,11 +326,12 @@ async def sync_emails(session, user_id: str = None) -> dict:
     return result
 
 
-async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_priority: bool = False) -> dict:
+async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_priority: bool = False, sender: Optional[str] = None, subject: Optional[str] = None) -> dict:
     """
     Fetch + classify emails in a specific date range, then backfill missing bodies.
     Does NOT update SyncState (history_id or last_synced_at).
     after_date / before_date: "YYYY/MM/DD" (Gmail query format).
+    sender / subject: optional Gmail search operators for from:/subject: filters.
     Writes progress to _sync_progress for the frontend overlay.
     """
     _reset_progress()
@@ -340,13 +341,20 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
     from sqlalchemy import or_
     from app.gmail.client import _build_service, _extract_body_text
 
+    query_parts = []
+    if sender:
+        query_parts.append(f"from:{sender}")
+    if subject:
+        query_parts.append(f"subject:{subject}")
+    query_extra = " ".join(query_parts) if query_parts else None
+
     async with AsyncSessionLocal() as session:
         try:
             creds = await get_credentials_for_user(session, user_id)
             if not creds:
                 raise RuntimeError("Gmail not authenticated")
             messages, _ = await asyncio.to_thread(
-                fetch_new_messages, None, "all", creds, after_date, before_date
+                fetch_new_messages, None, "all", creds, after_date, before_date, query_extra
             )
         except Exception as exc:
             logger.error("fetch-range: Gmail fetch failed: %s", exc)

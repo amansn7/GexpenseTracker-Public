@@ -622,6 +622,8 @@ const AlertsSection = () => {
 const FetchRangeSection = () => {
   const [afterDate,  setAfterDate]  = React.useState("");
   const [beforeDate, setBeforeDate] = React.useState("");
+  const [sender, setSender] = React.useState("");
+  const [subject, setSubject] = React.useState("");
   const [loading,    setLoading]    = React.useState(false);
   const [result,     setResult]     = React.useState(null);
   const [error,      setError]      = React.useState(null);
@@ -630,7 +632,12 @@ const FetchRangeSection = () => {
     if (!afterDate || !beforeDate || loading) return;
     setLoading(true); setError(null); setResult(null);
     try {
-      const r = await API.post("/api/sync/fetch-range", { after_date: afterDate, before_date: beforeDate });
+      const r = await API.post("/api/sync/fetch-range", {
+        after_date: afterDate,
+        before_date: beforeDate,
+        sender: sender.trim() || undefined,
+        subject: subject.trim() || undefined,
+      });
       setResult(r);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -644,12 +651,20 @@ const FetchRangeSection = () => {
       <div style={S.sectionSub}>— fetch emails from Gmail in a date range, then backfill missing bodies</div>
       <div style={S.row}>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={S.label}>From</label>
+          <label style={S.label}>From (date)</label>
           <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={S.input} />
         </div>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={S.label}>To</label>
+          <label style={S.label}>To (date)</label>
           <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={S.input} />
+        </div>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <label style={S.label}>Sender</label>
+          <input type="text" value={sender} onChange={e => setSender(e.target.value)} placeholder="axisbank.com" style={S.input} />
+        </div>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <label style={S.label}>Subject</label>
+          <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="debit" style={S.input} />
         </div>
         <button style={{ ...S.btn, ...(disabled ? {} : S.btnPrimary), opacity: disabled ? 0.5 : 1, padding: "9px 24px", alignSelf: "flex-end" }} onClick={run} disabled={disabled}>
           {loading ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Fetching…</span> : "Fetch + Backfill"}

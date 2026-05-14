@@ -503,6 +503,8 @@ const AdminFetchRangeSection = () => {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [afterDate,  setAfterDate]  = React.useState(today);
   const [beforeDate, setBeforeDate]  = React.useState(tomorrow);
+  const [sender, setSender] = React.useState("");
+  const [subject, setSubject] = React.useState("");
   const [llmPriority, setLlmPriority] = React.useState(false);
   const [result, setResult] = React.useState(null);
 
@@ -513,7 +515,13 @@ const AdminFetchRangeSection = () => {
   const run = () => {
     if (!afterDate || !beforeDate) return;
     setResult(null);
-    start("/api/sync/trigger-fetch-range", { after_date: afterDate, before_date: beforeDate, llm_priority: llmPriority });
+    start("/api/sync/trigger-fetch-range", {
+      after_date: afterDate,
+      before_date: beforeDate,
+      sender: sender.trim() || undefined,
+      subject: subject.trim() || undefined,
+      llm_priority: llmPriority,
+    });
   };
 
   return (
@@ -527,6 +535,14 @@ const AdminFetchRangeSection = () => {
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>→</span>
           <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={accountStyles.input} />
         </div>
+      </div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Sender</div><div style={accountStyles.sub}>email or domain to filter (Gmail from: operator)</div></div>
+        <input type="text" value={sender} onChange={e => setSender(e.target.value)} placeholder="e.g. axisbank.com or alerts@hdfcbank.com" style={{ ...accountStyles.input, width: 240 }} />
+      </div>
+      <div style={accountStyles.row}>
+        <div><div style={accountStyles.label}>Subject</div><div style={accountStyles.sub}>keywords to filter (Gmail subject: operator)</div></div>
+        <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. debit, credited, transaction" style={{ ...accountStyles.input, width: 240 }} />
       </div>
       <div style={accountStyles.row}>
         <div><div style={accountStyles.label}>LLM priority</div><div style={accountStyles.sub}>skip rule pre-filter, always classify with LLM first</div></div>
