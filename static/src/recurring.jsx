@@ -115,6 +115,10 @@ const RecurringView = () => {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("active");
   const [modal, setModal] = useState(null); // null | "new" | item object
+  const [finding, setFinding] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [savingSuggestions, setSavingSuggestions] = useState(new Set());
 
   const load = () => {
     setLoading(true);
@@ -139,6 +143,45 @@ const RecurringView = () => {
     load();
   };
   const onDelete = (id) => { setItems(its => its.filter(i => i.id !== id)); setModal(null); load(); };
+
+  const findRecurring = async () => {
+    setFinding(true);
+    setSuggesting(true);
+    setSuggestions([]);
+    try {
+      const result = await API.post("/api/recurring/find-from-transactions");
+      setSuggestions(result.suggestions || []);
+    } catch (_) {
+      showToast("LLM analysis failed. Check your AI service config.");
+    } finally {
+      setFinding(false);
+    }
+  };
+
+  const acceptSuggestion = async (s, idx) => {
+    setSavingSuggestions(prev => new Set([...prev, idx]));
+    try {
+      const body = {
+        name: s.name,
+        amount: s.amount ?? null,
+        category: s.category || null,
+        frequency: s.frequency || "monthly",
+        notes: s.reasoning || null,
+        active: true,
+      };
+      await API.post("/api/recurring", body);
+      setSuggestions(prev => prev.filter((_, i) => i !== idx));
+      showToast(`${s.name} added to recurring`);
+    } catch (_) {
+      showToast("Failed to save. Try again.");
+    } finally {
+      setSavingSuggestions(prev => { const n = new Set(prev); n.delete(idx); return n; });
+    }
+  };
+
+  const dismissSuggestion = (idx) => {
+    setSuggestions(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const visible = filter === "active" ? items.filter(i => i.active) : items;
 
@@ -173,11 +216,63 @@ const RecurringView = () => {
           {[["active","Active"],["all","All"]].map(([k, l]) => (
             <button key={k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>{l}</button>
           ))}
+          <button onClick={findRecurring} disabled={finding} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 12, cursor: finding ? "default" : "pointer", opacity: finding ? 0.65 : 1, display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="search" size={12}/> {finding ? "Analyzing…" : "Find Recurring"}
+          </button>
           <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
             <Icon name="plus" size={12} stroke="var(--paper)"/> Add
           </button>
         </div>
       </div>
+
+      {finding && (
+        <div style={{ margin: "0 28px 8px", padding: 20, textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+          <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 10px" }} />
+          Analyzing your transactions for recurring patterns…
+        </div>
+      )}
+
+      {suggesting && !finding && suggestions.length === 0 && (
+        <div style={{ margin: "0 28px 8px", padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+          No recurring patterns found in your transactions.
+          <button onClick={() => setSuggesting(false)} style={{ marginLeft: 8, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Dismiss</button>
+        </div>
+      )}
+
+      {suggesting && suggestions.length > 0 && (
+        <div style={{ margin: "0 28px 8px", padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>Suggested Recurring</span>
+            <button onClick={() => { setSuggesting(false); setSuggestions([]); }} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={14}/></button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {suggestions.map((s, i) => {
+              const cat = CATEGORIES[s.category];
+              const freqColor = FREQ_COLORS[s.frequency] || FREQ_COLORS.monthly;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper-2)" }}>
+                  {cat && <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: cat.bg }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 2 }}>{s.reasoning}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {s.amount != null && (
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: "var(--neg)", fontWeight: 600 }}>₹{Number(s.amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    )}
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: freqColor.bg, color: freqColor.ink, fontWeight: 500 }}>
+                      {FREQ_LABELS[s.frequency] || s.frequency}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{Math.round((s.confidence || 0) * 100)}%</span>
+                    <button onClick={() => acceptSuggestion(s, i)} disabled={savingSuggestions.has(i)} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--pos)", color: "var(--paper)", fontSize: 12, cursor: savingSuggestions.has(i) ? "default" : "pointer", opacity: savingSuggestions.has(i) ? 0.65 : 1 }}>Accept</button>
+                    <button onClick={() => dismissSuggestion(i)} style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-3)", fontSize: 12, cursor: "pointer" }}>Skip</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "16px 28px" }}>
         {!visible.length ? (

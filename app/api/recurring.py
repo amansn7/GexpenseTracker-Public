@@ -3,9 +3,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional
+from datetime import date
+from collections import defaultdict
+import re, json
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import RecurringExpense, User
+from app.models import RecurringExpense, User, Transaction, Email
 
 router = APIRouter()
 
@@ -107,3 +110,183 @@ async def delete_recurring(id: str, db: AsyncSession = Depends(get_db), current_
     await db.delete(r)
     await db.commit()
     return {"deleted": id}
+
+
+_FIND_RECURRING_SYSTEM = (
+    "You are a financial analyst. Identify recurring subscriptions, memberships, and regular bills "
+    "from a list of merchants and their transaction history. "
+    "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
+)
+
+_FIND_RECURRING_PROMPT = """Analyze these merchants and their transaction patterns. Identify which ones look like recurring expenses (subscriptions, memberships, regular bills).
+
+For each merchant, check:
+- Same or similar amount across transactions (small variations OK)
+- Regular intervals between dates (monthly ~28-31 days, yearly ~360-370 days, weekly ~6-8 days)
+- At least 3 transactions for high confidence; 2 transactions can still be recurring if amounts match
+
+{data}
+
+Return a JSON array of identified recurring expenses, each:
+{{
+  "name": "readable merchant name",
+  "merchant": "merchant field from data",
+  "amount": typical recurring amount (number),
+  "frequency": "monthly" or "yearly" or "weekly",
+  "category": "best category match",
+  "confidence": 0.0-1.0,
+  "reasoning": "one-line explanation"
+}}
+
+Return [] if none look recurring."""
+
+
+@router.post("/recurring/find-from-transactions")
+async def find_recurring_from_transactions(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Fetch all expense transactions
+    rows = (await db.execute(
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(
+            Email.user_id == current_user.id,
+            Transaction.label == "expense",
+            Transaction.merchant.isnot(None),
+        )
+        .order_by(Transaction.txn_date)
+    )).all()
+
+    if not rows:
+        return {"suggestions": []}
+
+    # Group by merchant
+    by_merchant: dict[str, list[dict]] = defaultdict(list)
+    for t, e in rows:
+        m = (t.merchant or "").strip().lower()
+        if m:
+            by_merchant[m].append({
+                "merchant": t.merchant,
+                "amount": float(t.amount) if t.amount else 0,
+                "txn_date": str(t.txn_date) if t.txn_date else "",
+                "category": t.category,
+            })
+
+    # Skip merchants already tracked as recurring
+    existing = (await db.execute(
+        select(RecurringExpense).where(RecurringExpense.user_id == current_user.id)
+    )).scalars().all()
+    existing_names = {r.name.lower().strip() for r in existing}
+
+    # Build summary for LLM
+    lines = []
+    for merchant_key, txns in sorted(by_merchant.items()):
+        name = txns[0]["merchant"]
+        display = txns[0]["merchant"] or merchant_key
+        if display.lower().strip() in existing_names:
+            continue
+        if len(txns) < 2:
+            continue
+
+        amounts = [t["amount"] for t in txns if t["amount"]]
+        dates = [t["txn_date"] for t in txns if t["txn_date"]]
+
+        if not amounts:
+            continue
+
+        avg_amt = sum(amounts) / len(amounts)
+        min_amt = min(amounts)
+        max_amt = max(amounts)
+        amt_variance = max_amt - min_amt
+        amt_stable = amt_variance == 0 or (avg_amt > 0 and amt_variance / avg_amt < 0.15)
+
+        # Compute intervals between consecutive dates
+        intervals = []
+        for i in range(1, len(dates)):
+            try:
+                d1 = date.fromisoformat(dates[i - 1])
+                d2 = date.fromisoformat(dates[i])
+                intervals.append((d2 - d1).days)
+            except (ValueError, TypeError):
+                pass
+
+        line = f"Merchant: {display}"
+        line += f"\n  Count: {len(txns)} transactions"
+        line += f"\n  Amounts: {', '.join(f'₹{a:.0f}' for a in amounts[:10])}" + (f" ... and {len(amounts)-10} more" if len(amounts) > 10 else "")
+        line += f"\n  Amount range: ₹{min_amt:.0f} - ₹{max_amt:.0f}" + (" (stable)" if amt_stable else " (varies)")
+        if intervals:
+            avg_interval = sum(intervals) / len(intervals)
+            line += f"\n  Avg interval: {avg_interval:.0f} days"
+            line += f"\n  Dates: {', '.join(dates[:8])}" + (f" ... and {len(dates)-8} more" if len(dates) > 8 else "")
+        else:
+            line += f"\n  Dates: {', '.join(dates[:8])}"
+        lines.append(line)
+
+    if not lines:
+        return {"suggestions": []}
+
+    data_block = "\n".join(lines)
+    prompt = _FIND_RECURRING_PROMPT.format(data=data_block)
+
+    # Build user-specific LLM client
+    from app.models.user import UserAIService, UserSettings
+    from app.api._account_helpers import _decrypt_secret
+    from app.classifier.llm_client import build_user_client
+
+    user_settings = (await db.execute(
+        select(UserSettings).where(UserSettings.user_id == current_user.id)
+    )).scalar_one_or_none()
+    client = None
+    if user_settings and user_settings.active_ai_service_id:
+        ai_svc = (await db.execute(
+            select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
+        )).scalar_one_or_none()
+        if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
+            client = build_user_client(
+                user_id=current_user.id,
+                provider=ai_svc.provider,
+                base_url=ai_svc.base_url,
+                api_key=_decrypt_secret(ai_svc.encrypted_api_key),
+                model_id=ai_svc.model_id,
+            )
+
+    if not client:
+        from app.classifier.llm_client import llm_client
+        client = llm_client
+
+    try:
+        raw = await client.chat(_FIND_RECURRING_SYSTEM, prompt, max_tokens=2000, timeout=60.0)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM analysis failed: {str(e)[:200]}")
+
+    # Parse JSON from response
+    json_match = re.search(r'\{.*\}|\[.*\]', raw, re.DOTALL)
+    if not json_match:
+        return {"suggestions": []}
+    parsed = json_match.group(0)
+    try:
+        suggestions = json.loads(parsed)
+        if isinstance(suggestions, dict):
+            suggestions = [suggestions]
+    except (json.JSONDecodeError, TypeError):
+        suggestions = []
+
+    # Deduplicate against existing recurring items
+    filtered = []
+    for s in suggestions:
+        if not isinstance(s, dict):
+            continue
+        name = (s.get("name") or s.get("merchant") or "").strip().lower()
+        if name and name not in existing_names:
+            filtered.append({
+                "name": s.get("name") or s.get("merchant") or "Unknown",
+                "merchant": s.get("merchant") or "",
+                "amount": s.get("amount"),
+                "frequency": s.get("frequency", "monthly"),
+                "category": s.get("category", ""),
+                "confidence": s.get("confidence", 0.5),
+                "reasoning": s.get("reasoning", ""),
+            })
+
+    return {"suggestions": filtered}

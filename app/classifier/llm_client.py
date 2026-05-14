@@ -723,8 +723,10 @@ class MultiLLMClient:
     async def _provider_http_call(
         self, provider: _Provider, user_prompt: str,
         timeout: float = 30.0, max_tokens: int = 500,
+        system_override: Optional[str] = None,
     ) -> str:
         """Execute HTTP call to a provider and return raw response text."""
+        system = system_override or _SYSTEM
         if provider.name == "groq":
             try:
                 from app.classifier.groq_rate_limiter import get_groq_limiter
@@ -766,7 +768,7 @@ class MultiLLMClient:
             url = f"{base_url}/{provider.model}"
             payload = {
                 "messages": [
-                    {"role": "system", "content": str(_SYSTEM)},
+                    {"role": "system", "content": str(system)},
                     {"role": "user", "content": str(user_prompt)},
                 ],
                 "temperature": 0.1,
@@ -777,7 +779,7 @@ class MultiLLMClient:
             payload = {
                 "model": str(provider.model),
                 "messages": [
-                    {"role": "system", "content": str(_SYSTEM)},
+                    {"role": "system", "content": str(system)},
                     {"role": "user", "content": str(user_prompt)},
                 ],
                 "temperature": 0.1,
@@ -924,6 +926,35 @@ class MultiLLMClient:
     ) -> List[Optional[LLMClassification]]:
         result = await self.batch_classify_verbose(email_list, categories=categories)
         return result["results"]
+
+    async def chat(
+        self, system_prompt: str, user_prompt: str,
+        max_tokens: int = 1000, timeout: float = 45.0,
+    ) -> str:
+        """Send a generic chat prompt to the best available provider. Returns raw text response."""
+        ranked = self._ranked_providers()
+        if not ranked:
+            raise RuntimeError("No LLM providers available")
+        last_error: Optional[Exception] = None
+        for provider in ranked:
+            try:
+                raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
+                provider.success_count += 1
+                return raw
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429:
+                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
+                    last_error = exc
+                    continue
+                provider.fail_count += 1
+                last_error = exc
+                continue
+            except Exception as exc:
+                provider.fail_count += 1
+                logger.error("Provider '%s' chat error: %s", provider.name, exc)
+                last_error = exc
+                continue
+        raise last_error or RuntimeError("All LLM providers failed")
 
 
 llm_client = MultiLLMClient()
