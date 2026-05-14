@@ -28,6 +28,10 @@ const _CAT_ALIAS = {
   subscriptions: "sub", subscription: "sub", sub: "sub",
   income: "income", salary: "income", freelance: "income",
   "cc payment": "other", cc: "other",
+  insurance: "sub",
+  investment: "other",
+  refund: "other",
+  emi: "sub",
   other: "other",
 };
 
