@@ -24,9 +24,12 @@ logger = logging.getLogger(__name__)
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
 _SYSTEM = (
-    "You are a financial email classifier for Indian banking, UPI, and payment emails. "
-    "Identify whether an email contains a real financial transaction or is a non-transaction "
-    "(OTP, offer, alert, newsletter, etc.). "
+    "You are a high-precision financial email classifier for Indian banking, UPI, and payment emails. "
+    "Determine whether an email represents a real financial transaction, classify the "
+    "direction of money flow, and extract normalized transaction metadata. "
+    "Ignore marketing, OTPs, reminders, and informational emails. "
+    "Prioritize PRECISION over recall. If uncertain, return null values and lower "
+    "confidence instead of guessing. "
     "Respond ONLY with valid JSON. No explanation, no markdown, no code blocks."
 )
 
@@ -56,110 +59,92 @@ def _build_pre_extraction_block(pre: dict) -> str:
     return _PRE_EXTRACTION_BLOCK.format(lines="\n".join(lines))
 
 
-_USER_TEMPLATE = """Classify this financial email and extract transaction details.
-========================================
+_USER_TEMPLATE = """# CLASSIFICATION RULES
 
-CLASSIFICATION RULES:
-========================================
+## EXPENSE — money going OUT:
+Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, invested, SIP, subscribed (mutual fund), purchased (shares/units)
+Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, SIP investments, mutual fund/stock purchases, demat transactions, e-commerce orders with confirmed payment
+→ label: "expense"
 
-EXPENSE — money going OUT:
-  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee,
-            invested, SIP, subscribed (mutual fund), purchased (shares/units)
-  Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
-  ATM withdrawals, wallet deductions, insurance premiums,
-  SIP investments, mutual fund purchases, stock/share purchases, demat transactions
-  → label: "expense"
-
-INCOME — money coming IN:
-  Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
-  Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
-  reward points redeemed
-  → label: "income"
+## INCOME — money coming IN:
+Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits, reward points redeemed
+→ label: "income"
 
 REFUND / REVERSAL → always "income" (money returning to you)
 
-IGNORE — no real transaction occurred:
-  • OTP / 2FA codes — "OTP for transaction", "login OTP", "verification code"
-  • Security alerts — "new device login", "password changed", "unusual activity"
-  • Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
-  • Statement ready — "monthly statement", "account summary", "transaction report"
-  • Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
-  • Delivery/shipment notifications (standalone tracking only — "order shipped",
-    "out for delivery", "item delivered", "package delivered").
-    NOTE: App-level savings/discount numbers ("₹145 saved", "₹69 saved") in
-    delivery notifications are promotional, NOT transaction amounts. Ignore them.
-    IMPORTANT: Order confirmation / receipt emails ("Thanks for your order",
-    "Order confirmation", "Your order of") that contain product details AND a
-    total amount are EXPENSES, not delivery notifications.
-  • Newsletters — "weekly digest", "tips & tricks", "recommendations"
-  • KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
-  • Password resets — "reset password", "password change request"
-  • Confirmations — welcome email, terms updated, fee change notification
-  → label: "ignore"
+## IGNORE — no real transaction occurred:
+- OTP / 2FA codes — "OTP for transaction", "login OTP", "verification code"
+- Security alerts — "new device login", "password changed", "unusual activity"
+- Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
+- Statement ready — "monthly statement", "account summary", "transaction report"
+- Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
+- Delivery/shipment notifications (standalone tracking only — "order shipped", "out for delivery", "item delivered", "package delivered").
+  NOTE: App-level savings/discount numbers ("₹145 saved", "₹69 saved") are promotional, NOT transaction amounts. Ignore them.
+  IMPORTANT: Order confirmation / receipt emails ("Thanks for your order", "Order confirmation", "Your order of") that contain product details AND a total amount are EXPENSES, not delivery notifications.
+- Newsletters — "weekly digest", "tips & tricks", "recommendations"
+- KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
+- Password resets — "reset password", "password change request"
+- Confirmations — welcome email, terms updated, fee change notification
+→ label: "ignore"
 
-========================================
+# PRIORITY RULES (apply in order)
+1. OTP/security verification → IGNORE immediately
+2. Explicit money movement confirmed → classify transaction
+3. Reminder or informational only → IGNORE
+4. Both promotional and transactional text → classify based ONLY on the transactional section
+5. Never extract merchants from footer/marketing text
+6. Prefer explicit transaction amounts over promotional/savings amounts
+
+# INPUT
 From: {sender}
 Subject: {subject}
 Body: {body_snippet}
-========================================
 
-EXTRACTION RULES:
-========================================
-- amount    : INR in rupees (number only, no currency symbols or commas).
-              Extract from subject or body text.
-              "Rs.499.00" → 499, "INR 1,200.50" → 1200.5, "₹1,299" → 1299
-              null if no INR amount found or email is non-transaction
+Available categories: {categories}
 
-- merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
-              Clean raw merchant codes to readable names:
-              "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy"
-              "AMZN MKTP IN"/"AMAZON.IN"/"AMZ*" → "Amazon"
-              "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato"
-              "NETFLIX.COM"/"Netflix" → "Netflix"
-              "SPOTIFY" → "Spotify"
-              "UBER TRIP"/"UBER" → "Uber"
-              "BLINKIT IN" → "Blinkit"
-              "ZEITO" → "Zepto"
-              "PHONEPE*"/"PHONEPE" → "PhonePe" (UPI app, not merchant)
-              WARNING: Payment gateway descriptors (Razorpay, Billdesk, CC Avenue,
-              PayU, CCAvenue, Paytm) are NOT merchants — the real merchant is in
-              the email body. null merchant rather than using gateway name.
-              WARNING: Bank emails contain marketing footers ("offers", "discounts",
-              "recommendations in your city"). NEVER use footer text as merchant.
-              IMPORTANT: If the merchant code is a parent/entity company, scan
-              the email subject and body for the consumer-facing brand name.
-              "BUNDL TECHNOLOGIES" in debit alert → body says "Swiggy".
-              Read only the transaction body. null if no identifiable payee.
+# AMOUNT EXTRACTION
+INR in rupees (number only, no currency symbols or commas).
+"Rs.499.00" → 499, "INR 1,200.50" → 1200.5, "₹1,299" → 1299
+null if no INR amount found or email is non-transaction
+DO NOT extract savings, cashback offers, discounts, credit limits, or statement totals unless payment executed.
 
-- category  : one of — {categories}
-              Pick the closest match. If none fits, use "Other".
-              Refunds → "Refund" if available, else "Income"
-              EMIs → "EMI" if available, else "Subscriptions"
-              UPI person-to-person → "Bank Transfer" if available
-              ATM withdrawal → "Cash" or "Other"
+# MERCHANT EXTRACTION
+Payee / store / service — NOT bank, NOT payment gateway, NOT payment platform.
+Clean raw merchant codes to readable names:
+"WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy"
+"AMZN MKTP IN"/"AMAZON.IN"/"AMZ*" → "Amazon"
+"ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato"
+"NETFLIX.COM"/"Netflix" → "Netflix"
+"SPOTIFY" → "Spotify"
+"UBER TRIP"/"UBER" → "Uber"
+"BLINKIT IN" → "Blinkit"
+"ZEITO" → "Zepto"
+"PHONEPE*"/"PHONEPE" → "PhonePe" (UPI app, not merchant)
 
-- txn_date  : actual transaction date from body (YYYY-MM-DD). NOT email received date.
-              "on 18-Apr-2026" → "2026-04-18"
-              "dated 15/03/2026" → "2026-03-15"
-              "on 18 April 2026" → "2026-04-18"
-              null if date is absent or ambiguous
+WARNING: Payment gateway descriptors (Razorpay, Billdesk, CC Avenue, PayU, CCAvenue, Paytm) are NOT merchants — the real merchant is in the email body. null merchant rather than using gateway name.
+WARNING: Bank emails contain marketing footers ("offers", "discounts", "recommendations in your city"). NEVER use footer text as merchant.
+IMPORTANT: If the merchant code is a parent/entity company, scan the email subject and body for the consumer-facing brand name. "BUNDL TECHNOLOGIES" in debit alert → body says "Swiggy".
+Read only the transaction body. null if no identifiable payee.
 
-- confidence: 0.9–1.0 for clear structured bank/UPI alerts
-              0.7–0.9 for merchant emails with some uncertainty
-              0.5–0.7 for ambiguous emails with partial data
-              0.0 for ignore / non-transaction emails
+# CATEGORY MAPPING
+Pick closest match from: {categories}. If none fits, use "Other".
+UPI payment → UPI Payment | Mutual fund/SIP → Investment | Insurance premium → Insurance
+Refund/reversal → Refund | Salary credit → Income | EMI debit → EMI
+ATM withdrawal → Cash | P2P transfer → Bank Transfer | Streaming → Subscription
+Credit card BILL PAYMENTS are IGNORE, category CC Payment (underlying purchases already recorded).
 
-- email_type: classify the EMAIL itself (not the transaction):
-              "bank_alert"       — bank debit/credit transaction notification
-              "upi_notification" — UPI payment confirmation
-              "merchant_receipt" — e-commerce / service receipt
-              "bill_reminder"    — bill due date / payment reminder
-              "otp"              — one-time password / 2FA code
-              "offer"            — promotional / marketing email
-              "alert"            — security / low-balance / account alert
-              "newsletter"       — subscription tips / updates
-              "statement"        — periodic account summary
-              null               — unsure or other
+# DATE EXTRACTION
+Actual transaction date (YYYY-MM-DD). NOT email received date.
+"on 18-Apr-2026" → "2026-04-18" | "dated 15/03/2026" → "2026-03-15" | "on 18 April 2026" → "2026-04-18"
+null if date is absent or ambiguous
+
+# EMAIL TYPE CLASSIFICATION
+bank_alert — bank debit/credit notification | upi_notification — UPI confirmation
+merchant_receipt — e-commerce / service receipt | bill_reminder — due date reminder
+otp — one-time password / 2FA | offer — marketing / promotional
+alert — security / low-balance | newsletter — tips / updates
+statement — account summary | null — unsure or other
 
 ========================================
 COMMON INDIAN EMAIL PATTERNS:
@@ -252,6 +237,18 @@ E-COMMERCE / ORDER CONFIRMATION — contains product details + total:
   Email contains both delivery status AND purchase details with total      → expense
 
 ========================================
+# CONFIDENCE SCORING
+0.95–1.00: structured bank/UPI alert with explicit amount + merchant
+0.85–0.94: clear merchant receipt / order confirmation
+0.70–0.84: partial ambiguity but likely correct
+0.50–0.69: weak evidence / incomplete extraction
+0.00:      ignore / non-transaction
+
+# HARD SAFETY RULES
+NEVER: hallucinate merchants, infer missing amounts, use footer text, use bank name as merchant (unless bank is payee), classify reminders as transactions, treat offers as cashback credits.
+When uncertain → null fields + lower confidence.
+
+========================================
 Respond ONLY with valid JSON:
 {{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0,"email_type":"type or null"}}"""
 
@@ -259,37 +256,31 @@ _BATCH_USER_TEMPLATE = """You have {count} financial emails to classify. Process
 
 {email_blocks}
 
-========================================
-CLASSIFICATION RULES:
-========================================
+# CLASSIFICATION RULES
 
-EXPENSE — money going OUT:
-  Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee,
-            invested, SIP, subscribed (mutual fund), purchased (shares/units)
-  Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions,
-  ATM withdrawals, wallet deductions, insurance premiums,
-  SIP investments, mutual fund purchases, stock/share purchases
-  → label: "expense"
+## EXPENSE — money going OUT:
+Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, invested, SIP, subscribed (mutual fund), purchased (shares/units)
+Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, SIP investments, mutual fund/stock purchases
+→ label: "expense"
 
-INCOME — money coming IN:
-  Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
-  Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
-  reward points redeemed
-  → label: "income"
+## INCOME — money coming IN:
+Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits, reward points redeemed
+→ label: "income"
 
 REFUND / REVERSAL → always "income" (money returning to you)
 
-IGNORE — no real transaction occurred:
-  • OTP / 2FA codes
-  • Security alerts — new device login, password changed, unusual activity
-  • Balance/limit alerts — low balance, minimum amount due, credit limit
-  • Statement ready — monthly statement, account summary, transaction report
-  • Offers / promos — special offer, festive sale, discount, cashback offer
-  • Delivery/shipment notifications (standalone tracking only).
-  • Newsletters — weekly digest, tips, recommendations
-  • KYC / compliance — update KYC, Aadhaar linking, PAN verification
-  • Password resets, welcome emails, terms updates, fee change notifications
-  → label: "ignore"
+## IGNORE — no real transaction occurred:
+- OTP / 2FA codes
+- Security alerts — new device login, password changed, unusual activity
+- Balance/limit alerts — low balance, minimum amount due, credit limit
+- Statement ready — monthly statement, account summary, transaction report
+- Offers / promos — special offer, festive sale, discount, cashback offer
+- Delivery/shipment notifications (standalone tracking only)
+- Newsletters — weekly digest, tips, recommendations
+- KYC / compliance — update KYC, Aadhaar linking, PAN verification
+- Password resets, welcome emails, terms updates, fee change notifications
+→ label: "ignore"
 
 E-COMMERCE / ORDER CONFIRMATION — "Thanks for your order", "Your order of",
   Order # + product + quantity + total. These are EXPENSES, not delivery notifications.
@@ -310,30 +301,22 @@ INSURANCE — money going OUT for insurance premiums:
 ========================================
 EXTRACTION RULES:
 ========================================
-- amount    : INR in rupees (number only, no currency symbols or commas).
-              "Rs.499" → 499, "INR 1200.50" → 1200.5, "₹1,299" → 1299
-              null if no INR amount found
+- amount: INR in rupees (number only, no symbols or commas). "Rs.499" → 499, "INR 1200.50" → 1200.5. null if no amount found.
 
-- merchant  : the payee / store / service — NOT the bank, NOT the payment platform.
-              Clean raw codes: "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy",
-              "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",
-              "NETFLIX.COM" → "Netflix", "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
-              WARNING: Payment gateway names (Razorpay, Billdesk, CC Avenue, PayU,
-              CCAvenue, Paytm) are NOT merchants. null instead of using gateway.
-              WARNING: Bank emails have marketing footers. NEVER use footer
-              text as merchant. null if no identifiable payee
+- merchant: payee / store / service — NOT bank, NOT payment gateway.
+  Clean codes: "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy",
+  "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",
+  "NETFLIX.COM" → "Netflix", "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
+  WARNING: Payment gateways (Razorpay, Billdesk, CC Avenue, PayU, CCAvenue, Paytm) are NOT merchants — null instead.
+  WARNING: Bank emails have marketing footers. NEVER use footer text as merchant.
 
-- category  : one of — {categories}. Use "Other" if none fits.
-              Refunds → "Refund" if available. EMIs → "EMI" if available.
-              Credit card bill payments → "CC Payment" if available.
+- category: one of — {categories}. Use "Other" if none fits. Refunds → Refund. EMIs → EMI. CC bill payments → CC Payment.
 
-- txn_date  : actual transaction date from body (YYYY-MM-DD). null if absent.
+- txn_date: actual transaction date from body (YYYY-MM-DD). null if absent.
 
-- confidence: 0.9–1.0 clear bank/UPI alerts · 0.7–0.9 merchant emails · 0.5–0.7 ambiguous · 0.0 for ignore
+- confidence: 0.95–1.00 clear bank/UPI alerts · 0.85–0.94 merchant receipts · 0.70–0.84 partial ambiguity · 0.50–0.69 weak evidence · 0.00 ignore
 
-- email_type: classify the EMAIL itself:
-              "bank_alert" | "upi_notification" | "merchant_receipt" | "bill_reminder"
-              | "otp" | "offer" | "alert" | "newsletter" | "statement" | null
+- email_type: classify the EMAIL itself: "bank_alert" | "upi_notification" | "merchant_receipt" | "bill_reminder" | "otp" | "offer" | "alert" | "newsletter" | "statement" | null
 
 ========================================
 Respond ONLY with a JSON array — one object per email, in order:
