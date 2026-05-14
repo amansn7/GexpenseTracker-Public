@@ -174,6 +174,17 @@ INVESTMENT / SIP — money going OUT to buy financial assets:
   merchant: the fund/stock name (e.g. "ICICI Prudential BHARAT 22 FOF Direct - Growth")
   If the email only says "Order Sent to AMC" with a fund name below, use that fund name as merchant.
 
+INSURANCE — money going OUT for insurance premiums:
+  "Payment Receipt for your ... Insurance Policy", "insurance premium paid",
+  "policy payment received", "insurance renewal", "premium receipt"
+  "Thank you for renewing your insurance policy", "Amount Paid"
+  with policy number and insurance company name
+  → label: "expense", category: "Insurance"
+  merchant: the insurance company name (e.g. "Axis Max Life Insurance",
+            "HDFC Life", "ICICI Prudential Life")
+  If the email says "Payment Receipt for your [Company] Insurance Policy",
+  use the company name as merchant.
+
 UPI:
   "You have paid Rs.X to MERCHANT via UPI"                                → expense, category=UPI Payment
   "UPI transaction of Rs.X debited"                                       → expense
@@ -281,6 +292,12 @@ INVESTMENT / SIP — money going OUT to buy financial assets:
   These are expenses (real outflow). Do NOT classify as "ignore".
   → label: "expense", category: "Investment"
   merchant: the fund/stock name
+
+INSURANCE — money going OUT for insurance premiums:
+  "Payment Receipt for your ... Insurance Policy", "insurance premium paid",
+  "policy payment received", "insurance renewal", "Amount Paid" with policy number
+  → label: "expense", category: "Insurance"
+  merchant: the insurance company name (e.g. "Axis Max Life Insurance")
 
 ========================================
 EXTRACTION RULES:
