@@ -57,7 +57,7 @@ const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
     <span>{label}</span>
     {count != null && <span style={shellStyles.navCount}>{count}</span>}
   </button>
-);
+));
 
 const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
