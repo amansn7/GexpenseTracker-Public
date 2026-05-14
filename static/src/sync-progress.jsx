@@ -1,5 +1,15 @@
 // Floating sync progress panel — minimizable, persistent across nav
 const { useState, useEffect, useRef } = React;
+
+const _syncMessages = {
+  connect: "Connecting to Gmail…",
+  fetch: "Reading your recent emails…",
+  parse: "Extracting transaction details…",
+  classify: "Categorizing your spending…",
+  dedup: "Checking for duplicates…",
+  done: "All caught up!",
+};
+
 const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position = "bottom-right" }) => {
   const [minimized, setMinimized] = useState(false);
   const logEndRef = useRef(null);
@@ -53,7 +63,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
 
   // Full panel
   return (
-    <div style={{
+    <div role="status" aria-live="polite" aria-label={`Sync ${progress.phase}`} style={{
       position: "fixed", ...panelPos,
       zIndex: 999, width: 420, maxWidth: "calc(100vw - 32px)",
       background: "var(--card)", border: "1px solid var(--line)",
@@ -81,18 +91,16 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
         </button>
       </div>
 
-      {/* Phase detail */}
-      {progress.phase_detail && (
-        <div style={{ padding:"4px 16px 0", fontSize:11, color:"var(--ink-3)", fontFamily:"'Geist Mono',monospace" }}>
-          {progress.phase_detail}
-        </div>
-      )}
+      {/* Phase detail — friendly message when no detail, or the detail itself */}
+      <div style={{ padding:"4px 16px 0", fontSize:11, color:"var(--ink-3)", fontFamily:"'Geist Mono',monospace" }}>
+        {!isComplete ? (_syncMessages[progress.phase] || progress.phase_detail || progress.phase) : ""}
+      </div>
 
       {/* Progress bar */}
       {progress.total > 0 && (
         <div style={{ padding:"10px 16px 0" }}>
           <div style={{ height:3, background:"var(--line)", borderRadius:2, overflow:"hidden" }}>
-            <div style={{ height:"100%", width:`${Math.min(pct, 100)}%`, background: isDone ? "var(--pos)" : "var(--accent)", borderRadius:2, transition:"width 0.4s ease" }}/>
+            <div className={isDone ? "" : "progress-fill-sync"} style={{ height:"100%", width:"100%", background: isDone ? "var(--pos)" : "var(--accent)", borderRadius:2, transform: `scaleX(${Math.min(pct, 100) / 100})` }}/>
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:3, fontSize:10, color:"var(--ink-4)", fontFamily:"'Geist Mono',monospace" }}>
             <span>{progress.current}/{progress.total}</span>
@@ -152,6 +160,12 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       )}
 
       {/* Footer */}
+      {isDone && progress.tally && (progress.tally.expense || progress.tally.income || progress.tally.ignore) && (
+        <div style={{ padding:"6px 16px 2px", fontSize:11, color:"var(--ink-3)" }}>
+          Found <strong style={{color:"var(--neg)"}}>{progress.tally.expense || 0} expenses</strong>
+          {progress.tally.income > 0 && <span> and <strong style={{color:"var(--pos)"}}>{progress.tally.income} income entries</strong></span>}.
+        </div>
+      )}
       {isComplete && (
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, padding:"10px 16px 12px" }}>
           <button onClick={onClose} style={{

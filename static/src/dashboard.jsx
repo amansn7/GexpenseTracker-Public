@@ -216,8 +216,8 @@ const DashboardView = ({ transactions }) => {
                         <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 18, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
                           ₹{e.amount.toLocaleString("en-IN")}
                         </div>
-                        <div style={{ background: "var(--line)", height: 3, borderRadius: 10, overflow: "hidden", margin: "8px 0 4px" }}>
-                          <div style={{ width: `${pct}%`, height: "100%", background: c.ink, borderRadius: 10, transition: "width 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+                          <div style={{ background: "var(--line)", height: 3, borderRadius: 10, overflow: "hidden", margin: "8px 0 4px" }}>
+                            <div style={{ width: "100%", height: "100%", background: c.ink, borderRadius: 10, transition: "transform 400ms cubic-bezier(.2,.8,.2,1)", transform: `scaleX(${pct / 100})`, transformOrigin: "left" }}/>
                         </div>
                         <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{pct.toFixed(0)}% of spend</div>
                       </div>
@@ -285,7 +285,7 @@ const DashboardView = ({ transactions }) => {
                       </span>
                     </div>
                     <div style={{ background: "var(--line)", height: 6, borderRadius: 10, overflow: "hidden", marginBottom: 8 }}>
-                      <div style={{ width: `${pct}%`, height: "100%", background: barColor, borderRadius: 10, transition: "width 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+                      <div style={{ width: "100%", height: "100%", background: barColor, borderRadius: 10, transition: "transform 400ms cubic-bezier(.2,.8,.2,1)", transform: `scaleX(${pct / 100})`, transformOrigin: "left" }}/>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>
                       <span>₹{b.spent_this_month.toLocaleString("en-IN")} spent</span>

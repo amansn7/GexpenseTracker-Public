@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="paper">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,44 +8,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --paper: #f6f3ec;
-    --paper-2: #efeadf;
-    --ink: #1a1814;
-    --ink-2: #3d3a33;
-    --ink-3: #78736a;
-    --ink-4: #a8a297;
-    --line: #e3dcca;
-    --card: #fbf9f3;
-    --accent: #c2410c;
-    --accent-soft: #fde8d7;
-    --pos: #3d6b42;
-    --pos-soft: #dce7d8;
-    --neg: #8b2a1f;
-    --neg-soft: #f1d9d2;
-    --cat-food: #e8d5b7;
-    --cat-food-ink: #7a5a2f;
-    --cat-rent: #cdd8d1;
-    --cat-rent-ink: #3d5a48;
-    --cat-shop: #e5d1d9;
-    --cat-shop-ink: #7a3d58;
-    --cat-travel: #d4dde5;
-    --cat-travel-ink: #365470;
-    --cat-sub: #dccfe0;
-    --cat-sub-ink: #5b3d70;
-    --cat-util: #d9dbc9;
-    --cat-util-ink: #5a6137;
-    --cat-inc: #c9dcc8;
-    --cat-inc-ink: #2d5a33;
-    --cat-other: #dcd5c3;
-    --cat-other-ink: #5a5235;
-  }
+  /* cat-* colors now live in styles.css per theme */
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Geist', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
   .serif { font-family: 'Fraunces', serif; font-optical-sizing: auto; letter-spacing: -0.01em; }
   .italic-serif { font-family: 'Instrument Serif', serif; font-style: italic; }
-  .mono { font-family: 'Geist Mono', monospace; font-feature-settings: 'tnum'; }
+  .mono { font-family: 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
   .tnum { font-variant-numeric: tabular-nums; }
 
   #root { display: block; }

@@ -110,10 +110,11 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
 };
 
 const ProgressBar = ({ pct }) => {
-  const color = pct >= 100 ? "var(--pos)" : pct >= 50 ? "#f59e0b" : "var(--neg)";
+  const done = pct >= 100;
+  const color = done ? "var(--pos)" : pct >= 50 ? "var(--amber)" : "var(--neg)";
   return (
     <div style={{ width: "100%", height: 6, borderRadius: 99, background: "var(--line)", overflow: "hidden" }}>
-      <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", borderRadius: 99, background: color, transition: "width 400ms ease" }} />
+      <div style={{ width: "100%", height: "100%", borderRadius: 99, background: color, transition: "transform 400ms ease", transform: `scaleX(${Math.min(pct, 100) / 100})`, transformOrigin: "left", animation: done ? "pulse 1.5s ease-in-out infinite" : "none" }} />
     </div>
   );
 };
@@ -212,7 +213,7 @@ const DebtView = () => {
                 <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>{fmt(debt.paid_amount)} of {fmt(debt.total_amount)}</div>
               </div>
               <ProgressBar pct={debt.pct_paid} />
-              <div style={{ fontSize: 12, color: "var(--ink-4)" }}>{debt.pct_paid}% paid</div>
+              <div style={{ fontSize: 12, color: debt.pct_paid >= 100 ? "var(--pos)" : "var(--ink-4)", fontWeight: debt.pct_paid >= 100 ? 600 : 400 }}>{debt.pct_paid >= 100 ? "Paid off! 🎉" : `${debt.pct_paid}% paid`}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {debt.interest_rate != null && (
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "var(--cat-sub)", color: "var(--cat-sub-ink)", fontWeight: 500 }}>

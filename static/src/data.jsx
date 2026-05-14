@@ -215,4 +215,30 @@ const useBackgroundJob = () => {
   return { progress, running, start, dismiss };
 };
 
-Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, useBackgroundJob });
+const showToast = (message, action, duration = 5000) => {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const el = document.createElement("div");
+  el.className = "toast toast-info";
+  el.style.display = "flex";
+  el.style.alignItems = "center";
+  el.style.gap = "10px";
+  el.style.justifyContent = "space-between";
+  const span = document.createElement("span");
+  span.textContent = message;
+  el.appendChild(span);
+  if (action) {
+    const btn = document.createElement("button");
+    btn.textContent = action.label;
+    btn.style.cssText = "background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit";
+    btn.onclick = () => { action.onClick(); el.remove(); };
+    el.appendChild(btn);
+  }
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("toast-out");
+    setTimeout(() => el.remove(), 280);
+  }, duration);
+};
+
+Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, useBackgroundJob, showToast });

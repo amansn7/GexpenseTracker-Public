@@ -29,7 +29,7 @@ const inboxStyles = {
   tagLabel: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 },
 
   confBar: { height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden", width: 56 },
-  confFill: { height: "100%", background: "var(--pos)", borderRadius: 2, transition: "width 200ms" },
+  confFill: { height: "100%", background: "var(--pos)", borderRadius: 2, transition: "transform 200ms", transformOrigin: "left" },
   confLow: { background: "var(--accent)" },
   time: { fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
 
@@ -179,7 +179,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
   }, []);
 
   const items = userCats && userCats.length > 0
-    ? userCats.map(c => ({ key: c.name.toLowerCase(), label: c.name, bg: c.color, ink: "#78736a" }))
+    ? userCats.map(c => ({ key: c.name.toLowerCase(), label: c.name, bg: c.color, ink: "var(--ink-3)" }))
     : Object.entries(CATEGORIES).filter(([k]) => k !== "income").map(([k, c]) => ({ key: k, label: c.label, bg: c.bg, ink: c.ink }));
 
   return (
@@ -394,7 +394,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "var(--ink-3)", cursor: "pointer" }}>
           <input type="checkbox" checked={fetchBodyOn} onChange={e => setFetchBodyOn(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
-          Refresh body before reclassify
+          Refresh body before recategorizing
         </label>
       </div>
 
@@ -456,7 +456,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
         {reclass === "error" && (
           <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--neg-soft)", borderRadius: 8, border: "1px solid var(--neg)", fontSize: 12, color: "var(--neg)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Icon name="x" size={14} stroke="var(--neg)"/> Re-classification failed — check server logs
+            <Icon name="x" size={14} stroke="var(--neg)"/> Recategorization failed — check server logs
           </div>
         )}
 
@@ -471,7 +471,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             disabled={reclass==="previewing"||reclass==="saving"||reclass==="preview"}
             style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "var(--paper)", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
             <Icon name="sparkle" size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
-            {reclass === "previewing" ? "Classifying…" : "Re-classify"}
+            {reclass === "previewing" ? "Classifying…" : "Recategorize"}
           </button>
         </div>
       </div>
@@ -721,10 +721,14 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
         <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
           <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent)", color: "#fff", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
           {!confirmDiscard ? (
-            <button onClick={() => { if (hasTxs) setConfirmDiscard(true); else handleDiscardAll(); }} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
+            <button onClick={() => setConfirmDiscard(true)} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
           ) : (
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "var(--neg)", maxWidth: 180, lineHeight: 1.3 }}>{emails.filter(e => _looksLikeTx(e)).length} look like transactions. Discard anyway?</span>
+              {hasTxs ? (
+                <span style={{ fontSize: 10, color: "var(--neg)", maxWidth: 180, lineHeight: 1.3 }}>{emails.filter(e => _looksLikeTx(e)).length} look like transactions. Discard anyway?</span>
+              ) : (
+                <span style={{ fontSize: 10, color: "var(--ink-3)", maxWidth: 180, lineHeight: 1.3 }}>Discard {emails.length} email{emails.length > 1 ? "s" : ""}?</span>
+              )}
               <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "none", background: "var(--neg)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Yes</button>
               <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
             </div>
@@ -745,6 +749,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [selectMode, setSelectMode] = React.useState(false);
   const [selectAllFlag, setSelectAllFlag] = React.useState(false);
   const [collapsedAll, setCollapsedAll] = React.useState(null); // null=default, true=all collapsed, false=all expanded
+  const [showFirstHint, setShowFirstHint] = React.useState(() => !localStorage.getItem("mf_hint_dismissed"));
   const listRef = React.useRef(null);
 
   // Date range presets
@@ -988,6 +993,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const grouped = groupByDate(filtered);
   const selected = transactions.find(t => t.id === selectedId);
 
+  // Dismiss first-visit hint on first interaction
+  React.useEffect(() => { if (selectedId && showFirstHint) { setShowFirstHint(false); localStorage.setItem("mf_hint_dismissed", "1"); } }, [selectedId]);
+
   // Auto-load more when a filtered tab has fewer than 10 visible rows but
   // more data exists — capped at 3 attempts per tab to avoid chain-fetching
   // sparse tabs (e.g. income) that would exhaust all transactions.
@@ -1017,6 +1025,31 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       API.patch(`/api/transactions/${id}`, apiPatch).catch(err => console.error("patch failed:", err));
     }
   };
+
+  // Keyboard shortcuts for the inbox list
+  const [showShortcuts, setShowShortcuts] = React.useState(false);
+  React.useEffect(() => {
+    if (selectMode || filter === "duplicates") return;
+    const onKey = (e) => {
+      if (e.key === "Escape" && selectedId) { e.preventDefault(); setSelectedId(null); return; }
+      if (e.key === "Escape" && showShortcuts) { e.preventDefault(); setShowShortcuts(false); return; }
+      if (e.key === "?" && !selectedId) { e.preventDefault(); setShowShortcuts(s => !s); return; }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const idx = selectedId ? filtered.findIndex(t => t.id === selectedId) : -1;
+        const next = e.key === "ArrowDown"
+          ? Math.min(idx + 1, filtered.length - 1)
+          : Math.max(idx - 1, 0);
+        if (next >= 0 && next < filtered.length) {
+          setSelectedId(filtered[next].id);
+          updateTx(filtered[next].id, { read: true });
+        }
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId, filtered, selectMode, filter, transactions, showShortcuts]);
 
   return (
     <>
@@ -1068,6 +1101,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   {datePresets.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
                 </select>
                 {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions</span>}
+                {!isMobile && selectedId && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", display: "flex", alignItems: "center", gap: 4 }}>↑↓ <span style={{ opacity: 0.4 }}>·</span> Esc</span>}
               </>
             )}
           </div>
@@ -1115,7 +1149,15 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
               ))
             )
-          ) : grouped.map(([date, txs]) => {
+          ) : (
+            <>
+            {showFirstHint && filter === "all" && !selectedId && (
+              <div style={{ padding: "12px 16px", margin: "8px 12px 4px", background: "var(--accent-soft)", borderRadius: 8, fontSize: 12, color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span>Click a transaction to review and categorize it.</span>
+                <button onClick={() => { setShowFirstHint(false); localStorage.setItem("mf_hint_dismissed", "1"); }} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--accent)", padding: 4, display: "flex", fontSize: 14, lineHeight: 1 }}>×</button>
+              </div>
+            )}
+            {grouped.map(([date, txs]) => {
             const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
             return (
               <div key={date}>
@@ -1142,6 +1184,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               </div>
             );
           })}
+            </>
+          )}
           {loadingMore && (
             <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
               <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
@@ -1165,9 +1209,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
           <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
           <button onClick={bulkReclassify} disabled={bulkReclassItems.length > 0} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassItems.length > 0 ? "default" : "pointer", fontWeight: 500 }}>
-            Re-classify (LLM)
+            Recategorize (LLM)
           </button>
-          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Re-classify (Manual)</button>
+          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Recategorize (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
@@ -1176,7 +1220,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       {bulkManualOpen && (
         <div onClick={()=>setBulkManualOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.2)" }}>
           <div onClick={e=>e.stopPropagation()} style={{ position: "absolute", top: isMobile ? 80 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: isMobile ? "calc(100vw - 28px)" : 340, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.3)" }}>
-            <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Re-classify {selectedIds.size} transactions</div>
+            <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectedIds.size} transactions</div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
               <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
@@ -1207,7 +1251,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             {/* Header */}
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>Re-classify {bulkReclassItems.length} emails</span>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>Recategorize {bulkReclassItems.length} emails</span>
                 <button onClick={bulkCloseReclass} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}><Icon name="x" size={14} stroke="currentColor"/></button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -1215,7 +1259,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   {(() => {
                     const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing").length;
                     const pct = bulkReclassItems.length > 0 ? (done / bulkReclassItems.length * 100) : 0;
-                    return <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 300ms" }} />;
+                    return <div style={{ height: "100%", background: "var(--accent)", borderRadius: 2, transition: "transform 300ms", transformOrigin: "left", transform: `scaleX(${pct / 100})` }} />;
                   })()}
                 </div>
                 <span style={{ fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>{bulkReclassIdx + 1}/{bulkReclassItems.length}</span>
@@ -1372,9 +1416,40 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       {pickerFor && (
         <CategoryPicker
           current={transactions.find(t=>t.id===pickerFor)?.cat}
-          onPick={(cat)=>{ updateTx(pickerFor, { cat, conf: 1.0 }); setPickerFor(null); }}
+          onPick={(cat)=>{
+            const tx = transactions.find(t=>t.id===pickerFor);
+            const prev = tx ? { cat: tx.cat, conf: tx.conf } : null;
+            updateTx(pickerFor, { cat, conf: 1.0 });
+            setPickerFor(null);
+            if (prev) showToast("Category changed", { label: "Undo", onClick: () => updateTx(pickerFor, prev) });
+          }}
           onClose={()=>setPickerFor(null)}
         />
+      )}
+
+      {showShortcuts && (
+        <div
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div
+            style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"28px 32px", maxWidth:360, width:"90%" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontFamily:"'Fraunces',serif", fontSize:18, fontWeight:500, marginBottom:16 }}>Keyboard shortcuts</div>
+            {[
+              ["↑ ↓", "Navigate transactions"],
+              ["Esc", "Close detail panel"],
+              ["? /", "Toggle this reference"],
+            ].map(([key, desc]) => (
+              <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", fontSize:13 }}>
+                <span style={{ color:"var(--ink-2)" }}>{desc}</span>
+                <kbd style={{ fontFamily:"'Geist Mono',monospace", fontSize:11, padding:"2px 8px", background:"var(--paper-2)", borderRadius:4, color:"var(--ink)" }}>{key}</kbd>
+              </div>
+            ))}
+            <div style={{ marginTop:16, fontSize:11, color:"var(--ink-4)" }}>Press <kbd style={{ fontFamily:"'Geist Mono',monospace", padding:"1px 6px", background:"var(--paper-2)", borderRadius:3 }}>?</kbd> or click anywhere to close.</div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -1462,7 +1537,12 @@ const SearchView = ({ query }) => {
       {pickerFor && (
         <CategoryPicker
           current={results.find(t => t.id === pickerFor)?.cat}
-          onPick={cat => { updateTx(pickerFor, { cat, conf: 1.0 }); setPickerFor(null); }}
+          onPick={cat => {
+            const prev = { cat: results.find(t => t.id === pickerFor)?.cat };
+            updateTx(pickerFor, { cat, conf: 1.0 });
+            setPickerFor(null);
+            if (prev.cat) showToast("Category changed", { label: "Undo", onClick: () => updateTx(pickerFor, prev) });
+          }}
           onClose={() => setPickerFor(null)}
         />
       )}

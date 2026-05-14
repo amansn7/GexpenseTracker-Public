@@ -20,8 +20,8 @@ const ReportsView = () => {
   };
 
   const savingsBadge = (rate) => {
-    const bg = rate >= 20 ? "var(--pos-soft)" : rate >= 10 ? "#fef3c7" : "var(--neg-soft)";
-    const ink = rate >= 20 ? "var(--pos)" : rate >= 10 ? "#92400e" : "var(--neg)";
+    const bg = rate >= 20 ? "var(--pos-soft)" : rate >= 10 ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--neg-soft)";
+    const ink = rate >= 20 ? "var(--pos)" : rate >= 10 ? "var(--amber)" : "var(--neg)";
     return (
       <span style={{ background: bg, color: ink, borderRadius: 99, padding: "2px 8px", fontSize: 11, fontWeight: 600, fontFamily: "'Geist Mono', monospace" }}>
         {rate.toFixed(1)}%
@@ -80,10 +80,8 @@ const ReportsView = () => {
             </thead>
             <tbody>
               {months.map((m, i) => (
-                <tr key={m.month}
-                  style={{ background: i % 2 === 0 ? "var(--card)" : "var(--paper-2)" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "var(--card)" : "var(--paper-2)"}>
+                <tr key={m.month} className="report-row"
+                  style={{ background: i % 2 === 0 ? "var(--card)" : "var(--paper-2)" }}>
                   <td style={{ ...cell(null, {}), textAlign: "left", fontFamily: "'Fraunces', serif", fontWeight: 500, color: "var(--ink)", fontSize: 14 }}>{m.label}</td>
                   <td style={cell(null, { color: "var(--pos)" })}>{fmtAmt(m.income)}</td>
                   <td style={cell(null, { color: "var(--neg)" })}>{fmtAmt(m.expenses)}</td>

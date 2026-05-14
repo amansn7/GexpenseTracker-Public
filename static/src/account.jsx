@@ -618,7 +618,7 @@ const AdminSyncSection = () => {
             <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", fontSize: 12 }}>{progress.current}/{progress.total || "?"} emails</span>
           </div>
           <div style={{ height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden", margin: "10px 0 8px" }}>
-            <div style={{ height: "100%", background: "var(--pos)", borderRadius: 2, transition: "width 300ms ease", width: `${pct}%` }} />
+            <div className="progress-fill" style={{ height: "100%", background: "var(--pos)", borderRadius: 2, transform: `scaleX(${pct / 100})` }} />
           </div>
           {progress.tally && (
             <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
@@ -1657,7 +1657,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             </select>
             <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 8 }}>
               {settings.active_ai_service_id
-                ? "Used for email classification and inbox reclassify."
+                ? "Used for email classification and inbox recategorization."
                 : "No service selected — classification falls back to rules only."}
             </div>
           </div>

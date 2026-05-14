@@ -166,7 +166,7 @@ const WeeklyBurn = ({ data }) => {
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
                 ₹{w.spent.toLocaleString("en-IN")}
               </div>
-              <div style={{ width: "100%", maxWidth: 120, background: w.projected ? "url(#diag) var(--paper-2)" : "var(--accent)", opacity: w.projected ? 0.4 : 0.85, height: `${Math.max(pct, 2)}%`, borderRadius: "3px 3px 0 0", border: w.projected ? "1px dashed var(--ink-4)" : "none", transition: "height 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+              <div style={{ width: "100%", maxWidth: 120, background: w.projected ? "url(#diag) var(--paper-2)" : "var(--accent)", opacity: w.projected ? 0.4 : 0.85, height: "100%", borderRadius: "3px 3px 0 0", border: w.projected ? "1px dashed var(--ink-4)" : "none", transform: `scaleY(${Math.max(pct, 2) / 100})`, transformOrigin: "bottom", transition: "transform 400ms cubic-bezier(.2,.8,.2,1)" }}/>
             </div>
           );
         })}

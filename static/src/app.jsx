@@ -151,39 +151,7 @@ const App = () => {
 
   // Apply theme
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "midnight") {
-      root.style.setProperty("--paper", "#14120e");
-      root.style.setProperty("--paper-2", "#1c1a15");
-      root.style.setProperty("--ink", "#efe9d8");
-      root.style.setProperty("--ink-2", "#c9c3b1");
-      root.style.setProperty("--ink-3", "#8a857a");
-      root.style.setProperty("--ink-4", "#595650");
-      root.style.setProperty("--line", "#2a2720");
-      root.style.setProperty("--card", "#1a1813");
-    } else if (theme === "cool") {
-      root.style.setProperty("--paper", "#f3f4f6");
-      root.style.setProperty("--paper-2", "#e8eaee");
-      root.style.setProperty("--ink", "#171923");
-      root.style.setProperty("--ink-2", "#3a3d49");
-      root.style.setProperty("--ink-3", "#6b6f7c");
-      root.style.setProperty("--ink-4", "#9ca0ac");
-      root.style.setProperty("--line", "#dcdee4");
-      root.style.setProperty("--card", "#fbfcfd");
-      root.style.setProperty("--accent", "#2563eb");
-      root.style.setProperty("--accent-soft", "#dbe9fe");
-    } else {
-      root.style.setProperty("--paper", "#f6f3ec");
-      root.style.setProperty("--paper-2", "#efeadf");
-      root.style.setProperty("--ink", "#1a1814");
-      root.style.setProperty("--ink-2", "#3d3a33");
-      root.style.setProperty("--ink-3", "#78736a");
-      root.style.setProperty("--ink-4", "#a8a297");
-      root.style.setProperty("--line", "#e3dcca");
-      root.style.setProperty("--card", "#fbf9f3");
-      root.style.setProperty("--accent", "#c2410c");
-      root.style.setProperty("--accent-soft", "#fde8d7");
-    }
+    document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
   const handleRescan = async () => {
@@ -193,7 +161,6 @@ const App = () => {
     setSyncProgress(null);
     try {
       const trigger = await API.post("/api/sync/trigger");
-      console.log("Sync triggered:", trigger);
       let started = false;
       let attempts = 0;
       const poll = setInterval(async () => {
@@ -271,7 +238,7 @@ const App = () => {
         onClose={() => setNavOpen(false)}
         account={account}
       />
-      <main style={shellStyles.main}>
+      <main role="main" style={shellStyles.main}>
         <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
           {!viewport.isMobile && <button style={shellStyles.topBtn}><Icon name="filter" size={13}/> Filter</button>}
           <button
@@ -301,15 +268,15 @@ const App = () => {
           {view === "inbox" && !loading && transactions.length === 0 && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100vh - 72px)", textAlign:"center" }}>
               <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>
-                {totalTransactions > 0 ? `No ${inboxFilter === "all" ? "" : inboxFilter + " "}transactions found` : "No transactions yet"}
+                {totalTransactions > 0 ? `No ${inboxFilter === "all" ? "" : inboxFilter + " "}transactions found` : "Your inbox is quiet"}
               </div>
               <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>
                 {totalTransactions > 0
                   ? `No transactions match the "${inboxFilter}" filter. Try a different filter.`
-                  : "Connect your Gmail account to start tracking your spending."}
+                  : "Connect your Gmail account — MoneyFlow will read your purchase receipts and organize them automatically."}
               </div>
               {totalTransactions === 0 && (
-                <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Sync now</button>
+                <button onClick={handleRescan} style={{ marginTop:4, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Connect Gmail</button>
               )}
             </div>
           )}

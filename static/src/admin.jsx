@@ -24,7 +24,7 @@ const S = {
   badge: { display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 5, fontSize: 12, fontWeight: 600 },
   progress: { marginTop: 12, padding: "14px 16px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)" },
   progressBar: { height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden", margin: "10px 0 8px" },
-  progressFill: { height: "100%", background: "var(--pos)", borderRadius: 2, transition: "width 300ms ease" },
+  progressFill: { height: "100%", background: "var(--pos)", borderRadius: 2 },
   pill: { display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500 },
   divider: { height: 1, background: "var(--line)", margin: "20px 0" },
 };
@@ -120,7 +120,7 @@ const SyncSection = () => {
             </span>
           </div>
           <div style={S.progressBar}>
-            <div style={{ ...S.progressFill, width: `${pct}%` }} />
+            <div className="progress-fill" style={{ ...S.progressFill, transform: `scaleX(${pct / 100})` }} />
           </div>
           {progress.tally && (
             <div style={{ display: "flex", gap: 10, fontSize: 11 }}>
