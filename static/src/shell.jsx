@@ -59,7 +59,7 @@ const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
   </button>
 ));
 
-const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
+const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCategoryFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
   const sideStyle = mobile
     ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
@@ -99,9 +99,9 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, theme, setTheme, mob
 
     <div style={shellStyles.sectionLabel}>Categories</div>
     {Object.entries(CATEGORIES).filter(([k])=>k!=="income"&&k!=="other").map(([k,c]) => (
-      <button key={k} className={"focus-ring nav-btn" + (view==="inbox"&&filter==="cat:"+k ? " active" : "")}
-        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("cat:"+k); })}
-        style={{ ...shellStyles.navItem, ...(view==="inbox"&&filter==="cat:"+k ? shellStyles.navItemActive : {}) }}>
+      <button key={k} className={"focus-ring nav-btn" + ((view==="inbox"&&filter==="cat:"+k) || categoryFilter===k ? " active" : "")}
+        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("all"); onCategoryFilter && onCategoryFilter(k); })}
+        style={{ ...shellStyles.navItem, ...((view==="inbox"&&filter==="cat:"+k) || categoryFilter===k ? shellStyles.navItemActive : {}) }}>
         <span style={{ width: 10, height: 10, borderRadius: 3, background: c.bg, border: `1px solid ${c.ink}22` }} />
         <span>{c.label}</span>
       </button>

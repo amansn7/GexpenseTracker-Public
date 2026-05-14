@@ -185,7 +185,7 @@ const WeeklyBurn = ({ data }) => {
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
-const FlowView = ({ transactions }) => {
+const FlowView = ({ transactions, categoryFilter }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = (() => {
@@ -216,7 +216,7 @@ const FlowView = ({ transactions }) => {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [rangeFrom, rangeTo]);
 
-  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo);
+  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown) : null;
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;

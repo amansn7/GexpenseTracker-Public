@@ -19,6 +19,7 @@ const App = () => {
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [inboxFilter, setInboxFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState(null);
   const [dateRange, setDateRange] = useState({ from: null, to: null }); // null = current month
 
   React.useEffect(() => {
@@ -65,6 +66,7 @@ const App = () => {
       const params = new URLSearchParams({ offset: 0, limit: 50 });
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
+      if (categoryFilter) params.append("category", categoryFilter);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
@@ -73,7 +75,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, categoryFilter]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -87,6 +89,7 @@ const App = () => {
       });
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
+      if (categoryFilter) params.append("category", categoryFilter);
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
         const seen = new Set(ts.map(t => t.id));
@@ -225,6 +228,8 @@ const App = () => {
         counts={counts}
         filter={inboxFilter}
         onFilter={setInboxFilter}
+        categoryFilter={categoryFilter}
+        onCategoryFilter={setCategoryFilter}
         theme={theme}
         setTheme={setTheme}
         mobile={viewport.isTablet}
@@ -234,6 +239,19 @@ const App = () => {
       />
       <main role="main" style={shellStyles.main}>
         <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
+          <select
+            value={categoryFilter || ""}
+            onChange={e => setCategoryFilter(e.target.value || null)}
+            style={{ ...shellStyles.topBtn, padding: "6px 10px", fontSize: 11, maxWidth: 160, cursor: "pointer" }}
+          >
+            <option value="">All categories</option>
+            {Object.entries(CATEGORIES).filter(([k]) => k !== "other").map(([k, c]) => (
+              <option key={k} value={k}>{c.label}</option>
+            ))}
+            {(account?.categories || []).filter(c => !CATEGORIES[c.name]).map(c => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
           <button
             onClick={handleRescan}
             disabled={syncing}
@@ -281,6 +299,7 @@ const App = () => {
               setSelectedId={setSelectedId}
               filter={inboxFilter}
               setFilter={setInboxFilter}
+              categoryFilter={categoryFilter}
               dateRange={dateRange}
               setDateRange={setDateRange}
               loadMore={loadMore}
@@ -291,8 +310,8 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery}/>}
-          {view === "flow"      && <FlowView transactions={transactions}/>}
-          {view === "dashboard" && <DashboardView transactions={transactions}/>}
+          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
           {view === "recurring" && <RecurringView />}

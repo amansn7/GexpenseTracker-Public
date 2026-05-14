@@ -22,7 +22,7 @@ const dashStyles = {
   catCard: { padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" },
 };
 
-const DashboardView = ({ transactions }) => {
+const DashboardView = ({ transactions, categoryFilter }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = (() => {
@@ -59,7 +59,7 @@ const DashboardView = ({ transactions }) => {
   }, [rangeFrom, rangeTo]);
 
   // Filter transactions to selected range for client-side charts
-  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo);
+  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const totalIncome = stats?.total_income ?? 0;
   const totalExpense = stats?.total_expenses ?? 0;
   const remaining = totalIncome - totalExpense;
