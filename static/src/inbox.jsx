@@ -924,6 +924,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       setTransactions(ts => ts.map(t => t.id === item.id ? {
         ...t,
         cat,
+        amount: isIncome ? (result.amount || 0) : -(result.amount || 0),
         tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
         conf: result.confidence ?? t.conf,
         merchant: result.merchant || t.merchant,
