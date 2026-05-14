@@ -34,8 +34,8 @@ const shellStyles = {
   kbd: { fontFamily: "'Geist Mono', monospace", fontSize: 10, padding: "2px 6px", background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 4, color: "var(--ink-3)" },
   topBtn: { display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" },
   topBtnPrimary: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
-  connected: { display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)", padding: "6px 10px", background: "var(--pos-soft)", borderRadius: 20, color: "var(--pos)", fontWeight: 500 },
-  connectedDot: { width: 6, height: 6, borderRadius: 999, background: "var(--pos)" },
+  connected: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--ink-3)", fontWeight: 400 },
+  connectedDot: { width: 5, height: 5, borderRadius: 999, background: "var(--pos)", flexShrink: 0 },
 };
 
 const _navHints = {
