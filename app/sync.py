@@ -3,10 +3,10 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
-from app.models import Email, Transaction, SyncState, Label, UserSettings
+from app.models import Email, Transaction, SyncState, Label, UserSettings, DuplicatePair
 from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import fetch_new_messages
 from app.alerts import add_alert
@@ -442,6 +442,7 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
                 batch_size=settings.LLM_BATCH_SIZE,
             )
 
+            new_transactions = []
             for (email, _), cls in zip(new_pairs, classifications):
                 t = Transaction(
                     email_id=email.id,
@@ -456,11 +457,19 @@ async def run_sync_range(user_id: str, after_date: str, before_date: str, llm_pr
                     classifier_method=cls.classifier_method.value,
                 )
                 session.add(t)
+                new_transactions.append((t, email))
                 inserted += 1
                 msg = {"subject": email.subject, "sender": email.sender}
                 _add_preview(msg, cls.label.value, cls.category, cls.amount)
 
             await session.flush()
+
+            from app.dedup.service import detect_and_record_duplicates
+            for t, email in new_transactions:
+                try:
+                    await detect_and_record_duplicates(t, email, session)
+                except Exception as exc:
+                    logger.error("Dedup detection failed for tx email %s: %s", email.id, exc)
 
         _sync_progress["phase_detail"] = "Backfilling missing body text..."
 
@@ -592,3 +601,48 @@ async def clean_bodies_job(user_id: str):
             "result": {"cleaned": cleaned, "total_candidates": total},
         })
         _log_event(f"Done: cleaned {cleaned} of {total} emails", "success")
+
+
+async def scan_all_for_duplicates(user_id: str) -> dict:
+    """
+    Scan ALL existing expense transactions for duplicate candidates.
+    Runs detect_and_record_duplicates on every expense tx with a linked email.
+    Safe to run periodically — already-paired transactions are skipped
+    (dedup service checks _pair_exists_query before creating new pairs).
+
+    Returns {checked, new_pairs} where new_pairs is the count of newly
+    created DuplicatePair rows (beyond what the dedup service already found).
+    """
+    from app.dedup.service import detect_and_record_duplicates
+
+    async with AsyncSessionLocal() as session:
+        rows = (await session.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == user_id,
+                Transaction.label == Label.expense,
+            )
+        )).all()
+
+        checked = 0
+        before = (await session.execute(
+            select(func.count(DuplicatePair.id))
+        )).scalar()
+
+        for t, email in rows:
+            try:
+                await detect_and_record_duplicates(t, email, session)
+                checked += 1
+            except Exception as exc:
+                logger.error("Dedup scan failed for tx %s: %s", t.id, exc)
+
+        await session.commit()
+
+        after = (await session.execute(
+            select(func.count(DuplicatePair.id))
+        )).scalar()
+        new_pairs = (after or 0) - (before or 0)
+
+        logger.info("scan_all_for_duplicates: checked %d, new pairs %d", checked, new_pairs)
+        return {"checked": checked, "new_pairs": new_pairs}

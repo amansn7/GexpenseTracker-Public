@@ -75,5 +75,34 @@ def setup_scheduler() -> None:
         id="delete_expired_accounts",
         replace_existing=True,
     )
+
+    async def _dedup_job():
+        logger.info("Scheduled dedup scan starting")
+        try:
+            async with AsyncSessionLocal() as owner_db:
+                from sqlalchemy import select
+                from app.models import User, UserRole
+                owner = (await owner_db.execute(
+                    select(User).where(User.role == UserRole.owner, User.email != "service@localhost")
+                )).scalar_one_or_none()
+                owner_id = owner.id if owner else None
+            if owner_id is None:
+                logger.warning("Dedup scan skipped: no owner user found")
+                return
+            from app.sync import scan_all_for_duplicates
+            result = await scan_all_for_duplicates(owner_id)
+            logger.info("Dedup scan complete: %s", result)
+        except Exception as exc:
+            logger.error("Dedup job error: %s", exc)
+
+    scheduler.add_job(
+        _dedup_job,
+        trigger="interval",
+        hours=1,
+        id="dedup_scan",
+        replace_existing=True,
+        next_run_time=datetime.now(),
+    )
+
     scheduler.start()
     logger.info("Scheduler started. Gmail sync every %dh, cleanup every 30min", settings.SYNC_INTERVAL_HOURS)
