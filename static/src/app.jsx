@@ -63,9 +63,6 @@ const App = () => {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams({ offset: 0, limit: 50 });
-      const labelMap = { expenses: "expense", income: "income" };
-      const apiLabel = labelMap[inboxFilter] || null;
-      if (apiLabel) params.append("label", apiLabel);
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
       const txRaw = await API.get(`/api/transactions?${params}`);
@@ -76,7 +73,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [inboxFilter, dateRange]);
+  }, [dateRange]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -88,9 +85,6 @@ const App = () => {
         offset: transactions.length,
         limit: 50,
       });
-      const labelMap = { expenses: "expense", income: "income" };
-      const apiLabel = labelMap[inboxFilter] || null;
-      if (apiLabel) params.append("label", apiLabel);
       const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
       if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
       const data = await API.get(`/api/transactions?${params}`);
