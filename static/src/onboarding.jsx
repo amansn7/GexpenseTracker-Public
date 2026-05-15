@@ -21,8 +21,12 @@ const DottedSurface = () => {
     let w, h, cols, rows, dots;
 
     const resize = () => {
-      w = canvas.width = window.innerWidth;
-      h = canvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.scale(dpr, dpr);
       cols = Math.ceil(w / SEP) + 1;
       rows = Math.ceil(h / SEP) + 1;
       dots = [];
@@ -131,7 +135,7 @@ const WizardShell = ({ step, children }) => {
         </div>
 
         {/* Card */}
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 40 }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "clamp(20px, 5vw, 40px)" }}>
           {children}
         </div>
       </div>

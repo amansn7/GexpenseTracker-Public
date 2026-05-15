@@ -18,6 +18,7 @@
   .btn:hover { opacity:0.85; }
   .btn svg { flex-shrink:0; }
   .footer { margin-top:48px; font-size:12px; color:var(--ink-3); }
+  @media (max-width:480px){ .wrap { padding:28px 20px; } }
   .tgl { position:fixed; bottom:20px; right:20px; z-index:2; width:36px; height:36px; border-radius:999px; background:var(--card); border:1px solid var(--line); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink-2); padding:0; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
 </style>
 </head>
@@ -45,7 +46,7 @@
   var c=document.getElementById("bg"),ctx=c.getContext("2d"),SEP=60,frame,count=0,w,h,cols,rows,dots;
   var tgl=document.getElementById("tgl"),svg=document.getElementById("tgl-svg"),html=document.documentElement;
 
-  function resize(){w=c.width=window.innerWidth;h=c.height=window.innerHeight;cols=Math.ceil(w/SEP)+1;rows=Math.ceil(h/SEP)+1;dots=[];for(var ix=0;ix<cols;ix++)for(var iy=0;iy<rows;iy++)dots.push({x:ix*SEP,y:iy*SEP});}
+  function resize(){var dpr=window.devicePixelRatio||1;w=window.innerWidth;h=window.innerHeight;c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);cols=Math.ceil(w/SEP)+1;rows=Math.ceil(h/SEP)+1;dots=[];for(var ix=0;ix<cols;ix++)for(var iy=0;iy<rows;iy++)dots.push({x:ix*SEP,y:iy*SEP});}
   function dark(){return html.getAttribute("data-theme")==="midnight";}
   function draw(){
     count+=0.04;
