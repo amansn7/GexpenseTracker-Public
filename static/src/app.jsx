@@ -253,7 +253,7 @@ const App = () => {
         onClose={() => setNavOpen(false)}
         account={account}
       />
-      <main role="main" style={shellStyles.main}>
+      <main role="main" id="main-content" tabIndex={-1} style={shellStyles.main}>
         <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
           <div ref={catRef} style={{ position: "relative" }}>
             <button
@@ -266,7 +266,7 @@ const App = () => {
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: curCat.bg || curCat.color || "var(--ink-3)", flexShrink: 0 }} />
               ) : null}
               <span>{categoryFilter && curCat ? (curCat.label || curCat.name) : "All categories"}</span>
-              <Icon name={catOpen ? "arrow-u" : "arrow-d"} size={10} stroke="var(--ink-3)" />
+              <Icon name={catOpen ? "arrow-u" : "arrow-d"} size={11} stroke="var(--ink-3)" />
             </button>
             {catOpen && (
               <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 180, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: 6 }}>
@@ -302,7 +302,7 @@ const App = () => {
             onClick={handleRescan}
             disabled={syncing}
             className="pill-btn"
-            style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, ...(viewport.isMobile ? { padding: "9px 10px" } : {}), opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
+            style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
           >
             <Icon name="sparkle" size={13} stroke="currentColor"/>
             {!viewport.isMobile && (syncing ? "Scanning\u2026" : "Re-scan")}
@@ -356,12 +356,12 @@ const App = () => {
               setReviewEmails={setReviewEmails}
             />
           )}
-          {view === "search"    && <SearchView query={searchQuery}/>}
+          {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
           {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
-          {view === "recurring" && <RecurringView />}
+          {view === "recurring" && <RecurringView userCategories={account?.categories || []}/>}
           {view === "debt"      && <DebtView />}
           {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
           {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
