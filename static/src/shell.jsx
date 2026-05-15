@@ -56,14 +56,14 @@ const useViewport = () => {
 
 const shellStyles = {
   app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100vh", position: "relative", zIndex: 2 },
-  side: { borderRight: "1px solid var(--line)", padding: "20px 16px", display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 0, height: "100vh", background: "var(--paper)", overflowY: "auto" },
-  brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "6px 8px 28px" },
+  side: { borderRight: "1px solid var(--line)", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 1, position: "sticky", top: 0, height: "100vh", background: "var(--paper)", overflowY: "auto" },
+  brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 4px 24px" },
   brandMark: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
   brandSlash: { color: "var(--accent)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 20 },
-  navItem: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", textAlign: "left", width: "100%" },
-  navItemActive: { background: "var(--paper-2)", color: "var(--ink)" },
+  navItem: { display: "flex", alignItems: "center", gap: 8, padding: "5px 10px 5px 8px", borderRadius: 6, color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", textAlign: "left", width: "100%" },
+  navItemActive: { boxShadow: "inset 2px 0 0 0 var(--accent)", background: "var(--paper-2)", color: "var(--ink)" },
   navCount: { marginLeft: "auto", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
-  sectionLabel: { fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", padding: "18px 10px 6px", fontWeight: 500 },
+  sectionLabel: { fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)", padding: "14px 8px 4px", fontWeight: 600 },
   sideFooter: { borderTop: "1px solid var(--line)", padding: "10px 8px 4px", display: "flex", alignItems: "center", gap: 10 },
   avatar: { width: 28, height: 28, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 600, fontFamily: "'Geist', sans-serif" },
   main: { display: "flex", flexDirection: "column", minWidth: 0 },
@@ -92,7 +92,7 @@ const _navHints = {
 
 const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
   <button title={_navHints[icon] || label} className={"focus-ring nav-btn" + (active ? " active" : "")} style={{ ...shellStyles.navItem, ...(active ? shellStyles.navItemActive : {}) }} onClick={onClick}>
-    <Icon name={icon} size={15} />
+    <Icon name={icon} size={14} />
     <span>{label}</span>
     {count != null && <span style={shellStyles.navCount}>{count}</span>}
   </button>

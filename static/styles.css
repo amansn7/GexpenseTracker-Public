@@ -300,9 +300,15 @@ body {
 .hover-bg.active { background: var(--paper-2); }
 
 /* Nav button hover in sidebar */
-.nav-btn { background: transparent; transition: background 120ms, color 120ms; }
+.nav-btn { background: transparent; transition: background 120ms, color 120ms; position: relative; }
 .nav-btn:hover { background: var(--paper-2); color: var(--ink); }
 .nav-btn.active { background: var(--paper-2); color: var(--ink); }
+
+/* Sidebar thin scrollbar */
+aside[role="navigation"]::-webkit-scrollbar { width: 4px; }
+aside[role="navigation"]::-webkit-scrollbar-track { background: transparent; }
+aside[role="navigation"]::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 
 /* Hover row for search results */
 .hover-row { transition: background 120ms; }
