@@ -333,6 +333,7 @@ async def list_sender_rules(
                 "label": r.label,
                 "category": r.category,
                 "source": r.source.value if r.source else None,
+                "enabled": r.enabled,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows

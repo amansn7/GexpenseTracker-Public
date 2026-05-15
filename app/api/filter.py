@@ -1,12 +1,18 @@
 import logging
 import json
 import re
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
+from pydantic import BaseModel
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import FilterRule, User, Email
+
+
+class FilterRuleBody(BaseModel):
+    rule_type: str  # allowlist_domain | blocklist_domain | keyword_pattern
+    value: str
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -136,3 +142,41 @@ async def refine_filter_rules(
 
     await db.commit()
     return {"added": added, "updated": updated, "generated": len(added)}
+
+
+@router.post("/filter/rules", status_code=201)
+async def create_filter_rule(
+    body: FilterRuleBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if body.rule_type not in ("allowlist_domain", "blocklist_domain", "keyword_pattern"):
+        raise HTTPException(status_code=422, detail="rule_type must be allowlist_domain, blocklist_domain, or keyword_pattern")
+    if not body.value.strip():
+        raise HTTPException(status_code=422, detail="value is required")
+
+    existing = (await db.execute(
+        select(FilterRule).where(FilterRule.rule_type == body.rule_type, FilterRule.value == body.value.strip())
+    )).scalar_one_or_none()
+
+    if existing:
+        raise HTTPException(status_code=409, detail="Filter rule already exists")
+
+    db.add(FilterRule(rule_type=body.rule_type, value=body.value.strip(), source="user"))
+    await db.commit()
+    return {"rule_type": body.rule_type, "value": body.value.strip(), "source": "user"}
+
+
+@router.delete("/filter/rules/{rule_id}")
+async def delete_filter_rule(
+    rule_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = (await db.execute(select(FilterRule).where(FilterRule.id == rule_id))).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Filter rule not found")
+
+    await db.execute(delete(FilterRule).where(FilterRule.id == rule_id))
+    await db.commit()
+    return {"deleted": rule_id}

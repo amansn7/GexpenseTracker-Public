@@ -185,8 +185,12 @@ async def build_domain_rules(
     # Merge in SenderRule entries (user-trained, always overrides transaction data)
     from app.models.financial import SenderRule
     sender_rules = (await session.execute(
-        select(SenderRule).where(SenderRule.sender_domain.isnot(None))
-    )).scalars().all()
+        select(
+            SenderRule.sender_domain,
+            SenderRule.label,
+            SenderRule.category,
+        ).where(SenderRule.sender_domain.isnot(None))
+    )).all()
     for sr in sender_rules:
         domain = sr.sender_domain.lower().strip()
         if sr.label:

@@ -112,6 +112,7 @@ class PatternRule(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.88)
     hit_count: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(String(20), default="llm_generated")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
