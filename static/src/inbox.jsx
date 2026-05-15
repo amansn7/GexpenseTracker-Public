@@ -171,7 +171,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
 const CategoryPicker = ({ current, onPick, onClose }) => {
   const { isMobile } = useViewport();
 
-  const groups = CategoryService.grouped().filter(g => g.key !== "finance");
+  const groups = CategoryService.grouped();
 
   return (
   <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>

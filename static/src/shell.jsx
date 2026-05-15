@@ -131,7 +131,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
     <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>navigate(()=>{ setView("inbox"); onFilter("payments"); })} />
 
     <div style={shellStyles.sectionLabel}>Categories</div>
-    {CategoryService.grouped().filter(g => g.key !== "finance").map(g => (
+    {CategoryService.grouped().map(g => (
       <div key={g.key}>
         {g.key !== "_user" && (
           <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "4px 10px 2px", fontWeight: 500 }}>{g.label}</div>

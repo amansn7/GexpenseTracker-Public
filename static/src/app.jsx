@@ -275,7 +275,7 @@ const App = () => {
                   onClick={() => { setCategoryFilter(null); setCatOpen(false); }}
                   style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: !categoryFilter ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: !categoryFilter ? 600 : 400 }}
                 >All categories</button>
-                {CategoryService.grouped().filter(g => g.key !== "finance").map(g => (
+                {CategoryService.grouped().map(g => (
                   <div key={g.key}>
                     <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
                     {g.categories.map(item => (
