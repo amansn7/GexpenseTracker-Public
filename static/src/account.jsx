@@ -1020,6 +1020,81 @@ const AdminCleanBodiesSection = () => {
   );
 };
 
+const AutoRulesSection = () => {
+  const [rules, setRules] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [deleting, setDeleting] = React.useState(null);
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try {
+      const d = await API.get("/api/rules");
+      setRules(d.user || []);
+    } catch (e) { setError(e.message); setRules([]); }
+    setLoading(false);
+  };
+
+  React.useEffect(() => { load(); }, []);
+
+  const doDelete = async (domain) => {
+    setDeleting(domain);
+    try { await API.delete(`/api/rules/${encodeURIComponent(domain)}`); setRules(prev => prev.filter(r => r.sender_domain !== domain)); showToast(`Deleted rule for ${domain}`); } catch (_) {}
+    setDeleting(null);
+  };
+
+  const labelBadge = (l) => {
+    const s = { expense: { background: "var(--neg-soft)", color: "var(--neg)" }, income: { background: "var(--pos-soft)", color: "var(--pos)" }, ignore: { background: "var(--paper-2)", color: "var(--ink-3)" } }[l] || {};
+    return <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 3, fontWeight: 600, ...s }}>{l}</span>;
+  };
+
+  return (
+    <div style={accountStyles.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={accountStyles.sectionTitle}>Auto-Learned Rules</h3>
+        <button onClick={load} style={{ ...accountStyles.btn, padding: "5px 10px", fontSize: 11 }}>↻ Refresh</button>
+      </div>
+      <div style={accountStyles.sectionSub}>— rules created from your corrections. Future emails from these senders will skip the LLM.</div>
+      {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
+      {error && <div style={{ padding: 10, background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 8 }}>{error}</div>}
+      {!loading && rules !== null && rules.length === 0 && (
+        <div style={{ fontSize: 13, color: "var(--ink-4)", padding: "12px 0", fontStyle: "italic" }}>
+          No rules yet. Correct a transaction and the system will learn automatically.
+        </div>
+      )}
+      {rules !== null && rules.length > 0 && (
+        <div style={{ marginTop: 8, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Sender domain", "Label", "Category", ""].map(h => (
+                  <th key={h} style={{ padding: "8px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r, i) => (
+                <tr key={r.sender_domain}>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)", fontFamily: "'Geist Mono', monospace", fontSize: 12, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.sender_domain}</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>{labelBadge(r.label)}</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)", color: "var(--ink-2)" }}>{r.category || "—"}</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)", textAlign: "right" }}>
+                    <button
+                      onClick={() => doDelete(r.sender_domain)}
+                      disabled={deleting === r.sender_domain}
+                      style={{ fontSize: 11, color: "var(--neg)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", opacity: deleting === r.sender_domain ? 0.4 : 1 }}
+                    >Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
@@ -1386,6 +1461,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <Toggle on={settings.use_rule_engine !== false} onChange={v=>updateSetting("use_rule_engine", v)}/>
         </div>
       </div>
+
+      {/* Auto-Learned Rules */}
+      <AutoRulesSection />
 
       {/* Notifications */}
       <div style={accountStyles.section}>

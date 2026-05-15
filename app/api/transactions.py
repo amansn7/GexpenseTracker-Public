@@ -294,28 +294,37 @@ async def patch_transaction(
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
 
+    should_learn = False
     if patch.label is not None:
         t.label = patch.label
         t.status = TransactionStatus.corrected.value
-        if e and e.sender_domain:
-            existing = (await db.execute(
-                select(SenderRule).where(SenderRule.sender_domain == e.sender_domain)
-            )).scalar_one_or_none()
-            new_category = patch.category or t.category
-            if existing:
-                existing.label = patch.label
-                if patch.category is not None:
-                    existing.category = patch.category
-                existing.source = RuleSource.user_trained.value
-            else:
-                db.add(SenderRule(
-                    sender_domain=e.sender_domain,
-                    label=patch.label,
-                    category=new_category,
-                    source=RuleSource.user_trained.value,
-                ))
+        should_learn = True
     if patch.category is not None:
         t.category = patch.category
+        if patch.label is None:
+            should_learn = True
+
+    if should_learn and e and e.sender_domain:
+        existing = (await db.execute(
+            select(SenderRule).where(
+                SenderRule.sender_domain == e.sender_domain,
+                SenderRule.user_id == current_user.id,
+            )
+        )).scalar_one_or_none()
+        current_label = patch.label if patch.label is not None else t.label
+        current_category = patch.category if patch.category is not None else t.category
+        if existing:
+            existing.label = current_label
+            existing.category = current_category
+            existing.source = RuleSource.user_trained.value
+        else:
+            db.add(SenderRule(
+                user_id=current_user.id,
+                sender_domain=e.sender_domain,
+                label=current_label,
+                category=current_category,
+                source=RuleSource.user_trained.value,
+            ))
     if patch.merchant is not None:
         t.merchant = patch.merchant
     if patch.amount is not None:
@@ -343,7 +352,14 @@ async def patch_transaction(
             logging.getLogger(__name__).warning("MerchantStore.correct failed: %s", exc)
 
     await db.refresh(t)
-    return {"id": t.id, "status": t.status}
+    learned_rule = None
+    if should_learn and e and e.sender_domain:
+        learned_rule = {
+            "domain": e.sender_domain,
+            "label": patch.label if patch.label is not None else t.label,
+            "category": patch.category if patch.category is not None else t.category,
+        }
+    return {"id": t.id, "status": t.status, "learned_rule": learned_rule}
 
 async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
     row = (await db.execute(
@@ -446,8 +462,39 @@ async def reclassify_transaction(
         t.txn_date = cls.txn_date
 
     await db.commit()
+
+    # Learn from the accepted reclassification
+    learned_rule = None
+    if e and e.sender_domain:
+        existing = (await db.execute(
+            select(SenderRule).where(
+                SenderRule.sender_domain == e.sender_domain,
+                SenderRule.user_id == current_user.id,
+            )
+        )).scalar_one_or_none()
+        if existing:
+            existing.label = t.label
+            existing.category = t.category
+            existing.source = RuleSource.user_trained.value
+        else:
+            db.add(SenderRule(
+                user_id=current_user.id,
+                sender_domain=e.sender_domain,
+                label=t.label,
+                category=t.category,
+                source=RuleSource.user_trained.value,
+            ))
+        learned_rule = {
+            "domain": e.sender_domain,
+            "label": t.label,
+            "category": t.category,
+        }
+        await db.commit()
+
     await db.refresh(t)
-    return _fmt(t, e)
+    result = _fmt(t, e)
+    result["learned_rule"] = learned_rule
+    return result
 
 
 @router.post("/transactions/{transaction_id}/fetch-body")

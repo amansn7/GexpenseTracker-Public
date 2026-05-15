@@ -67,7 +67,8 @@ Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions
 → label: "expense"
 
 ## INCOME — money coming IN:
-Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+Triggers: credited, deposited, salary, refund, cashback, reversal, interest
+You received, received from, credited to your account
 Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits, reward points redeemed
 → label: "income"
 
@@ -86,15 +87,23 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
 - Password resets — "reset password", "password change request"
 - Confirmations — welcome email, terms updated, fee change notification
-→ label: "ignore"
+- CREDIT CARD BILL PAYMENTS — user is paying their card bill, not making a new purchase. The individual transactions were already recorded. These are "ignore", category=CC Payment:
+  "Credit card bill payment of Rs.X"                                      → ignore, category=CC Payment
+  "We have received payment of Rs.X on your Credit Card"                  → ignore, category=CC Payment
+  "Payment received towards your credit card"                             → ignore, category=CC Payment
+  "Thank you for your payment of Rs.X"                                    → ignore, category=CC Payment
+  "Autopay: Rs.X debited for credit card bill"                            → ignore, category=CC Payment
+  WARNING: "received payment" / "payment received" in a credit card context means the BANK received your payment. This is NOT income. It is money going OUT from you.
+→ label: "ignore", category: "CC Payment"
 
 # PRIORITY RULES (apply in order)
 1. OTP/security verification → IGNORE immediately
-2. Explicit money movement confirmed → classify transaction
-3. Reminder or informational only → IGNORE
-4. Both promotional and transactional text → classify based ONLY on the transactional section
-5. Never extract merchants from footer/marketing text
-6. Prefer explicit transaction amounts over promotional/savings amounts
+2. Credit card bill payment received by bank → IGNORE, category=CC Payment (NOT income!)
+3. Explicit money movement confirmed → classify transaction
+4. Reminder or informational only → IGNORE
+5. Both promotional and transactional text → classify based ONLY on the transactional section
+6. Never extract merchants from footer/marketing text
+7. Prefer explicit transaction amounts over promotional/savings amounts
 
 # INPUT
 From: {sender}
@@ -211,15 +220,6 @@ REFUND / CASHBACK:
 CARD / EMI:
   "EMI of Rs.X debited for MERCHANT"                                      → expense, category=EMI
 
-  CREDIT CARD BILL PAYMENTS — user is paying their card bill, not making
-  a new purchase. The individual transactions were already recorded.
-  These are "ignore", category=CC Payment:
-  "Credit card bill payment of Rs.X"                                      → ignore, category=CC Payment
-  "We have received payment of Rs.X on your Credit Card"                  → ignore, category=CC Payment
-  "Payment received towards your credit card"                             → ignore, category=CC Payment
-  "Thank you for your payment of Rs.X"                                    → ignore, category=CC Payment
-  "Autopay: Rs.X debited for credit card bill"                            → ignore, category=CC Payment
-
   "Minimum amount due: Rs.X"                                              → ignore (reminder)
   "Your credit card statement is ready"                                   → ignore
 
@@ -264,7 +264,8 @@ Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions
 → label: "expense"
 
 ## INCOME — money coming IN:
-Triggers: credited, received, deposited, salary, refund, cashback, reversal, interest
+Triggers: credited, deposited, salary, refund, cashback, reversal, interest
+You received, received from, credited to your account
 Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits, reward points redeemed
 → label: "income"
 
@@ -280,6 +281,7 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - Newsletters — weekly digest, tips, recommendations
 - KYC / compliance — update KYC, Aadhaar linking, PAN verification
 - Password resets, welcome emails, terms updates, fee change notifications
+- CREDIT CARD BILL PAYMENTS — "We have received payment on your Credit Card", "payment received towards credit card". Bank received your payment = money going OUT from you, NOT income. → ignore, category=CC Payment
 → label: "ignore"
 
 E-COMMERCE / ORDER CONFIRMATION — "Thanks for your order", "Your order of",

@@ -255,6 +255,9 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         conf:     result.confidence ?? tx.conf,
         merchant: result.merchant || tx.merchant,
       });
+      if (result.learned_rule) {
+        showToast(`✓ Learned: ${result.learned_rule.domain} → ${result.learned_rule.label} / ${result.learned_rule.category}`);
+      }
     } catch (e) {
       setReclass("error");
     }
@@ -1020,7 +1023,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (patch.read   !== undefined) apiPatch.read       = patch.read;
     if (patch.flag   !== undefined) apiPatch.flagged    = patch.flag;
     if (Object.keys(apiPatch).length > 0) {
-      API.patch(`/api/transactions/${id}`, apiPatch).catch(err => console.error("patch failed:", err));
+      API.patch(`/api/transactions/${id}`, apiPatch).then(data => {
+        if (data && data.learned_rule) {
+          showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+        }
+      }).catch(err => console.error("patch failed:", err));
     }
   };
 
@@ -1486,7 +1493,11 @@ const SearchView = ({ query, categoryFilter }) => {
     if (patch.read   !== undefined) api.read       = patch.read;
     if (patch.flag   !== undefined) api.flagged    = patch.flag;
     if (Object.keys(api).length > 0)
-      API.patch(`/api/transactions/${id}`, api).catch(e => console.error(e));
+      API.patch(`/api/transactions/${id}`, api).then(data => {
+        if (data && data.learned_rule) {
+          showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+        }
+      }).catch(e => console.error(e));
   };
 
   const grouped = groupByDate(results);

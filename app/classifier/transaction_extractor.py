@@ -68,9 +68,12 @@ def _normalize_date(raw: str) -> Optional[str]:
 
 _DEBIT_RE = re.compile(r'\b(debited|paid|spent|deducted|charged|withdrawn)\b', re.IGNORECASE)
 _CREDIT_RE = re.compile(r'\b(credited|received|deposited|refunded|reversed)\b', re.IGNORECASE)
+_CC_PAYMENT_RE = re.compile(r'credit\s+card.*(?:received\s+payment|payment\s+received)', re.IGNORECASE)
 
 
 def _extract_direction(text: str) -> str:
+    if _CC_PAYMENT_RE.search(text):
+        return 'debit'
     if _DEBIT_RE.search(text):
         return 'debit'
     if _CREDIT_RE.search(text):
@@ -187,6 +190,7 @@ _CATEGORY_KEYWORDS: dict[str, list[str]] = {
     'Subscriptions': ['subscription', 'membership', 'premium', 'annual plan'],
     'Fuel':          ['petrol', 'diesel', 'cng', 'fuel', 'hpcl', 'iocl', 'bpcl'],
     'Rent':          ['rent', 'emi', 'home loan', 'mortgage'],
+    'CC Payment':    ['credit card', 'cc payment', 'credit card bill'],
     'Income':        ['credited', 'salary', 'cashback', 'refund', 'reversal', 'reward'],
     'UPI Payment':   ['upi', 'gpay', 'phonepe', 'paytm', 'bhim'],
 }

@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Optional, TYPE_CHECKING
 
@@ -114,6 +115,10 @@ def apply_rules(
     if domain in BUILTIN_DOMAIN_RULES:
         label, category = BUILTIN_DOMAIN_RULES[domain]
         return RuleResult(label=label, category=category, confidence=0.92, matched_domain=True, merchant=_DOMAIN_MERCHANT.get(domain))
+
+    cc_payment = re.search(r'credit\s+card.*(?:received\s+payment|payment\s+received)', text)
+    if cc_payment:
+        return RuleResult(label=Label.ignore, category="CC Payment", confidence=0.95)
 
     if any(keyword in text for keyword in IGNORE_KEYWORDS):
         return RuleResult(label=Label.ignore, confidence=0.82)
