@@ -103,7 +103,7 @@ def apply_rules(
     text = f"{subject or ''} {body or ''}".lower()
 
     subject_lower = (subject or "").lower()
-    has_delivery_only = any(sig in subject_lower for sig in DELIVERY_SIGNALS) and not any(sig in subject_lower for sig in _ORDER_SIGNALS)
+    has_delivery_only = any(sig in text for sig in DELIVERY_SIGNALS) and not any(sig in subject_lower for sig in _ORDER_SIGNALS)
 
     if has_delivery_only:
         return RuleResult(label=Label.ignore, confidence=0.85)

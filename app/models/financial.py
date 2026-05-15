@@ -66,6 +66,7 @@ class SenderRule(Base):
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[Optional[str]] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(20), default=RuleSource.builtin)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     __table_args__ = (

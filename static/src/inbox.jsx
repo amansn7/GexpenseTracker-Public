@@ -332,7 +332,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         </div>
         <div style={inboxStyles.field}>
           <span style={inboxStyles.fieldLabel}>Type</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span
+            onClick={() => {
+              const order = ["expense", "income", "ignore"];
+              const idx = order.indexOf(tx.tag);
+              onUpdate({ tag: order[(idx + 1) % order.length] });
+            }}
+            style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
+            title="Click to cycle: expense → income → ignore"
+          >
             <span style={{ ...inboxStyles.tagDot, background: TAGS[tx.tag].dot }}/>
             <span style={inboxStyles.fieldVal}>{TAGS[tx.tag].label}</span>
           </span>
@@ -1052,6 +1060,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (patch._skipApi) return;
     // Persist to DB
     const apiPatch = {};
+    if (patch.tag   !== undefined) apiPatch.label     = patch.tag;
     if (patch.cat    !== undefined) apiPatch.category   = patch.cat;
     if (patch.note   !== undefined) apiPatch.user_notes = patch.note;
     if (patch.amount !== undefined) apiPatch.amount     = Math.abs(patch.amount);
