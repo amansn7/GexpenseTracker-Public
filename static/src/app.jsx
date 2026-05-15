@@ -254,7 +254,7 @@ const App = () => {
         onClose={() => setNavOpen(false)}
         account={account}
       />
-      <main role="main" id="main-content" tabIndex={-1} style={shellStyles.main}>
+      <main role="main" tabIndex={-1} style={shellStyles.main}>
         <Topbar title={titles[view]?.title || "Search"} subtitle={titles[view]?.sub || ""} syncLabel={syncLabel()} mobile={viewport.isMobile} showMenu={viewport.isTablet} onMenu={() => setNavOpen(true)} onSearchSelect={(id) => { setView("inbox"); setSelectedId(id); }} onSearchEnter={(q) => { setSearchQuery(q); setView("search"); }}>
           <div ref={catRef} style={{ position: "relative" }}>
             <button

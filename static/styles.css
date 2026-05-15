@@ -9,6 +9,7 @@
   --line:        #2a2720;
   --card:        #1a1813;
   --accent:      #7c83fd;
+  --on-accent:   #14120e;
   --accent-soft: rgba(124,131,253,0.12);
   --pos:         #5db87d;
   --pos-soft:    rgba(93,184,125,0.15);
@@ -75,6 +76,7 @@
   --line:        #e3dcca;
   --card:        #fbf9f3;
   --accent:      #c2410c;
+  --on-accent:   #ffffff;
   --accent-soft: #fde8d7;
   --pos:         #3d6b42;
   --pos-soft:    #dce7d8;
@@ -133,6 +135,7 @@
   --line:        #dcdee4;
   --card:        #fbfcfd;
   --accent:      #2563eb;
+  --on-accent:   #ffffff;
   --accent-soft: #dbe9fe;
   --pos:         #3d6b42;
   --pos-soft:    #dce7d8;
@@ -229,13 +232,13 @@ body {
 .nav-item.active { background: var(--accent-soft); border-color: var(--border-act); color: var(--text); }
 .nav-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
 .nav-badge {
-  margin-left: auto; background: var(--accent); color: var(--bg);
+  margin-left: auto; background: var(--accent); color: var(--on-accent);
   border-radius: 8px; padding: 1px 6px; font-size: 9px; font-weight: 700;
 }
 .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
 .sync-btn {
   width: 100%; margin-top: 10px; padding: 9px;
-  background: var(--accent); color: var(--bg);
+  background: var(--accent); color: var(--on-accent);
   border: none; border-radius: var(--r-sm);
   font-size: 12px; font-weight: 600; cursor: pointer;
   transition: filter 150ms;
@@ -402,7 +405,7 @@ tbody tr:hover {
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 .btn-primary {
-  background: var(--accent); color: var(--paper); cursor: pointer;
+  background: var(--accent); color: var(--on-accent); cursor: pointer;
   border: none; border-radius: var(--r-sm);
   padding: 7px 18px; font-size: 13px; font-weight: 500;
   transition: filter 150ms;
@@ -441,7 +444,7 @@ a.link:hover { text-decoration: underline; }
   transition: background 150ms, color 150ms, border-color 150ms;
 }
 .period-tab.active {
-  background: var(--accent); border-color: var(--accent); color: var(--paper);
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent);
 }
 .period-tab:hover:not(.active) { border-color: var(--accent); color: var(--text); }
 

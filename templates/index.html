@@ -123,6 +123,7 @@
     .pill-btn, .pill-btn:hover, .pill-btn:active { transition: none; transform: none; box-shadow: none; }
     .dot-ping, .dot-bounce, .dot-glow { animation: none; }
     .brand-accent, .brand-quirk-squish, .brand-quirk-shake, .brand-quirk-split-left, .brand-quirk-split-right, .brand-quirk-boing { animation: none; }
+    .skip-link { transition: none; }
   }
 
   .tweaks-panel {
@@ -146,8 +147,8 @@
 </style>
 </head>
 <body class="noise">
-  <a href="#main-content" class="skip-link">Skip to content</a>
-  <div id="root"></div>
+  <a href="#root" class="skip-link">Skip to content</a>
+  <div id="root" tabindex="-1"></div>
 
   <script src="/static/vendor/react.production.min.js?v=18.3.1"></script>
   <script src="/static/vendor/react-dom.production.min.js?v=18.3.1"></script>
