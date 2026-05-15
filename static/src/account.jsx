@@ -1,5 +1,6 @@
 // Profile & Settings views
 
+const DEFAULT_CAT_COLOR = "#dcd5c3";
 const accountStyles = {
   wrap: { overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
   inner: { padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) 80px", maxWidth: 920, margin: "0 auto" },
@@ -326,7 +327,7 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
 const CategoriesSection = ({ categories, onRefresh }) => {
   const [editing, setEditing] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
-  const [newCat, setNewCat] = React.useState({ name: "", color: "#dcd5c3" });
+  const [newCat, setNewCat] = React.useState({ name: "", color: DEFAULT_CAT_COLOR });
   const [generating, setGenerating] = React.useState(false);
   const [deleting, setDeleting] = React.useState(null);
 
@@ -339,7 +340,7 @@ const CategoriesSection = ({ categories, onRefresh }) => {
   const addNew = async () => {
     if (!newCat.name.trim()) return;
     try { await API.post("/api/account/categories", { name: newCat.name.trim(), color: newCat.color }); } catch(_) {}
-    setAdding(false); setNewCat({ name: "", color: "#dcd5c3" }); onRefresh();
+    setAdding(false); setNewCat({ name: "", color: DEFAULT_CAT_COLOR }); onRefresh();
   };
 
   const doDelete = async (id) => {

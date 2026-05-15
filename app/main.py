@@ -96,39 +96,39 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-@app.get("/dashboard-old", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+@app.get("/dashboard-old")
+async def dashboard_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/transactions", response_class=HTMLResponse)
-async def transactions_page(request: Request):
-    return templates.TemplateResponse("transactions.html", {"request": request})
+@app.get("/transactions")
+async def transactions_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/review", response_class=HTMLResponse)
-async def review_page(request: Request):
-    return templates.TemplateResponse("review.html", {"request": request})
+@app.get("/review")
+async def review_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    return templates.TemplateResponse("settings.html", {"request": request})
+@app.get("/settings")
+async def settings_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/recurring", response_class=HTMLResponse)
-async def recurring_page(request: Request):
-    return templates.TemplateResponse("recurring.html", {"request": request})
+@app.get("/recurring")
+async def recurring_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/budgets", response_class=HTMLResponse)
-async def budgets_page(request: Request):
-    return templates.TemplateResponse("budgets.html", {"request": request})
+@app.get("/budgets")
+async def budgets_redirect():
+    return StarletteRedirect("/")
 
 
-@app.get("/emails", response_class=HTMLResponse)
-async def emails_page(request: Request):
-    return templates.TemplateResponse("emails.html", {"request": request})
+@app.get("/emails")
+async def emails_redirect():
+    return StarletteRedirect("/")
 
 
 @app.get("/login", response_class=HTMLResponse)
