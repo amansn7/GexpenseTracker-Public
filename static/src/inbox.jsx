@@ -938,6 +938,40 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     }
   };
 
+  const bulkAcceptAll = async () => {
+    const items = bulkReclassItems;
+    const idx = bulkReclassIdx;
+    const remaining = items.slice(idx).filter(it => it.status === "preview" || it.status === "pending");
+    if (remaining.length === 0) return;
+    const applying = items.map((it, i) => i >= idx && (it.status === "preview" || it.status === "pending") ? { ...it, status: "applying" } : it);
+    setBulkReclassItems(applying);
+    const results = await Promise.allSettled(
+      remaining.map(item => API.post(`/api/transactions/${item.id}/reclassify`))
+    );
+    let next = [...applying];
+    results.forEach((result, i) => {
+      const itemIdx = idx + i;
+      if (result.status === "fulfilled") {
+        const data = result.value;
+        const isIncome = data.label === "income";
+        const cat = normCat(data.category, isIncome);
+        setTransactions(ts => ts.map(t => t.id === remaining[i].id ? {
+          ...t,
+          cat,
+          amount: isIncome ? (data.amount || 0) : -(data.amount || 0),
+          tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+          conf: data.confidence ?? t.conf,
+          merchant: data.merchant || t.merchant,
+        } : t));
+        next[itemIdx] = { ...next[itemIdx], status: "accepted" };
+      } else {
+        next[itemIdx] = { ...next[itemIdx], status: "error" };
+      }
+    });
+    setBulkReclassItems(next);
+    setBulkReclassIdx(items.length);
+  };
+
   const bulkSkip = () => {
     const items = bulkReclassItems;
     const idx = bulkReclassIdx;
@@ -1404,6 +1438,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
                   <button onClick={bulkSkipAll} style={{ padding: "9px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-3)", fontSize: 12, cursor: "pointer" }}>
                     Skip all
+                  </button>
+                  <button onClick={bulkAcceptAll} style={{ padding: "9px 14px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Accept all
                   </button>
                   <div style={{ flex: 1 }}/>
                   <button onClick={bulkSkip} style={{ padding: "9px 16px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
