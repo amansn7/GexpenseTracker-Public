@@ -47,9 +47,10 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setStatsLoading(true);
       try {
+        const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c] = await Promise.all([
-          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
-          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}`),
+          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
+          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
         ]);
         if (!cancelled) { setStats(s); setCatBreakdown(c); }
       } catch (_) {}
@@ -206,7 +207,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
               : <div style={dashStyles.catGrid}>
                   {catSorted.map((e, idx) => {
                     const pct = totalExpense > 0 ? (e.amount / totalExpense) * 100 : 0;
-                    const c = CATEGORIES[e.cat] || { label: e.cat || "Other", bg: "var(--paper-2)", ink: "var(--ink-3)" };
+                    const c = CategoryService.display(e.cat);
                     return (
                       <div key={idx} style={dashStyles.catCard}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>

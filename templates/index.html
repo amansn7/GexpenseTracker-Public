@@ -64,6 +64,16 @@
     z-index: 100;
     font-size: 12px;
   }
+
+  .skip-link {
+    position: absolute; top: -100%; left: 0;
+    z-index: 9999; padding: 8px 16px;
+    background: var(--ink); color: var(--paper);
+    font-size: 13px; font-weight: 600; text-decoration: none;
+    border-radius: 0 0 6px 0;
+    transition: top 120ms ease-out;
+  }
+  .skip-link:focus { top: 0; }
 </style>
 </head>
 <body class="noise">

@@ -387,6 +387,8 @@ async def reclassify_preview(
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     user_llm_client = await _load_user_llm_client(str(current_user.id), db)
     from app.classifier.classifier import classify_email
+    from app.services.category_service import CategoryService
+    user_cats = await CategoryService.load_for_llm(db, str(current_user.id))
     cls = await classify_email(
         email_id=e.id,
         sender=e.sender or "",
@@ -397,6 +399,7 @@ async def reclassify_preview(
         rule_engine_enabled=False,
         user_id=str(current_user.id),
         llm_client_override=user_llm_client,
+        categories_override=user_cats,
     )
     return {
         "label":      cls.label.value,

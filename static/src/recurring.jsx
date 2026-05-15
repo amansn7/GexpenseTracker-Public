@@ -12,7 +12,7 @@ const FREQ_COLORS = {
 
 const defaultForm = () => ({ name: "", amount: "", category: "", frequency: "monthly", notes: "", active: true });
 
-const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
+const RecurringModal = ({ item, onSave, onDelete, onClose, userCategories }) => {
   const [form, setForm] = useState(item ? { ...item, amount: item.amount ?? "" } : defaultForm());
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -78,7 +78,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
             <label style={lbl}>Category</label>
             <select style={inp} value={form.category} onChange={e => set("category", e.target.value)}>
               <option value="">— None —</option>
-              {Object.entries(CATEGORIES).map(([k, c]) => <option key={k} value={k}>{c.label}</option>)}
+              {CategoryService.expenseCategories().map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
             </select>
           </div>
           <div>
@@ -108,7 +108,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   );
 };
 
-const RecurringView = () => {
+const RecurringView = ({ userCategories }) => {
   const [items, setItems] = useState([]);
   const [monthly, setMonthly] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -204,6 +204,7 @@ const RecurringView = () => {
           onSave={onSave}
           onDelete={onDelete}
           onClose={() => setModal(null)}
+          userCategories={userCategories}
         />
       )}
 
@@ -247,11 +248,11 @@ const RecurringView = () => {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {suggestions.map((s, i) => {
-              const cat = CATEGORIES[s.category];
+              const cat = CategoryService.display(s.category);
               const freqColor = FREQ_COLORS[s.frequency] || FREQ_COLORS.monthly;
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper-2)" }}>
-                  {cat && <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: cat.bg }} />}
+                  {cat && <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: cat.bg, border: `1px solid ${cat.ink}22` }} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
                     <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 2 }}>{s.reasoning}</div>
@@ -282,7 +283,7 @@ const RecurringView = () => {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {visible.map(item => {
-              const cat = CATEGORIES[item.category];
+              const cat = CategoryService.display(item.category);
               const freq = FREQ_COLORS[item.frequency] || FREQ_COLORS.monthly;
               return (
                 <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--card)", opacity: item.active ? 1 : 0.55 }}>

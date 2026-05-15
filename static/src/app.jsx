@@ -113,11 +113,14 @@ const App = () => {
     const loadAccount = () => {
       API.get("/api/auth/me")
         .then(data => {
-          if (!data) return; // 401 redirect in flight
+          if (!data) return;
           setAccount(data);
           if (data.has_seed_data) setShowSeedModal(true);
           API.get("/api/account/me").then(bundle => {
-            if (bundle) setAccount(prev => ({ ...prev, ...bundle }));
+            if (bundle) {
+              setAccount(prev => ({ ...prev, ...bundle }));
+              CategoryService.init(bundle);
+            }
           }).catch(() => {});
         })
         .catch(() => {});
@@ -215,9 +218,7 @@ const App = () => {
     payments: transactions.filter(t => t.amount < 0 && ["rent","util","sub"].includes(t.cat)).length,
   };
 
-  const curCat = categoryFilter
-    ? CATEGORIES[categoryFilter] || (account?.categories || []).find(c => c.name === categoryFilter)
-    : null;
+  const curCat = categoryFilter ? CategoryService.display(categoryFilter) : null;
 
   const today = new Date();
   const monthYear = today.toLocaleString("en-US", { month: "long", year: "numeric" });
@@ -269,31 +270,24 @@ const App = () => {
               <Icon name={catOpen ? "arrow-u" : "arrow-d"} size={11} stroke="var(--ink-3)" />
             </button>
             {catOpen && (
-              <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 180, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: 6 }}>
+              <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 200, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: 6 }}>
                 <button
                   onClick={() => { setCategoryFilter(null); setCatOpen(false); }}
                   style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: !categoryFilter ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: !categoryFilter ? 600 : 400 }}
                 >All categories</button>
-                {Object.entries(CATEGORIES).filter(([k]) => k !== "other").map(([k, c]) => (
-                  <button key={k}
-                    onClick={() => { setCategoryFilter(k); setCatOpen(false); }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: categoryFilter === k ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: categoryFilter === k ? 600 : 400 }}
-                  >
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: c.bg, flexShrink: 0 }} />
-                    <span>{c.label}</span>
-                  </button>
-                ))}
-                {(account?.categories || []).filter(c => {
-                  const lower = c.name.toLowerCase().trim();
-                  return lower !== "other" && lower !== "income" && !CATEGORIES[lower];
-                }).map(c => (
-                  <button key={c.id}
-                    onClick={() => { setCategoryFilter(c.name); setCatOpen(false); }}
-                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: categoryFilter === c.name ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: categoryFilter === c.name ? 600 : 400 }}
-                  >
-                    {c.color && <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, flexShrink: 0 }} />}
-                    <span>{c.name}</span>
-                  </button>
+                {CategoryService.grouped().filter(g => g.key !== "finance").map(g => (
+                  <div key={g.key}>
+                    <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
+                    {g.categories.map(item => (
+                      <button key={item.key}
+                        onClick={() => { setCategoryFilter(item.key); setCatOpen(false); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "6px 10px", border: "none", background: categoryFilter === item.key ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: categoryFilter === item.key ? 600 : 400 }}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: item.bg, border: `1px solid ${item.ink}33`, flexShrink: 0 }} />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}

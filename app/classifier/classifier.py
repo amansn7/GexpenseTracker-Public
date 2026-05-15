@@ -44,20 +44,6 @@ def _parse_date(raw: Optional[str]) -> Optional[date]:
         return None
 
 
-async def _load_user_categories(session: AsyncSession, user_id: Optional[str]) -> Optional[str]:
-    """Return comma-separated active category names for the given user, or None."""
-    if not session or not user_id:
-        return None
-    from sqlalchemy import select
-    from app.models import UserCategory
-    rows = (await session.execute(
-        select(UserCategory.name)
-        .where(UserCategory.user_id == user_id, UserCategory.active.is_(True))
-        .order_by(UserCategory.sort_order, UserCategory.name)
-    )).scalars().all()
-    return ", ".join(rows) if rows else None
-
-
 async def classify_email(
     email_id: Optional[str],
     sender: str,
@@ -71,11 +57,16 @@ async def classify_email(
     llm_client_override: Optional[MultiLLMClient] = None,
     use_llm: bool = True,
     llm_priority: bool = False,
+    categories_override: Optional[str] = None,
 ) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = (body_text or "")[:3000]
 
-    user_categories = await _load_user_categories(session, user_id)
+    if categories_override is not None:
+        user_categories = categories_override
+    else:
+        from app.services.category_service import CategoryService
+        user_categories = await CategoryService.load_for_llm(session, user_id)
 
     # Stage 1 pre-filter: skip LLM for clear non-financial emails
     if rule_engine_enabled and not llm_priority:
@@ -280,7 +271,8 @@ async def batch_classify_emails(
         List[ClassificationResult] in same order as items.
     """
     t0 = time.monotonic()
-    user_categories = await _load_user_categories(session, user_id)
+    from app.services.category_service import CategoryService
+    user_categories = await CategoryService.load_for_llm(session, user_id)
 
     n = len(items)
     body_snippets: List[str] = []

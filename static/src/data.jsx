@@ -32,6 +32,12 @@ const _CAT_ALIAS = {
   investment: "other",
   refund: "other",
   emi: "sub",
+  entertainment: "sub",
+  healthcare: "other",
+  fuel: "travel",
+  cash: "other",
+  "bank transfer": "other",
+  "upi payment": "other",
   other: "other",
 };
 
@@ -40,6 +46,9 @@ const _normCat = (cat, isIncome) => {
   const key = _CAT_ALIAS[(cat || "").toLowerCase().trim()];
   return key || "other";
 };
+
+const _catDisplay = (cat) =>
+  CATEGORIES[cat] || { label: cat || "Other", bg: "var(--paper-2)", ink: "var(--ink-3)" };
 
 const _domainFromSender = (sender) => {
   if (!sender) return "";
@@ -245,4 +254,4 @@ const showToast = (message, action, duration = 5000) => {
   }, duration);
 };
 
-Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, useBackgroundJob, showToast });
+Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, catDisplay: _catDisplay, useBackgroundJob, showToast });

@@ -62,6 +62,7 @@ async def stats_summary(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    category: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -75,17 +76,21 @@ async def stats_summary(
         end = date.today()
     this_month = end.replace(day=1)
 
+    expense_where = [
+        Email.user_id == current_user.id,
+        Transaction.label == "expense",
+        Transaction.txn_date >= start,
+        Transaction.txn_date <= end,
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+    if category:
+        expense_where.append(Transaction.category == category)
+
     expense_rows = (await db.execute(
         select(Transaction.amount)
         .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "expense",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
+        .where(*expense_where)
     )).scalars().all()
 
     # Intentional: income that shifts to next month via effective_month is excluded
@@ -138,6 +143,7 @@ async def stats_category_breakdown(
     period: str = "1m",
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
+    category: Optional[str] = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -150,17 +156,21 @@ async def stats_category_breakdown(
         start = _period_start(period)
         end = date.today()
 
+    where = [
+        Email.user_id == current_user.id,
+        Transaction.label == "expense",
+        Transaction.txn_date >= start,
+        Transaction.txn_date <= end,
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+    if category:
+        where.append(Transaction.category == category)
+
     rows = (await db.execute(
         select(Transaction.category, func.sum(Transaction.amount).label("total"))
         .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "expense",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
+        .where(*where)
         .group_by(Transaction.category)
         .order_by(desc("total"))
     )).all()

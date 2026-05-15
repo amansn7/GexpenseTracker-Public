@@ -203,12 +203,9 @@ async def list_categories(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (await db.execute(
-        select(UserCategory)
-        .where(UserCategory.user_id == user.id, UserCategory.active == True)
-        .order_by(UserCategory.sort_order, UserCategory.name)
-    )).scalars().all()
-    return {"categories": [_category_dict(c) for c in rows]}
+    from app.services.category_service import CategoryService
+    rows = await CategoryService.get_active_list(db, str(user.id))
+    return {"categories": rows}
 
 
 @router.post("/account/categories", status_code=201)

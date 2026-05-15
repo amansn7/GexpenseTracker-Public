@@ -108,13 +108,12 @@ const SankeyDiagram = ({ data }) => {
         {(() => {
           let off = 0;
           return rightNodes.map((n, idx) => {
-            const color = n.kind === "sav" ? "var(--pos)" : `var(${"--cat-"+n.cat})`;
-            const strokeColor = n.kind === "sav" ? "var(--pos)" : `var(${"--cat-"+n.cat+"-ink"})`;
+            const color = n.kind === "sav" ? "var(--pos)" : CategoryService.colorVar(n.cat);
             const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
             off += n.h + 10 * (n.h / n.h);
             return (
               <g key={`out-${idx}`}>
-                <title>{n.kind === "sav" ? "Remaining" : (n.label || CATEGORIES[n.cat]?.label || n.cat)} · ₹{n.amount.toLocaleString("en-IN")}</title>
+                <title>{n.kind === "sav" ? "Remaining" : CategoryService.display(n.cat).label} · ₹{n.amount.toLocaleString("en-IN")}</title>
                 <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
                   onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
                   onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
@@ -127,8 +126,8 @@ const SankeyDiagram = ({ data }) => {
         {/* Right nodes */}
         {rightNodes.map((n, idx) => {
           const isSav = n.kind === "sav";
-          const catInfo = !isSav ? (CATEGORIES[n.cat] || { label: n.cat, ink: "var(--ink-3)", bg: "var(--paper-2)" }) : null;
-          const fill = isSav ? "var(--pos)" : (catInfo ? catInfo.ink : "var(--ink-3)");
+          const catInfo = !isSav ? CategoryService.display(n.cat) : null;
+          const fill = isSav ? "var(--pos)" : CategoryService.colorInk(n.cat);
           return (
             <g key={`nr-${idx}`}>
               <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"/>
@@ -205,9 +204,10 @@ const FlowView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setFlowLoading(true);
       try {
+        const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c] = await Promise.all([
-          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}`),
-          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}`),
+          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
+          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
         ]);
         if (!cancelled) { setStats(s); setCatBreakdown(c); }
       } catch (_) {}

@@ -82,7 +82,7 @@ const MerchantLogo = ({ merchant, size = 26 }) => {
 };
 
 const CategoryChip = ({ cat, onClick, editable }) => {
-  const c = CATEGORIES[cat] || { label: cat || "Other", bg: "var(--paper-2)", ink: "var(--ink-3)" };
+  const c = catDisplay(cat);
   return (
     <span style={{ ...inboxStyles.catChip, background: c.bg, color: c.ink, cursor: editable ? "pointer" : "default" }} onClick={onClick}>
       <span style={{ width: 5, height: 5, borderRadius: 999, background: c.ink, opacity: 0.7 }}/>
@@ -170,17 +170,8 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
 
 const CategoryPicker = ({ current, onPick, onClose }) => {
   const { isMobile } = useViewport();
-  const [userCats, setUserCats] = React.useState(null);
 
-  React.useEffect(() => {
-    API.get("/api/account/categories")
-      .then(d => setUserCats(d.categories || []))
-      .catch(() => setUserCats([]));
-  }, []);
-
-  const items = userCats && userCats.length > 0
-    ? userCats.map(c => ({ key: c.name.toLowerCase(), label: c.name, bg: c.color, ink: "var(--ink-3)" }))
-    : Object.entries(CATEGORIES).filter(([k]) => k !== "income").map(([k, c]) => ({ key: k, label: c.label, bg: c.bg, ink: c.ink }));
+  const groups = CategoryService.grouped().filter(g => g.key !== "finance");
 
   return (
   <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>
@@ -188,16 +179,18 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
       <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
         <Icon name="sparkle" size={12} stroke="var(--accent)"/> Recategorize — teaches the model
       </div>
-      {userCats === null
-        ? <div style={{ padding: "12px 10px", fontSize: 12, color: "var(--ink-4)" }}>Loading…</div>
-        : items.map(({ key, label, bg, ink }) => (
-          <button key={key} onClick={()=>onPick(key)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
-            <span style={{ width: 14, height: 14, borderRadius: 4, background: bg, border: `1px solid ${ink}22`, flexShrink: 0 }} />
-            <span style={{ fontWeight: 500 }}>{label}</span>
-            {current===key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
-          </button>
-        ))
-      }
+      {groups.map(g => (
+        <div key={g.key}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
+          {g.categories.map(item => (
+            <button key={item.key} onClick={()=>onPick(item.key)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
+              <span style={{ width: 14, height: 14, borderRadius: 4, background: item.bg, border: `1px solid ${item.ink}22`, flexShrink: 0 }} />
+              <span style={{ fontWeight: 500 }}>{item.label}</span>
+              {current===item.key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
+            </button>
+          ))}
+        </div>
+      ))}
     </div>
   </div>
 );
@@ -377,7 +370,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             Fetch body
           </button>
         </div>
-        <div style={{ padding: 14, background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5, borderLeft: "2px solid var(--accent)" }}>
+        <div style={{ padding: 14, background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5, border: "1px solid var(--line)" }}>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: "var(--ink-4)", marginBottom: 6 }}>{tx.subject}</div>
           {fetchedBody ? (
             <>
@@ -502,7 +495,7 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
       <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.txn_date || ""}</div>
       <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email?.subject || ""}</div>
 
-      <div style={{ marginTop: 10, padding: 10, background: "var(--paper)", borderRadius: 6, fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, borderLeft: "2px solid var(--line)" }}>
+      <div style={{ marginTop: 10, padding: 10, background: "var(--paper)", borderRadius: 6, fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, border: "1px solid var(--line)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email body</span>
           <button onClick={handleFetchBody} disabled={fetching} style={{ fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
@@ -1461,7 +1454,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   );
 };
 
-const SearchView = ({ query }) => {
+const SearchView = ({ query, categoryFilter }) => {
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState(null);
@@ -1473,10 +1466,14 @@ const SearchView = ({ query }) => {
     setLoading(true);
     setSelectedId(null);
     API.get(`/api/search?q=${encodeURIComponent(query.trim())}&limit=200`)
-      .then(d => setResults((d.items || []).map(transformTransaction)))
+      .then(d => {
+        let items = (d.items || []).map(transformTransaction);
+        if (categoryFilter) items = items.filter(t => t.cat === categoryFilter);
+        setResults(items);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [query]);
+  }, [query, categoryFilter]);
 
   const updateTx = (id, patch) => {
     if (patch._openPicker) { setPickerFor(id); return; }

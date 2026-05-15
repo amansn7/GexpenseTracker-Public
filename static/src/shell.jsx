@@ -98,24 +98,20 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
     <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>navigate(()=>{ setView("inbox"); onFilter("payments"); })} />
 
     <div style={shellStyles.sectionLabel}>Categories</div>
-    {Object.entries(CATEGORIES).filter(([k])=>k!=="income"&&k!=="other").map(([k,c]) => (
-      <button key={k} className={"focus-ring nav-btn" + ((view==="inbox"&&filter==="cat:"+k) || categoryFilter===k ? " active" : "")}
-        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("all"); onCategoryFilter && onCategoryFilter(k); })}
-        style={{ ...shellStyles.navItem, ...((view==="inbox"&&filter==="cat:"+k) || categoryFilter===k ? shellStyles.navItemActive : {}) }}>
-        <span style={{ width: 10, height: 10, borderRadius: 3, background: c.bg, border: `1px solid ${c.ink}22` }} />
-        <span>{c.label}</span>
-      </button>
-    ))}
-    {(account?.categories || []).filter(c => {
-      const lower = c.name.toLowerCase().trim();
-      return lower !== "income" && lower !== "other" && !CATEGORIES[lower];
-    }).map(c => (
-      <button key={c.id} className={"focus-ring nav-btn" + (categoryFilter === c.name ? " active" : "")}
-        onClick={()=>navigate(()=>{ setView("inbox"); onFilter("all"); onCategoryFilter && onCategoryFilter(c.name); })}
-        style={{ ...shellStyles.navItem, ...(categoryFilter === c.name ? shellStyles.navItemActive : {}) }}>
-        <span style={{ width: 10, height: 10, borderRadius: 3, background: c.color || "var(--ink-3)", border: "1px solid var(--line)", flexShrink: 0 }} />
-        <span>{c.name}</span>
-      </button>
+    {CategoryService.grouped().filter(g => g.key !== "finance").map(g => (
+      <div key={g.key}>
+        {g.key !== "_user" && (
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "4px 10px 2px", fontWeight: 500 }}>{g.label}</div>
+        )}
+        {g.categories.map(item => (
+          <button key={item.key} className={"focus-ring nav-btn" + ((view==="inbox"&&filter==="cat:"+item.key) || categoryFilter===item.key ? " active" : "")}
+            onClick={()=>navigate(()=>{ setView("inbox"); onFilter("all"); onCategoryFilter && onCategoryFilter(item.key); })}
+            style={{ ...shellStyles.navItem, ...((view==="inbox"&&filter==="cat:"+item.key) || categoryFilter===item.key ? shellStyles.navItemActive : {}) }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: item.bg, border: `1px solid ${item.ink}22`, flexShrink: 0 }} />
+            <span>{item.label}</span>
+          </button>
+        ))}
+      </div>
     ))}
 
     <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
@@ -130,6 +126,9 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
       <button
         onClick={()=>setMenu(m=>!m)}
         className="focus-ring"
+        aria-expanded={menu}
+        aria-haspopup="menu"
+        aria-label="Account menu"
         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: 6, border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 6, cursor: "pointer", textAlign: "left" }}
       >
         {account?.avatar_url
@@ -236,6 +235,7 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
       <input
         ref={inputRef}
         style={shellStyles.searchInput}
+        aria-label="Search transactions"
         placeholder="Search merchants, amounts, categories…"
         value={query}
         onChange={handleChange}
@@ -326,14 +326,16 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
         <input
           type="date"
+          aria-label="Start date"
           value={rangeFrom}
           max={rangeTo}
           onChange={e => onChange(e.target.value, rangeTo, null)}
           style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
         />
-        <span style={{ color: "var(--ink-4)", fontSize: 12 }}>→</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-4)", fontSize: 12 }}>→</span>
         <input
           type="date"
+          aria-label="End date"
           value={rangeTo}
           min={rangeFrom}
           onChange={e => onChange(rangeFrom, e.target.value, null)}

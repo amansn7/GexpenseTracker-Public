@@ -135,9 +135,8 @@ async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
     accounts = (await db.execute(
         select(ConnectedAccount).where(ConnectedAccount.user_id == user.id).order_by(ConnectedAccount.provider, ConnectedAccount.account_email)
     )).scalars().all()
-    categories = (await db.execute(
-        select(UserCategory).where(UserCategory.user_id == user.id).order_by(UserCategory.sort_order, UserCategory.name)
-    )).scalars().all()
+    from app.services.category_service import CategoryService
+    categories = await CategoryService.get_list(db, str(user.id))
     services = (await db.execute(
         select(UserAIService).where(UserAIService.user_id == user.id).order_by(UserAIService.display_name)
     )).scalars().all()
@@ -154,7 +153,7 @@ async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
         "profile": _profile_dict(profile),
         "settings": _settings_dict(s),
         "connected_accounts": [_account_dict(a) for a in accounts],
-        "categories": [_category_dict(c) for c in categories],
+        "categories": categories,
         "ai_services": [_ai_service_dict(sv) for sv in services],
     }
 
