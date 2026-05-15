@@ -74,7 +74,7 @@ Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
 
 REFUND / REVERSAL → always "income" (money returning to you)
 
-## IGNORE — no real transaction occurred:
+## IGNORE — no real transaction occurred (no money moved in this email):
 - OTP / 2FA codes — "OTP for transaction", "login OTP", "verification code"
 - Security alerts — "new device login", "password changed", "unusual activity"
 - Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
@@ -122,6 +122,7 @@ INR in rupees (number only, no currency symbols or commas).
 "Rs.499.00" → 499, "INR 1,200.50" → 1200.5, "₹1,299" → 1299
 null if no INR amount found or email is non-transaction
 DO NOT extract savings, cashback offers, discounts, credit limits, or statement totals unless payment executed.
+DO NOT extract itemized line prices ("1 x Item ₹94", "1 × Butter ₹122") as the amount. Only extract a single total paid amount if stated explicitly.
 
 # MERCHANT EXTRACTION
 Payee / store / service — NOT bank, NOT payment gateway, NOT payment platform.
@@ -236,10 +237,10 @@ OFFER / PROMO:
   "Special offer just for you" / "Festive sale" / "Get X% cashback"      → ignore
   "Book now at discounted prices" / "Limited period offer"                → ignore
 
-E-COMMERCE / ORDER CONFIRMATION — contains product details + total:
+E-COMMERCE / ORDER CONFIRMATION — contains product details + total and confirms PAYMENT:
   "Thanks for your order" / "Order confirmation" / "Your order of"        → expense
   "Order #..." + product name + quantity + total amount                    → expense
-  Email contains both delivery status AND purchase details with total      → expense
+  IMPORTANT: Delivery notifications are NEVER expenses. If the email says "delivered", "shipped", or "out for delivery", it is a delivery/status notification — classify as IGNORE even if it lists items with prices. Payment happened in a separate email.
 
 ========================================
 # CONFIDENCE SCORING
@@ -276,7 +277,7 @@ Salary credits, refunds, cashback, UPI/IMPS receipts, interest/dividend credits,
 
 REFUND / REVERSAL → always "income" (money returning to you)
 
-## IGNORE — no real transaction occurred:
+## IGNORE — no real transaction occurred (no money moved):
 - OTP / 2FA codes
 - Security alerts — new device login, password changed, unusual activity
 - Balance/limit alerts — low balance, minimum amount due, credit limit
@@ -289,9 +290,9 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - CREDIT CARD BILL PAYMENTS — "We have received payment on your Credit Card", "payment received towards credit card". Bank received your payment = money going OUT from you, NOT income. → ignore, category=CC Payment
 → label: "ignore"
 
-DELIVERY OVERRIDE: If body contains "delivered", "out for delivery", or "shipped", classify as IGNORE regardless of itemized prices. Only emails confirming PAYMENT (paid, debited, charged) are expenses.
+DELIVERY OVERRIDE: If body contains "delivered", "out for delivery", or "shipped", classify as IGNORE regardless of itemized prices. A delivery notification is NEVER a transaction — payment happened in a separate email. Only emails confirming PAYMENT (paid, debited, charged) are expenses.
 
-AMOUNT: Extract ONLY a single total paid amount. Itemized line prices ("1 x Item ₹94") are NOT transaction amounts. Return null amount if no paid total is found.
+AMOUNT: Extract ONLY a single total paid amount. Itemized line prices ("1 x Item ₹94", "1 × Butter ₹122") are NOT transaction amounts. Return null amount if no paid total is found.
 
 INVESTMENT / SIP — money going OUT to buy financial assets:
   "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
