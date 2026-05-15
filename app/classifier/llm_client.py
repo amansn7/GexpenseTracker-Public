@@ -80,11 +80,11 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - Balance/limit alerts — "low balance", "minimum amount due", "credit limit"
 - Statement ready — "monthly statement", "account summary", "transaction report"
 - Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
-- Delivery/shipment notifications (standalone tracking only — "order shipped", "out for delivery", "item delivered", "package delivered").
+- Delivery/shipment notifications ("order shipped", "out for delivery", "item delivered", "package delivered") — these are pure status updates with no payment info → IGNORE.
   NOTE: App-level savings/discount numbers ("₹145 saved", "₹69 saved") are promotional, NOT transaction amounts. Ignore them.
   IMPORTANT: Delivery notifications that list ordered items with prices (e.g. "1 x Butter ₹122") are still DELIVERY notifications — no money moved in this email. These are IGNORE, not expenses.
-  IMPORTANT: Order confirmation / receipt emails ("Thanks for your order", "Order confirmation", "Your order of") that contain product details AND a total amount are EXPENSES, not delivery notifications.
-  Distinction: order confirmation = payment was processed → expense. Delivery notification = items were delivered → ignore. If the body says "delivered", "out for delivery", or "shipped", it is a delivery notification regardless of whether it lists items.
+  IMPORTANT: Order confirmation / receipt emails ("Thanks for your order", "Order confirmation", "Your order of") that state a total amount paid ARE expenses, even if they include delivery tracking statuses in a secondary progress bar or timeline. The presence of a total amount + order confirmation takes priority over delivery keywords in a tracking UI.
+  Distinction: order confirmation with total amount paid → expense. Pure delivery status update with no payment info → ignore.
 - Newsletters — "weekly digest", "tips & tricks", "recommendations"
 - KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
 - Password resets — "reset password", "password change request"
@@ -99,10 +99,11 @@ REFUND / REVERSAL → always "income" (money returning to you)
 → label: "ignore", category: "CC Payment"
 
 # PRIORITY RULES (apply in order)
-0. DELIVERY OVERRIDE: If subject or body text contains "delivered", "out for delivery", "shipped", or "item delivered" in a shipment/order context, classify as IGNORE. This overrides any product listing below. Delivery notifications with itemized order lines are still IGNORE — no money moved in this email.
+0. DELIVERY OVERRIDE: If the email's primary purpose is delivery/shipment status AND it does NOT contain a confirmed total amount paid → IGNORE. Delivery notifications with itemized order lines are still IGNORE — no money moved in this email.
+   EXCEPTION: Order confirmation/receipt emails that state a total amount paid ARE expenses, even if they include delivery tracking statuses in a secondary timeline/progress bar.
 1. OTP/security verification → IGNORE immediately
 2. Credit card bill payment received by bank → IGNORE, category=CC Payment (NOT income!)
-3. Order/receipt emails are EXPENSE ONLY if they confirm PAYMENT (e.g. "paid", "debited", "charged", "payment of", "receipt"). NEVER classify a delivery/shipment status email as expense.
+3. Order/receipt emails are EXPENSE ONLY if they confirm PAYMENT with a stated total amount (e.g. "paid", "debited", "charged", "payment of", "receipt"). NEVER classify a pure delivery/shipment status email as expense.
 4. Explicit money movement confirmed → classify transaction
 5. Reminder or informational only → IGNORE
 6. Both promotional and transactional text → classify based ONLY on the transactional section
@@ -283,14 +284,14 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - Balance/limit alerts — low balance, minimum amount due, credit limit
 - Statement ready — monthly statement, account summary, transaction report
 - Offers / promos — special offer, festive sale, discount, cashback offer
-- Delivery/shipment notifications (standalone tracking only) — including those listing ordered items with prices
+- Delivery/shipment notifications — pure status updates with no total paid amount. Delivery tracking statuses in a progress bar/timeline within an order confirmation are NOT delivery notifications.
 - Newsletters — weekly digest, tips, recommendations
 - KYC / compliance — update KYC, Aadhaar linking, PAN verification
 - Password resets, welcome emails, terms updates, fee change notifications
 - CREDIT CARD BILL PAYMENTS — "We have received payment on your Credit Card", "payment received towards credit card". Bank received your payment = money going OUT from you, NOT income. → ignore, category=CC Payment
 → label: "ignore"
 
-DELIVERY OVERRIDE: If body contains "delivered", "out for delivery", or "shipped", classify as IGNORE regardless of itemized prices. A delivery notification is NEVER a transaction — payment happened in a separate email. Only emails confirming PAYMENT (paid, debited, charged) are expenses.
+DELIVERY OVERRIDE: If body contains delivery keywords ("delivered", "out for delivery", "shipped") AND the email does NOT contain a total amount paid → IGNORE. Exception: order confirmation emails with a stated total amount ARE expenses even if they include delivery tracking as a secondary timeline. Only emails confirming PAYMENT with a total (paid, debited, charged) are expenses.
 
 AMOUNT: Extract ONLY a single total paid amount. Itemized line prices ("1 x Item ₹94", "1 × Butter ₹122") are NOT transaction amounts. Return null amount if no paid total is found.
 
