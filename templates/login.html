@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/styles.css?v=10">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r184/three.min.js" crossorigin="anonymous"></script>
 <style>
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Geist',system-ui,sans-serif; font-size:14px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
@@ -23,7 +24,7 @@
 </style>
 </head>
 <body>
-<canvas id="bg" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0"></canvas>
+<div id="bg" style="position:fixed;inset:0;pointer-events:none;z-index:0"></div>
 <button class="tgl" id="tgl" aria-label="Toggle theme">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" id="tgl-svg"></svg>
 </button>
@@ -43,33 +44,72 @@
 </div>
 <script>
 (function(){
-  var c=document.getElementById("bg"),ctx=c.getContext("2d"),SEP=60,frame,count=0,w,h,cols,rows,dots;
-  var tgl=document.getElementById("tgl"),svg=document.getElementById("tgl-svg"),html=document.documentElement;
+  var el=document.getElementById("bg"),html=document.documentElement,tgl=document.getElementById("tgl"),svg=document.getElementById("tgl-svg");
+  var SEP=150,AX=40,AY=60;
 
-  function resize(){var dpr=window.devicePixelRatio||1;w=window.innerWidth;h=window.innerHeight;c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);cols=Math.ceil(w/SEP)+1;rows=Math.ceil(h/SEP)+1;dots=[];for(var ix=0;ix<cols;ix++)for(var iy=0;iy<rows;iy++)dots.push({x:ix*SEP,y:iy*SEP});}
   function dark(){return html.getAttribute("data-theme")==="midnight";}
-  function draw(){
-    count+=0.04;
-    ctx.clearRect(0,0,w,h);
-    var isDark=dark();
-    for(var i=0;i<dots.length;i++){
-      var d=dots[i],wave=Math.sin((d.x+count*40)*0.008)*12+Math.sin((d.y+count*25)*0.006)*12,r=2+wave/8;
-      ctx.beginPath();ctx.arc(d.x,d.y+wave,Math.max(0.5,r),0,Math.PI*2);
-      ctx.fillStyle=isDark?"rgba(200,200,200,"+Math.min(0.5,0.15+wave/120)+")":"rgba(0,0,0,"+Math.min(0.5,0.08+wave/200)+")";
-      ctx.fill();
+  function bgHex(){return dark()?0x14120e:0xf6f3ec;}
+  function dotRGB(){return dark()?[200,200,200]:[0,0,0];}
+
+  var scene=new THREE.Scene(),fog=new THREE.Fog(bgHex(),2000,10000);
+  scene.fog=fog;
+  var camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,1,10000);
+  camera.position.set(0,355,1220);
+  var renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.setClearColor(fog.color,0);
+  el.appendChild(renderer.domElement);
+
+  var pos=[],col=[],dc=dotRGB();
+  for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
+    pos.push(ix*SEP-(AX*SEP)/2,0,iy*SEP-(AY*SEP)/2);
+    col.push(dc[0],dc[1],dc[2]);
+  }
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
+  var colorAttr=new THREE.Float32BufferAttribute(col,3);
+  geo.setAttribute("color",colorAttr);
+  var mat=new THREE.PointsMaterial({size:8,vertexColors:true,transparent:true,opacity:0.8,sizeAttenuation:true});
+  var pts=new THREE.Points(geo,mat);
+  scene.add(pts);
+
+  var count=0,frame;
+
+  function animate(){
+    frame=requestAnimationFrame(animate);
+    var p=geo.attributes.position.array,i=0;
+    for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
+      var idx=i*3;
+      p[idx+1]=Math.sin((ix+count)*0.3)*50+Math.sin((iy+count)*0.5)*50;
+      i++;
     }
-    frame=requestAnimationFrame(draw);
+    geo.attributes.position.needsUpdate=true;
+    renderer.render(scene,camera);
+    count+=0.1;
   }
-  function updateIcon(){
-    var d=dark();
-    svg.innerHTML=d?'<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>':'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+
+  function onResize(){
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
   }
-  tgl.onclick=function(){var n=dark()?"paper":"midnight";html.setAttribute("data-theme",n);localStorage.setItem("mf_theme",n);updateIcon();};
-  updateIcon();
-  var obs=new MutationObserver(function(){updateIcon();});
+  window.addEventListener("resize",onResize);
+
+  function updateTheme(){
+    var dc2=dotRGB(),ca=colorAttr.array;
+    for(var j=0;j<ca.length;j+=3){ca[j]=dc2[0];ca[j+1]=dc2[1];ca[j+2]=dc2[2];}
+    colorAttr.needsUpdate=true;
+    fog.color.setHex(bgHex());
+    renderer.setClearColor(fog.color,0);
+    svg.innerHTML=dark()?'<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>':'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  }
+
+  tgl.onclick=function(){var n=dark()?"paper":"midnight";html.setAttribute("data-theme",n);localStorage.setItem("mf_theme",n);};
+  var obs=new MutationObserver(updateTheme);
   obs.observe(html,{attributes:true,attributeFilter:["data-theme"]});
-  window.addEventListener("resize",resize);
-  resize();draw();
+  updateTheme();
+  animate();
 })();
 </script>
 </body>

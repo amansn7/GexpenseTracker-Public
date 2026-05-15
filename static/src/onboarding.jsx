@@ -5,66 +5,125 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 // ---------------------------------------------------------------------------
-// DottedSurface — animated canvas background
+// DottedSurface — animated 3D dotted wave (Three.js)
 // ---------------------------------------------------------------------------
 const DottedSurface = () => {
   const ref = useRef(null);
-  const stateRef = useRef(null);
 
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const SEP = 60;
-    let frame;
-    let count = 0;
-    let w, h, cols, rows, dots;
+    const el = ref.current;
+    if (!el) return;
 
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      w = window.innerWidth;
-      h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      ctx.scale(dpr, dpr);
-      cols = Math.ceil(w / SEP) + 1;
-      rows = Math.ceil(h / SEP) + 1;
-      dots = [];
-      for (let ix = 0; ix < cols; ix++)
-        for (let iy = 0; iy < rows; iy++)
-          dots.push({ x: ix * SEP, y: iy * SEP });
-    };
+    const SEPARATION = 150;
+    const AMOUNTX = 40;
+    const AMOUNTY = 60;
 
-    const draw = () => {
-      count += 0.04;
-      const html = document.documentElement;
-      const dark = html.getAttribute("data-theme") === "midnight";
-      ctx.clearRect(0, 0, w, h);
-      for (const d of dots) {
-        const wave = Math.sin((d.x + count * 40) * 0.008) * 12 +
-                     Math.sin((d.y + count * 25) * 0.006) * 12;
-        const r = 2 + wave / 8;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y + wave, Math.max(0.5, r), 0, Math.PI * 2);
-        ctx.fillStyle = dark
-          ? `rgba(200,200,200,${Math.min(0.5, 0.15 + wave / 120)})`
-          : `rgba(0,0,0,${Math.min(0.5, 0.08 + wave / 200)})`;
-        ctx.fill();
+    const dark = () => document.documentElement.getAttribute("data-theme") === "midnight";
+    const bgHex = () => dark() ? 0x14120e : 0xf6f3ec;
+    const dotColor = () => dark() ? [200, 200, 200] : [0, 0, 0];
+
+    const scene = new THREE.Scene();
+    const fog = new THREE.Fog(bgHex(), 2000, 10000);
+    scene.fog = fog;
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.set(0, 355, 1220);
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(fog.color, 0);
+    el.appendChild(renderer.domElement);
+
+    const positions = [];
+    const colors = [];
+    const dc = dotColor();
+    for (let ix = 0; ix < AMOUNTX; ix++) {
+      for (let iy = 0; iy < AMOUNTY; iy++) {
+        positions.push(
+          ix * SEPARATION - (AMOUNTX * SEPARATION) / 2,
+          0,
+          iy * SEPARATION - (AMOUNTY * SEPARATION) / 2,
+        );
+        colors.push(dc[0], dc[1], dc[2]);
       }
-      frame = requestAnimationFrame(draw);
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const colorAttr = new THREE.Float32BufferAttribute(colors, 3);
+    geometry.setAttribute("color", colorAttr);
+
+    const material = new THREE.PointsMaterial({
+      size: 8,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      sizeAttenuation: true,
+    });
+
+    const points = new THREE.Points(geometry, material);
+    scene.add(points);
+
+    let count = 0;
+    let animationId;
+
+    const animate = () => {
+      animationId = requestAnimationFrame(animate);
+      const pos = geometry.attributes.position.array;
+      let i = 0;
+      for (let ix = 0; ix < AMOUNTX; ix++) {
+        for (let iy = 0; iy < AMOUNTY; iy++) {
+          const idx = i * 3;
+          pos[idx + 1] =
+            Math.sin((ix + count) * 0.3) * 50 +
+            Math.sin((iy + count) * 0.5) * 50;
+          i++;
+        }
+      }
+      geometry.attributes.position.needsUpdate = true;
+      renderer.render(scene, camera);
+      count += 0.1;
     };
 
-    resize();
-    draw();
-    window.addEventListener("resize", resize);
-    const obs = new MutationObserver(() => { count += 0.5; });
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener("resize", handleResize);
 
-    stateRef.current = () => { cancelAnimationFrame(frame); obs.disconnect(); window.removeEventListener("resize", resize); };
-    return () => stateRef.current();
+    const themeObs = new MutationObserver(() => {
+      const dc2 = dotColor();
+      const c = colorAttr.array;
+      for (let j = 0; j < c.length; j += 3) {
+        c[j] = dc2[0]; c[j+1] = dc2[1]; c[j+2] = dc2[2];
+      }
+      colorAttr.needsUpdate = true;
+      fog.color.setHex(bgHex());
+      renderer.setClearColor(fog.color, 0);
+    });
+    themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener("resize", handleResize);
+      themeObs.disconnect();
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Points) {
+          obj.geometry.dispose();
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+      renderer.dispose();
+      if (el.contains(renderer.domElement)) el.removeChild(renderer.domElement);
+    };
   }, []);
 
-  return <canvas ref={ref} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 999, pointerEvents: "none" }} />;
+  return <div ref={ref} style={{ position: "fixed", inset: 0, zIndex: 999, pointerEvents: "none" }} />;
 };
 
 // ---------------------------------------------------------------------------
