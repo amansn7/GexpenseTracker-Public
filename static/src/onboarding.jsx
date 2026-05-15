@@ -127,10 +127,44 @@ const DottedSurface = () => {
 };
 
 // ---------------------------------------------------------------------------
-// ThemeToggle — sun/moon toggle with persistence
+// ThemeToggle — sun↔moon morph with spring-like CSS + tick sound
 // ---------------------------------------------------------------------------
+let _atCtx = null, _atBuf = null;
+function _atTick(ref) {
+  const now = performance.now();
+  if (now - (ref.current || 0) < 80) return;
+  ref.current = now;
+  try {
+    if (!_atCtx) _atCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_atCtx.state === "suspended") _atCtx.resume();
+    const ac = _atCtx;
+    if (!_atBuf || _atBuf.sampleRate !== ac.sampleRate) {
+      const rate = ac.sampleRate, len = Math.floor(rate * 0.006);
+      const buf = ac.createBuffer(1, len, rate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        ch[i] = (Math.sin(2 * Math.PI * 3400 * t) * 0.6 + (Math.random() * 2 - 1) * 0.4) * Math.pow(1 - t, 3);
+      }
+      _atBuf = buf;
+    }
+    const src = ac.createBufferSource();
+    const gain = ac.createGain();
+    src.buffer = _atBuf;
+    gain.gain.value = 0.08;
+    src.connect(gain);
+    gain.connect(ac.destination);
+    src.start();
+  } catch {}
+}
+
 const ThemeToggle = () => {
+  const id = React.useId();
+  const maskId = `atm${id.replace(/:/g, "")}`;
+  const lastSnd = useRef(0);
   const [dark, setDark] = useState(() => document.documentElement.getAttribute("data-theme") === "midnight");
+  const [hover, setHover] = useState(false);
+  const [pressing, setPressing] = useState(false);
 
   const toggle = useCallback(() => {
     const html = document.documentElement;
@@ -138,18 +172,36 @@ const ThemeToggle = () => {
     html.setAttribute("data-theme", next);
     localStorage.setItem("mf_theme", next);
     setDark(next === "midnight");
+    _atTick(lastSnd);
   }, []);
+
+  const spring = "all 400ms cubic-bezier(.34,1.56,.64,1)";
+  const scale = pressing ? 0.86 : hover ? 1.1 : 1;
 
   return (
     <button onClick={toggle}
-      style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1001, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 999, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)", padding: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); setPressing(false); }}
+      onMouseDown={() => setPressing(true)}
+      onMouseUp={() => setPressing(true)}
+      style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1001, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 999, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)", padding: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", transform: `scale(${scale})`, transition: spring, WebkitTapHighlightColor: "transparent" }}
       aria-label="Toggle theme">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        {dark ? (
-          <><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></>
-        ) : (
-          <><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></>
-        )}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ overflow: "visible" }}>
+        <mask id={maskId}>
+          <rect x="0" y="0" width="100%" height="100%" fill="white" />
+          <circle cx={dark ? 17 : 33} cy={dark ? 8 : 0} r="9" fill="black" style={{ transition: spring, transformOrigin: "12px 12px" }} />
+        </mask>
+        <circle cx="12" cy="12" fill="currentColor" stroke="none" mask={`url(#${maskId})`} r={dark ? 9 : 5} style={{ transition: spring }} />
+        <g style={{ opacity: dark ? 0 : 1, transform: `scale(${dark ? 0 : 1}) rotate(${dark ? -30 : 0}deg)`, transformOrigin: "12px 12px", transition: spring }}>
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="5.64" y1="5.64" x2="4.22" y2="4.22" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          <line x1="5.64" y1="18.36" x2="4.22" y2="19.78" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        </g>
       </svg>
     </button>
   );
