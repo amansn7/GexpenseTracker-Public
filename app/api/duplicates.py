@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -7,6 +8,8 @@ from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import DuplicatePair, Transaction, Email, User
 from app.dedup.service import resolve_duplicate
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -63,6 +66,14 @@ async def _load_pair_with_txs(pair_id: str, db: AsyncSession, user_id: str):
     if not primary_row or not dup_row:
         raise HTTPException(status_code=422, detail="Pair references missing transactions")
     return pair, primary_row[0], primary_row[1], dup_row[0], dup_row[1]
+
+
+@router.post("/duplicates/scan")
+async def scan_duplicates(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Run duplicate detection on all expense transactions for the current user."""
+    from app.sync import scan_all_for_duplicates
+    result = await scan_all_for_duplicates(str(current_user.id))
+    return {"checked": result.get("checked", 0), "new_pairs": result.get("new_pairs", 0)}
 
 
 @router.get("/duplicates")

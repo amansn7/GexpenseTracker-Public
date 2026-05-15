@@ -793,6 +793,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [bulkMethod, setBulkMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
   const [dupPairs, setDupPairs] = React.useState([]);
   const [dupLoading, setDupLoading] = React.useState(false);
+  const [dupScanning, setDupScanning] = React.useState(false);
   const headerCheckRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -1215,17 +1216,34 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 </>
               )}
             </div>
-          ) : filter === "duplicates" ? (
-            dupLoading ? (
+          ) : filter === "duplicates" ? (<>
+            <div style={{ padding: "8px 16px", display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
+              {dupPairs.length > 0 && <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>{dupPairs.length} pending</span>}
+              <button onClick={async () => {
+                setDupScanning(true);
+                try {
+                  await API.post("/api/duplicates/scan");
+                  const d = await API.get("/api/duplicates?status=pending");
+                  setDupPairs(d || []);
+                } catch (_) {}
+                setDupScanning(false);
+              }} disabled={dupScanning}
+                style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                {dupScanning ? <><div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
+              </button>
+            </div>
+            {dupLoading && !dupScanning ? (
               <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>
+            ) : dupScanning ? (
+              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Scanning expenses for duplicates…</div>
             ) : dupPairs.length === 0 ? (
               <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No pending duplicates — all clear.</div>
             ) : (
               dupPairs.map(pair => (
                 <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
               ))
-            )
-          ) : (
+            )}
+          </>) : (
             <>
             {showFirstHint && filter === "all" && !selectedId && (
               <div style={{ padding: "12px 16px", margin: "8px 12px 4px", background: "var(--accent-soft)", borderRadius: 8, fontSize: 12, color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
