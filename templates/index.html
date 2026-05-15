@@ -62,10 +62,6 @@
     15% { box-shadow: 0 0 12px 6px var(--pos-soft); }
     30% { box-shadow: 0 0 0 0 transparent; }
   }
-  @keyframes brandSheen {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
   @keyframes accentPulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.55; }
@@ -117,7 +113,6 @@
   .dot-ping { animation: dotPing 1.5s ease-out infinite; }
   .dot-bounce { animation: dotBounce 1s ease-out infinite; }
   .dot-glow { animation: dotGlow 2s ease-out infinite; }
-  .brand-sheen { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.12) 50%, transparent 100%); pointer-events: none; animation: brandSheen 3s ease-in-out infinite; }
   .brand-accent { animation: accentPulse 2.5s ease-in-out infinite; }
   .brand-quirk-squish { animation: quirkSquish .6s ease-out; }
   .brand-quirk-shake { animation: quirkShake .5s ease-out; }
@@ -127,7 +122,7 @@
   @media (prefers-reduced-motion: reduce) {
     .pill-btn, .pill-btn:hover, .pill-btn:active { transition: none; transform: none; box-shadow: none; }
     .dot-ping, .dot-bounce, .dot-glow { animation: none; }
-    .brand-sheen, .brand-accent, .brand-quirk-squish, .brand-quirk-shake, .brand-quirk-split-left, .brand-quirk-split-right, .brand-quirk-boing { animation: none; }
+    .brand-accent, .brand-quirk-squish, .brand-quirk-shake, .brand-quirk-split-left, .brand-quirk-split-right, .brand-quirk-boing { animation: none; }
   }
 
   .tweaks-panel {

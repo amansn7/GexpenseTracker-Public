@@ -29,7 +29,6 @@ const LiveBrand = ({ onNav, mobile, onClose }) => {
       <div onClick={handleClick} className={!split && quirk ? "brand-quirk-" + quirk : ""} style={{ position: "relative", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0" }}>
         <span className={split ? "brand-quirk-split-left" : ""} style={shellStyles.brandMark}>Money</span>
         <span className={"brand-accent" + (split ? " brand-quirk-split-right" : "")} style={{ ...shellStyles.brandMark, color: "var(--accent)", fontStyle: "italic" }}>flow</span>
-        <span className="brand-sheen" />
       </div>
       {mobile && (
         <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="focus-ring" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
