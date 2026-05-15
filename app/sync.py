@@ -634,9 +634,13 @@ async def scan_all_for_duplicates(user_id: str) -> dict:
         )).all()
 
         checked = 0
-        before = (await session.execute(
+        _user_pairs_q = (
             select(func.count(DuplicatePair.id))
-        )).scalar()
+            .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
+            .join(Email, Email.id == Transaction.email_id)
+            .where(Email.user_id == user_id)
+        )
+        before = (await session.execute(_user_pairs_q)).scalar()
 
         for t, email in rows:
             try:
@@ -647,9 +651,7 @@ async def scan_all_for_duplicates(user_id: str) -> dict:
 
         await session.commit()
 
-        after = (await session.execute(
-            select(func.count(DuplicatePair.id))
-        )).scalar()
+        after = (await session.execute(_user_pairs_q)).scalar()
         new_pairs = (after or 0) - (before or 0)
 
         logger.info("scan_all_for_duplicates: checked %d, new pairs %d", checked, new_pairs)
