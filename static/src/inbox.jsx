@@ -244,14 +244,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       setReclassResult(result);
       setReclass("done");
       // Map API _fmt response → UI tx fields via normCat, then update parent (no extra PATCH)
+      const isIgnore = result.label === "ignore";
       const isIncome = result.label === "income";
       const cat = normCat(result.category, isIncome);
       const isSub = cat === "sub";
       onUpdate({
         _skipApi: true,
-        amount:   isIncome ? (result.amount || 0) : -(result.amount || 0),
+        amount:   isIgnore ? 0 : isIncome ? (result.amount || 0) : -(result.amount || 0),
         cat,
-        tag:      isIncome ? "income" : isSub ? "subscription" : "expense",
+        tag:      isIgnore ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense",
         conf:     result.confidence ?? tx.conf,
         merchant: result.merchant || tx.merchant,
       });
@@ -927,13 +928,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     setBulkReclassItems(marked);
     try {
       const result = await API.post(`/api/transactions/${item.id}/reclassify`);
+      const isIgnore = result.label === "ignore";
       const isIncome = result.label === "income";
       const cat = normCat(result.category, isIncome);
       setTransactions(ts => ts.map(t => t.id === item.id ? {
         ...t,
         cat,
-        amount: isIncome ? (result.amount || 0) : -(result.amount || 0),
-        tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+        amount: isIgnore ? 0 : isIncome ? (result.amount || 0) : -(result.amount || 0),
+        tag: isIgnore ? "ignore" : isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
         conf: result.confidence ?? t.conf,
         merchant: result.merchant || t.merchant,
       } : t));
@@ -958,12 +960,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const promises = remaining.map((item, i) =>
       API.post(`/api/transactions/${item.id}/reclassify`)
         .then(data => {
+          const isIgnore = data.label === "ignore";
           const isIncome = data.label === "income";
           const cat = normCat(data.category, isIncome);
           setTransactions(ts => ts.map(t => t.id === item.id ? {
             ...t, cat,
-            amount: isIncome ? (data.amount || 0) : -(data.amount || 0),
-            tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+            amount: isIgnore ? 0 : isIncome ? (data.amount || 0) : -(data.amount || 0),
+            tag: isIgnore ? "ignore" : isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
             conf: data.confidence ?? t.conf,
             merchant: data.merchant || t.merchant,
           } : t));
@@ -1007,7 +1010,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? {
       ...t,
       cat: normCat(bulkManualCat, bulkManualLabel === "income"),
-      tag: bulkManualLabel === "income" ? "income" : bulkManualCat === "sub" ? "subscription" : "expense",
+      tag: bulkManualLabel === "ignore" ? "ignore" : bulkManualLabel === "income" ? "income" : bulkManualCat === "sub" ? "subscription" : "expense",
     } : t));
     setBulkManualOpen(false);
     clearSelect();

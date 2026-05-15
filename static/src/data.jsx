@@ -23,6 +23,7 @@ const TAGS = {
   income:       { label: "Income",       dot: "var(--pos)"    },
   subscription: { label: "Subscription", dot: "var(--accent)" },
   transfer:     { label: "Transfer",     dot: "var(--ink-3)"  },
+  ignore:       { label: "Ignored",     dot: "var(--ink-4)"  },
 };
 
 // DB category value → CATEGORIES key
@@ -83,8 +84,8 @@ const transformTransaction = (t) => {
   const isIncome = t.label === "income";
   const cat = _normCat(t.category, isIncome);
   const isSub = cat === "sub";
-  const tag = isIncome ? "income" : isSub ? "subscription" : "expense";
-  const amount = isIncome ? (t.amount || 0) : -(t.amount || 0);
+  const tag = t.label === "ignore" ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense";
+  const amount = t.label === "ignore" ? 0 : isIncome ? (t.amount || 0) : -(t.amount || 0);
   const conf = t.confidence ?? 0.5;
 
   const _localDate = (iso) => {
