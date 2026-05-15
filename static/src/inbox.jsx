@@ -1298,7 +1298,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
                   {(() => {
-                    const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing").length;
+                    const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing" && it.status !== "preview" && it.status !== "applying").length;
                     const pct = bulkReclassItems.length > 0 ? (done / bulkReclassItems.length * 100) : 0;
                     return <div style={{ height: "100%", background: "var(--accent)", borderRadius: 2, transition: "transform 300ms", transformOrigin: "left", transform: `scaleX(${pct / 100})` }} />;
                   })()}
@@ -1342,7 +1342,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 }
 
                 if (item.status === "accepted" || item.status === "skipped" || item.status === "applying") {
-                  const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing").length;
+                  const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing" && it.status !== "preview" && it.status !== "applying").length;
                   const isAllDone = done >= bulkReclassItems.length;
                   if (isAllDone) {
                     const accepted = bulkReclassItems.filter(it => it.status === "accepted").length;
@@ -1365,13 +1365,46 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       </div>
                     );
                   }
+                  if (item.status === "applying" && item.preview) {
+                    const p = item.preview;
+                    const isIncome = p.label === "income";
+                    const curr = item.current;
+                    return (
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                          <div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Processing {bulkReclassIdx + 1} of {bulkReclassItems.length}&hellip;</span>
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {item.subject || "(no subject)"}
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 16px", marginBottom: 12 }}>
+                          {[
+                            ["Label",      curr.label,           p.label || "—"],
+                            ["Amount",     curr.amount ? `₹${Math.abs(curr.amount).toLocaleString("en-IN")}` : "—", p.amount != null ? `₹${Math.abs(p.amount).toLocaleString("en-IN")}` : "—"],
+                            ["Merchant",   curr.merchant || "—", p.merchant || "—"],
+                            ["Category",   curr.category || "—", (normCat(p.category, isIncome)) || "—"],
+                            ["Confidence", `${Math.round((curr.confidence ?? 0) * 100)}%`, `${Math.round((p.confidence ?? 0) * 100)}%`],
+                          ].map(([k, cv, pv]) => {
+                            const changed = cv !== pv && !(k === "Confidence" && (Math.round((item.current.confidence ?? 0) * 100) === Math.round((p.confidence ?? 0) * 100)));
+                            return (
+                              <div key={k} style={{ background: "var(--paper-2)", borderRadius: 6, padding: "8px 10px" }}>
+                                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>{k}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                                  <span style={{ color: "var(--ink-2)" }}>{cv}</span>
+                                  <span style={{ color: "var(--ink-4)", fontSize: 10 }}>→</span>
+                                  <span style={{ color: changed ? "var(--accent)" : "var(--ink)", fontWeight: changed ? 600 : 400 }}>{pv}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>
-                      {item.status === "applying" ? (
-                        <><div style={{ width: 16, height: 16, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Applying…</>
-                      ) : (
-                        "Loading next…"
-                      )}
+                      Loading next&hellip;
                     </div>
                   );
                 }
@@ -1425,7 +1458,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             {(() => {
               const item = bulkReclassItems[bulkReclassIdx];
               if (!item) return null;
-              const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing" && it.status !== "preview").length;
+              const done = bulkReclassItems.filter(it => it.status !== "pending" && it.status !== "previewing" && it.status !== "preview" && it.status !== "applying").length;
               const isAllDone = done >= bulkReclassItems.length && item.status !== "preview";
               if (isAllDone) {
                 return (
