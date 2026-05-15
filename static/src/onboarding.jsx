@@ -2,7 +2,95 @@
 // No module system: raw JSX loaded via Babel in browser.
 // React / ReactDOM are global. API global from data.jsx.
 
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ---------------------------------------------------------------------------
+// DottedSurface — animated canvas background
+// ---------------------------------------------------------------------------
+const DottedSurface = () => {
+  const ref = useRef(null);
+  const stateRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const SEP = 60;
+    let frame;
+    let count = 0;
+    let w, h, cols, rows, dots;
+
+    const resize = () => {
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
+      cols = Math.ceil(w / SEP) + 1;
+      rows = Math.ceil(h / SEP) + 1;
+      dots = [];
+      for (let ix = 0; ix < cols; ix++)
+        for (let iy = 0; iy < rows; iy++)
+          dots.push({ x: ix * SEP, y: iy * SEP });
+    };
+
+    const draw = () => {
+      count += 0.04;
+      const html = document.documentElement;
+      const dark = html.getAttribute("data-theme") === "midnight";
+      ctx.clearRect(0, 0, w, h);
+      for (const d of dots) {
+        const wave = Math.sin((d.x + count * 40) * 0.008) * 12 +
+                     Math.sin((d.y + count * 25) * 0.006) * 12;
+        const r = 2 + wave / 8;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y + wave, Math.max(0.5, r), 0, Math.PI * 2);
+        ctx.fillStyle = dark
+          ? `rgba(200,200,200,${Math.min(0.5, 0.15 + wave / 120)})`
+          : `rgba(0,0,0,${Math.min(0.5, 0.08 + wave / 200)})`;
+        ctx.fill();
+      }
+      frame = requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+    window.addEventListener("resize", resize);
+    const obs = new MutationObserver(() => { count += 0.5; });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    stateRef.current = () => { cancelAnimationFrame(frame); obs.disconnect(); window.removeEventListener("resize", resize); };
+    return () => stateRef.current();
+  }, []);
+
+  return <canvas ref={ref} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", zIndex: 999, pointerEvents: "none" }} />;
+};
+
+// ---------------------------------------------------------------------------
+// ThemeToggle — sun/moon toggle with persistence
+// ---------------------------------------------------------------------------
+const ThemeToggle = () => {
+  const [dark, setDark] = useState(() => document.documentElement.getAttribute("data-theme") === "midnight");
+
+  const toggle = useCallback(() => {
+    const html = document.documentElement;
+    const next = html.getAttribute("data-theme") === "midnight" ? "paper" : "midnight";
+    html.setAttribute("data-theme", next);
+    localStorage.setItem("mf_theme", next);
+    setDark(next === "midnight");
+  }, []);
+
+  return (
+    <button onClick={toggle}
+      style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1001, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 999, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)", padding: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+      aria-label="Toggle theme">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        {dark ? (
+          <><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></>
+        ) : (
+          <><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></>
+        )}
+      </svg>
+    </button>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Shared styles
@@ -26,7 +114,10 @@ const S = {
 const WizardShell = ({ step, children }) => {
   const pct = (step / 5) * 100;
   return (
-    <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--paper)", zIndex: 1000 }}>
+    <>
+    <DottedSurface />
+    <ThemeToggle />
+    <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
       <div style={{ maxWidth: 480, width: "90%", display: "flex", flexDirection: "column", gap: 0 }}>
         {/* Progress bar — sits above card */}
         <div style={{ marginBottom: 12 }}>
@@ -45,6 +136,7 @@ const WizardShell = ({ step, children }) => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
