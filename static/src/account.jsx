@@ -1528,20 +1528,28 @@ const MerchantAliasesSection = ({ categories }) => {
 
 const FilterRulesSection = () => {
   const [rules, setRules] = React.useState(null);
+  const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [showAdd, setShowAdd] = React.useState(false);
   const [newType, setNewType] = React.useState("allowlist_domain");
   const [newValue, setNewValue] = React.useState("");
+  const [page, setPage] = React.useState(0);
+  const pageSize = 50;
 
-  const load = async () => {
+  const load = async (p) => {
+    const targetPage = p ?? page;
     setLoading(true); setError(null);
-    try { const d = await API.get("/api/filter/rules"); setRules(d || []); }
-    catch (e) { setError(e.message); setRules([]); }
+    try {
+      const d = await API.get(`/api/filter/rules?skip=${targetPage*pageSize}&limit=${pageSize}`);
+      setRules(d.items || []);
+      setTotal(d.total || 0);
+      if (p !== undefined) setPage(p);
+    } catch (e) { setError(e.message); setRules([]); setTotal(0); }
     setLoading(false);
   };
 
-  React.useEffect(() => { load(); }, []);
+  React.useEffect(() => { load(0); }, []);
 
   const addRule = async () => {
     if (!newValue.trim()) return;
@@ -1564,7 +1572,7 @@ const FilterRulesSection = () => {
     <div style={accountStyles.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={accountStyles.sectionTitle}>Email Filter Rules</h3>
-        <button onClick={load} style={{ ...accountStyles.btn, padding: "5px 10px", fontSize: 11 }}>↻</button>
+        <button onClick={() => load(page)} style={{ ...accountStyles.btn, padding: "5px 10px", fontSize: 11 }}>↻</button>
       </div>
       <div style={accountStyles.sectionSub}>— allowlist, blocklist, and keyword rules applied before classification</div>
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
@@ -1594,6 +1602,19 @@ const FilterRulesSection = () => {
               ))}
             </tbody>
           </table>
+          {total > pageSize && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", fontSize: 12, color: "var(--ink-3)" }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11 }}>
+                {page * pageSize + 1}–{Math.min((page + 1) * pageSize, total)} of {total}
+              </span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <button onClick={() => load(page - 1)} disabled={page === 0}
+                  style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: page === 0 ? "var(--paper-2)" : "var(--paper)", color: page === 0 ? "var(--ink-4)" : "var(--ink-3)", fontSize: 11, fontWeight: 500, cursor: page === 0 ? "default" : "pointer" }}>← Prev</button>
+                <button onClick={() => load(page + 1)} disabled={(page + 1) * pageSize >= total}
+                  style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: (page + 1) * pageSize >= total ? "var(--paper-2)" : "var(--paper)", color: (page + 1) * pageSize >= total ? "var(--ink-4)" : "var(--ink-3)", fontSize: 11, fontWeight: 500, cursor: (page + 1) * pageSize >= total ? "default" : "pointer" }}>Next →</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
       {showAdd && (

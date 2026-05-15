@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from pydantic import BaseModel
@@ -20,22 +20,32 @@ router = APIRouter()
 
 @router.get("/filter/rules")
 async def list_filter_rules(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    total_q = await db.execute(select(FilterRule.id).order_by(FilterRule.rule_type, FilterRule.created_at))
+    total = len(total_q.all())
+
     rows = (await db.execute(
-        select(FilterRule).order_by(FilterRule.rule_type, FilterRule.created_at)
+        select(FilterRule).order_by(FilterRule.rule_type, FilterRule.created_at).offset(skip).limit(limit)
     )).scalars().all()
-    return [
-        {
-            "id": r.id,
-            "rule_type": r.rule_type,
-            "value": r.value,
-            "source": r.source,
-            "hit_count": r.hit_count,
-        }
-        for r in rows
-    ]
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "rule_type": r.rule_type,
+                "value": r.value,
+                "source": r.source,
+                "hit_count": r.hit_count,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+    }
 
 
 @router.post("/filter/refine")
