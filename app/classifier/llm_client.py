@@ -82,7 +82,9 @@ REFUND / REVERSAL → always "income" (money returning to you)
 - Offers / promos — "special offer", "festive sale", "discount", "cashback offer"
 - Delivery/shipment notifications (standalone tracking only — "order shipped", "out for delivery", "item delivered", "package delivered").
   NOTE: App-level savings/discount numbers ("₹145 saved", "₹69 saved") are promotional, NOT transaction amounts. Ignore them.
+  IMPORTANT: Delivery notifications that list ordered items with prices (e.g. "1 x Butter ₹122") are still DELIVERY notifications — no money moved in this email. These are IGNORE, not expenses.
   IMPORTANT: Order confirmation / receipt emails ("Thanks for your order", "Order confirmation", "Your order of") that contain product details AND a total amount are EXPENSES, not delivery notifications.
+  Distinction: order confirmation = payment was processed → expense. Delivery notification = items were delivered → ignore. If the body says "delivered", "out for delivery", or "shipped", it is a delivery notification regardless of whether it lists items.
 - Newsletters — "weekly digest", "tips & tricks", "recommendations"
 - KYC / compliance — "update KYC", "Aadhaar linking", "PAN verification"
 - Password resets — "reset password", "password change request"
@@ -286,6 +288,7 @@ REFUND / REVERSAL → always "income" (money returning to you)
 
 E-COMMERCE / ORDER CONFIRMATION — "Thanks for your order", "Your order of",
   Order # + product + quantity + total. These are EXPENSES, not delivery notifications.
+  CRITICAL: Delivery notifications that list ordered items with prices are still DELIVERY notifications — no money moved. IGNORE them.
 
 INVESTMENT / SIP — money going OUT to buy financial assets:
   "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
