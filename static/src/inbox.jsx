@@ -471,15 +471,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 8 }}>
-          <button onClick={() => switchMethod("llm")}
-            style={{ padding: "4px 12px", borderRadius: "4px 0 0 4px", border: "1px solid var(--line)", background: reclassMethod === "llm" ? "var(--ink)" : "var(--paper)", color: reclassMethod === "llm" ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-            LLM
-          </button>
-          <button onClick={() => switchMethod("rules")}
-            style={{ padding: "4px 12px", borderRadius: "0 4px 4px 0", border: "1px solid var(--line)", background: reclassMethod === "rules" ? "var(--ink)" : "var(--paper)", color: reclassMethod === "rules" ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-            Rules
-          </button>
+        <div onClick={() => switchMethod(reclassMethod === "llm" ? "rules" : "llm")}
+          style={{ position: "relative", display: "flex", background: "var(--paper-2)", borderRadius: 6, padding: 2, cursor: "pointer", marginBottom: 8 }}>
+          <div style={{
+            position: "absolute", top: 2, left: 2, width: "50%", height: "calc(100% - 4px)",
+            background: "var(--ink)", borderRadius: 4, transition: "transform 200ms ease",
+            transform: `translateX(${reclassMethod === "llm" ? "0%" : "100%"})`,
+          }} />
+          <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "llm" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>LLM</div>
+          <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "rules" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>Rules</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
           <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -1346,15 +1346,15 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <span>{bulkReclassItems.filter(it => it.status === "skipped").length} skipped</span>
                 <span style={{ color: "var(--neg)" }}>{bulkReclassItems.filter(it => it.status === "error").length} error</span>
               </div>
-              <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                <button onClick={() => switchBulkMethod("llm")}
-                  style={{ padding: "3px 10px", borderRadius: "4px 0 0 4px", border: "1px solid var(--line)", background: bulkMethod === "llm" ? "var(--ink)" : "var(--paper)", color: bulkMethod === "llm" ? "var(--paper)" : "var(--ink-3)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                  LLM
-                </button>
-                <button onClick={() => switchBulkMethod("rules")}
-                  style={{ padding: "3px 10px", borderRadius: "0 4px 4px 0", border: "1px solid var(--line)", background: bulkMethod === "rules" ? "var(--ink)" : "var(--paper)", color: bulkMethod === "rules" ? "var(--paper)" : "var(--ink-3)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                  Rules
-                </button>
+              <div onClick={() => switchBulkMethod(bulkMethod === "llm" ? "rules" : "llm")}
+                style={{ position: "relative", display: "flex", background: "var(--paper-2)", borderRadius: 5, padding: 2, cursor: "pointer", marginTop: 8, maxWidth: 140 }}>
+                <div style={{
+                  position: "absolute", top: 2, left: 2, width: "50%", height: "calc(100% - 4px)",
+                  background: "var(--ink)", borderRadius: 3, transition: "transform 200ms ease",
+                  transform: `translateX(${bulkMethod === "llm" ? "0%" : "100%"})`,
+                }} />
+                <div style={{ flex: 1, padding: "2px 8px", textAlign: "center", fontSize: 10, fontWeight: 600, color: bulkMethod === "llm" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>LLM</div>
+                <div style={{ flex: 1, padding: "2px 8px", textAlign: "center", fontSize: 10, fontWeight: 600, color: bulkMethod === "rules" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>Rules</div>
               </div>
             </div>
 
