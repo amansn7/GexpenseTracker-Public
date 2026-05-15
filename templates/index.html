@@ -46,21 +46,20 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes dotPing {
     0%, 100% { transform: scale(1); opacity: 1; }
-    15% { transform: scale(2.2); opacity: 0.4; }
-    30% { transform: scale(1); opacity: 1; }
+    10% { transform: scale(2.5); opacity: 0.3; }
+    20% { transform: scale(1); opacity: 1; }
   }
   @keyframes dotBounce {
     0%, 100% { transform: scale(1); }
-    12% { transform: scale(1.6); }
-    25% { transform: scale(0.8); }
-    37% { transform: scale(1.4); }
-    50% { transform: scale(1); }
+    10% { transform: scale(1.8); }
+    20% { transform: scale(0.75); }
+    30% { transform: scale(1.5); }
+    40% { transform: scale(1); }
   }
   @keyframes dotGlow {
-    0%, 100% { box-shadow: 0 0 4px 2px var(--pos-soft); }
-    20% { box-shadow: 0 0 10px 6px var(--pos-soft), 0 0 18px 8px transparent; }
-    45% { box-shadow: 0 0 4px 2px transparent; }
-    70% { box-shadow: 0 0 10px 6px var(--pos-soft), 0 0 18px 8px transparent; }
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    15% { box-shadow: 0 0 12px 6px var(--pos-soft); }
+    30% { box-shadow: 0 0 0 0 transparent; }
   }
 
   .slide-in { animation: slideIn 260ms cubic-bezier(.2,.8,.2,1); }
@@ -68,9 +67,9 @@
   .pill-btn { transition: transform 150ms cubic-bezier(.2,.8,.2,1), box-shadow 150ms cubic-bezier(.2,.8,.2,1); }
   .pill-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
   .pill-btn:active:not(:disabled) { transform: scale(.97); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  .dot-ping { animation: dotPing 1s ease-out; }
-  .dot-bounce { animation: dotBounce .7s ease-out; }
-  .dot-glow { animation: dotGlow 1.2s ease-out; }
+  .dot-ping { animation: dotPing 1.5s ease-out infinite; }
+  .dot-bounce { animation: dotBounce 1s ease-out infinite; }
+  .dot-glow { animation: dotGlow 2s ease-out infinite; }
   @media (prefers-reduced-motion: reduce) {
     .pill-btn, .pill-btn:hover, .pill-btn:active { transition: none; transform: none; box-shadow: none; }
     .dot-ping, .dot-bounce, .dot-glow { animation: none; }

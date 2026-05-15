@@ -1,11 +1,16 @@
 // Shell — sidebar nav, topbar, layout
 
-const _dotFrames = ["dot-ping", "dot-bounce", "dot-glow"];
-const _pick = (exclude) => _dotFrames.filter(c => c !== exclude)[Math.floor(Math.random() * (_dotFrames.length - 1))];
+const _dotCls = ["dot-ping", "dot-bounce", "dot-glow"];
 const LiveDot = ({ style }) => {
-  const [cls, setCls] = React.useState(() => _pick(""));
-  return <span className={cls} style={style}
-    onAnimationEnd={() => setCls(prev => _pick(prev))} />;
+  const [cls, setCls] = React.useState(() => _dotCls[Math.floor(Math.random() * _dotCls.length)]);
+  React.useEffect(() => {
+    const t = setTimeout(() => setCls(prev => {
+      const rest = _dotCls.filter(c => c !== prev);
+      return rest[Math.floor(Math.random() * rest.length)];
+    }), 3000 + Math.random() * 2000);
+    return () => clearTimeout(t);
+  }, [cls]);
+  return <span className={cls} style={style} />;
 };
 
 const useViewport = () => {
