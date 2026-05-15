@@ -1,5 +1,5 @@
 {
-  "comment": "Desired plugin list for this project. Add to 'plugins' array; run bootstrap to install/verify.",
+  "comment": "Keep only verified plugins here. Do not leave TODO placeholders in the committed plugin list.",
   "marketplaces": {
     "claude-plugins-official": "anthropics/claude-plugins-official",
     "caveman":                 "JuliusBrussee/caveman",
@@ -8,9 +8,6 @@
     "ui-ux-pro-max-skill":     "nextlevelbuilder/ui-ux-pro-max-skill"
   },
   "plugins": [
-    "caveman@caveman",
-    "TODO_PLUGIN_2",
-    "TODO_PLUGIN_3",
-    "TODO_PLUGIN_4"
+    "caveman@caveman"
   ]
 }

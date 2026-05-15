@@ -258,7 +258,8 @@ const App = () => {
           <div ref={catRef} style={{ position: "relative" }}>
             <button
               onClick={() => setCatOpen(o => !o)}
-              style={{ ...shellStyles.topBtn, padding: viewport.isMobile ? "9px 10px" : "8px 12px", fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              className="pill-btn"
+              style={{ ...shellStyles.topBtn, cursor: "pointer" }}
               title={categoryFilter ? `Filter: ${curCat?.label || curCat?.name || categoryFilter}` : "Filter by category"}
             >
               {categoryFilter && curCat ? (
@@ -300,6 +301,7 @@ const App = () => {
           <button
             onClick={handleRescan}
             disabled={syncing}
+            className="pill-btn"
             style={{ ...shellStyles.topBtn, ...shellStyles.topBtnPrimary, ...(viewport.isMobile ? { padding: "9px 10px" } : {}), opacity: syncing ? 0.65 : 1, cursor: syncing ? "default" : "pointer" }}
           >
             <Icon name="sparkle" size={13} stroke="currentColor"/>

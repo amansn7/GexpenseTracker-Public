@@ -32,10 +32,10 @@ const shellStyles = {
   search: { flex: 1, maxWidth: 420, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink-3)" },
   searchInput: { flex: 1, border: "none", outline: "none", background: "transparent", color: "var(--ink)", fontSize: 13 },
   kbd: { fontFamily: "'Geist Mono', monospace", fontSize: 10, padding: "2px 6px", background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 4, color: "var(--ink-3)" },
-  topBtn: { display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, whiteSpace: "nowrap" },
+  topBtn: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
   topBtnPrimary: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
-  connected: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--ink-3)", fontWeight: 400 },
-  connectedDot: { width: 5, height: 5, borderRadius: 999, background: "var(--pos)", flexShrink: 0 },
+  connected: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
+  connectedDot: { width: 6, height: 6, borderRadius: 999, background: "var(--pos)", flexShrink: 0 },
 };
 
 const _navHints = {
@@ -299,7 +299,7 @@ const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu
     <div style={{ flex: "0 0 auto", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
       {children}
       <div style={{ ...shellStyles.connected, ...(mobile ? { display: "none" } : {}) }}>
-        <span style={shellStyles.connectedDot}></span>
+        <span className="dot-live" style={shellStyles.connectedDot}></span>
         <span style={{ whiteSpace: "nowrap" }}>{syncLabel || "Gmail"}</span>
       </div>
     </div>
