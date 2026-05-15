@@ -61,6 +61,52 @@
     15% { box-shadow: 0 0 12px 6px var(--pos-soft); }
     30% { box-shadow: 0 0 0 0 transparent; }
   }
+  @keyframes brandSheen {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  @keyframes accentPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  @keyframes quirkSquish {
+    0% { transform: scale(1) rotate(0deg); }
+    15% { transform: scale(0.78) rotate(-4deg); }
+    30% { transform: scale(1.2) rotate(3deg); }
+    45% { transform: scale(0.88) rotate(-2deg); }
+    60% { transform: scale(1.06) rotate(2deg); }
+    80% { transform: scale(0.97) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  @keyframes quirkShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    10% { transform: translateX(-8px) rotate(-2deg); }
+    20% { transform: translateX(8px) rotate(2deg); }
+    30% { transform: translateX(-6px) rotate(-1deg); }
+    40% { transform: translateX(6px) rotate(1deg); }
+    55% { transform: translateX(-4px); }
+    70% { transform: translateX(4px); }
+    85% { transform: translateX(-2px); }
+  }
+  @keyframes quirkSplitLeft {
+    0%, 100% { transform: translateX(0); }
+    30% { transform: translateX(-18px); }
+    60% { transform: translateX(12px); }
+  }
+  @keyframes quirkSplitRight {
+    0%, 100% { transform: translateX(0); }
+    30% { transform: translateX(18px); }
+    60% { transform: translateX(-12px); }
+  }
+  @keyframes quirkBoing {
+    0% { transform: scale(1); }
+    20% { transform: scale(1.45); }
+    35% { transform: scale(0.65); }
+    50% { transform: scale(1.2); }
+    65% { transform: scale(0.85); }
+    80% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
 
   .slide-in { animation: slideIn 260ms cubic-bezier(.2,.8,.2,1); }
   .fade-in { animation: fadeIn 200ms ease-out; }
@@ -70,9 +116,17 @@
   .dot-ping { animation: dotPing 1.5s ease-out infinite; }
   .dot-bounce { animation: dotBounce 1s ease-out infinite; }
   .dot-glow { animation: dotGlow 2s ease-out infinite; }
+  .brand-sheen { position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.12) 50%, transparent 100%); pointer-events: none; animation: brandSheen 3s ease-in-out infinite; }
+  .brand-accent { animation: accentPulse 2.5s ease-in-out infinite; }
+  .brand-quirk-squish { animation: quirkSquish .6s ease-out; }
+  .brand-quirk-shake { animation: quirkShake .5s ease-out; }
+  .brand-quirk-split-left { animation: quirkSplitLeft .7s ease-out; }
+  .brand-quirk-split-right { animation: quirkSplitRight .7s ease-out; }
+  .brand-quirk-boing { animation: quirkBoing .7s ease-out; }
   @media (prefers-reduced-motion: reduce) {
     .pill-btn, .pill-btn:hover, .pill-btn:active { transition: none; transform: none; box-shadow: none; }
     .dot-ping, .dot-bounce, .dot-glow { animation: none; }
+    .brand-sheen, .brand-accent, .brand-quirk-squish, .brand-quirk-shake, .brand-quirk-split-left, .brand-quirk-split-right, .brand-quirk-boing { animation: none; }
   }
 
   .tweaks-panel {

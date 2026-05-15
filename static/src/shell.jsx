@@ -13,6 +13,33 @@ const LiveDot = ({ style }) => {
   return <span className={cls} style={style} />;
 };
 
+const _brandQuirks = ["squish", "shake", "split", "boing"];
+const LiveBrand = ({ onNav, mobile, onClose }) => {
+  const [quirk, setQuirk] = React.useState(null);
+  const busy = quirk !== null;
+  const handleClick = () => {
+    if (busy) return;
+    const next = _brandQuirks[Math.floor(Math.random() * _brandQuirks.length)];
+    setQuirk(next);
+    setTimeout(() => { setQuirk(null); onNav(); }, 700);
+  };
+  const split = quirk === "split";
+  return (
+    <div style={shellStyles.brand}>
+      <div onClick={handleClick} className={!split && quirk ? "brand-quirk-" + quirk : ""} style={{ position: "relative", overflow: "hidden", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 8, padding: "6px 0" }}>
+        <span className={split ? "brand-quirk-split-left" : ""} style={shellStyles.brandMark}>Money</span>
+        <span className={"brand-accent" + (split ? " brand-quirk-split-right" : "")} style={{ color: "var(--accent)", fontStyle: "italic" }}>flow</span>
+        <span className="brand-sheen" />
+      </div>
+      {mobile && (
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="focus-ring" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
+          <Icon name="x" size={15} />
+        </button>
+      )}
+    </div>
+  );
+};
+
 const useViewport = () => {
   const read = () => ({
     width: window.innerWidth,
@@ -85,14 +112,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
   <>
   {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(26,24,20,0.36)", zIndex: 70 }} />}
   <aside role="navigation" aria-label="Main navigation" style={sideStyle} aria-hidden={mobile && !open}>
-    <div style={shellStyles.brand}>
-      <span style={shellStyles.brandMark}>Money<span style={{ color: "var(--accent)", fontStyle: "italic" }}>flow</span></span>
-      {mobile && (
-        <button onClick={onClose} className="focus-ring" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
-          <Icon name="x" size={15} />
-        </button>
-      )}
-    </div>
+    <LiveBrand onNav={() => navigate(() => setView("inbox"))} mobile={mobile} onClose={onClose} />
 
     <div style={shellStyles.sectionLabel}>Views</div>
     <NavItem icon="inbox"   label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>navigate(()=>setView("inbox"))} />
