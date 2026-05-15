@@ -100,6 +100,9 @@ const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
 
 const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCategoryFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
+  const [viewsOpen, setViewsOpen] = React.useState(() => localStorage.getItem("_nav_views") !== "0");
+  const [filtersOpen, setFiltersOpen] = React.useState(() => localStorage.getItem("_nav_filters") !== "0");
+  const [catsOpen, setCatsOpen] = React.useState(() => localStorage.getItem("_nav_cats") !== "0");
   const sideStyle = mobile
     ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
     : shellStyles.side;
@@ -113,7 +116,11 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
   <aside role="navigation" aria-label="Main navigation" style={sideStyle} aria-hidden={mobile && !open}>
     <LiveBrand onNav={() => navigate(() => setView("inbox"))} mobile={mobile} onClose={onClose} />
 
-    <div style={shellStyles.sectionLabel}>Views</div>
+    <div onClick={() => { const n = !viewsOpen; setViewsOpen(n); localStorage.setItem("_nav_views", n ? "1" : "0"); }}
+      style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
+      <Icon name={viewsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Views
+    </div>
+    {viewsOpen && <>
     <NavItem icon="inbox"   label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>navigate(()=>setView("inbox"))} />
     <NavItem icon="flow"    label="Money Flow"                          active={view==="flow"}      onClick={()=>navigate(()=>setView("flow"))} />
     <NavItem icon="dash"    label="Dashboard"                           active={view==="dashboard"} onClick={()=>navigate(()=>setView("dashboard"))} />
@@ -121,16 +128,25 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
     <NavItem icon="chart"   label="Reports"                             active={view==="reports"}   onClick={()=>navigate(()=>setView("reports"))} />
     <NavItem icon="repeat"  label="Recurring"                           active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
     <NavItem icon="trending-down" label="Debt"                          active={view==="debt"}      onClick={()=>navigate(()=>setView("debt"))} />
+    </>}
 
-    <div style={shellStyles.sectionLabel}>Filters</div>
+    <div onClick={() => { const n = !filtersOpen; setFiltersOpen(n); localStorage.setItem("_nav_filters", n ? "1" : "0"); }}
+      style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
+      <Icon name={filtersOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Filters
+    </div>
+    {filtersOpen && <>
     <NavItem icon="dot"  label="Expenses"      count={counts.expense} active={view==="inbox"&&filter==="expenses"}      onClick={()=>navigate(()=>{ setView("inbox"); onFilter("expenses"); })} />
     <NavItem icon="dot"  label="Income"        count={counts.income}  active={view==="inbox"&&filter==="income"}         onClick={()=>navigate(()=>{ setView("inbox"); onFilter("income"); })} />
     <NavItem icon="dot"  label="Subscriptions" count={counts.sub}     active={view==="inbox"&&filter==="sub"}            onClick={()=>navigate(()=>{ setView("inbox"); onFilter("sub"); })} />
     <NavItem icon="star"       label="Flagged"  count={counts.flagged}  active={view==="inbox"&&filter==="flagged"}   onClick={()=>navigate(()=>{ setView("inbox"); onFilter("flagged"); })} />
     <NavItem icon="arrow-swap" label="Payments" count={counts.payments} active={view==="inbox"&&filter==="payments"} onClick={()=>navigate(()=>{ setView("inbox"); onFilter("payments"); })} />
+    </>}
 
-    <div style={shellStyles.sectionLabel}>Categories</div>
-    {CategoryService.grouped().map(g => (
+    <div onClick={() => { const n = !catsOpen; setCatsOpen(n); localStorage.setItem("_nav_cats", n ? "1" : "0"); }}
+      style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
+      <Icon name={catsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Categories
+    </div>
+    {catsOpen && CategoryService.grouped().map(g => (
       <div key={g.key}>
         {g.key !== "_user" && (
           <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "4px 10px 2px", fontWeight: 500 }}>{g.label}</div>
