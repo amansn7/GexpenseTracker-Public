@@ -19,13 +19,19 @@ from app.models import (
 )
 
 DEFAULT_CATEGORIES = [
-    ("Food", "#e8d5b7", "expense"),
+    ("Food & Dining", "#e8d5b7", "expense"),
+    ("Groceries", "#ddd2ba", "expense"),
     ("Rent", "#cdd8d1", "expense"),
+    ("Transport", "#d4dde5", "expense"),
+    ("Travel", "#b8cce4", "expense"),
     ("Shopping", "#e5d1d9", "expense"),
-    ("Travel", "#d4dde5", "expense"),
-    ("Subscriptions", "#dccfe0", "expense"),
+    ("Entertainment", "#dccfe0", "expense"),
+    ("Healthcare", "#f0d9d9", "expense"),
+    ("Education", "#dde4ef", "expense"),
+    ("Subscriptions", "#c8b8d8", "expense"),
     ("Utilities", "#d9dbc9", "expense"),
     ("CC Payment", "#d4c4b7", "expense"),
+    ("Transfers", "#d4d0b8", "expense"),
     ("Income", "#c9dcc8", "income"),
     ("Other", "#dcd5c3", "expense"),
 ]

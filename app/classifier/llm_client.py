@@ -634,7 +634,9 @@ class MultiLLMClient:
         return client
 
     _DEFAULT_CATEGORIES = (
-        "Food, Rent, Shopping, Travel, Subscriptions, Utilities, CC Payment, Income, Other"
+        "Food & Dining, Groceries, Rent, Transport, Travel, Shopping, "
+        "Entertainment, Healthcare, Education, Subscriptions, Utilities, "
+        "CC Payment, Transfers, Income, Other"
     )
 
     async def classify(

@@ -1,14 +1,21 @@
 // Data layer — fetches from /api/* and transforms to UI shape
 
 const CATEGORIES = {
-  food:    { label: "Food & Dining", bg: "var(--cat-food)",   ink: "var(--cat-food-ink)" },
-  rent:    { label: "Rent & Home",   bg: "var(--cat-rent)",   ink: "var(--cat-rent-ink)" },
-  shop:    { label: "Shopping",      bg: "var(--cat-shop)",   ink: "var(--cat-shop-ink)" },
-  travel:  { label: "Travel",        bg: "var(--cat-travel)", ink: "var(--cat-travel-ink)" },
-  sub:     { label: "Subscriptions", bg: "var(--cat-sub)",    ink: "var(--cat-sub-ink)" },
-  util:    { label: "Utilities",     bg: "var(--cat-util)",   ink: "var(--cat-util-ink)" },
-  income:  { label: "Income",        bg: "var(--cat-inc)",    ink: "var(--cat-inc-ink)" },
-  other:   { label: "Other",         bg: "var(--cat-other)",  ink: "var(--cat-other-ink)" },
+  food:          { label: "Food & Dining",   bg: "var(--cat-food)",          ink: "var(--cat-food-ink)" },
+  groceries:     { label: "Groceries",        bg: "var(--cat-groceries)",    ink: "var(--cat-groceries-ink)" },
+  rent:          { label: "Rent",             bg: "var(--cat-rent)",         ink: "var(--cat-rent-ink)" },
+  transport:     { label: "Transport",        bg: "var(--cat-transport)",    ink: "var(--cat-transport-ink)" },
+  travel:        { label: "Travel",           bg: "var(--cat-travel)",       ink: "var(--cat-travel-ink)" },
+  shop:          { label: "Shopping",         bg: "var(--cat-shop)",         ink: "var(--cat-shop-ink)" },
+  entertainment: { label: "Entertainment",    bg: "var(--cat-entertainment)",ink: "var(--cat-entertainment-ink)" },
+  health:        { label: "Healthcare",       bg: "var(--cat-health)",       ink: "var(--cat-health-ink)" },
+  edu:           { label: "Education",        bg: "var(--cat-edu)",          ink: "var(--cat-edu-ink)" },
+  sub:           { label: "Subscriptions",    bg: "var(--cat-sub)",          ink: "var(--cat-sub-ink)" },
+  util:          { label: "Utilities",        bg: "var(--cat-util)",         ink: "var(--cat-util-ink)" },
+  card:          { label: "CC Payment",       bg: "var(--cat-card)",         ink: "var(--cat-card-ink)" },
+  transfer:      { label: "Transfers",        bg: "var(--cat-transfer)",     ink: "var(--cat-transfer-ink)" },
+  income:        { label: "Income",           bg: "var(--cat-inc)",          ink: "var(--cat-inc-ink)" },
+  other:         { label: "Other",            bg: "var(--cat-other)",        ink: "var(--cat-other-ink)" },
 };
 
 const TAGS = {
@@ -20,24 +27,34 @@ const TAGS = {
 
 // DB category value → CATEGORIES key
 const _CAT_ALIAS = {
-  food: "food", dining: "food", "food & dining": "food", groceries: "food", restaurant: "food",
+  food: "food", dining: "food", "food & dining": "food", restaurant: "food",
+  meal: "food", cafe: "food", eat: "food",
+  groceries: "groceries", grocery: "groceries", kirana: "groceries",
   rent: "rent", "rent & home": "rent", home: "rent", housing: "rent",
-  utilities: "util", utility: "util", util: "util", electricity: "util", internet: "util", broadband: "util",
-  shopping: "shop", shop: "shop", retail: "shop",
-  travel: "travel", transport: "travel", commute: "travel", flight: "travel",
+  transport: "transport", commute: "transport", cab: "transport",
+  ride: "transport", taxi: "transport", auto: "transport",
+  metro: "transport", parking: "transport", toll: "transport",
+  fuel: "transport", petrol: "transport", diesel: "transport",
+  travel: "travel", flight: "travel", hotel: "travel", trip: "travel",
+  shopping: "shop", shop: "shop", retail: "shop", clothing: "shop",
+  entertainment: "entertainment", movie: "entertainment",
+  cinema: "entertainment", concert: "entertainment",
+  healthcare: "health", health: "health", medical: "health",
+  hospital: "health", pharmacy: "health", medicine: "health", doctor: "health", clinic: "health",
+  education: "edu", edu: "edu", tuition: "edu", course: "edu",
+  training: "edu", school: "edu", college: "edu", university: "edu",
   subscriptions: "sub", subscription: "sub", sub: "sub",
+  membership: "sub", premium: "sub", insurance: "sub", emi: "sub",
+  utilities: "util", utility: "util", util: "util",
+  electricity: "util", internet: "util", broadband: "util", water: "util", recharge: "util",
+  "cc payment": "card", cc: "card", "credit card": "card",
+  transfers: "transfer", transfer: "transfer",
+  "bank transfer": "transfer", "upi payment": "transfer",
+  upi: "transfer", neft: "transfer", imps: "transfer",
   income: "income", salary: "income", freelance: "income",
-  "cc payment": "other", cc: "other",
-  insurance: "sub",
+  refund: "income", cashback: "income", reward: "income",
   investment: "other",
-  refund: "other",
-  emi: "sub",
-  entertainment: "sub",
-  healthcare: "other",
-  fuel: "travel",
   cash: "other",
-  "bank transfer": "other",
-  "upi payment": "other",
   other: "other",
 };
 
@@ -257,10 +274,10 @@ const showToast = (message, action, duration = 5000) => {
 // ── CategoryService ──────────────────────────────────────────────────
 
 const CATEGORY_GROUPS = [
-  { key: "essentials", label: "Essentials", icon: "heart", children: ["food", "rent"] },
-  { key: "transport", label: "Transport", icon: "navigation", children: ["travel"] },
-  { key: "bills", label: "Bills & Subscriptions", icon: "file-text", children: ["sub", "util"] },
-  { key: "lifestyle", label: "Shopping & Lifestyle", icon: "shopping-bag", children: ["shop"] },
+  { key: "essentials", label: "Essentials", icon: "heart", children: ["food", "groceries", "rent"] },
+  { key: "transport", label: "Transport", icon: "navigation", children: ["transport", "travel"] },
+  { key: "bills", label: "Bills & Subscriptions", icon: "file-text", children: ["sub", "util", "card", "transfer"] },
+  { key: "lifestyle", label: "Lifestyle", icon: "shopping-bag", children: ["shop", "entertainment", "health", "edu"] },
   { key: "finance", label: "Finance", icon: "trending-up", children: ["income"] },
   { key: "other", label: "Other", icon: "more-horizontal", children: ["other"] },
 ];

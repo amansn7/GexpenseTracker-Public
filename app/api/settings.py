@@ -265,15 +265,20 @@ async def generate_categories(
         )).scalars().all()
 
     _PALETTE = {
-        "food": "#e8d5b7", "groceries": "#e8d5b7", "dining": "#e8d5b7",
+        "food": "#e8d5b7", "dining": "#e8d5b7", "restaurant": "#e8d5b7",
+        "groceries": "#ddd2ba", "grocery": "#ddd2ba", "kirana": "#ddd2ba",
         "rent": "#cdd8d1", "housing": "#cdd8d1", "home": "#cdd8d1",
-        "shopping": "#e5d1d9", "retail": "#e5d1d9",
-        "travel": "#d4dde5", "transport": "#d4dde5",
-        "subscriptions": "#dccfe0", "subscription": "#dccfe0", "entertainment": "#dccfe0",
+        "transport": "#d4dde5", "commute": "#d4dde5", "fuel": "#d4dde5",
+        "travel": "#b8cce4", "flight": "#b8cce4", "hotel": "#b8cce4",
+        "shopping": "#e5d1d9", "retail": "#e5d1d9", "clothing": "#e5d1d9",
+        "entertainment": "#dccfe0", "movie": "#dccfe0", "cinema": "#dccfe0",
+        "healthcare": "#f0d9d9", "medical": "#f0d9d9", "health": "#f0d9d9",
+        "education": "#dde4ef", "edu": "#dde4ef", "tuition": "#dde4ef",
+        "subscriptions": "#c8b8d8", "subscription": "#c8b8d8", "entertainment": "#dccfe0",
         "utilities": "#d9dbc9", "electricity": "#d9dbc9", "internet": "#d9dbc9",
+        "cc payment": "#d4c4b7", "cc": "#d4c4b7", "credit card": "#d4c4b7",
+        "transfers": "#d4d0b8", "transfer": "#d4d0b8", "upi": "#d4d0b8",
         "income": "#c9dcc8", "salary": "#c9dcc8", "refund": "#c9dcc8",
-        "healthcare": "#f0d9d9", "medical": "#f0d9d9",
-        "education": "#dde4ef",
         "emi": "#e8e0d5", "loan": "#e8e0d5",
     }
 
