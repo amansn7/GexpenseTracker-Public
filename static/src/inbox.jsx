@@ -943,33 +943,34 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const idx = bulkReclassIdx;
     const remaining = items.slice(idx).filter(it => it.status === "preview" || it.status === "pending");
     if (remaining.length === 0) return;
-    const applying = items.map((it, i) => i >= idx && (it.status === "preview" || it.status === "pending") ? { ...it, status: "applying" } : it);
-    setBulkReclassItems(applying);
-    const results = await Promise.allSettled(
-      remaining.map(item => API.post(`/api/transactions/${item.id}/reclassify`))
+    setBulkReclassItems(items.map((it, i) =>
+      i >= idx && (it.status === "preview" || it.status === "pending")
+        ? { ...it, status: "applying" } : it
+    ));
+    const promises = remaining.map((item, i) =>
+      API.post(`/api/transactions/${item.id}/reclassify`)
+        .then(data => {
+          const isIncome = data.label === "income";
+          const cat = normCat(data.category, isIncome);
+          setTransactions(ts => ts.map(t => t.id === item.id ? {
+            ...t, cat,
+            amount: isIncome ? (data.amount || 0) : -(data.amount || 0),
+            tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
+            conf: data.confidence ?? t.conf,
+            merchant: data.merchant || t.merchant,
+          } : t));
+          setBulkReclassItems(prev => prev.map((it, j) =>
+            j === idx + i ? { ...it, status: "accepted" } : it
+          ));
+        })
+        .catch(() => {
+          setBulkReclassItems(prev => prev.map((it, j) =>
+            j === idx + i ? { ...it, status: "error" } : it
+          ));
+        })
     );
-    let next = [...applying];
-    results.forEach((result, i) => {
-      const itemIdx = idx + i;
-      if (result.status === "fulfilled") {
-        const data = result.value;
-        const isIncome = data.label === "income";
-        const cat = normCat(data.category, isIncome);
-        setTransactions(ts => ts.map(t => t.id === remaining[i].id ? {
-          ...t,
-          cat,
-          amount: isIncome ? (data.amount || 0) : -(data.amount || 0),
-          tag: isIncome ? "income" : cat === "sub" ? "subscription" : "expense",
-          conf: data.confidence ?? t.conf,
-          merchant: data.merchant || t.merchant,
-        } : t));
-        next[itemIdx] = { ...next[itemIdx], status: "accepted" };
-      } else {
-        next[itemIdx] = { ...next[itemIdx], status: "error" };
-      }
-    });
-    setBulkReclassItems(next);
-    setBulkReclassIdx(items.length);
+    await Promise.allSettled(promises);
+    setBulkReclassIdx(items.length - 1);
   };
 
   const bulkSkip = () => {
