@@ -1,5 +1,13 @@
 // Shell — sidebar nav, topbar, layout
 
+const _dotFrames = ["dot-ping", "dot-bounce", "dot-glow"];
+const _pick = (exclude) => _dotFrames.filter(c => c !== exclude)[Math.floor(Math.random() * (_dotFrames.length - 1))];
+const LiveDot = ({ style }) => {
+  const [cls, setCls] = React.useState(() => _pick(""));
+  return <span className={cls} style={style}
+    onAnimationEnd={() => setCls(prev => _pick(prev))} />;
+};
+
 const useViewport = () => {
   const read = () => ({
     width: window.innerWidth,
@@ -299,7 +307,7 @@ const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu
     <div style={{ flex: "0 0 auto", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
       {children}
       <div style={{ ...shellStyles.connected, ...(mobile ? { display: "none" } : {}) }}>
-        <span className="dot-live" style={shellStyles.connectedDot}></span>
+        <LiveDot style={shellStyles.connectedDot} />
         <span style={{ whiteSpace: "nowrap" }}>{syncLabel || "Gmail"}</span>
       </div>
     </div>
