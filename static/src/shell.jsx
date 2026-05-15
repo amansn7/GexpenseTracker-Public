@@ -75,7 +75,7 @@ const shellStyles = {
   topBtn: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
   topBtnPrimary: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
   connected: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" },
-  connectedDot: { width: 6, height: 6, borderRadius: 999, background: "var(--pos)", flexShrink: 0 },
+  connectedDot: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--pos)", flexShrink: 0 },
 };
 
 const _navHints = {
