@@ -1,50 +1,75 @@
-# GExpense Tracker
+# MoneyFlow
 
-> Automatically track your expenses from Gmail using a rule engine + multi-provider LLM — with a glassmorphism dark UI.
+> **Inbox for your money** — automatically track expenses from Gmail using a rule engine + multi-provider LLM, with a warm, minimal design.
 
-GExpense Tracker syncs your Gmail inbox, classifies financial emails (bank alerts, invoices, receipts) using a domain-rule engine and an LLM fallback, and gives you a live dashboard of your spending — without manually entering a single transaction.
+MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invoices, receipts, UPI confirmations) using a two-stage pipeline (domain rules → LLM fallback), and gives you a live dashboard of your spending — without manually entering a single transaction.
 
 ---
 
 ## Features
 
-### Automatic Sync
-- Polls Gmail every 2 hours (configurable) via the Gmail API
+### Automatic Gmail Sync
 - Incremental sync using Gmail history IDs — only fetches new messages
-- Configurable filter: all mail, unread only, or read only
+- 90-day fallback when history ID expires
+- Configurable filter: all mail, unread only, read only, or financial-only
+- Manual re-scan via one-click button
+- Live progress polling from the frontend
 
-### Intelligent Classification
-- **Rule engine** — sender domain lookup (18 built-in vendors: Swiggy, Amazon, HDFC, Zomato, …) + keyword scoring across expense / income / ignore buckets
+### Intelligent Classification Pipeline
+- **Rule engine** — sender domain lookup (18 built-in vendors: Swiggy, Amazon, HDFC, Zomato, Uber, etc.) + keyword scoring across expense / income / ignore / CC-payment buckets
 - **Multi-provider LLM fallback** — when rules are uncertain, calls an LLM to classify and extract amount, merchant, category, and transaction date
-- **Provider priority queue** — Google Gemini → Grok (xAI) → Scaleway → OpenRouter, with automatic rate-limit backoff and persistent demotion
-- `force_extraction` mode: rule confirms the label, LLM extracts the financial details
+- **Provider priority queue** — user-configured → Gemini → Grok → Groq → Scaleway → OpenRouter → Cloudflare, with automatic rate-limit backoff and persistent demotion
+- **Batch classification** — multiple emails per LLM call for efficiency
+- **Pre-extraction hints** — regex-extracted amount/date/merchant injected into every prompt
+- **7 response-repair strategies** for malformed LLM JSON
 
-### Gmail Inbox Viewer
-- Full DB view of every fetched email with filter, search, and multi-select
-- Inline row expansion showing full email body, transaction fields, and Gmail link
-- **Run Rules** — re-classify selected emails through the rule engine with per-keyword diagnostic output
-- **Run LLM** — re-classify with full prompt and raw JSON response visible in a terminal panel
-- **Retrain Rules** — persist selected emails' current labels as domain rules in one click
-- Inline fix widget: correct label / merchant / category / amount and save a domain rule simultaneously
+### Views (7 Screens)
 
-### Dashboard & Analytics
-- Period picker (this month / 3m / 6m / this year)
-- Spending trend chart, category donut, top merchants bar chart, income vs expense comparison
-- Count-up stat cards: total spend, income, net, transaction count
+| View | What it does |
+|---|---|
+| **Inbox** | Gmail-style transaction list with date grouping, inline row expansion showing email body + AI fields, inline category picker, bulk actions (mark read/flag/delete/reclassify), duplicate pair resolution cards, review queue |
+| **Money Flow** | Sankey-style income→expense flow diagram, weekly burn chart, KPI cards |
+| **Dashboard** | Monthly snapshot with cumulative balance chart, daily burn, subscriptions, needs-attention counts, category breakdown, top merchants, budget progress bars |
+| **Health** | Savings rate, runway months, current balance, monthly net bar chart (3/6/12 month toggle) |
+| **Reports** | 12-month monthly summary table with income/expenses/net/savings rate per month |
+| **Recurring** | CRUD for subscriptions and fixed expenses, AI-powered suggestion from transaction history |
+| **Debt** | CRUD for loans, EMIs, and credit card balances with progress tracking and payoff goals |
 
-### Budgets & Recurring
+### Learning & Adaptation
+- **Auto-learn from corrections** — fixing a transaction creates a sender-domain rule
+- **Bulk retrain** — select emails and persist their labels as domain rules in one click
+- **Fuzzy merchant aliasing** — similar merchant names auto-linked via rapidfuzz
+- **Duplicate pair learning** — confirmed/dismissed decisions train auto-resolve at ≥85% confidence
+
+### Duplicate Detection
+- Same-domain: same sender, same amount, ±3 days
+- Cross-domain: different senders, same amount, ±1 day
+- Investment flow: "order sent" + "confirmation" pair detection
+
+### Budgets
 - Per-category monthly budgets with animated progress bars
-- Automatic recurring transaction detection
+- Overspend indicators in dashboard and inbox sidebar
 
 ### Review Queue
-- Emails classified with low confidence surface here
-- One-key confirmation: `E` (expense), `I` (income), `S` (skip), `Enter` (confirm)
-- Corrections automatically train a new domain rule
+- Low-confidence transactions surface for review
+- Keyboard shortcuts: E (expense), I (income), S (skip), Enter (confirm)
+- Corrections automatically train domain rules
 
-### Settings
-- Custom sender rules (add / delete domain → label mappings)
-- Email filter toggle (all / unread / read)
-- LLM provider status panel
+### Account & Settings
+- Google OAuth 2.0 with optional TOTP 2FA
+- Multi-user support via email allowlist (owner + members)
+- Custom sender rules (add/delete domain→label mappings)
+- Per-user AI service configuration (bring your own LLM key)
+- Custom categories with colors
+- Account deletion (scheduled 24-48h delay or immediate)
+- Admin tools (fetch preview, classify test, LLM provider test)
+
+### Global Features
+- **Search** — Cmd+K global search across merchants, categories, amounts, and email subjects
+- **Category filter** — topbar dropdown filters every view by category, also available in sidebar
+- **Date range** — preset buttons (7d/30d/90d/1y) + custom date pickers
+- **Theme** — 3 themes: Paper (warm cream), Cool (gray-blue), Midnight (dark charcoal)
+- **Sync indicator** — animated green dot pill showing "Gmail · just now" / "Gmail · 5m" / etc.
 
 ---
 
@@ -52,55 +77,52 @@ GExpense Tracker syncs your Gmail inbox, classifies financial emails (bank alert
 
 | Layer | Technology |
 |---|---|
-| Backend | FastAPI + SQLAlchemy 2.0 async + Alembic |
+| Backend | FastAPI (async) + SQLAlchemy 2.0 async + Alembic |
 | Database | PostgreSQL (prod) / SQLite (dev) |
-| Frontend | Vanilla JS + Jinja2 + custom glassmorphism CSS |
-| Gmail | OAuth 2.0 + Gmail REST API |
-| LLM | Google Gemini, Grok (xAI), Scaleway, OpenRouter |
-| Scheduler | APScheduler |
+| Frontend | Vanilla JSX (esbuild → React 18 CDN) + Jinja2 shell |
+| Gmail | Google OAuth 2.0 + Gmail REST API |
+| LLM | Gemini, Grok (xAI), Groq, Scaleway, OpenRouter, Cloudflare Workers AI |
+| Scheduler | APScheduler (async) |
 | Container | Docker + docker-compose |
+| Deploy | Railway (via Dockerfile) |
 
 ---
 
 ## Quick Start
 
-### 1. Clone
+### Prerequisites
+- Python 3.11+
+- Node.js (for frontend build)
+- PostgreSQL (optional — SQLite works for dev)
+- Google Cloud project with Gmail API enabled
+
+### 1. Clone & Configure
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/gexpense-tracker.git
+git clone https://github.com/yourusername/gexpense-tracker.git
 cd gexpense-tracker
-```
-
-### 2. Configure
-
-```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+### 2. Environment Variables
+
+Minimum required in `.env`:
 
 ```env
-# Database
-DATABASE_URL=postgresql+asyncpg://expense:expense@localhost:5432/expense_tracker
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/expense_tracker
+# or for local dev:
+# DATABASE_URL=sqlite+aiosqlite:///./data/expense.db
 
-# Google OAuth (Gmail access)
-GOOGLE_CLIENT_ID=your_client_id
-GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/callback
 
-# LLM providers — add at least one
-GOOGLE_AI_API_KEY=        # Gemini (recommended, free tier available)
-GROK_API_KEY=             # xAI Grok
-SCALEWAY_API_KEY=         # Scaleway AI
-OPENROUTER_API_KEY=       # OpenRouter (fallback)
+SECRET_KEY=generate-a-random-secret-here
+```
 
-# Tuning
-LLM_CONFIDENCE_THRESHOLD=0.85   # below this → LLM is called
-AUTO_CONFIRM_THRESHOLD=0.75     # above this → auto-confirmed, skips review queue
-SYNC_INTERVAL_HOURS=2
-
-# Optional private-beta onboarding gate
-INVITE_CODE=your-private-code
+At least one LLM key (recommended: Gemini, free tier available):
+```env
+GOOGLE_AI_API_KEY=your_gemini_key
 ```
 
 ### 3. Run with Docker
@@ -111,133 +133,145 @@ docker-compose up --build
 
 Open [http://localhost:8000](http://localhost:8000).
 
-### 4. Run locally (SQLite, no Docker)
+### 4. Run Locally (SQLite)
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Use SQLite instead of Postgres
 export DATABASE_URL="sqlite+aiosqlite:///./data/expense.db"
-
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### 5. Connect Gmail
+### 5. Build Frontend (if editing JSX)
+
+```bash
+node scripts/build-frontend.mjs          # one-shot build
+node scripts/build-frontend.mjs --watch  # dev mode with file watching
+```
+
+### 6. Connect Gmail
 
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
 2. Enable **Gmail API**
 3. Create OAuth 2.0 credentials (web application)
 4. Set redirect URI to `http://localhost:8000/api/auth/callback`
-5. Visit [http://localhost:8000/api/auth/gmail](http://localhost:8000/api/auth/gmail) and authorise
-
----
-
-## LLM Providers
-
-All providers use the OpenAI-compatible `/chat/completions` endpoint. Add any combination — the system tries them in priority order and backs off automatically on rate limits.
-
-| Provider | API key env var | Free tier |
-|---|---|---|
-| Google Gemini | `GOOGLE_AI_API_KEY` | Yes (Gemini 2.0 Flash) |
-| Grok (xAI) | `GROK_API_KEY` | Limited |
-| Scaleway | `SCALEWAY_API_KEY` | Yes (Llama 3.3 70B) |
-| OpenRouter | `OPENROUTER_API_KEY` | Yes (many models) |
-
----
-
-## Architecture
-
-```
-Gmail API
-    │
-    ▼
-GmailClient.fetch_new_messages()
-    │  (incremental, history-based)
-    ▼
-sync.run_sync()
-    ├── Insert Email rows
-    └── classify_email() ──► apply_rules()         ← domain lookup + keyword scoring
-                         └─► llm_client.classify() ← multi-provider with fallback
-                                                    └─► llm_client.extract()  ← if label known
-    │
-    ▼
-Transaction rows (label, amount, merchant, category, confidence, status)
-    │
-    ▼
-FastAPI routes ──► Jinja2 templates ──► vanilla JS (no framework)
-```
+5. Visit [http://localhost:8000](http://localhost:8000) and sign in with Google
 
 ---
 
 ## Project Structure
 
 ```
-app/
-├── api/              # FastAPI routers
-│   ├── auth.py       # Gmail OAuth
-│   ├── budgets.py
-│   ├── emails.py     # Inbox view + reclassify + retrain
-│   ├── recurring.py
-│   ├── review.py
-│   ├── rules.py
-│   ├── stats.py
-│   ├── sync.py
-│   └── transactions.py
-├── classifier/
-│   ├── classifier.py # Orchestrates rule + LLM pipeline
-│   ├── llm_client.py # Multi-provider LLM with fallback
-│   └── rules.py      # Domain rules + keyword scoring
-├── gmail/
-│   ├── auth.py       # OAuth flow
-│   └── client.py     # Gmail API wrapper
-├── alerts.py
-├── config.py         # Pydantic settings
-├── database.py
-├── models.py         # SQLAlchemy ORM models
-├── scheduler.py      # APScheduler setup
-└── sync.py           # Full sync orchestration
-templates/            # Jinja2 HTML templates
-static/               # styles.css + app.js
-alembic/              # DB migrations
-tests/
+gexpense-tracker/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app factory + middleware
+│   ├── config.py            # Pydantic settings (env vars)
+│   ├── database.py          # Async SQLAlchemy engine + session
+│   ├── auth_deps.py         # get_current_user() dependency
+│   ├── crypto.py            # Fernet encryption helpers
+│   ├── alerts.py            # In-memory alert deque
+│   ├── scheduler.py         # APScheduler (sync, cleanup, dedup)
+│   ├── sync.py              # Full sync orchestration
+│   ├── api/
+│   │   ├── auth.py          # Google OAuth + session management
+│   │   ├── transactions.py  # Transaction CRUD + search + export
+│   │   ├── sync.py          # Sync status, trigger, settings
+│   │   ├── emails.py        # Inbox, retrain, reclassify
+│   │   ├── stats.py         # Dashboard analytics
+│   │   ├── review.py        # Review queue
+│   │   ├── rules.py         # Sender rule CRUD
+│   │   ├── budgets.py       # Budget CRUD
+│   │   ├── recurring.py     # Recurring expense CRUD + AI suggestion
+│   │   ├── debt.py          # Debt CRUD
+│   │   ├── duplicates.py    # Duplicate pair resolution
+│   │   ├── settings.py      # Profile, categories, AI services, 2FA, deletion
+│   │   ├── onboarding.py    # First-run onboarding
+│   │   ├── filter.py        # Pre-filter rules + AI refinement
+│   │   ├── admin.py         # Owner admin tools
+│   │   └── _account_helpers.py
+│   ├── classifier/
+│   │   ├── classifier.py     # Orchestrator (rule → LLM pipeline)
+│   │   ├── llm_client.py     # Multi-provider LLM with fallback
+│   │   ├── rules.py          # Domain rules + keyword scoring
+│   │   ├── pre_filter.py     # 3-tier pre-filter engine
+│   │   ├── transaction_extractor.py  # Regex pre-extraction
+│   │   ├── merchant.py       # Merchant normalization (fuzzy match)
+│   │   ├── merchant_store.py  # Merchant→category store
+│   │   ├── groq_rate_limiter.py
+│   │   └── rule_engine_adapter.py
+│   ├── gmail/
+│   │   ├── auth.py           # OAuth flow helpers
+│   │   └── client.py         # Gmail API wrapper
+│   ├── dedup/
+│   │   └── service.py        # 3-strategy duplicate detection
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user.py           # User, UserProfile, UserSettings, Session
+│   │   ├── transaction.py    # Transaction, DuplicatePair, DomainPairRule
+│   │   ├── email.py          # Email, ClassificationLog
+│   │   ├── account.py        # ConnectedAccount, UserCategory, UserAIService
+│   │   ├── financial.py      # Budget, Debt, RecurringExpense, SenderRule
+│   │   └── misc.py           # FilterRule, SyncState, OAuthState, MerchantAlias
+│   └── services/
+│       └── category_service.py
+├── static/
+│   ├── src/                  # JSX source files
+│   │   ├── app.jsx           # Root orchestrator + view routing
+│   │   ├── shell.jsx         # Sidebar, Topbar, SearchBar, LiveBrand
+│   │   ├── inbox.jsx         # Inbox view + search results
+│   │   ├── dashboard.jsx     # Dashboard view
+│   │   ├── flow.jsx          # Money Flow view
+│   │   ├── health.jsx        # Financial Health view
+│   │   ├── reports.jsx       # Reports view
+│   │   ├── recurring.jsx     # Recurring view
+│   │   ├── debt.jsx          # Debt view
+│   │   ├── account.jsx       # Profile + Settings + Admin views
+│   │   ├── onboarding.jsx    # Onboarding wizard
+│   │   ├── data.jsx          # Constants (categories)
+│   │   └── icons.jsx         # SVG icon library
+│   ├── dist/                 # Compiled JS (esbuild output)
+│   ├── styles.css            # CSS variables + theme classes
+│   └── vendor/               # React CDN fallback
+├── templates/
+│   └── index.html            # Jinja2 shell + inline CSS + script loader
+├── app/classifier/           # Python classification pipeline
+├── alembic/                  # Database migrations
+├── tests/                    # Pytest test suite (28 files)
+├── scripts/
+│   └── build-frontend.mjs    # esbuild build script
+├── Dockerfile
+├── docker-compose.yml
+├── railway.toml
+├── PRD.md                    # Product Requirements Document
+├── SPEC.md                   # Technical Specification
+├── PRODUCT.md                # Product positioning + brand
+└── DESIGN.md                 # Visual design system
 ```
-
----
-
-## Environment Variables Reference
-
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | postgres | SQLAlchemy async URL |
-| `GOOGLE_CLIENT_ID` | — | OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | — | OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | `http://localhost:8000/api/auth/callback` | OAuth callback |
-| `GOOGLE_AI_API_KEY` | — | Gemini API key |
-| `GROK_API_KEY` | — | xAI Grok API key |
-| `SCALEWAY_API_KEY` | — | Scaleway API key |
-| `OPENROUTER_API_KEY` | — | OpenRouter API key |
-| `LLM_MODEL` | `google/gemini-2.0-flash-exp:free` | OpenRouter model string |
-| `LLM_CONFIDENCE_THRESHOLD` | `0.85` | Below this → LLM called |
-| `AUTO_CONFIRM_THRESHOLD` | `0.75` | Above this → auto-confirmed |
-| `SYNC_INTERVAL_HOURS` | `2` | Sync frequency |
-| `SECRET_KEY` | `change-me` | App secret (change in prod) |
 
 ---
 
 ## Development
 
-```bash
-# Run tests
-pytest
+### Running Tests
 
-# Create a DB migration
+```bash
+pytest -v --tb=short     # unit tests (skips LLM tests requiring API keys)
+```
+
+### Database Migrations
+
+```bash
 alembic revision --autogenerate -m "description"
 alembic upgrade head
+```
 
-# Trigger a manual sync
-curl -X POST http://localhost:8000/api/sync
+### Manual Sync Trigger
+
+```bash
+curl -X POST http://localhost:8000/api/sync/trigger
 ```
 
 ---
