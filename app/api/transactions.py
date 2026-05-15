@@ -1,7 +1,7 @@
 import csv
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, extract, or_, delete
 from sqlalchemy.orm import selectinload
@@ -396,27 +396,35 @@ async def _load_user_llm_client(user_id: str, db: AsyncSession):
 @router.post("/transactions/{transaction_id}/reclassify/preview")
 async def reclassify_preview(
     transaction_id: str,
+    method: str = Query("llm"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Run LLM classification without writing to DB. Returns preview for user confirmation."""
+    """Preview reclassification. method=llm uses AI, method=rules uses deterministic rules."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
-    user_llm_client = await _load_user_llm_client(str(current_user.id), db)
     from app.classifier.classifier import classify_email
     from app.services.category_service import CategoryService
     user_cats = await CategoryService.load_for_llm(db, str(current_user.id))
-    cls = await classify_email(
-        email_id=e.id,
-        sender=e.sender or "",
-        sender_domain=e.sender_domain or "",
-        subject=e.subject or "",
-        body_text=e.body_text or e.body_snippet or "",
-        session=None,  # no DB writes
-        rule_engine_enabled=False,
-        user_id=str(current_user.id),
-        llm_client_override=user_llm_client,
-        categories_override=user_cats,
-    )
+
+    if method == "rules":
+        from app.classifier.rules import build_domain_rules
+        from app.classifier.classifier import _rules_fallback_result
+        db_rules = await build_domain_rules(db)
+        cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
+    else:
+        user_llm_client = await _load_user_llm_client(str(current_user.id), db)
+        cls = await classify_email(
+            email_id=e.id,
+            sender=e.sender or "",
+            sender_domain=e.sender_domain or "",
+            subject=e.subject or "",
+            body_text=e.body_text or e.body_snippet or "",
+            session=None,
+            rule_engine_enabled=False,
+            user_id=str(current_user.id),
+            llm_client_override=user_llm_client,
+            categories_override=user_cats,
+        )
     return {
         "label":      cls.label.value,
         "amount":     cls.amount,
@@ -432,24 +440,31 @@ async def reclassify_preview(
 @router.post("/transactions/{transaction_id}/reclassify")
 async def reclassify_transaction(
     transaction_id: str,
+    method: str = Query("llm"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Commit LLM reclassification to DB and return the updated transaction."""
+    """Commit reclassification to DB. method=llm uses AI, method=rules uses deterministic rules."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
-    user_llm_client = await _load_user_llm_client(str(current_user.id), db)
     from app.classifier.classifier import classify_email
-    cls = await classify_email(
-        email_id=e.id,
-        sender=e.sender or "",
-        sender_domain=e.sender_domain or "",
-        subject=e.subject or "",
-        body_text=e.body_text or e.body_snippet or "",
-        session=db,
-        rule_engine_enabled=False,
-        user_id=str(current_user.id),
-        llm_client_override=user_llm_client,
-    )
+    if method == "rules":
+        from app.classifier.rules import build_domain_rules
+        from app.classifier.classifier import _rules_fallback_result
+        db_rules = await build_domain_rules(db)
+        cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
+    else:
+        user_llm_client = await _load_user_llm_client(str(current_user.id), db)
+        cls = await classify_email(
+            email_id=e.id,
+            sender=e.sender or "",
+            sender_domain=e.sender_domain or "",
+            subject=e.subject or "",
+            body_text=e.body_text or e.body_snippet or "",
+            session=db,
+            rule_engine_enabled=False,
+            user_id=str(current_user.id),
+            llm_client_override=user_llm_client,
+        )
 
     t.label     = cls.label.value
     t.amount    = cls.amount

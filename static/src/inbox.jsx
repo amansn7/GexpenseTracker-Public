@@ -207,6 +207,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const { isMobile } = useViewport();
   const [fetchBodyOn, setFetchBodyOn] = React.useState(false);
   const [fetchedBody, setFetchedBody] = React.useState(null);
+  const [reclassMethod, setReclassMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
 
   React.useEffect(() => {
     setAmtDraft(Math.abs(tx.amount));
@@ -224,11 +225,18 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     return r;
   };
 
+  const switchMethod = (m) => {
+    setReclassMethod(m);
+    setReclass("idle");
+    setReclassResult(null);
+    localStorage.setItem("_reclass_method", m);
+  };
+
   const handlePreview = async () => {
     setReclass("previewing");
     try {
       if (fetchBodyOn) await handleFetchBody();
-      const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview`);
+      const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview?method=${reclassMethod}`);
       setReclassResult(result);
       setReclass("preview");
     } catch (e) {
@@ -240,7 +248,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setReclass("saving");
     try {
       if (fetchBodyOn) await handleFetchBody();
-      const result = await API.post(`/api/transactions/${tx.id}/reclassify`);
+      const result = await API.post(`/api/transactions/${tx.id}/reclassify?method=${reclassMethod}`);
       setReclassResult(result);
       setReclass("done");
       // Map API _fmt response → UI tx fields via normCat, then update parent (no extra PATCH)
@@ -419,7 +427,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         {reclass === "preview" && reclassResult && (
           <div className="fade-in" style={{ marginBottom: 10, padding: 14, background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", fontSize: 12 }}>
             <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon name="sparkle" size={13} stroke="var(--accent)"/> AI found — does this look right?
+              <Icon name={reclassMethod === "rules" ? "check" : "sparkle"} size={13} stroke="var(--accent)"/> {reclassMethod === "rules" ? "Rules found" : "AI found"} — does this look right?
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
               {[
@@ -463,6 +471,16 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </div>
         )}
 
+        <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 8 }}>
+          <button onClick={() => switchMethod("llm")}
+            style={{ padding: "4px 12px", borderRadius: "4px 0 0 4px", border: "1px solid var(--line)", background: reclassMethod === "llm" ? "var(--ink)" : "var(--paper)", color: reclassMethod === "llm" ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            LLM
+          </button>
+          <button onClick={() => switchMethod("rules")}
+            style={{ padding: "4px 12px", borderRadius: "0 4px 4px 0", border: "1px solid var(--line)", background: reclassMethod === "rules" ? "var(--ink)" : "var(--paper)", color: reclassMethod === "rules" ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+            Rules
+          </button>
+        </div>
         <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
           <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
@@ -473,7 +491,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             onClick={()=>{ if(reclass==="idle"||reclass==="done"||reclass==="error") handlePreview(); }}
             disabled={reclass==="previewing"||reclass==="saving"||reclass==="preview"}
             style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "var(--paper)", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
-            <Icon name="sparkle" size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
+            <Icon name={reclassMethod === "rules" ? "check" : "sparkle"} size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
             {reclass === "previewing" ? "Classifying…" : "Recategorize"}
           </button>
         </div>
@@ -772,6 +790,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
+  const [bulkMethod, setBulkMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
   const [dupPairs, setDupPairs] = React.useState([]);
   const [dupLoading, setDupLoading] = React.useState(false);
   const headerCheckRef = React.useRef(null);
@@ -877,6 +896,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" }).catch(() => {});
   };
 
+  const switchBulkMethod = (m) => {
+    setBulkMethod(m);
+    localStorage.setItem("_reclass_method", m);
+  };
+
   const bulkReclassify = async () => {
     const ids = [...selectedIds];
     const items = ids.map(id => {
@@ -910,7 +934,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const updated = itemsRef.map((it, i) => i === idx ? { ...it, status: "previewing" } : it);
     setBulkReclassItems(updated);
     try {
-      const result = await API.post(`/api/transactions/${itemsRef[idx].id}/reclassify/preview`);
+      const result = await API.post(`/api/transactions/${itemsRef[idx].id}/reclassify/preview?method=${bulkMethod}`);
       const next = updated.map((it, i) => i === idx ? { ...it, preview: result, status: "preview" } : it);
       setBulkReclassItems(next);
     } catch (_) {
@@ -927,7 +951,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const marked = items.map((it, i) => i === idx ? { ...it, status: "applying" } : it);
     setBulkReclassItems(marked);
     try {
-      const result = await API.post(`/api/transactions/${item.id}/reclassify`);
+      const result = await API.post(`/api/transactions/${item.id}/reclassify?method=${bulkMethod}`);
       const isIgnore = result.label === "ignore";
       const isIncome = result.label === "income";
       const cat = normCat(result.category, isIncome);
@@ -958,7 +982,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         ? { ...it, status: "applying" } : it
     ));
     const promises = remaining.map((item, i) =>
-      API.post(`/api/transactions/${item.id}/reclassify`)
+      API.post(`/api/transactions/${item.id}/reclassify?method=${bulkMethod}`)
         .then(data => {
           const isIgnore = data.label === "ignore";
           const isIncome = data.label === "income";
@@ -1321,6 +1345,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <span style={{ color: "var(--pos)" }}>{bulkReclassItems.filter(it => it.status === "accepted").length} accepted</span>
                 <span>{bulkReclassItems.filter(it => it.status === "skipped").length} skipped</span>
                 <span style={{ color: "var(--neg)" }}>{bulkReclassItems.filter(it => it.status === "error").length} error</span>
+              </div>
+              <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                <button onClick={() => switchBulkMethod("llm")}
+                  style={{ padding: "3px 10px", borderRadius: "4px 0 0 4px", border: "1px solid var(--line)", background: bulkMethod === "llm" ? "var(--ink)" : "var(--paper)", color: bulkMethod === "llm" ? "var(--paper)" : "var(--ink-3)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                  LLM
+                </button>
+                <button onClick={() => switchBulkMethod("rules")}
+                  style={{ padding: "3px 10px", borderRadius: "0 4px 4px 0", border: "1px solid var(--line)", background: bulkMethod === "rules" ? "var(--ink)" : "var(--paper)", color: bulkMethod === "rules" ? "var(--paper)" : "var(--ink-3)", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                  Rules
+                </button>
               </div>
             </div>
 
