@@ -76,6 +76,7 @@ _RAW_MERCHANT_PATTERNS = [
     re.compile(r"to\s+([A-Za-z0-9 ._\-]{2,30})(?:\s+on|\s+via|\s+ref|\s*$)", re.IGNORECASE),
     re.compile(r"at\s+([A-Za-z0-9 ._\-]{2,30})", re.IGNORECASE),
     re.compile(r"([\w.\-]+)@[\w]+", re.IGNORECASE),                       # UPI handle
+    re.compile(r"by\s+IMPS/(?:NEF[TF]/|RTGS/|P2A/|P2P/)?[A-Z0-9]+/([A-Za-z]{2,40})(?:\.|$|\s)", re.IGNORECASE),  # Axis/ICICI IMPS "...by IMPS/P2A/ref/MEIYAPPA"
 ]
 
 

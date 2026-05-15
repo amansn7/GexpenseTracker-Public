@@ -208,6 +208,7 @@ IMPS / NEFT / RTGS BANK TRANSFERS:
   "INR X credited to your account via IMPS"                               → income (money in)
   "IMPS credit of INR X from SENDER NAME"                                 → income, merchant=SENDER NAME
   "NEFT credit — INR X from SENDER NAME"                                  → income, merchant=SENDER NAME
+  "debited ... by IMPS/P2A/612320181396/MEIYAPPA"                        → expense, merchant=MEIYAPPA (recipient name in IMPS reference)
   WARNING: The transaction reference (e.g. "IMPS/P2A/612320192552")
   contains a coded recipient. Read the body for the actual sender/recipient
   name. NEVER use email footer/marketing text as the merchant name.
@@ -318,6 +319,7 @@ EXTRACTION RULES:
   "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",
   "NETFLIX.COM" → "Netflix", "UBER TRIP" → "Uber", "BLINKIT IN" → "Blinkit"
   WARNING: Payment gateways (Razorpay, Billdesk, CC Avenue, PayU, CCAvenue, Paytm) are NOT merchants — null instead.
+  For IMPS/NEFT/RTGS debit emails, the recipient name after the transaction ref ("IMPS/P2A/6123.../RECIPIENT") is the merchant.
   WARNING: Bank emails have marketing footers. NEVER use footer text as merchant.
 
 - category: one of — {categories}. Use "Other" if none fits. Refunds → Refund. EMIs → EMI. CC bill payments → CC Payment.
