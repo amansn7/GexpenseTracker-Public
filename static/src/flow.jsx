@@ -211,10 +211,11 @@ const FlowView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setFlowLoading(true);
       try {
+        const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c] = await Promise.all([
-          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
-          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
+          API.get(`/api/stats/summary?${dateQP}${catQP}`),
+          API.get(`/api/stats/category-breakdown?${dateQP}${catQP}`),
         ]);
         if (!cancelled) { setStats(s); setCatBreakdown(c); }
       } catch (_) {}
@@ -223,7 +224,9 @@ const FlowView = ({ transactions, categoryFilter }) => {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [rangeFrom, rangeTo]);
 
-  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
+  const rangeTxs = !rangeFrom
+    ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
+    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;

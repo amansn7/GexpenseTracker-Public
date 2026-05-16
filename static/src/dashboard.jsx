@@ -49,11 +49,12 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setStatsLoading(true);
       try {
+        const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c, tm] = await Promise.all([
-          API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
-          API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
-          API.get(`/api/stats/top-merchants?date_from=${rangeFrom}&date_to=${rangeTo}`),
+          API.get(`/api/stats/summary?${dateQP}${catQP}`),
+          API.get(`/api/stats/category-breakdown?${dateQP}${catQP}`),
+          API.get(`/api/stats/top-merchants?${dateQP}`),
         ]);
         if (!cancelled) { setStats(s); setCatBreakdown(c); setTopMerchants(tm.merchants || []); }
       } catch (_) {}
@@ -74,7 +75,9 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   }, [rangeFrom, rangeTo]);
 
   // Filter transactions to selected range for client-side charts
-  const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
+  const rangeTxs = !rangeFrom
+    ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
+    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const totalIncome = stats?.total_income ?? 0;
   const totalExpense = stats?.total_expenses ?? 0;
   const remaining = totalIncome - totalExpense;
@@ -102,12 +105,15 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const burnTrend = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100).toFixed(1) : null;
 
   // Chart dates array for the selected range
-  const chartDates = [];
-  const startD = new Date(rangeFrom);
-  const endD = new Date(rangeTo);
-  for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
-    chartDates.push(d.toISOString().slice(0, 10));
-  }
+  const chartDates = !rangeFrom
+    ? []
+    : (() => {
+        const dates = [];
+        for (let d = new Date(rangeFrom); d <= new Date(rangeTo); d.setDate(d.getDate() + 1)) {
+          dates.push(d.toISOString().slice(0, 10));
+        }
+        return dates;
+      })();
   const cumulative = [];
   let running = 0;
   for (const dateStr of chartDates) {
