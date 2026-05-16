@@ -808,19 +808,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
   const [selectMode, setSelectMode] = React.useState(false);
+  const [bulkDetectError, setBulkDetectError] = React.useState("");
   const [selectAllFlag, setSelectAllFlag] = React.useState(false);
   const [collapsedAll, setCollapsedAll] = React.useState(null); // null=default, true=all collapsed, false=all expanded
   const [showFirstHint, setShowFirstHint] = React.useState(() => !localStorage.getItem("mf_hint_dismissed"));
   const listRef = React.useRef(null);
 
   // Date range presets
-  const datePresets = [
-    { label: "This Month", get: () => { const now = new Date(); return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0] }; } },
-    { label: "Last Month", get: () => { const now = new Date(); return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0] }; } },
-    { label: "Last 7 Days", get: () => { const now = new Date(); const d = new Date(now); d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }; } },
-    { label: "Last 30 Days", get: () => { const now = new Date(); const d = new Date(now); d.setDate(d.getDate() - 30); return { from: d.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }; } },
-    { label: "All Time", get: () => ({ from: null, to: null }) },
-  ];
+  var datePresets = DateUtils.DATE_PRESETS;
   const currentPreset = datePresets.find(p => {
     const range = dateRange.from ? dateRange : datePresets[0].get();
     return range.from === p.get().from && range.to === p.get().to;
@@ -947,7 +942,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const bulkDetectDuplicates = async () => {
     const ids = [...selectedIds];
     clearSelect();
-    await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" }).catch(() => {});
+    try {
+      await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
+    } catch {
+      setBulkDetectError("Detection failed. Try again.");
+      setTimeout(() => setBulkDetectError(""), 4000);
+    }
   };
 
   const switchBulkMethod = (m) => {
@@ -1449,6 +1449,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Recategorize (Manual)</button>
           <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
           <button onClick={bulkDetectDuplicates} style={{ padding: "6px 12px", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Detect Duplicates</button>
+          {bulkDetectError && <span style={{ fontSize: 11, color: "#dc2626" }}>{bulkDetectError}</span>}
           <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
       )}

@@ -3,11 +3,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import DuplicatePair, Transaction, Email, User
 from app.dedup.service import resolve_duplicate
+from app.services.transaction_formatter import format_transaction
 
 log = logging.getLogger(__name__)
 
@@ -15,22 +17,18 @@ router = APIRouter()
 
 
 def _fmt_tx(t: Transaction, e: Optional[Email]) -> dict:
+    """Duplicate-specific format with sender_domain field."""
+    base = format_transaction(t, e)
     return {
-        "id": t.id,
-        "label": t.label,
-        "amount": float(t.amount) if t.amount is not None else None,
-        "merchant": t.merchant,
-        "category": t.category,
-        "txn_date": t.txn_date.isoformat() if t.txn_date else None,
-        "confidence": t.confidence,
-        "status": t.status,
-        "email": {
-            "subject": e.subject if e else None,
-            "sender": e.sender if e else None,
-            "sender_domain": e.sender_domain if e else None,
-            "received_at": e.received_at.isoformat() if e and e.received_at else None,
-            "body_snippet": e.body_snippet if e else None,
-        },
+        "id": base["id"],
+        "label": base["label"],
+        "amount": base["amount"],
+        "merchant": base["merchant"],
+        "category": base["category"],
+        "txn_date": base["txn_date"],
+        "confidence": base["confidence"],
+        "status": base["status"],
+        "email": base["email"],
     }
 
 
@@ -48,24 +46,24 @@ def _fmt_pair(pair: DuplicatePair, primary_tx, primary_email, dup_tx, dup_email)
 
 
 async def _load_pair_with_txs(pair_id: str, db: AsyncSession, user_id: str):
-    pair_row = (await db.execute(
-        select(DuplicatePair)
-        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
-        .join(Email, Email.id == Transaction.email_id)
-        .where(DuplicatePair.id == pair_id, Email.user_id == user_id)
-    )).scalar_one_or_none()
-    pair = pair_row
-    if not pair:
+    """Load pair + both transactions + both emails in a single query (T3)."""
+    PrimaryTx = aliased(Transaction)
+    PrimaryEmail = aliased(Email)
+    DupTx = aliased(Transaction)
+    DupEmail = aliased(Email)
+
+    row = (await db.execute(
+        select(DuplicatePair, PrimaryTx, PrimaryEmail, DupTx, DupEmail)
+        .join(PrimaryTx, PrimaryTx.id == DuplicatePair.primary_tx_id)
+        .join(PrimaryEmail, PrimaryEmail.id == PrimaryTx.email_id)
+        .join(DupTx, DupTx.id == DuplicatePair.duplicate_tx_id)
+        .outerjoin(DupEmail, DupEmail.id == DupTx.email_id)
+        .where(DuplicatePair.id == pair_id, PrimaryEmail.user_id == user_id)
+    )).one_or_none()
+
+    if not row:
         raise HTTPException(status_code=404, detail="Duplicate pair not found")
-    primary_row = (await db.execute(
-        select(Transaction, Email).outerjoin(Email).where(Transaction.id == pair.primary_tx_id)
-    )).one_or_none()
-    dup_row = (await db.execute(
-        select(Transaction, Email).outerjoin(Email).where(Transaction.id == pair.duplicate_tx_id)
-    )).one_or_none()
-    if not primary_row or not dup_row:
-        raise HTTPException(status_code=422, detail="Pair references missing transactions")
-    return pair, primary_row[0], primary_row[1], dup_row[0], dup_row[1]
+    return row[0], row[1], row[2], row[3], row[4]
 
 
 @router.post("/duplicates/scan")
@@ -78,28 +76,26 @@ async def scan_duplicates(db: AsyncSession = Depends(get_db), current_user: User
 
 @router.get("/duplicates")
 async def list_duplicates(status: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """List duplicate pairs — single joined query, no N+1 (T2)."""
+    PrimaryTx = aliased(Transaction)
+    PrimaryEmail = aliased(Email)
+    DupTx = aliased(Transaction)
+    DupEmail = aliased(Email)
+
     q = (
-        select(DuplicatePair)
-        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
-        .join(Email, Email.id == Transaction.email_id)
-        .where(Email.user_id == current_user.id)
+        select(DuplicatePair, PrimaryTx, PrimaryEmail, DupTx, DupEmail)
+        .join(PrimaryTx, PrimaryTx.id == DuplicatePair.primary_tx_id)
+        .join(PrimaryEmail, PrimaryEmail.id == PrimaryTx.email_id)
+        .join(DupTx, DupTx.id == DuplicatePair.duplicate_tx_id)
+        .outerjoin(DupEmail, DupEmail.id == DupTx.email_id)
+        .where(PrimaryEmail.user_id == current_user.id)
         .order_by(DuplicatePair.created_at.desc())
     )
     if status:
         q = q.where(DuplicatePair.status == status)
-    pairs = (await db.execute(q)).scalars().all()
 
-    result = []
-    for pair in pairs:
-        primary_row = (await db.execute(
-            select(Transaction, Email).outerjoin(Email).where(Transaction.id == pair.primary_tx_id)
-        )).one_or_none()
-        dup_row = (await db.execute(
-            select(Transaction, Email).outerjoin(Email).where(Transaction.id == pair.duplicate_tx_id)
-        )).one_or_none()
-        if primary_row and dup_row:
-            result.append(_fmt_pair(pair, primary_row[0], primary_row[1], dup_row[0], dup_row[1]))
-    return result
+    rows = (await db.execute(q)).all()
+    return [_fmt_pair(row[0], row[1], row[2], row[3], row[4]) for row in rows]
 
 
 class ResolvePatch(BaseModel):
@@ -118,14 +114,18 @@ async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depe
         raise HTTPException(status_code=409, detail=f"Pair already resolved: {pair.status}")
 
     # Compute which TX to discard BEFORE overwriting primary_tx_id.
-    # The kept TX is body.primary_tx_id; the other one gets deleted.
-    discard_tx_id = (
-        pair.duplicate_tx_id if body.primary_tx_id == pair.primary_tx_id
-        else pair.primary_tx_id
-    )
+    keeping_primary = body.primary_tx_id == pair.primary_tx_id
+    discard_tx_id = pair.duplicate_tx_id if keeping_primary else pair.primary_tx_id
+    kept_email = primary_email if keeping_primary else dup_email
+    discard_email = dup_email if keeping_primary else primary_email
 
     pair.primary_tx_id = body.primary_tx_id
-    await resolve_duplicate(pair, body.action, db, discard_tx_id=discard_tx_id)
+    await resolve_duplicate(
+        pair, body.action, db,
+        primary_email=kept_email,
+        duplicate_email=discard_email,
+        discard_tx_id=discard_tx_id,
+    )
     await db.commit()
     # Don't refresh pair — it may have been deleted as part of confirmed resolution.
     return {"id": pair_id, "status": body.action}

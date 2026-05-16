@@ -1,7 +1,8 @@
 import pytest
 import uuid
 from datetime import date, datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DuplicatePair, DomainPairRule
@@ -44,24 +45,6 @@ async def test_detect_no_candidates():
     await detect_and_record_duplicates(tx, email, db)
     db.add.assert_not_called()
 
-
-@pytest.mark.asyncio
-async def test_detect_called_after_classification():
-    """Import path is valid and patch target resolves correctly."""
-    import app.dedup.service as dedup_service
-    with patch("app.dedup.service.detect_and_record_duplicates", new_callable=AsyncMock) as mock_dedup:
-        # Simulate what sync.py does: create a Transaction + call detect
-        from app.models import Transaction, Email
-        tx = MagicMock(spec=Transaction)
-        tx.label = "expense"
-        tx.amount = 999.0
-        tx.txn_date = date(2026, 4, 10)
-        email = MagicMock(spec=Email)
-        email.sender_domain = "swiggy.in"
-        db = AsyncMock()
-        await dedup_service.detect_and_record_duplicates(tx, email, db)
-        # Since we patched it, just verify the mock was set up correctly
-        mock_dedup.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -113,6 +96,7 @@ async def test_duplicates_api_resolve_validation():
         # scalar_one_or_none returns None → triggers 404 for pair not found
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
+        mock_result.one_or_none.return_value = None
         db.execute = AsyncMock(return_value=mock_result)
         yield db
 
@@ -133,3 +117,95 @@ async def test_duplicates_api_resolve_validation():
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+# ── Real-row integration tests (in-memory aiosqlite) ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_detect_same_domain_creates_auto_resolved_pair(db_session, mock_user):
+    """Strategy 1: same sender_domain + same amount + within 3 days → auto_resolved pair."""
+    from app.models import Transaction, Email
+    uid = str(mock_user.id)
+    email1 = Email(id=str(uuid.uuid4()), gmail_id="sd-g1", sender="bills@swiggy.in",
+                   sender_domain="swiggy.in", user_id=uid,
+                   received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+    tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
+                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+    email2 = Email(id=str(uuid.uuid4()), gmail_id="sd-g2", sender="bills@swiggy.in",
+                   sender_domain="swiggy.in", user_id=uid,
+                   received_at=datetime(2026, 4, 11, 10, 0, tzinfo=timezone.utc))
+    tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
+                      label="expense", amount=500.0, txn_date=date(2026, 4, 11), status="auto")
+    db_session.add_all([email1, tx1, email2, tx2])
+    await db_session.flush()
+
+    await detect_and_record_duplicates(tx2, email2, db_session)
+    await db_session.flush()
+
+    pairs = (await db_session.execute(select(DuplicatePair))).scalars().all()
+    assert len(pairs) == 1
+    assert pairs[0].rule_source == "same_domain_exact"
+    assert pairs[0].status == "auto_resolved"
+    assert pairs[0].confidence == 1.0
+
+
+@pytest.mark.asyncio
+async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
+    """Regression for a1ea4c7: User B's expense must not match User A's expense."""
+    from app.models import Transaction, Email, User, UserRole, UserStatus
+    uid_a = str(mock_user.id)
+    email_a = Email(id=str(uuid.uuid4()), gmail_id="iso-ga", sender="bills@swiggy.in",
+                    sender_domain="swiggy.in", user_id=uid_a,
+                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+    tx_a = Transaction(id=str(uuid.uuid4()), email_id=email_a.id,
+                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+
+    user_b = User(email="userb@test.com", role=UserRole.owner,
+                  status=UserStatus.active, onboarding_complete=True)
+    db_session.add(user_b)
+    await db_session.flush()
+    uid_b = str(user_b.id)
+
+    email_b = Email(id=str(uuid.uuid4()), gmail_id="iso-gb", sender="bills@swiggy.in",
+                    sender_domain="swiggy.in", user_id=uid_b,
+                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+    tx_b = Transaction(id=str(uuid.uuid4()), email_id=email_b.id,
+                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+
+    db_session.add_all([email_a, tx_a, email_b, tx_b])
+    await db_session.flush()
+
+    await detect_and_record_duplicates(tx_b, email_b, db_session)
+    await db_session.flush()
+
+    pairs = (await db_session.execute(select(DuplicatePair))).scalars().all()
+    assert len(pairs) == 0
+
+
+@pytest.mark.asyncio
+async def test_detect_cross_domain_with_rule_queues_pending(db_session, mock_user):
+    """Strategy 2: different sender_domains + DomainPairRule (no auto_resolve) → pending pair."""
+    from app.models import Transaction, Email
+    uid = str(mock_user.id)
+    rule = DomainPairRule(id=str(uuid.uuid4()), domain_a="hdfcbank.com", domain_b="swiggy.in",
+                          confirmed_count=1, dismissed_count=0, confidence=0.5, auto_resolve=False)
+    email1 = Email(id=str(uuid.uuid4()), gmail_id="cd-g1", sender="alerts@hdfcbank.com",
+                   sender_domain="hdfcbank.com", user_id=uid,
+                   received_at=datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
+                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+    email2 = Email(id=str(uuid.uuid4()), gmail_id="cd-g2", sender="noreply@swiggy.in",
+                   sender_domain="swiggy.in", user_id=uid,
+                   received_at=datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
+                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+    db_session.add_all([rule, email1, tx1, email2, tx2])
+    await db_session.flush()
+
+    await detect_and_record_duplicates(tx2, email2, db_session)
+    await db_session.flush()
+
+    pairs = (await db_session.execute(select(DuplicatePair))).scalars().all()
+    assert len(pairs) == 1
+    assert pairs[0].rule_source == "domain_pair"
+    assert pairs[0].status == "pending"

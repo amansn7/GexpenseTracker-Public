@@ -64,8 +64,8 @@ async def test_run_sync_skips_duplicate_gmail_id(db_session):
     mock_ctx.__aenter__ = AsyncMock(return_value=db_session)
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("app.sync.fetch_new_messages", return_value=(fake_messages, "100")):
-        with patch("app.sync.AsyncSessionLocal", return_value=mock_ctx):
+    with patch("app.sync.fetch.fetch_new_messages", return_value=(fake_messages, "100")):
+        with patch("app.sync.fetch.AsyncSessionLocal", return_value=mock_ctx):
             from app.sync import run_sync
             result = await run_sync()
 
@@ -97,9 +97,9 @@ async def test_run_sync_persists_rule_detected_merchant(db_session):
     mock_ctx.__aenter__ = AsyncMock(return_value=db_session)
     mock_ctx.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("app.sync.fetch_new_messages", return_value=(fake_messages, "101")):
-        with patch("app.sync.AsyncSessionLocal", return_value=mock_ctx):
-            with patch("app.sync.get_credentials_for_user", return_value=AsyncMock()):
+    with patch("app.sync.fetch.fetch_new_messages", return_value=(fake_messages, "101")):
+        with patch("app.sync.fetch.AsyncSessionLocal", return_value=mock_ctx):
+            with patch("app.sync.fetch.get_credentials_for_user", return_value=AsyncMock()):
                 from app.sync import run_sync
                 await run_sync(user_id=user.id)
 

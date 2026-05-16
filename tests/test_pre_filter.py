@@ -140,12 +140,12 @@ async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user
             "hist-001",
         )
 
-    monkeypatch.setattr("app.sync.asyncio.to_thread", lambda fn, *a, **kw: _fake_fetch())
+    monkeypatch.setattr("app.sync.fetch.asyncio.to_thread", lambda fn, *a, **kw: _fake_fetch())
 
     # Patch Gmail creds
     async def _fake_creds(*a, **kw):
         return "fake-creds"
-    monkeypatch.setattr("app.sync.get_credentials_for_user", _fake_creds)
+    monkeypatch.setattr("app.sync.fetch.get_credentials_for_user", _fake_creds)
 
     await sync_emails(db_session, user_id=mock_user.id)
 

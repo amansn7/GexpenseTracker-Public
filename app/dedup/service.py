@@ -6,10 +6,10 @@ from typing import Optional, Set, Tuple, List, Dict, Any
 from sqlalchemy import select, or_, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Transaction, Email, DuplicatePair, DomainPairRule
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_AUTO_RESOLVE_THRESHOLD = 0.85
 _AUTO_RESOLVE_MIN_CONFIRMED = 3
 
 # ── Currency normalization ──────────────────────────────────────────────────
@@ -189,7 +189,7 @@ async def detect_and_record_duplicates(
                 continue
             paired_ids.add(cand_tx.id)
 
-            primary_id = _pick_primary(tx, cand_tx)
+            primary_id = _pick_primary(tx, email, cand_tx, cand_email)
             dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
             dup_tx = tx if dup_id == tx.id else cand_tx
             dup_tx.label = "ignore"
@@ -266,7 +266,7 @@ async def detect_and_record_duplicates(
         )).scalar_one_or_none()
 
         if rule and rule.auto_resolve:
-            primary_id = _pick_primary(tx, cand_tx)
+            primary_id = _pick_primary(tx, email, cand_tx, cand_email)
             dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
             db.add(DuplicatePair(
                 id=str(uuid.uuid4()),
@@ -364,7 +364,16 @@ async def _detect_investment_flow(
         logger.info("Queued investment-flow duplicate for review: %s vs %s", primary_id, dup_id)
 
 
-def _pick_primary(tx1: Transaction, tx2: Transaction) -> str:
+def _pick_primary(tx1: Transaction, email1: Optional[Email], tx2: Transaction, email2: Optional[Email]) -> str:
+    """Return the ID of whichever transaction arrived first (received_at → txn_date → created_at)."""
+    t1 = (email1.received_at if email1 and email1.received_at else None)
+    t2 = (email2.received_at if email2 and email2.received_at else None)
+    if t1 and t2:
+        return tx1.id if t1 <= t2 else tx2.id
+    d1 = tx1.txn_date
+    d2 = tx2.txn_date
+    if d1 and d2:
+        return tx1.id if d1 <= d2 else tx2.id
     if tx1.created_at and tx2.created_at:
         return tx1.id if tx1.created_at <= tx2.created_at else tx2.id
     return tx1.id
@@ -534,8 +543,8 @@ async def batch_detect_duplicates(
             stats[rule_source] = stats.get(rule_source, 0) + 1
 
             # Resolve or queue
-            if score >= _AUTO_RESOLVE_THRESHOLD:
-                primary_id = _pick_primary(new_tx, existing_tx)
+            if score >= settings.AUTO_RESOLVE_THRESHOLD:
+                primary_id = _pick_primary(new_tx, new_email, existing_tx, existing_email)
                 dup_id = new_tx.id if primary_id == existing_tx.id else existing_tx.id
                 dup_tx = new_tx if dup_id == new_tx.id else existing_tx
                 dup_tx.label = "ignore"
@@ -566,25 +575,31 @@ async def resolve_duplicate(
     pair: DuplicatePair,
     action: str,
     db: AsyncSession,
+    *,
+    primary_email: Optional[Email] = None,
+    duplicate_email: Optional[Email] = None,
     discard_tx_id: Optional[str] = None,
 ) -> None:
     """
     Apply a user resolution and update the DomainPairRule learning loop.
     action: 'confirmed' | 'dismissed'
+    primary_email / duplicate_email: pass from caller to avoid re-querying.
     discard_tx_id: the TX to delete (confirmed only).
     """
     pair.status = action
     pair.resolved_at = datetime.now(timezone.utc)
 
-    primary_email = (await db.execute(
-        select(Email).join(Transaction, Email.id == Transaction.email_id)
-        .where(Transaction.id == pair.primary_tx_id)
-    )).scalar_one_or_none()
+    if primary_email is None:
+        primary_email = (await db.execute(
+            select(Email).join(Transaction, Email.id == Transaction.email_id)
+            .where(Transaction.id == pair.primary_tx_id)
+        )).scalar_one_or_none()
     discard_lookup_id = discard_tx_id or pair.duplicate_tx_id
-    duplicate_email = (await db.execute(
-        select(Email).join(Transaction, Email.id == Transaction.email_id)
-        .where(Transaction.id == discard_lookup_id)
-    )).scalar_one_or_none()
+    if duplicate_email is None:
+        duplicate_email = (await db.execute(
+            select(Email).join(Transaction, Email.id == Transaction.email_id)
+            .where(Transaction.id == discard_lookup_id)
+        )).scalar_one_or_none()
 
     if primary_email and duplicate_email:
         d1 = (primary_email.sender_domain or "").lower()
@@ -615,7 +630,7 @@ async def resolve_duplicate(
             total = rule.confirmed_count + rule.dismissed_count
             rule.confidence = rule.confirmed_count / total if total > 0 else 0.0
             rule.auto_resolve = (
-                rule.confidence > _AUTO_RESOLVE_THRESHOLD
+                rule.confidence > settings.AUTO_RESOLVE_THRESHOLD
                 and rule.confirmed_count >= _AUTO_RESOLVE_MIN_CONFIRMED
             )
 
