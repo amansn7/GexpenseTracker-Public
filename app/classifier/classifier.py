@@ -32,6 +32,7 @@ class ClassificationResult:
     classifier_method: ClassifierMethod
     txn_date: Optional[date] = None
     status: TransactionStatus = TransactionStatus.needs_review
+    transaction_type: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
 
 
@@ -78,6 +79,9 @@ async def classify_email(
                 if rule_pre.confidence >= settings.AUTO_CONFIRM_THRESHOLD
                 else TransactionStatus.needs_review
             )
+            txn_type = None
+            if rule_pre.category == "CC Payment":
+                txn_type = "cc_payment"
             return ClassificationResult(
                 label=Label.ignore,
                 amount=None,
@@ -87,6 +91,7 @@ async def classify_email(
                 confidence=rule_pre.confidence,
                 status=status,
                 classifier_method=ClassifierMethod.rule,
+                transaction_type=txn_type,
             )
 
     provider = "none"
@@ -127,7 +132,7 @@ async def classify_email(
     if llm_result:
         raw_merchant = llm_result.merchant
         merchant, _ = normalize_merchant(raw_merchant) if raw_merchant else (None, 0.0)
-        merchant = merchant or None  # normalize_merchant returns "" on no-match
+        merchant = merchant or None
         try:
             label = Label(llm_result.label)
         except ValueError:
@@ -137,6 +142,17 @@ async def classify_email(
         category = llm_result.category
         confidence = llm_result.confidence
         txn_date = _parse_date(llm_result.txn_date)
+
+        if label == Label.ignore and category == "CC Payment":
+            txn_type = "cc_payment"
+        elif category == "Investment":
+            txn_type = "investment"
+        elif label == Label.income:
+            txn_type = "income"
+        elif label == Label.expense:
+            txn_type = "purchase"
+        else:
+            txn_type = None
     else:
         rule_result = apply_rules(sender_domain, subject, body_text, db_rules or {})
         if rule_result.merchant:
@@ -154,6 +170,17 @@ async def classify_email(
         category = rule_result.category or merchant_category
         confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
         txn_date = None
+
+        if label == Label.ignore and category == "CC Payment":
+            txn_type = "cc_payment"
+        elif category == "Investment":
+            txn_type = "investment"
+        elif label == Label.income:
+            txn_type = "income"
+        elif label == Label.expense:
+            txn_type = "purchase"
+        else:
+            txn_type = None
     classifier_method = ClassifierMethod.llm if llm_result or confidence == 0.0 else ClassifierMethod.rule
 
     status = (
@@ -192,6 +219,7 @@ async def classify_email(
         confidence=confidence,
         status=status,
         classifier_method=classifier_method,
+        transaction_type=txn_type,
         warnings=result_warnings,
     )
 
@@ -220,10 +248,23 @@ def _rules_fallback_result(
         if confidence >= settings.AUTO_CONFIRM_THRESHOLD
         else TransactionStatus.needs_review
     )
+
+    if label == Label.ignore and category == "CC Payment":
+        txn_type = "cc_payment"
+    elif category == "Investment":
+        txn_type = "investment"
+    elif label == Label.income:
+        txn_type = "income"
+    elif label == Label.expense:
+        txn_type = "purchase"
+    else:
+        txn_type = None
+
     return ClassificationResult(
         label=label, amount=amount, merchant=merchant, category=category,
         txn_date=None, confidence=confidence, status=status,
         classifier_method=ClassifierMethod.rule,
+        transaction_type=txn_type,
     )
 
 
@@ -292,10 +333,12 @@ async def batch_classify_emails(
                     if rule_pre.confidence >= settings.AUTO_CONFIRM_THRESHOLD
                     else TransactionStatus.needs_review
                 )
+                txn_type = "cc_payment" if rule_pre.category == "CC Payment" else None
                 results[i] = ClassificationResult(
                     label=Label.ignore, amount=None, merchant=None, category=None,
                     txn_date=None, confidence=rule_pre.confidence, status=status,
                     classifier_method=ClassifierMethod.rule,
+                    transaction_type=txn_type,
                 )
                 continue
 
@@ -342,6 +385,18 @@ async def batch_classify_emails(
                     category = llm_res.category
                     confidence = llm_res.confidence
                     txn_date = _parse_date(llm_res.txn_date)
+
+                    if label == Label.ignore and category == "CC Payment":
+                        txn_type = "cc_payment"
+                    elif category == "Investment":
+                        txn_type = "investment"
+                    elif label == Label.income:
+                        txn_type = "income"
+                    elif label == Label.expense:
+                        txn_type = "purchase"
+                    else:
+                        txn_type = None
+
                     status = (
                         TransactionStatus.auto
                         if confidence >= settings.AUTO_CONFIRM_THRESHOLD
@@ -353,6 +408,7 @@ async def batch_classify_emails(
                         category=category, txn_date=txn_date,
                         confidence=confidence, status=status,
                         classifier_method=ClassifierMethod.llm,
+                        transaction_type=txn_type,
                     )
 
                     latency_ms = round((time.monotonic() - batch_ts) * 1000)

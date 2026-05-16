@@ -28,10 +28,15 @@ from .filter_rule import (
 
 from .transaction import (
     Label,
+    TransactionType,
     TransactionStatus,
     ClassifierMethod,
     Transaction,
     ClassificationLog,
+)
+
+from .correction import (
+    TransactionCorrection,
 )
 
 from .financial import (
@@ -70,10 +75,13 @@ __all__ = [
     "FilterRule",
     # transaction
     "Label",
+    "TransactionType",
     "TransactionStatus",
     "ClassifierMethod",
     "Transaction",
     "ClassificationLog",
+    # correction
+    "TransactionCorrection",
     # financial
     "RuleSource",
     "Budget",

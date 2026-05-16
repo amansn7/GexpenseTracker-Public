@@ -14,6 +14,7 @@ const CATEGORIES = {
   util:          { label: "Utilities",        bg: "var(--cat-util)",         ink: "var(--cat-util-ink)" },
   card:          { label: "CC Payment",       bg: "var(--cat-card)",         ink: "var(--cat-card-ink)" },
   transfer:      { label: "Transfers",        bg: "var(--cat-transfer)",     ink: "var(--cat-transfer-ink)" },
+  investment:    { label: "Investments",      bg: "var(--cat-investment)",   ink: "var(--cat-investment-ink)" },
   income:        { label: "Income",           bg: "var(--cat-inc)",          ink: "var(--cat-inc-ink)" },
   other:         { label: "Other",            bg: "var(--cat-other)",        ink: "var(--cat-other-ink)" },
 };
@@ -54,7 +55,7 @@ const _CAT_ALIAS = {
   upi: "transfer", neft: "transfer", imps: "transfer",
   income: "income", salary: "income", freelance: "income",
   refund: "income", cashback: "income", reward: "income",
-  investment: "other",
+  investment: "investment",
   cash: "other",
   other: "other",
 };
@@ -140,6 +141,9 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
     const key = _normCat(c.category, false);
     if (key !== "income") catMap[key] = (catMap[key] || 0) + c.amount;
   }
+  // Inject CC payments and investments from stats summary (excluded from category-breakdown API)
+  if (summary?.total_cc_payments > 0) catMap["card"] = (catMap["card"] || 0) + summary.total_cc_payments;
+  if (summary?.total_investments > 0) catMap["investment"] = (catMap["investment"] || 0) + summary.total_investments;
   const expenses = Object.entries(catMap)
     .map(([cat, amount]) => ({ cat, amount: Math.round(amount) }))
     .sort((a, b) => b.amount - a.amount);
@@ -186,7 +190,26 @@ const _checkAuth = (r) => {
   return r;
 };
 
+let _csrfToken = null;
+
+const _initCSRF = async () => {
+  if (_csrfToken) return;
+  try {
+    const r = await fetch("/api/auth/csrf-token", { credentials: "include" });
+    if (r.ok) {
+      const data = await r.json();
+      _csrfToken = data.token;
+    }
+  } catch (_) {}
+};
+
+const _withCSRF = (headers) => {
+  if (!_csrfToken) return headers;
+  return { ...headers, "X-CSRF-Token": _csrfToken };
+};
+
 const API = {
+  init: async () => { await _initCSRF(); },
   get: async (path) => {
     const r = _checkAuth(await fetch(path, { credentials: "include" }));
     if (!r) return;
@@ -197,7 +220,7 @@ const API = {
     const r = _checkAuth(await fetch(path, {
       method: "PATCH",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: _withCSRF({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     }));
     if (!r) return;
@@ -208,7 +231,7 @@ const API = {
     const r = _checkAuth(await fetch(path, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: _withCSRF({ "Content-Type": "application/json" }),
       body: body ? JSON.stringify(body) : undefined,
     }));
     if (!r) return;
@@ -216,7 +239,11 @@ const API = {
     return r.json();
   },
   delete: async (path) => {
-    const r = _checkAuth(await fetch(path, { method: "DELETE", credentials: "include" }));
+    const r = _checkAuth(await fetch(path, {
+      method: "DELETE",
+      credentials: "include",
+      headers: _withCSRF({}),
+    }));
     if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
@@ -288,7 +315,7 @@ const CATEGORY_GROUPS = [
   { key: "transport", label: "Transport", icon: "navigation", children: ["transport", "travel"] },
   { key: "bills", label: "Bills & Subscriptions", icon: "file-text", children: ["sub", "util", "card", "transfer"] },
   { key: "lifestyle", label: "Lifestyle", icon: "shopping-bag", children: ["shop", "entertainment", "health", "edu"] },
-  { key: "finance", label: "Finance", icon: "trending-up", children: ["income"] },
+  { key: "finance", label: "Finance", icon: "trending-up", children: ["income", "investment"] },
   { key: "other", label: "Other", icon: "more-horizontal", children: ["other"] },
 ];
 
@@ -405,4 +432,4 @@ const CategoryService = {
   },
 };
 
-Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, catDisplay: _catDisplay, CategoryService, CATEGORY_GROUPS, useBackgroundJob, showToast });
+Object.assign(window, { CATEGORIES, TAGS, transformTransaction, buildFlowSummary, API, normCat: _normCat, catDisplay: _catDisplay, CategoryService, CATEGORY_GROUPS, useBackgroundJob, showToast, _csrfToken: () => _csrfToken });

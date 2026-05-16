@@ -39,9 +39,11 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const [compareStats, setCompareStats] = React.useState(null);
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [budgets, setBudgets] = React.useState([]);
+  const [health, setHealth] = React.useState(null);
 
   React.useEffect(() => {
     API.get("/api/budgets").then(d => setBudgets(d.budgets || [])).catch(() => {});
+    API.get("/api/stats/health?months=6").then(d => setHealth(d)).catch(() => {});
   }, []);
 
   React.useEffect(() => {
@@ -80,8 +82,11 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const totalIncome = stats?.total_income ?? 0;
   const totalExpense = stats?.total_expenses ?? 0;
-  const remaining = totalIncome - totalExpense;
-  const pctSpent = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+  const totalCCPayments = stats?.total_cc_payments ?? 0;
+  const totalInvestments = stats?.total_investments ?? 0;
+  const remaining = totalIncome - totalExpense - totalCCPayments - totalInvestments;
+  const cashOutflow = totalExpense + totalCCPayments;
+  const pctSpent = totalIncome > 0 ? (cashOutflow / totalIncome) * 100 : 0;
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = Math.round(totalExpense / rangeDays);
   const subsTotal = rangeTxs.filter(t=>t.tag==="subscription").reduce((a,t)=>a+Math.abs(t.amount),0);
@@ -116,12 +121,19 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       })();
   const cumulative = [];
   let running = 0;
+  const dailyIncomeSeries = [];
+  const dailyExpenseSeries = [];
   for (const dateStr of chartDates) {
     const dayExp = rangeTxs.filter(t=>t.date===dateStr && t.amount<0).reduce((a,t)=>a+Math.abs(t.amount),0);
     const dayInc = rangeTxs.filter(t=>t.date===dateStr && t.amount>0).reduce((a,t)=>a+t.amount,0);
     running += dayInc - dayExp;
     cumulative.push({ d: dateStr, val: running, isPast: dateStr <= todayStr });
+    dailyIncomeSeries.push(dayInc);
+    dailyExpenseSeries.push(dayExp);
   }
+  const sparklineDays = Math.min(dailyExpenseSeries.length, 14);
+  const sparkIncome = dailyIncomeSeries.slice(-sparklineDays);
+  const sparkExpense = dailyExpenseSeries.slice(-sparklineDays);
 
   const catSorted = (catBreakdown?.categories || []).map(c => ({
     cat: normCat(c.category, false),
@@ -156,15 +168,20 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
           <div style={dashStyles.heroSub}>
             after ₹{totalExpense.toLocaleString("en-IN")} in expenses
+            {totalCCPayments > 0 && <span> · ₹{totalCCPayments.toLocaleString("en-IN")} in CC payments</span>}
+            {totalInvestments > 0 && <span> · ₹{totalInvestments.toLocaleString("en-IN")} invested</span>}
             {expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 6, fontSize: 13 }}>↑{Math.abs(expDelta)}%</span>}
             · {(100-pctSpent).toFixed(0)}% saved so far
           </div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
-            <div style={{ width: `${pctSpent}%`, background: "var(--accent)" }} />
-            <div style={{ width: `${100-pctSpent}%`, background: "var(--pos)" }} />
+            <div style={{ width: `${(totalExpense / (totalIncome || 1)) * 100}%`, background: "var(--accent)" }} />
+            {totalCCPayments > 0 && <div style={{ width: `${(totalCCPayments / (totalIncome || 1)) * 100}%`, background: "var(--cat-card-ink)" }} />}
+            <div style={{ width: `${(remaining / (totalIncome || 1)) * 100}%`, background: "var(--pos)" }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>
-            <span>Spent ₹{totalExpense.toLocaleString("en-IN")}{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4 }}>↑{Math.abs(expDelta)}%</span>}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace", flexWrap: "wrap", gap: "4px 12px" }}>
+            <span>Expenses ₹{totalExpense.toLocaleString("en-IN")}{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4 }}>↑{Math.abs(expDelta)}%</span>}</span>
+            {totalCCPayments > 0 && <span>CC ₹{totalCCPayments.toLocaleString("en-IN")}</span>}
+            {totalInvestments > 0 && <span>Invest ₹{totalInvestments.toLocaleString("en-IN")}</span>}
             <span>Income ₹{totalIncome.toLocaleString("en-IN")}{incDelta != null && <span style={{ color: "var(--pos)", marginLeft: 4 }}>↑{Math.abs(incDelta)}%</span>}</span>
           </div>
         </div>
@@ -209,6 +226,32 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         </div>
       </div>
 
+      {/* Net worth section */}
+      {health && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={dashStyles.secHead}>
+            <span style={dashStyles.secTitle}>Net worth</span>
+            <span style={dashStyles.secSub}>{health.balance_mode === "anchored" ? "anchored" : "computed"}</span>
+          </div>
+          <div style={{ ...dashStyles.secBody, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "12px 24px" }}>
+            <div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.025em", color: health.current_balance >= 0 ? "var(--pos)" : "var(--neg)" }}>
+                ₹{health.current_balance.toLocaleString("en-IN")}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>
+                {health.starting_balance != null && <span>Starting balance ₹{health.starting_balance.toLocaleString("en-IN")} · </span>}
+                {health.runway_months != null && <span>{health.runway_months} months runway</span>}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 24, fontSize: 12, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>
+              <div><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)" }}>Savings rate</div><div style={{ fontSize: 18, color: "var(--pos)", marginTop: 2 }}>{health.savings_rate}%</div></div>
+              <div><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)" }}>CC total</div><div style={{ fontSize: 18, marginTop: 2 }}>₹{health.total_cc_payments?.toLocaleString("en-IN") || "0"}</div></div>
+              <div><div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)" }}>Invested</div><div style={{ fontSize: 18, color: "var(--cat-investment-ink)", marginTop: 2 }}>₹{health.total_investments?.toLocaleString("en-IN") || "0"}</div></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ ...dashStyles.grid3, gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : dashStyles.grid3.gridTemplateColumns }}>
         <div style={dashStyles.card}>
           <div style={dashStyles.cardH}><span>Daily burn</span><Icon name="bolt" size={12} stroke="var(--accent)"/></div>
@@ -217,6 +260,26 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             at this pace, <span style={{ color: "var(--ink)", fontWeight: 500 }}>₹{(daily*30).toLocaleString("en-IN")}</span>/month
             {burnTrend != null && <span style={{ color: burnTrend > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 6 }}>{burnTrend > 0 ? "↑" : "↓"} {Math.abs(burnTrend)}%</span>}
           </div>
+          {sparkExpense.length > 1 && (
+            <svg width="100%" height="36" viewBox="0 0 200 36" preserveAspectRatio="none" style={{ marginTop: 10 }}>
+              {(() => {
+                const maxV = Math.max(...sparkExpense, ...sparkIncome, 1);
+                const barW = 200 / sparkExpense.length;
+                return sparkExpense.map((exp, i) => {
+                  const inc = sparkIncome[i] || 0;
+                  const expH = (exp / maxV) * 30;
+                  const incH = (inc / maxV) * 30;
+                  const x = i * barW;
+                  return (
+                    <g key={i}>
+                      <rect x={x + 1} y={30 - expH} width={barW - 2} height={expH} fill="var(--accent)" rx="1" opacity="0.7"/>
+                      {inc > 0 && <rect x={x + 1} y={30 - expH - incH} width={barW - 2} height={incH} fill="var(--pos)" rx="1" opacity="0.5"/>}
+                    </g>
+                  );
+                });
+              })()}
+            </svg>
+          )}
         </div>
         <div style={dashStyles.card}>
           <div style={dashStyles.cardH}><span>Subscriptions</span><span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{subsCount}</span></div>
@@ -246,7 +309,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             {catSorted.length === 0
               ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>
               : <div style={dashStyles.catGrid}>
-                  {catSorted.map((e, idx) => {
+                  {catSorted.filter(c => c.cat !== "card" && c.cat !== "investment").map((e, idx) => {
                     const pct = totalExpense > 0 ? (e.amount / totalExpense) * 100 : 0;
                     const c = CategoryService.display(e.cat);
                     return (
@@ -265,6 +328,49 @@ const DashboardView = ({ transactions, categoryFilter }) => {
                       </div>
                     );
                   })}
+                </div>
+            }
+          </div>
+        </div>
+
+        {/* Investments & CC Payments panel */}
+        <div>
+          <div style={dashStyles.secHead}>
+            <span style={dashStyles.secTitle}>Investments & CC</span>
+            <span style={dashStyles.secSub}>₹{(totalInvestments + totalCCPayments).toLocaleString("en-IN")}</span>
+          </div>
+          <div style={dashStyles.secBody}>
+            {totalInvestments === 0 && totalCCPayments === 0
+              ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No investments or CC payments in range</div>
+              : <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  {totalInvestments > 0 && (
+                    <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--cat-investment)", border: "1px solid var(--cat-investment-ink)33", flexShrink: 0 }}/>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>Investments</span>
+                      </div>
+                      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 600, color: "var(--pos)", letterSpacing: "-0.02em" }}>
+                        ₹{totalInvestments.toLocaleString("en-IN")}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginTop: 4 }}>
+                        {totalIncome > 0 ? ((totalInvestments / totalIncome) * 100).toFixed(1) : 0}% of income
+                      </div>
+                    </div>
+                  )}
+                  {totalCCPayments > 0 && (
+                    <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--cat-card)", border: "1px solid var(--cat-card-ink)33", flexShrink: 0 }}/>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>CC Payments</span>
+                      </div>
+                      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
+                        ₹{totalCCPayments.toLocaleString("en-IN")}
+                      </div>
+                      <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginTop: 4 }}>
+                        {totalIncome > 0 ? ((totalCCPayments / totalIncome) * 100).toFixed(1) : 0}% of income
+                      </div>
+                    </div>
+                  )}
                 </div>
             }
           </div>
@@ -321,7 +427,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
                   <div key={b.id} style={{ padding: "14px 16px", background: over ? "var(--neg-soft)" : "var(--paper-2)", borderRadius: 8, border: `1px solid ${over ? "var(--neg)" : "var(--line)"}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{b.category}</span>
-                      <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", fontWeight: 600, color: barColor, padding: "2px 6px", background: over ? "var(--neg)" : "var(--line)", color: over ? "white" : "var(--ink-2)", borderRadius: 4 }}>
+                      <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", fontWeight: 600, padding: "2px 6px", background: over ? "var(--neg)" : "var(--line)", color: over ? "white" : "var(--ink-2)", borderRadius: 4 }}>
                         {b.pct.toFixed(0)}%
                       </span>
                     </div>

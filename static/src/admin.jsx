@@ -472,7 +472,8 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
       const serviceId = target.slice("service:".length);
       const res = await fetch("/api/admin/test-provider", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": window._csrfToken ? window._csrfToken() : "" },
+        credentials: "include",
         body: JSON.stringify({ is_user_service: true, service_id: serviceId, prompt })
       });
       const data = await res.json();

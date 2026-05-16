@@ -24,8 +24,10 @@ const SankeyDiagram = ({ data }) => {
   const PAD_Y = 40;
 
   const totalIncome = data.income.reduce((a,i)=>a+i.amount, 0);
-  const totalExpense = data.expenses.reduce((a,e)=>a+e.amount, 0);
-  const savings = totalIncome - totalExpense;
+  const totalExpense = data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a,e)=>a+e.amount, 0);
+  const totalCCPayments = data.expenses.filter(e => e.cat === "card").reduce((a,e)=>a+e.amount, 0);
+  const totalInvestments = data.expenses.filter(e => e.cat === "investment").reduce((a,e)=>a+e.amount, 0);
+  const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const USABLE_H = H - PAD_Y * 2;
   const scale = USABLE_H / totalIncome;
 
@@ -42,15 +44,23 @@ const SankeyDiagram = ({ data }) => {
   const hubH = USABLE_H;
   const hubY = PAD_Y;
 
-  // Right nodes: expenses + savings, each proportional
+  // Right nodes: expenses + CC payments + investments + savings, each proportional
   let yo = PAD_Y;
   const rightNodes = [
-    ...data.expenses.map(e => {
+    ...data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").map(e => {
       const h = Math.max(6, e.amount * scale);
       const node = { ...e, y: yo, h, kind: "exp" };
       yo += h + 10;
       return node;
     }),
+    ...(totalCCPayments > 0 ? [{
+      label: "CC Payments", amount: totalCCPayments, cat: "card",
+      y: yo, h: Math.max(6, totalCCPayments * scale), kind: "cc",
+    }].map(n => { yo += n.h + 10; return n; }) : []),
+    ...(totalInvestments > 0 ? [{
+      label: "Investments", amount: totalInvestments, cat: "investment",
+      y: yo, h: Math.max(6, totalInvestments * scale), kind: "inv",
+    }].map(n => { yo += n.h + 10; return n; }) : []),
     (() => {
       const h = Math.max(6, savings * scale);
       const node = { label: "Remaining", amount: savings, y: yo, h, kind: "sav" };
@@ -111,12 +121,12 @@ const SankeyDiagram = ({ data }) => {
         {(() => {
           let off = 0;
           return rightNodes.map((n, idx) => {
-            const color = n.kind === "sav" ? "var(--pos)" : CategoryService.colorVar(n.cat);
+            const color = n.kind === "sav" ? "var(--pos)" : n.kind === "cc" ? "var(--cat-card-ink)" : n.kind === "inv" ? "var(--cat-investment-ink)" : CategoryService.colorVar(n.cat);
             const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
             off += n.h + 10 * (n.h / n.h);
             return (
               <g key={`out-${idx}`}>
-                <title>{n.kind === "sav" ? "Remaining" : CategoryService.display(n.cat).label} · ₹{n.amount.toLocaleString("en-IN")}</title>
+                <title>{n.label} · ₹{n.amount.toLocaleString("en-IN")}</title>
                 <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
                   onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
                   onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
@@ -129,13 +139,16 @@ const SankeyDiagram = ({ data }) => {
         {/* Right nodes */}
         {rightNodes.map((n, idx) => {
           const isSav = n.kind === "sav";
-          const catInfo = !isSav ? CategoryService.display(n.cat) : null;
-          const fill = isSav ? "var(--pos)" : CategoryService.colorInk(n.cat);
+          const isCC = n.kind === "cc";
+          const isInv = n.kind === "inv";
+          const catInfo = (!isSav && !isCC && !isInv) ? CategoryService.display(n.cat) : null;
+          const fill = isSav ? "var(--pos)" : isCC ? "var(--cat-card-ink)" : isInv ? "var(--cat-investment-ink)" : CategoryService.colorInk(n.cat);
+          const label = isSav ? "Remaining" : isCC ? "CC Payments" : isInv ? "Investments" : catInfo.label;
           return (
             <g key={`nr-${idx}`}>
               <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"/>
               <text x={RIGHT_X + 12} y={n.y + Math.min(16, n.h/2 + 4)} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">
-                {isSav ? "Remaining" : catInfo.label}
+                {label}
               </text>
               {n.h > 26 && (
                 <text x={RIGHT_X + 12} y={n.y + n.h/2 + 16} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">
@@ -230,8 +243,10 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
-  const totalExpense = flow ? flow.expenses.reduce((a, e) => a + e.amount, 0) : 0;
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100).toFixed(1) : "0.0";
+  const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
+  const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
+  const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense - totalCCPayments - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
   const incomeSources = flow ? flow.income.length : 0;
@@ -261,7 +276,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
               </div>
               <div style={flowStyles.kpi}>
                 <div style={flowStyles.kpiLabel}>Remaining</div>
-                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(flow?.savings ?? 0).toLocaleString("en-IN")}`}>{fmtK(flow?.savings ?? 0)}</div>
+                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(totalIncome - totalExpense - totalCCPayments - totalInvestments).toLocaleString("en-IN")}`}>{fmtK(totalIncome - totalExpense - totalCCPayments - totalInvestments)}</div>
                 <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
               </div>
               <div style={flowStyles.kpi}>

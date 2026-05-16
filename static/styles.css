@@ -58,6 +58,8 @@
   --cat-util-ink: #d9dbc9;
   --cat-card: #4a4a35;
   --cat-card-ink: #d4c4b7;
+  --cat-investment: #3a5a5a;
+  --cat-investment-ink: #c4d8d8;
   --cat-transfer: #3a4a3a;
   --cat-transfer-ink: #d4d0b8;
   --cat-inc: #2a5a2a;
@@ -117,6 +119,8 @@
   --cat-util-ink: #5a6137;
   --cat-card: #d4c4b7;
   --cat-card-ink: #5a4a35;
+  --cat-investment: #c4d8d8;
+  --cat-investment-ink: #3a5a5a;
   --cat-transfer: #d4d0b8;
   --cat-transfer-ink: #4a5a35;
   --cat-inc: #c9dcc8;
@@ -176,6 +180,8 @@
   --cat-util-ink: #5a6137;
   --cat-card: #d4ccb8;
   --cat-card-ink: #5a4a35;
+  --cat-investment: #c4d8d8;
+  --cat-investment-ink: #3a5a5a;
   --cat-transfer: #ccd4c0;
   --cat-transfer-ink: #4a5a35;
   --cat-inc: #c4d6c2;

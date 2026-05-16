@@ -3,11 +3,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func, desc, or_
 
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Transaction, Email, User, UserSettings
+from app.models import Transaction, Email, User, UserSettings, TransactionStatus, ClassifierMethod
 
 router = APIRouter()
 
@@ -79,6 +79,7 @@ async def stats_summary(
     expense_where = [
         Email.user_id == current_user.id,
         Transaction.label == "expense",
+        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
@@ -113,6 +114,35 @@ async def stats_summary(
         if start <= _effective_month(r.txn_date, "income", r.sender) <= this_month
     )
     total_expenses = sum(float(a or 0) for a in expense_rows)
+
+    cc_payment_rows = (await db.execute(
+        select(Transaction.amount)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(
+            Email.user_id == current_user.id,
+            Transaction.transaction_type == "cc_payment",
+            Transaction.txn_date >= start,
+            Transaction.txn_date <= end,
+            Transaction.txn_date.isnot(None),
+            Transaction.status != "needs_review",
+        )
+    )).scalars().all()
+    total_cc_payments = sum(float(a or 0) for a in cc_payment_rows)
+
+    investment_rows = (await db.execute(
+        select(Transaction.amount)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(
+            Email.user_id == current_user.id,
+            Transaction.transaction_type == "investment",
+            Transaction.txn_date >= start,
+            Transaction.txn_date <= end,
+            Transaction.txn_date.isnot(None),
+            Transaction.status != "needs_review",
+        )
+    )).scalars().all()
+    total_investments = sum(float(a or 0) for a in investment_rows)
+
     saved = total_income - total_expenses
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
 
@@ -131,6 +161,8 @@ async def stats_summary(
     return {
         "total_expenses": round(total_expenses, 2),
         "total_income": round(total_income, 2),
+        "total_cc_payments": round(total_cc_payments, 2),
+        "total_investments": round(total_investments, 2),
         "saved": round(saved, 2),
         "savings_rate": savings_rate,
         "needs_review_count": needs_review_count,
@@ -159,6 +191,7 @@ async def stats_category_breakdown(
     where = [
         Email.user_id == current_user.id,
         Transaction.label == "expense",
+        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
@@ -217,6 +250,7 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
 
     expense_where = [
         Transaction.label == "expense",
+        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
@@ -297,6 +331,7 @@ async def stats_top_merchants(
         .where(
             Email.user_id == current_user.id,
             Transaction.label == "expense",
+            or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
             Transaction.txn_date >= start,
             Transaction.txn_date <= end,
             Transaction.txn_date.isnot(None),
@@ -407,7 +442,19 @@ async def stats_health(
     expense_total = (await db.execute(
         select(func.sum(Transaction.amount))
         .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "expense", *base_filter)
+        .where(Transaction.label == "expense", or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)), *base_filter)
+    )).scalar_one() or 0
+
+    cc_payment_total = (await db.execute(
+        select(func.sum(Transaction.amount))
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Transaction.transaction_type == "cc_payment", *base_filter)
+    )).scalar_one() or 0
+
+    investment_total = (await db.execute(
+        select(func.sum(Transaction.amount))
+        .join(Email, Transaction.email_id == Email.id)
+        .where(Transaction.transaction_type == "investment", *base_filter)
     )).scalar_one() or 0
 
     income_total = float((await db.execute(
@@ -430,4 +477,90 @@ async def stats_health(
         "starting_balance_date": starting_balance_date.isoformat() if starting_balance_date else None,
         "balance_mode": balance_mode,
         "monthly_net": monthly_net,
+        "total_cc_payments": round(float(cc_payment_total or 0), 2),
+        "total_investments": round(float(investment_total or 0), 2),
+    }
+
+
+@router.get("/stats/confidence")
+async def stats_confidence(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    base_where = [
+        Email.user_id == current_user.id,
+        Transaction.confidence.isnot(None),
+    ]
+
+    total = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where)
+    )).scalar_one()
+
+    auto_confirmed = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
+    )).scalar_one()
+
+    corrected = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
+    )).scalar_one()
+
+    needs_review = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
+    )).scalar_one()
+
+    high_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.confidence >= 0.9)
+    )).scalar_one()
+
+    medium_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.confidence >= 0.7, Transaction.confidence < 0.9)
+    )).scalar_one()
+
+    low_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.confidence < 0.7)
+    )).scalar_one()
+
+    rule_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.classifier_method == ClassifierMethod.rule.value)
+    )).scalar_one()
+
+    llm_count = (await db.execute(
+        select(func.count()).select_from(Transaction)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*base_where, Transaction.classifier_method == ClassifierMethod.llm.value)
+    )).scalar_one()
+
+    correction_rate = round(corrected / total, 4) if total > 0 else 0.0
+
+    return {
+        "total": total,
+        "auto_confirmed": auto_confirmed,
+        "corrected": corrected,
+        "needs_review": needs_review,
+        "confidence_distribution": {
+            "high": high_count,
+            "medium": medium_count,
+            "low": low_count,
+        },
+        "method_breakdown": {
+            "rule": rule_count,
+            "llm": llm_count,
+        },
+        "correction_rate": correction_rate,
     }

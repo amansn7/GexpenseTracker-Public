@@ -582,6 +582,10 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
     ? "Known sender pair"
     : pair.rule_source === "investment_flow"
     ? "Investment flow — order + confirmation"
+    : pair.rule_source === "merchant_alias"
+    ? "Same merchant, different domain"
+    : pair.rule_source === "same_domain_exact"
+    ? "Same sender, same amount"
     : "Same amount, same date window";
   const wrap = async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); };
   return (
@@ -830,6 +834,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [dupPairs, setDupPairs] = React.useState([]);
   const [dupLoading, setDupLoading] = React.useState(false);
   const [dupScanning, setDupScanning] = React.useState(false);
+  const [dupResolved, setDupResolved] = React.useState([]);
+  const [dupResolvedLoading, setDupResolvedLoading] = React.useState(false);
+  const [dupTab, setDupTab] = React.useState("pending");
+  const [dupSelected, setDupSelected] = React.useState(new Set());
+  const [dupBulkResolving, setDupBulkResolving] = React.useState(false);
   const headerCheckRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -862,11 +871,19 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   React.useEffect(() => {
     if (filter !== "duplicates") return;
-    setDupLoading(true);
-    API.get("/api/duplicates?status=pending")
-      .then(data => { setDupPairs(data); setDupLoading(false); })
-      .catch(() => setDupLoading(false));
-  }, [filter]);
+    if (dupTab === "pending") {
+      setDupLoading(true);
+      API.get("/api/duplicates?status=pending")
+        .then(data => { setDupPairs(data || []); setDupLoading(false); })
+        .catch(() => setDupLoading(false));
+    } else {
+      setDupResolvedLoading(true);
+      API.get("/api/duplicates?status=auto_resolved")
+        .then(data => { setDupResolved(data || []); setDupResolvedLoading(false); })
+        .catch(() => setDupResolvedLoading(false));
+    }
+    setDupSelected(new Set());
+  }, [filter, dupTab]);
 
   const loadMoreRef = React.useRef(loadMore);
   React.useEffect(() => { loadMoreRef.current = loadMore; }, [loadMore]);
@@ -1081,9 +1098,27 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     try {
       await API.patch(`/api/duplicates/${pairId}`, { action, primary_tx_id: primaryTxId });
       setDupPairs(prev => prev.filter(p => p.id !== pairId));
+      setDupSelected(prev => { const n = new Set(prev); n.delete(pairId); return n; });
     } catch (e) {
       console.error("resolve dup failed", e);
     }
+  };
+
+  const bulkResolveDups = async (action) => {
+    if (dupSelected.size === 0) return;
+    setDupBulkResolving(true);
+    const ids = [...dupSelected];
+    for (const pairId of ids) {
+      const pair = dupPairs.find(p => p.id === pairId);
+      if (!pair) continue;
+      const primaryTxId = action === "confirmed" ? pair.primary.id : pair.duplicate.id;
+      try {
+        await API.patch(`/api/duplicates/${pairId}`, { action, primary_tx_id: primaryTxId });
+        setDupPairs(prev => prev.filter(p => p.id !== pairId));
+      } catch (_) {}
+    }
+    setDupSelected(new Set());
+    setDupBulkResolving(false);
   };
 
   const filtered = transactions.filter(t => {
@@ -1256,42 +1291,97 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             <div style={{ padding: "10px 16px 10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Duplicate detection</span>
-                {dupPairs.length > 0 && <span style={{ fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{dupPairs.length} pending</span>}
+                <div style={{ display: "flex", gap: 2 }}>
+                  {["pending", "resolved"].map(tab => (
+                    <button key={tab} onClick={() => setDupTab(tab)}
+                      style={{ padding: "2px 8px", border: "none", borderRadius: 4, background: dupTab === tab ? "var(--ink)" : "transparent", color: dupTab === tab ? "var(--paper)" : "var(--ink-4)", fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
+                      {tab}{tab === "pending" && dupPairs.length > 0 ? ` (${dupPairs.length})` : tab === "resolved" && dupResolved.length > 0 ? ` (${dupResolved.length})` : ""}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <button onClick={async () => {
-                setDupScanning(true);
-                try {
-                  await API.post("/api/duplicates/scan");
-                  const d = await API.get("/api/duplicates?status=pending");
-                  setDupPairs(d || []);
-                } catch (_) {}
-                setDupScanning(false);
-              }} disabled={dupScanning}
-                className="focus-ring"
-                style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", opacity: dupScanning ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6 }}>
-                {dupScanning ? <><div style={{ width: 11, height: 11, border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
-              </button>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {dupTab === "pending" && dupSelected.size > 0 && (
+                  <>
+                    <button onClick={() => bulkResolveDups("confirmed")} disabled={dupBulkResolving}
+                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--pos)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer" }}>
+                      Confirm {dupSelected.size}
+                    </button>
+                    <button onClick={() => bulkResolveDups("dismissed")} disabled={dupBulkResolving}
+                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--neg)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer" }}>
+                      Dismiss {dupSelected.size}
+                    </button>
+                  </>
+                )}
+                <button onClick={async () => {
+                  setDupScanning(true);
+                  try {
+                    await API.post("/api/duplicates/scan");
+                    const d = await API.get("/api/duplicates?status=pending");
+                    setDupPairs(d || []);
+                  } catch (_) {}
+                  setDupScanning(false);
+                }} disabled={dupScanning}
+                  className="focus-ring"
+                  style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", opacity: dupScanning ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+                  {dupScanning ? <><div style={{ width: 11, height: 11, border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
+                </button>
+              </div>
             </div>
-            {dupLoading && !dupScanning ? (
+            {dupTab === "pending" ? (
+              dupLoading && !dupScanning ? (
+                <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
+                  <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                </div>
+              ) : dupScanning ? (
+                <div style={{ padding: "56px 32px", textAlign: "center" }}>
+                  <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 12px" }}/>
+                  <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
+                </div>
+              ) : dupPairs.length === 0 ? (
+                <div style={{ padding: "64px 32px", textAlign: "center" }}>
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                    <Icon name="check" size={20} stroke="var(--pos)"/>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>No duplicates found</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-4)" }}>Run a scan to check your expense history.</div>
+                </div>
+              ) : (
+                dupPairs.map(pair => (
+                  <div key={pair.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 16px 4px 12px", borderBottom: "1px solid var(--line)" }}>
+                    <input type="checkbox" checked={dupSelected.has(pair.id)} onChange={e => {
+                      setDupSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(pair.id) : n.delete(pair.id); return n; });
+                    }} style={{ marginTop: 20, accentColor: "var(--accent)", cursor: "pointer" }} />
+                    <div style={{ flex: 1 }}><DuplicatePairCard pair={pair} onResolve={resolveDup} /></div>
+                  </div>
+                ))
+              )
+            ) : dupResolvedLoading ? (
               <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
                 <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
               </div>
-            ) : dupScanning ? (
-              <div style={{ padding: "56px 32px", textAlign: "center" }}>
-                <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 12px" }}/>
-                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
-              </div>
-            ) : dupPairs.length === 0 ? (
+            ) : dupResolved.length === 0 ? (
               <div style={{ padding: "64px 32px", textAlign: "center" }}>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-                  <Icon name="check" size={20} stroke="var(--pos)"/>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>No duplicates found</div>
-                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>Run a scan to check your expense history.</div>
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>No resolved duplicates yet.</div>
               </div>
             ) : (
-              dupPairs.map(pair => (
-                <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />
+              dupResolved.map(pair => (
+                <div key={pair.id} style={{ padding: "12px 24px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                      ₹{pair.primary?.amount?.toLocaleString("en-IN")} · {pair.primary?.merchant || "Unknown"}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                      {pair.rule_source} · confidence {Math.round((pair.confidence || 0) * 100)}%
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 10, color: "var(--pos)", fontWeight: 600, textTransform: "uppercase" }}>{pair.status}</div>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+                      {pair.resolved_at ? new Date(pair.resolved_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                    </div>
+                  </div>
+                </div>
               ))
             )}
           </>) : (

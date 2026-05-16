@@ -11,7 +11,7 @@ from datetime import date
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.dedup.service import detect_and_record_duplicates
-from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User
+from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User, TransactionCorrection
 from app.classifier.merchant_store import merchant_store
 router = APIRouter()
 
@@ -24,6 +24,20 @@ class TransactionPatch(BaseModel):
     read: Optional[bool] = None
     flagged: Optional[bool] = None
     status: Optional[str] = None
+
+    def validate(self) -> None:
+        if self.merchant and len(self.merchant) > 255:
+            raise ValueError("Merchant name must be 255 characters or less")
+        if self.category and len(self.category) > 100:
+            raise ValueError("Category must be 100 characters or less")
+        if self.user_notes and len(self.user_notes) > 1000:
+            raise ValueError("Notes must be 1000 characters or less")
+        if self.merchant:
+            self.merchant = "".join(c for c in self.merchant if ord(c) >= 32 and ord(c) != 127)
+        if self.category:
+            self.category = "".join(c for c in self.category if ord(c) >= 32 and ord(c) != 127)
+        if self.user_notes:
+            self.user_notes = "".join(c for c in self.user_notes if ord(c) >= 32 and ord(c) != 127)
 
 
 class BulkAction(BaseModel):
@@ -86,6 +100,7 @@ def _fmt(t: Transaction, e: "Email | None") -> dict:
     return {
         "id": t.id,
         "label": t.label,
+        "transaction_type": t.transaction_type,
         "amount": float(t.amount) if t.amount is not None else None,
         "currency": t.currency,
         "merchant": t.merchant,
@@ -182,6 +197,25 @@ async def search_transactions(
         .limit(limit)
     )).all()
     return {"items": [_fmt(t, e) for t, e in rows]}
+
+
+@router.get("/transactions/low-confidence")
+async def list_low_confidence_transactions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (await db.execute(
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(
+            Email.user_id == current_user.id,
+            Transaction.confidence.isnot(None),
+            Transaction.confidence < 0.7,
+        )
+        .order_by(Transaction.confidence.asc())
+        .limit(50)
+    )).all()
+    return {"items": [_fmt(t, e) for t, e in rows], "total": len(rows)}
 
 
 EXPORT_COLUMNS = [
@@ -285,6 +319,11 @@ async def patch_transaction(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    try:
+        patch.validate()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
     row = (await db.execute(
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
@@ -293,6 +332,16 @@ async def patch_transaction(
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
+
+    changed_fields: dict = {}
+    if patch.label is not None and patch.label != t.label:
+        changed_fields["label"] = (t.label, patch.label)
+    if patch.category is not None and patch.category != t.category:
+        changed_fields["category"] = (t.category, patch.category)
+    if patch.merchant is not None and patch.merchant != t.merchant:
+        changed_fields["merchant"] = (t.merchant, patch.merchant)
+    if patch.amount is not None and patch.amount != t.amount:
+        changed_fields["amount"] = (float(t.amount) if t.amount is not None else None, patch.amount)
 
     should_learn = False
     if patch.label is not None:
@@ -337,6 +386,20 @@ async def patch_transaction(
         t.flagged = patch.flagged
     if patch.status is not None:
         t.status = patch.status
+
+    if changed_fields:
+        db.add(TransactionCorrection(
+            transaction_id=t.id,
+            user_id=current_user.id,
+            old_label=changed_fields.get("label", (None, None))[0],
+            new_label=changed_fields.get("label", (None, None))[1],
+            old_category=changed_fields.get("category", (None, None))[0],
+            new_category=changed_fields.get("category", (None, None))[1],
+            old_merchant=changed_fields.get("merchant", (None, None))[0],
+            new_merchant=changed_fields.get("merchant", (None, None))[1],
+            old_amount=changed_fields.get("amount", (None, None))[0],
+            new_amount=changed_fields.get("amount", (None, None))[1],
+        ))
 
     await db.commit()
 

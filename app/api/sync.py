@@ -28,9 +28,9 @@ def _log_task_result(task: asyncio.Task):
 
 
 @router.get("/sync/progress")
-async def sync_progress_endpoint():
+async def sync_progress_endpoint(current_user=Depends(get_current_user)):
     from app.sync import get_sync_progress
-    return get_sync_progress()
+    return get_sync_progress(user_id=current_user.id)
 
 
 @router.get("/sync/status")

@@ -19,6 +19,7 @@ from app.models import (
     ConnectedAccount, Email, OAuthState, Session, User, UserProfile, UserRole,
     UserSettings, UserStatus, UserAIService,
 )
+from app.csrf import generate_csrf_token
 
 router = APIRouter()
 
@@ -123,6 +124,23 @@ async def _create_session(db: AsyncSession, user: User) -> bytes:
     ))
     await db.commit()
     return token
+
+
+@router.get("/auth/csrf-token")
+async def get_csrf_token(response: Response):
+    """Generate and return a CSRF token via double-submit cookie pattern."""
+    token = generate_csrf_token()
+    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    response.set_cookie(
+        "csrf_token",
+        value=token,
+        httponly=False,
+        secure=secure,
+        samesite="strict",
+        max_age=SESSION_DAYS * 86400,
+        path="/",
+    )
+    return {"csrf_token": token}
 
 
 @router.get("/auth/google")

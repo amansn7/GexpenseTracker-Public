@@ -427,6 +427,7 @@ const App = () => {
 };
 
 (async () => {
+  await API.init();
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
   if (!showOnboarding) {
     try {

@@ -870,7 +870,8 @@ const AdminLLMTestSection = ({ account }) => {
         : target.slice("builtin:".length);
       const res = await fetch("/api/admin/test-provider", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": window._csrfToken ? window._csrfToken() : "" },
+        credentials: "include",
         body: JSON.stringify({ provider, is_user_service: isUser, service_id: serviceId, prompt })
       });
       const data = await res.json();

@@ -62,8 +62,8 @@ def _build_pre_extraction_block(pre: dict) -> str:
 _USER_TEMPLATE = """# CLASSIFICATION RULES
 
 ## EXPENSE — money going OUT:
-Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, invested, SIP, subscribed (mutual fund), purchased (shares/units)
-Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, SIP investments, mutual fund/stock purchases, demat transactions, e-commerce orders with confirmed payment
+Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, subscribed (mutual fund), purchased (shares/units)
+Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, mutual fund/stock purchases, demat transactions, e-commerce orders with confirmed payment
 → label: "expense"
 
 ## INCOME — money coming IN:
@@ -177,9 +177,10 @@ INVESTMENT / SIP — money going OUT to buy financial assets:
   "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
   "Your SIP has been processed", "investment successfully placed",
   "mutual fund units purchased", "demat transaction"
-  IMPORTANT: These are expenses (money leaving your account to buy assets).
-  Do NOT classify as "ignore" — a real financial outflow occurred.
+  IMPORTANT: These are TRANSFERS (money moving from cash to investment assets), NOT expenses.
+  The money is not spent — it's converted to an asset.
   → label: "expense", category: "Investment"
+  NOTE: The label is "expense" because money left your account, but this is tracked separately as type=investment for analytics.
   merchant: the fund/stock name (e.g. "ICICI Prudential BHARAT 22 FOF Direct - Growth")
   If the email only says "Order Sent to AMC" with a fund name below, use that fund name as merchant.
 
@@ -267,8 +268,8 @@ _BATCH_USER_TEMPLATE = """You have {count} financial emails to classify. Process
 # CLASSIFICATION RULES
 
 ## EXPENSE — money going OUT:
-Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, invested, SIP, subscribed (mutual fund), purchased (shares/units)
-Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, SIP investments, mutual fund/stock purchases
+Triggers: debited, charged, paid, purchase, spent, payment, withdrawal, fee, subscribed (mutual fund), purchased (shares/units)
+Bank debits, UPI payments, card transactions, bill payments, EMIs, subscriptions, ATM withdrawals, wallet deductions, insurance premiums, mutual fund/stock purchases
 → label: "expense"
 
 ## INCOME — money coming IN:
@@ -299,8 +300,10 @@ AMOUNT: Extract ONLY a single total paid amount. Itemized line prices ("1 x Item
 INVESTMENT / SIP — money going OUT to buy financial assets:
   "Order Sent to AMC", "investment placed with the AMC", "SIP mandate"
   "Your SIP has been processed", "mutual fund units purchased"
-  These are expenses (real outflow). Do NOT classify as "ignore".
+  These are TRANSFERS (money moving from cash to investment assets), NOT expenses.
+  The money is not spent — it's converted to an asset.
   → label: "expense", category: "Investment"
+  NOTE: The label is "expense" because money left your account, but this is tracked separately as type=investment for analytics.
   merchant: the fund/stock name
 
 INSURANCE — money going OUT for insurance premiums:
