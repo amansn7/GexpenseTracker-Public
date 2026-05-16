@@ -58,7 +58,8 @@ const App = () => {
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
   useEffect(() => {
     window._goSettings = () => setView("settings");
-    return () => { delete window._goSettings; };
+    window._goRecurring = () => setView("recurring");
+    return () => { delete window._goSettings; delete window._goRecurring; };
   }, [setView]);
 
   const loadData = useCallback(async () => {

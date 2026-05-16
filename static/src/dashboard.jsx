@@ -35,6 +35,8 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const [activePreset, setActivePreset] = React.useState("30d");
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
+  const [topMerchants, setTopMerchants] = React.useState([]);
+  const [compareStats, setCompareStats] = React.useState(null);
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [budgets, setBudgets] = React.useState([]);
 
@@ -48,15 +50,27 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       setStatsLoading(true);
       try {
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
-        const [s, c] = await Promise.all([
+        const [s, c, tm] = await Promise.all([
           API.get(`/api/stats/summary?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
           API.get(`/api/stats/category-breakdown?date_from=${rangeFrom}&date_to=${rangeTo}${catQP}`),
+          API.get(`/api/stats/top-merchants?date_from=${rangeFrom}&date_to=${rangeTo}`),
         ]);
-        if (!cancelled) { setStats(s); setCatBreakdown(c); }
+        if (!cancelled) { setStats(s); setCatBreakdown(c); setTopMerchants(tm.merchants || []); }
       } catch (_) {}
       if (!cancelled) setStatsLoading(false);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
+  }, [rangeFrom, rangeTo]);
+
+  // Compare stats for previous equivalent period
+  React.useEffect(() => {
+    if (!rangeFrom || !rangeTo) { setCompareStats(null); return; }
+    const rangeMs = new Date(rangeTo) - new Date(rangeFrom);
+    const prevFrom = new Date(new Date(rangeFrom).getTime() - rangeMs - 1).toISOString().slice(0, 10);
+    const prevTo = new Date(new Date(rangeFrom).getTime() - 1).toISOString().slice(0, 10);
+    API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
+      .then(d => setCompareStats(d))
+      .catch(() => {});
   }, [rangeFrom, rangeTo]);
 
   // Filter transactions to selected range for client-side charts
@@ -71,6 +85,21 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const subsCount = rangeTxs.filter(t=>t.tag==="subscription").length;
   const unread = transactions.filter(t=>!t.read).length;
   const flagged = transactions.filter(t=>t.conf<0.7).length;
+
+  const deltaPct = (current, previous) => {
+    if (!previous || previous === 0) return null;
+    return ((current - previous) / previous * 100).toFixed(1);
+  };
+  const prevExpense = compareStats?.total_expenses ?? null;
+  const prevIncome = compareStats?.total_income ?? null;
+  const expDelta = deltaPct(totalExpense, prevExpense);
+  const incDelta = deltaPct(totalIncome, prevIncome);
+  const prevNeedsReview = compareStats?.needs_review_count ?? null;
+  const attentionDelta = prevNeedsReview != null ? (unread + flagged) - prevNeedsReview : null;
+  const midpoint = new Date((new Date(rangeFrom).getTime() + new Date(rangeTo).getTime()) / 2).toISOString().slice(0, 10);
+  const firstHalf = rangeTxs.filter(t => t.date < midpoint && t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
+  const secondHalf = rangeTxs.filter(t => t.date >= midpoint && t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
+  const burnTrend = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100).toFixed(1) : null;
 
   // Chart dates array for the selected range
   const chartDates = [];
@@ -119,14 +148,18 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         <div>
           <div style={dashStyles.heroLabel}>Net position · selected range</div>
           <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
-          <div style={dashStyles.heroSub}>after ₹{totalExpense.toLocaleString("en-IN")} in expenses · {(100-pctSpent).toFixed(0)}% saved so far</div>
+          <div style={dashStyles.heroSub}>
+            after ₹{totalExpense.toLocaleString("en-IN")} in expenses
+            {expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 6, fontSize: 13 }}>↑{Math.abs(expDelta)}%</span>}
+            · {(100-pctSpent).toFixed(0)}% saved so far
+          </div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
             <div style={{ width: `${pctSpent}%`, background: "var(--accent)" }} />
             <div style={{ width: `${100-pctSpent}%`, background: "var(--pos)" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>
-            <span>Spent ₹{totalExpense.toLocaleString("en-IN")}</span>
-            <span>Saved ₹{remaining.toLocaleString("en-IN")}</span>
+            <span>Spent ₹{totalExpense.toLocaleString("en-IN")}{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4 }}>↑{Math.abs(expDelta)}%</span>}</span>
+            <span>Income ₹{totalIncome.toLocaleString("en-IN")}{incDelta != null && <span style={{ color: "var(--pos)", marginLeft: 4 }}>↑{Math.abs(incDelta)}%</span>}</span>
           </div>
         </div>
 
@@ -176,13 +209,14 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           <div style={dashStyles.cardBig}>₹{daily.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             at this pace, <span style={{ color: "var(--ink)", fontWeight: 500 }}>₹{(daily*30).toLocaleString("en-IN")}</span>/month
+            {burnTrend != null && <span style={{ color: burnTrend > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 6 }}>{burnTrend > 0 ? "↑" : "↓"} {Math.abs(burnTrend)}%</span>}
           </div>
         </div>
         <div style={dashStyles.card}>
           <div style={dashStyles.cardH}><span>Subscriptions</span><span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{subsCount}</span></div>
           <div style={dashStyles.cardBig}>₹{subsTotal.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
-            Netflix, Spotify, iCloud+ … <span style={{ color: "var(--accent)" }}>review recurring</span>
+            Netflix, Spotify, iCloud+ … <span onClick={() => window._goRecurring && window._goRecurring()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>review recurring</span>
           </div>
         </div>
         <div style={dashStyles.card}>
@@ -190,6 +224,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           <div style={dashStyles.cardBig}>{unread + flagged}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             {unread} unread · {flagged} low-confidence
+            {attentionDelta != null && <span style={{ color: attentionDelta > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4 }}>{attentionDelta > 0 ? "+" : ""}{attentionDelta} vs prev</span>}
           </div>
         </div>
       </div>
@@ -235,27 +270,26 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             <span style={dashStyles.secTitle}>Top merchants</span>
           </div>
           <div style={dashStyles.secBody}>
-          {(() => {
-            const m = {};
-            for (const t of rangeTxs) {
-              if (t.amount < 0) m[t.merchant] = (m[t.merchant]||0) + Math.abs(t.amount);
-            }
-            const top = Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0, 6);
-            if (!top.length) return <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>;
-            const maxAmt = top[0][1];
-            return top.map(([name, amt]) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px dashed var(--line)" }}>
-                <MerchantLogo merchant={name} size={24}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{name}</div>
-                  <div style={{ background: "var(--paper-2)", height: 4, borderRadius: 3, marginTop: 4, overflow: "hidden" }}>
-                    <div style={{ width: `${(amt/maxAmt)*100}%`, height: "100%", background: "var(--accent)", opacity: 0.7 }}/>
+          {statsLoading
+            ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{[1,2,3].map(i => <div key={i} style={{ display: "flex", gap: 10, alignItems: "center" }}><div style={{ width: 24, height: 24, borderRadius: 6, background: "var(--paper-2)", animation: "pulse 1.2s infinite" }}/><div style={{ flex: 1 }}><div style={{ height: 12, width: `${40 + i * 15}%`, background: "var(--paper-2)", borderRadius: 3, animation: "pulse 1.2s infinite" }}/><div style={{ height: 4, width: "100%", background: "var(--paper-2)", borderRadius: 3, marginTop: 6, animation: "pulse 1.2s infinite" }}/></div><div style={{ height: 12, width: 60, background: "var(--paper-2)", borderRadius: 3, animation: "pulse 1.2s infinite" }}/></div>)}</div>
+            : topMerchants.length === 0
+            ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>
+            : (() => {
+              const maxAmt = topMerchants[0].amount;
+              return topMerchants.map((m, i) => (
+                <div key={m.merchant || i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < topMerchants.length - 1 ? "1px dashed var(--line)" : "none" }}>
+                  <MerchantLogo merchant={m.merchant} size={24}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{m.merchant}</div>
+                    <div style={{ background: "var(--paper-2)", height: 4, borderRadius: 3, marginTop: 4, overflow: "hidden" }}>
+                      <div style={{ width: `${(m.amount/maxAmt)*100}%`, height: "100%", background: "var(--accent)", opacity: 0.7 }}/>
+                    </div>
                   </div>
+                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, fontWeight: 600 }}>₹{m.amount.toLocaleString("en-IN")}</div>
                 </div>
-                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, fontWeight: 600 }}>₹{amt.toLocaleString("en-IN")}</div>
-              </div>
-            ));
-          })()}
+              ));
+            })()
+          }
           </div>
         </div>
       </div>
@@ -269,7 +303,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         <div style={dashStyles.secBody}>
           {budgets.length === 0 ? (
             <div style={{ fontSize: 12, color: "var(--ink-4)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic" }}>
-              No budgets set — add them in Settings to track monthly limits per category.
+              No budgets set — <span onClick={() => window._goSettings && window._goSettings()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>add them in Settings</span> to track monthly limits per category.
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>

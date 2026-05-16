@@ -355,10 +355,6 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </span>
         </div>
         <div style={inboxStyles.field}>
-          <span style={inboxStyles.fieldLabel}>Paid with</span>
-          <span style={inboxStyles.fieldVal}>{tx.paid}</span>
-        </div>
-        <div style={inboxStyles.field}>
           <span style={inboxStyles.fieldLabel}>Source</span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-3)", fontSize: 12 }}>
             <Icon name="mail" size={12}/>
@@ -516,42 +512,64 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
   };
 
   return (
-    <div style={{ flex: 1, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: isPrimary ? "2px solid var(--accent)" : "1px solid var(--line)" }}>
-      {isPrimary && <div style={{ fontSize: 10, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 8 }}>Suggested primary</div>}
-      <MerchantLogo merchant={tx.merchant || "?"} size={28}/>
-      <div style={{ fontWeight: 600, fontSize: 13, marginTop: 8 }}>{tx.merchant || "Unknown"}</div>
-      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.email?.sender_domain || ""}</div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 18, marginTop: 8 }}>{fmtAmt(tx.amount)}</div>
-      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{tx.txn_date || ""}</div>
-      <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email?.subject || ""}</div>
-
-      <div style={{ marginTop: 10, padding: 10, background: "var(--paper)", borderRadius: 6, fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, border: "1px solid var(--line)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email body</span>
-          <button onClick={handleFetchBody} disabled={fetching} style={{ fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
-            {fetching ? "Fetching…" : "Fetch clean body"}
-          </button>
+    <div style={{ flex: 1, borderRadius: 8, border: `${isPrimary ? "2px" : "1px"} solid ${isPrimary ? "var(--accent)" : "var(--line)"}`, background: isPrimary ? "var(--card)" : "var(--paper-2)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--line)" }}>
+        {isPrimary && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }}/>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Suggested primary</span>
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+          <MerchantLogo merchant={tx.merchant || "?"} size={30}/>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.merchant || "Unknown"}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{tx.email?.sender_domain || ""}</div>
+          </div>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--neg)", flexShrink: 0 }}>{fmtAmt(tx.amount)}</div>
         </div>
-        {fetchedBody ? (
-          <>
-            <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
-              <Icon name="check" size={10} stroke="var(--pos)"/> Body refreshed ({fetchedBody.length} chars)
-            </div>
-            <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
-          </>
-        ) : (
-          <div style={{ color: "var(--ink-4)", fontStyle: "italic" }}>
-            {tx.email?.body_snippet || "Click 'Fetch clean body' to load the full email text."}
+      </div>
+
+      <div style={{ padding: "10px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+        {tx.txn_date && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Date</span>
+            <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>{tx.txn_date}</span>
+          </div>
+        )}
+        {tx.email?.subject && (
+          <div style={{ fontSize: 11, color: "var(--ink-4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email.subject}</div>
+        )}
+        {(tx.email?.body_snippet || fetchedBody) && (
+          <div style={{ marginTop: 2, padding: "8px 10px", background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)" }}>
+            {fetchedBody ? (
+              <>
+                <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Icon name="check" size={10} stroke="var(--pos)"/> Body loaded
+                </div>
+                <div style={{ fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 160, overflowY: "auto" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
+              </>
+            ) : (
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{tx.email?.body_snippet}</div>
+                <button onClick={handleFetchBody} disabled={fetching} className="focus-ring" style={{ flexShrink: 0, fontSize: 10, padding: "2px 7px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
+                  {fetching ? "…" : "Full"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <button
-        onClick={async ()=>{ if(resolving) return; await onResolve(pairId, "confirmed", tx.id); }}
-        disabled={resolving}
-        style={{ marginTop: 12, width: "100%", padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: resolving?"default":"pointer" }}>
-        Keep this
-      </button>
+      <div style={{ padding: "0 14px 12px" }}>
+        <button
+          onClick={async () => { if (resolving) return; await onResolve(pairId, "confirmed", tx.id); }}
+          disabled={resolving}
+          className="focus-ring"
+          style={{ width: "100%", padding: "7px 0", borderRadius: 6, border: isPrimary ? "none" : "1px solid var(--line)", background: isPrimary ? "var(--ink)" : "transparent", color: isPrimary ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 600, cursor: resolving ? "default" : "pointer", opacity: resolving ? 0.5 : 1 }}>
+          Keep this
+        </button>
+      </div>
     </div>
   );
 };
@@ -559,21 +577,39 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
 const DuplicatePairCard = ({ pair, onResolve }) => {
   const [resolving, setResolving] = React.useState(false);
   const { isMobile } = useViewport();
+  const confidence = pair.confidence || 0;
+  const reasonLabel = pair.rule_source === "domain_pair"
+    ? "Known sender pair"
+    : pair.rule_source === "investment_flow"
+    ? "Investment flow — order + confirmation"
+    : "Same amount, same date window";
+  const wrap = async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); };
   return (
-    <div style={{ padding: isMobile ? "16px 14px" : "20px 28px", borderBottom: "1px solid var(--line)" }}>
-      <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
-        {pair.rule_source === "domain_pair" ? `Known pair · ${Math.round(pair.confidence * 100)}% confidence` : "Possible duplicate · same amount + date"}
+    <div style={{ padding: isMobile ? "16px 14px" : "18px 24px", borderBottom: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)" }}>{reasonLabel}</span>
+        {confidence > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <div style={{ width: 44, height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${Math.round(confidence * 100)}%`, background: confidence >= 0.7 ? "var(--pos)" : "var(--accent)", borderRadius: 2 }}/>
+            </div>
+            <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{Math.round(confidence * 100)}%</span>
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", gap: 12, flexDirection: isMobile ? "column" : "row" }}>
-        <TxCard tx={pair.primary} isPrimary resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
-        <TxCard tx={pair.duplicate} isPrimary={false} resolving={resolving} onResolve={async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); }} pairId={pair.id} />
+      <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
+        <TxCard tx={pair.primary} isPrimary resolving={resolving} onResolve={wrap} pairId={pair.id} />
+        <TxCard tx={pair.duplicate} isPrimary={false} resolving={resolving} onResolve={wrap} pairId={pair.id} />
       </div>
-      <button
-        onClick={async ()=>{ if(resolving) return; setResolving(true); await onResolve(pair.id, "dismissed", pair.primary.id); setResolving(false); }}
-        disabled={resolving}
-        style={{ marginTop: 10, padding: "6px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 12, cursor: resolving?"default":"pointer" }}>
-        Not a duplicate
-      </button>
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={async () => { if (resolving) return; setResolving(true); await onResolve(pair.id, "dismissed", pair.primary.id); setResolving(false); }}
+          disabled={resolving}
+          className="focus-ring"
+          style={{ padding: "6px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 12, cursor: resolving ? "default" : "pointer" }}>
+          Not a duplicate
+        </button>
+      </div>
     </div>
   );
 };
@@ -1217,8 +1253,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
             </div>
           ) : filter === "duplicates" ? (<>
-            <div style={{ padding: "8px 16px", display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center" }}>
-              {dupPairs.length > 0 && <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>{dupPairs.length} pending</span>}
+            <div style={{ padding: "10px 16px 10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Duplicate detection</span>
+                {dupPairs.length > 0 && <span style={{ fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{dupPairs.length} pending</span>}
+              </div>
               <button onClick={async () => {
                 setDupScanning(true);
                 try {
@@ -1228,16 +1267,28 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 } catch (_) {}
                 setDupScanning(false);
               }} disabled={dupScanning}
-                style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                {dupScanning ? <><div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
+                className="focus-ring"
+                style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", opacity: dupScanning ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+                {dupScanning ? <><div style={{ width: 11, height: 11, border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
               </button>
             </div>
             {dupLoading && !dupScanning ? (
-              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Loading…</div>
+              <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
+                <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              </div>
             ) : dupScanning ? (
-              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>Scanning expenses for duplicates…</div>
+              <div style={{ padding: "56px 32px", textAlign: "center" }}>
+                <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 12px" }}/>
+                <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
+              </div>
             ) : dupPairs.length === 0 ? (
-              <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No pending duplicates — all clear.</div>
+              <div style={{ padding: "64px 32px", textAlign: "center" }}>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                  <Icon name="check" size={20} stroke="var(--pos)"/>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-2)", marginBottom: 4 }}>No duplicates found</div>
+                <div style={{ fontSize: 12, color: "var(--ink-4)" }}>Run a scan to check your expense history.</div>
+              </div>
             ) : (
               dupPairs.map(pair => (
                 <DuplicatePairCard key={pair.id} pair={pair} onResolve={resolveDup} />

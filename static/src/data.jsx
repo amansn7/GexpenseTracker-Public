@@ -104,7 +104,6 @@ const transformTransaction = (t) => {
     tag,
     cat,
     conf,
-    paid: "",
     status: t.status || "confirmed",
     read: t.read ?? false,
     flag: t.flagged ?? false,
@@ -115,14 +114,13 @@ const transformTransaction = (t) => {
 };
 
 // Build FLOW_SUMMARY shape from fetched data
-const buildFlowSummary = (transactions, summary, catBreakdown) => {
+const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeTo) => {
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-  const todayDay = today.getDate();
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const monthAbbr = today.toLocaleString("en-US", { month: "short" });
-  const monthLabel = today.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const todayStr = today.toISOString().slice(0, 10);
+  const rangeStart = rangeFrom ? new Date(rangeFrom) : new Date();
+  const rangeEnd = rangeTo ? new Date(rangeTo) : new Date();
+  const totalDays = Math.max(1, Math.round((rangeEnd - rangeStart) / 86400000) + 1);
+  const segSize = Math.max(1, Math.ceil(totalDays / 4));
 
   // Income sources grouped by merchant
   const incomeMap = {};
@@ -146,23 +144,34 @@ const buildFlowSummary = (transactions, summary, catBreakdown) => {
     .map(([cat, amount]) => ({ cat, amount: Math.round(amount) }))
     .sort((a, b) => b.amount - a.amount);
 
-  // Weekly burn from transactions
-  const weekDefs = [
-    { start: 1,  end: 7,           label: `W1 · ${monthAbbr} 1–7`   },
-    { start: 8,  end: 14,          label: `W2 · ${monthAbbr} 8–14`  },
-    { start: 15, end: 21,          label: `W3 · ${monthAbbr} 15–21` },
-    { start: 22, end: daysInMonth, label: `W4 · ${monthAbbr} 22–${daysInMonth}` },
-  ];
+  // Weekly burn — divide range into 4 segments
+  const weekDefs = [];
+  for (let i = 0; i < 4; i++) {
+    const segStart = new Date(rangeStart.getTime() + i * segSize * 86400000);
+    const segEnd = new Date(rangeStart.getTime() + Math.min((i + 1) * segSize - 1, totalDays - 1) * 86400000);
+    const endDay = segEnd.getDate();
+    const startLabel = segStart.toLocaleString("en-US", { month: "short", day: "numeric" });
+    const endLabel = segStart.getMonth() !== segEnd.getMonth()
+      ? segEnd.toLocaleString("en-US", { month: "short", day: "numeric" })
+      : `${endDay}`;
+    weekDefs.push({
+      start: segStart.toISOString().slice(0, 10),
+      end: segEnd.toISOString().slice(0, 10),
+      label: `W${i+1} · ${startLabel}–${endLabel}`,
+      projected: segStart > today,
+    });
+  }
   const weeklyBurn = weekDefs.map(w => {
     const spent = transactions
-      .filter(t => {
-        if (!t.date || t.amount >= 0) return false;
-        const d = parseInt(t.date.split("-")[2], 10);
-        return d >= w.start && d <= w.end;
-      })
+      .filter(t => t.date && t.date >= w.start && t.date <= w.end && t.amount < 0)
       .reduce((a, t) => a + Math.abs(t.amount), 0);
-    return { week: w.label, spent: Math.round(spent), projected: w.start > todayDay };
+    return { week: w.label, spent: Math.round(spent), projected: w.projected || w.start > todayStr };
   });
+
+  const monthLabel = rangeStart.toLocaleString("en-US", { month: "long", year: "numeric" })
+    + (rangeStart.getMonth() !== rangeEnd.getMonth() || rangeStart.getFullYear() !== rangeEnd.getFullYear()
+      ? ` – ${rangeEnd.toLocaleString("en-US", { month: "long", year: "numeric" })}`
+      : "");
 
   const totalIncome = income.reduce((a, i) => a + i.amount, 0);
   const totalExpenses = expenses.reduce((a, e) => a + e.amount, 0);

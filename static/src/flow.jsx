@@ -96,13 +96,16 @@ const SankeyDiagram = ({ data }) => {
         })}
 
         {/* Income nodes */}
-        {incomeNodes.map((n, idx) => (
-          <g key={`ni-${idx}`}>
-            <rect x={LEFT_X} y={n.y} width={LEFT_W} height={n.h} fill="var(--pos)" fillOpacity="0.88" rx="3"/>
-            <text x={LEFT_X + 10} y={n.y + n.h/2 - 2} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">{n.label.split(" · ")[0]}</text>
-            <text x={LEFT_X + 10} y={n.y + n.h/2 + 14} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">₹{n.amount.toLocaleString("en-IN")}</text>
-          </g>
-        ))}
+        {incomeNodes.map((n, idx) => {
+          const pct = totalIncome > 0 ? ((n.amount / totalIncome) * 100).toFixed(1) : "0";
+          return (
+            <g key={`ni-${idx}`}>
+              <rect x={LEFT_X} y={n.y} width={LEFT_W} height={n.h} fill="var(--pos)" fillOpacity="0.88" rx="3"/>
+              <text x={LEFT_X + 10} y={n.y + n.h/2 - 2} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">{n.label.split(" · ")[0]}</text>
+              <text x={LEFT_X + 10} y={n.y + n.h/2 + 14} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">₹{n.amount.toLocaleString("en-IN")} · {pct}%</text>
+            </g>
+          );
+        })}
 
         {/* Hub → Right flows */}
         {(() => {
@@ -184,6 +187,10 @@ const WeeklyBurn = ({ data }) => {
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
+const skeleton = (h, w) => (
+  <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
+);
+
 const FlowView = ({ transactions, categoryFilter }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -217,7 +224,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
   }, [rangeFrom, rangeTo]);
 
   const rangeTxs = transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
-  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown) : null;
+  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
   const totalExpense = flow ? flow.expenses.reduce((a, e) => a + e.amount, 0) : 0;
@@ -230,26 +237,37 @@ const FlowView = ({ transactions, categoryFilter }) => {
   return (
     <div style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
       <div style={{ ...flowStyles.kpis, gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : flowStyles.kpis.gridTemplateColumns, gap: isMobile ? 10 : 12 }}>
-        <div style={flowStyles.kpi}>
-          <div style={flowStyles.kpiLabel}>Income</div>
-          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-          <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
-        </div>
-        <div style={flowStyles.kpi}>
-          <div style={flowStyles.kpiLabel}>Spent</div>
-          <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-          <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
-        </div>
-        <div style={flowStyles.kpi}>
-          <div style={flowStyles.kpiLabel}>Remaining</div>
-          <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(flow?.savings ?? 0).toLocaleString("en-IN")}`}>{fmtK(flow?.savings ?? 0)}</div>
-          <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
-        </div>
-        <div style={flowStyles.kpi}>
-          <div style={flowStyles.kpiLabel}>Daily burn</div>
-          <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
-          <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
-        </div>
+        {flowLoading
+          ? [["Income", "var(--pos)"], ["Spent", "var(--ink)"], ["Remaining", "var(--pos)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
+              <div key={i} style={flowStyles.kpi}>
+                <div style={flowStyles.kpiLabel}>{label}</div>
+                <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
+                <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
+              </div>
+            ))
+          : <>
+              <div style={flowStyles.kpi}>
+                <div style={flowStyles.kpiLabel}>Income</div>
+                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
+                <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
+              </div>
+              <div style={flowStyles.kpi}>
+                <div style={flowStyles.kpiLabel}>Spent</div>
+                <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
+                <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
+              </div>
+              <div style={flowStyles.kpi}>
+                <div style={flowStyles.kpiLabel}>Remaining</div>
+                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(flow?.savings ?? 0).toLocaleString("en-IN")}`}>{fmtK(flow?.savings ?? 0)}</div>
+                <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
+              </div>
+              <div style={flowStyles.kpi}>
+                <div style={flowStyles.kpiLabel}>Daily burn</div>
+                <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
+                <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
+              </div>
+            </>
+        }
       </div>
 
       <div style={flowStyles.secWrap}>
@@ -266,7 +284,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
         </div>
         <div style={{ ...flowStyles.secBody, borderRadius: "0 0 8px 8px" }}>
           {flowLoading
-            ? <div style={{ display: "flex", justifyContent: "center", padding: "60px 0", color: "var(--ink-4)", fontSize: 13, fontFamily: "'Fraunces', serif" }}>Loading…</div>
+            ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow
               ? <SankeyDiagram data={flow}/>
               : <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 13 }}>No data for range</div>
