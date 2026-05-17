@@ -141,7 +141,17 @@ async def detect_and_record_duplicates(
       3. Investment flow: "order sent" + "confirmation" pair for same amount
     All queries are scoped to email.user_id to prevent cross-user false positives.
     """
-    if tx.label != "expense" or tx.amount is None:
+    def _is_dedup_candidate(transaction):
+        """Check if transaction should be considered for dedup."""
+        if transaction.amount is None:
+            return False
+        if transaction.label == "expense":
+            return True
+        if transaction.label == "ignore" and transaction.transaction_type in ("cc_payment", "investment"):
+            return True
+        return False
+
+    if not _is_dedup_candidate(tx):
         return
     if not email or not email.sender_domain:
         return
@@ -440,7 +450,7 @@ async def batch_detect_duplicates(
     seen_pairs: Set[Tuple[str, str]] = set()
 
     for new_tx, new_email in new_transactions:
-        if new_tx.label != "expense" or new_tx.amount is None:
+        if not _is_dedup_candidate(new_tx):
             continue
         if not new_email or not new_email.sender_domain:
             continue
