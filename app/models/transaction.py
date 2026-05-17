@@ -40,6 +40,7 @@ class Transaction(Base):
     email_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True)
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     transaction_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    payment_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="INR")
     merchant: Mapped[Optional[str]] = mapped_column(String(255))

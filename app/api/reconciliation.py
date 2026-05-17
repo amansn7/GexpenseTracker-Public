@@ -263,6 +263,7 @@ async def cc_statement_reconciliation(
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
         Transaction.transaction_type == "purchase",
+        Transaction.payment_mode == "credit_card",
     ]
 
     txn_rows = (await db.execute(

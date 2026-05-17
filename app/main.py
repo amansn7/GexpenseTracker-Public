@@ -52,6 +52,9 @@ async def lifespan(app: FastAPI):
                 await db.execute(text("""
                     ALTER TABLE filter_rules ADD COLUMN IF NOT EXISTS user_id VARCHAR(36) REFERENCES users(id)
                 """))
+                await db.execute(text("""
+                    ALTER TABLE transactions ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(20)
+                """))
                 await db.commit()
                 await load_alias_cache_from_db(db)
                 await load_db_aliases(db)
