@@ -13,8 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
+import asyncio
 from app.scheduler import setup_scheduler, scheduler
-from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api, filter as filter_api, merchant_aliases as merchant_aliases_api, reconciliation as reconciliation_api
+from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api, filter as filter_api, merchant_aliases as merchant_aliases_api, reconciliation as reconciliation_api, merchants as merchants_api
 from app.config import settings
 from app.csrf import validate_csrf
 from app.rate_limiter import rate_limiter, RATE_LIMITS
@@ -33,17 +34,26 @@ async def lifespan(app: FastAPI):
             "Generate a Fernet key and set it in .env before starting the server."
         )
     if not os.getenv("TESTING"):
+        from app.workers.queue import task_queue
+        from app.workers.sync_worker import register as register_sync_worker
+        register_sync_worker(task_queue)
+        worker_task = asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
         try:
             from app.database import AsyncSessionLocal
             from app.classifier.merchant import load_alias_cache_from_db
+            from app.classifier.merchant_entity import load_db_aliases
             async with AsyncSessionLocal() as db:
                 await load_alias_cache_from_db(db)
+                await load_db_aliases(db)
         except Exception as exc:
             logging.getLogger(__name__).warning("startup cache load failed: %s", exc)
     yield
-    if not os.getenv("TESTING") and scheduler.running:
-        scheduler.shutdown(wait=False)
+    if not os.getenv("TESTING"):
+        from app.workers.queue import task_queue
+        task_queue.stop()
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -134,6 +144,7 @@ app.include_router(debt_api.router, prefix="/api")
 app.include_router(filter_api.router, prefix="/api")
 app.include_router(merchant_aliases_api.router, prefix="/api")
 app.include_router(reconciliation_api.router, prefix="/api")
+app.include_router(merchants_api.router, prefix="/api")
 
 
 @app.get("/health")
