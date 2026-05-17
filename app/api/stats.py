@@ -8,6 +8,7 @@ from sqlalchemy import select, func, desc, or_
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Transaction, Email, User, UserSettings, TransactionStatus, ClassifierMethod
+from app.config import settings
 
 router = APIRouter()
 
@@ -36,7 +37,7 @@ def _effective_month(txn_date: date, label: str, sender: Optional[str]) -> date:
         and sender
         and "axis" in sender.lower()
     ):
-        return _add_months(txn_date, 1)
+        return _add_months(txn_date, settings.INCOME_MONTH_SHIFT)
     return txn_date.replace(day=1)
 
 
@@ -143,7 +144,7 @@ async def stats_summary(
     )).scalars().all()
     total_investments = sum(float(a or 0) for a in investment_rows)
 
-    saved = total_income - total_expenses
+    saved = total_income - total_expenses - total_cc_payments - total_investments
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
 
     needs_review_count = (await db.execute(
@@ -218,9 +219,9 @@ async def stats_category_breakdown(
         for r in rows
     ]
 
-    if len(categories) > 6:
-        other_amount = sum(c["amount"] for c in categories[6:])
-        categories = categories[:6]
+    if len(categories) > settings.CATEGORY_BREAKDOWN_LIMIT:
+        other_amount = sum(c["amount"] for c in categories[settings.CATEGORY_BREAKDOWN_LIMIT:])
+        categories = categories[:settings.CATEGORY_BREAKDOWN_LIMIT]
         categories.append({
             "category": "Other",
             "amount": round(other_amount, 2),
@@ -463,7 +464,7 @@ async def stats_health(
         .where(Transaction.label == "income", *base_filter)
     )).scalar_one() or 0)
 
-    net_since = income_total - float(expense_total)
+    net_since = income_total - float(expense_total) - float(cc_payment_total or 0) - float(investment_total or 0)
     current_balance = round((starting_balance or 0.0) + net_since, 2)
     balance_mode = "anchored" if starting_balance is not None else "computed"
 
@@ -519,19 +520,19 @@ async def stats_confidence(
     high_count = (await db.execute(
         select(func.count()).select_from(Transaction)
         .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence >= 0.9)
+        .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
     )).scalar_one()
 
     medium_count = (await db.execute(
         select(func.count()).select_from(Transaction)
         .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence >= 0.7, Transaction.confidence < 0.9)
+        .where(*base_where, Transaction.confidence >= settings.MEDIUM_CONFIDENCE_THRESHOLD, Transaction.confidence < settings.HIGH_CONFIDENCE_THRESHOLD)
     )).scalar_one()
 
     low_count = (await db.execute(
         select(func.count()).select_from(Transaction)
         .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence < 0.7)
+        .where(*base_where, Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD)
     )).scalar_one()
 
     rule_count = (await db.execute(
