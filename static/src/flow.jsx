@@ -29,7 +29,7 @@ const SankeyDiagram = ({ data }) => {
   const totalInvestments = data.expenses.filter(e => e.cat === "investment").reduce((a,e)=>a+e.amount, 0);
   const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const USABLE_H = H - PAD_Y * 2;
-  const scale = USABLE_H / totalIncome;
+  const scale = totalIncome > 0 ? USABLE_H / totalIncome : 0;
 
   // Layout income nodes (left)
   let yi = PAD_Y;
@@ -95,7 +95,7 @@ const SankeyDiagram = ({ data }) => {
         {/* Income → Hub flows */}
         {incomeNodes.map((n, idx) => {
           const p = buildPath(LEFT_X + LEFT_W, n.y, n.h, MID_X, hubY + hubInOff, n.h);
-          hubInOff += n.h + 10 * (n.h / n.h);
+          hubInOff += n.h + 10;
           return (
             <g key={`in-${idx}`}>
               <path d={p} fill="var(--pos)" fillOpacity="0.18" stroke="none">
@@ -207,10 +207,7 @@ const skeleton = (h, w) => (
 const FlowView = ({ transactions, categoryFilter }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = (() => {
-    const d = new Date(); d.setDate(d.getDate() - 29);
-    return d.toISOString().slice(0, 10);
-  })();
+  var thirtyDaysAgo = DateUtils.getLastNDays(29).from;
 
   const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
   const [rangeTo, setRangeTo] = React.useState(todayStr);
