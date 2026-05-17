@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import secrets
 from datetime import datetime, UTC, timedelta
@@ -25,9 +26,16 @@ router = APIRouter()
 
 
 
-def require_dev():
+def require_dev(request: Request):
+    """Hardened DEV_MODE gate — only allows localhost requests in dev mode."""
     if not settings.DEV_MODE:
         raise HTTPException(status_code=404, detail="Not found")
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "localhost", "::1"):
+        logging.getLogger(__name__).warning(
+            "require_dev blocked non-local request from %s", client_host
+        )
+        raise HTTPException(status_code=403, detail="DEV endpoints only accessible from localhost")
 
 
 SESSION_DAYS = 30
@@ -202,7 +210,8 @@ async def google_callback(
             status="connected",
         )
         db.add(account)
-    account.access_token = creds.token
+    from app.crypto import encrypt_secret
+    account.access_token = encrypt_secret(creds.token)
     if creds.refresh_token:
         account.refresh_token = encrypt_secret(creds.refresh_token)
     account.token_expiry = creds.expiry

@@ -76,9 +76,22 @@ async def get_credentials_for_user(db, user_id: str):
     if not account or not account.refresh_token:
         return None
 
-    from app.crypto import decrypt_secret
+    from app.crypto import decrypt_secret, encrypt_secret
+
+    # Backfill: if access_token is not encrypted, re-encrypt it
+    raw_access = account.access_token
+    try:
+        # Try to decrypt — if it succeeds, it's already encrypted
+        decrypt_secret(raw_access)
+        access_token = raw_access
+    except Exception:
+        # Plaintext token — encrypt it and save back
+        access_token = encrypt_secret(raw_access)
+        account.access_token = access_token
+        await db.commit()
+
     creds = Credentials(
-        token=account.access_token,
+        token=decrypt_secret(access_token),
         refresh_token=decrypt_secret(account.refresh_token),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.GOOGLE_CLIENT_ID,
@@ -90,7 +103,7 @@ async def get_credentials_for_user(db, user_id: str):
         import asyncio
         from google.auth.transport.requests import Request as GRequest
         await asyncio.get_event_loop().run_in_executor(None, lambda: creds.refresh(GRequest()))
-        account.access_token = creds.token
+        account.access_token = encrypt_secret(creds.token)
         account.token_expiry = creds.expiry
         await db.commit()
 
