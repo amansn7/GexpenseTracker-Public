@@ -318,7 +318,7 @@ async def batch_classify_emails(
     n = len(items)
     body_snippets: List[str] = []
     for _, _, _, _, body_text in items:
-        body_snippets.append(body_text[:600])
+        body_snippets.append(body_text[:3000])
 
     results: List[ClassificationResult] = [None] * n  # type: ignore[list-item]
     need_llm: List[Tuple[int, Optional[str], str, str, str, str]] = []
