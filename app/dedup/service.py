@@ -457,6 +457,9 @@ async def batch_detect_duplicates(
         is_order = _subject_has_any(new_subject, _INVEST_ORDER_SIGNALS)
         is_confirm = _subject_has_any(new_subject, _INVEST_CONFIRM_SIGNALS)
 
+        # Load paired IDs once per new transaction (not per existing candidate)
+        already_paired_ids = await _load_paired_ids(new_tx.id, db)
+
         for existing_tx, existing_email in existing_map.values():
             if existing_tx.id == new_tx.id:
                 continue
@@ -486,8 +489,7 @@ async def batch_detect_duplicates(
                 continue
 
             # Check if already paired
-            existing_paired = await _load_paired_ids(new_tx.id, db)
-            if existing_tx.id in existing_paired:
+            if existing_tx.id in already_paired_ids:
                 continue
 
             # Multi-layer scoring
