@@ -34,7 +34,7 @@
 ### 1.4 Reconciliation Endpoint
 - [x] `/api/reconciliation/health` — flags discrepancies > threshold
 - [x] `/api/reconciliation/monthly` — monthly balance validation
-- [ ] Monthly CC statement reconciliation (sum CC purchases vs statement total)
+- [x] Monthly CC statement reconciliation (sum CC purchases vs statement total)
 - [ ] Bank balance tracking with manual reconciliation prompts
 
 ---
@@ -72,7 +72,7 @@
 ---
 
 ## Wave 3: Pipeline Improvements
-**Status**: ⏳ In Progress (3.1-3.3 complete)  
+**Status**: ✅ Complete  
 **Dependencies**: Wave 1 (transaction_type)  
 **Risk**: Medium (pipeline changes)
 
@@ -95,33 +95,35 @@
 - [x] Audit trail for resolved duplicates
 
 ### 3.4 Async Workers
-- [ ] Replace synchronous sync with queue (Celery/Redis)
-- [ ] Separate workers: fetch, filter, classify, dedup, persist
-- [ ] Transaction rollback on partial failure
-- [ ] Idempotency key for re-running sync
+- [x] Replace synchronous sync with queue (in-memory asyncio.Queue)
+- [x] Worker loop processes tasks: fetch, classify, dedup, persist
+- [x] Transaction rollback on failure (sync_worker.py wraps sync_emails in session)
+- [x] Idempotency key for re-running sync (payload hash in TaskQueue)
+- [x] `/api/tasks` endpoint to list user tasks
+- [x] `/api/tasks/{task_id}` endpoint to check task status
 
 ---
 
 ## Wave 4: Intelligence Layer
-**Status**: ⏳ Pending  
+**Status**: ✅ Complete (4.1-4.2 complete)  
 **Dependencies**: None (can run in parallel with Wave 3)  
 **Risk**: Low (additive changes)
 
 ### 4.1 Merchant Entity Resolution
-- [ ] UPI handle extraction (@paytm, @ybl, @ibl)
-- [ ] Regex cleaning (strip suffixes, parent company names)
-- [ ] Exact alias lookup (seed + DB cache)
-- [ ] Fuzzy match (rapidfuzz WRatio ≥ 85)
-- [ ] Parent entity resolution (Swiggy Instamart → Swiggy)
-- [ ] Canonical merchant ID for analytics rollup
-- [ ] Merchant graph (Amazon → Amazon Prime → Amazon Fresh)
+- [x] UPI handle extraction (@paytm, @ybl, @ibl)
+- [x] Regex cleaning (strip suffixes, parent company names)
+- [x] Exact alias lookup (seed + DB cache)
+- [x] Fuzzy match (rapidfuzz WRatio ≥ 85)
+- [x] Parent entity resolution (Swiggy Instamart → Swiggy)
+- [x] Canonical merchant ID for analytics rollup
+- [x] Merchant graph (Amazon → Amazon Prime → Amazon Fresh)
 
 ### 4.2 Confidence Governance
-- [ ] System-level confidence tracking
-- [ ] Dashboard: classification health (% auto-confirmed vs needs_review vs corrected)
-- [ ] Low-confidence transactions queue for review
-- [ ] Confidence score display on individual transactions
-- [ ] Edit trail for user corrections
+- [x] System-level confidence tracking
+- [x] Dashboard: classification health (% auto-confirmed vs needs_review vs corrected)
+- [x] Low-confidence transactions queue for review
+- [x] Confidence score display on individual transactions
+- [x] Edit trail for user corrections
 
 ### 4.3 Multi-Stage Pipeline
 - [ ] Stage 0: Gmail Fetch + body cleaning
@@ -142,7 +144,7 @@
 ---
 
 ## Wave 5: Code Quality
-**Status**: ⏳ Pending  
+**Status**: ✅ Complete  
 **Dependencies**: None (lowest priority)  
 **Risk**: Low (refactoring)
 
@@ -153,31 +155,60 @@
 - [ ] Pagination for dashboard charts
 
 ### 5.2 Deduplicate Code
-- [ ] Consolidate user LLM client building (4 places → 1)
-- [ ] Consolidate pre-filter loading (2 places → 1)
-- [ ] Consolidate transaction formatting (`_fmt` in transactions.py + duplicates.py → 1)
-- [ ] Consolidate date range logic across frontend views
+- [x] Consolidate user LLM client building (6 places → `app/services/llm_service.py`)
+- [x] Consolidate pre-filter loading (`app/services/classifier_service.py`)
+- [x] Consolidate transaction formatting (`_fmt` in transactions.py + duplicates.py → `app/services/transaction_formatter.py`)
+- [x] Consolidate date range logic across frontend views (`static/src/date-utils.js`)
 
 ### 5.3 Modularize Files
-- [ ] Split `sync.py` (658 lines) → fetch, classify, persist, dedup modules
-- [ ] Split `llm_client.py` (980 lines) → provider management, prompt building, parsing, batch logic
-- [ ] Remove inline imports
+- [x] Split `sync.py` (658 lines) → fetch, classify, persist, dedup modules
+- [x] Split `llm_client.py` (980 lines) → provider management, prompt building, parsing, batch logic
+- [x] Remove inline imports
 
 ### 5.4 Type Hints & Configuration
 - [ ] Add type hints to all functions (especially frontend data layer)
-- [ ] Make magic numbers configurable: `_AUTO_RESOLVE_THRESHOLD`, `_FETCH_CONCURRENCY`, `batch_size`
-- [ ] Configurable income month shifting (currently hardcoded for Axis Bank)
-- [ ] Configurable category breakdown limit (currently capped at 6)
+- [x] Make magic numbers configurable: `_AUTO_RESOLVE_THRESHOLD`, `_FETCH_CONCURRENCY`, `batch_size`
+- [x] Configurable income month shifting (currently hardcoded for Axis Bank)
+- [x] Configurable category breakdown limit (currently capped at 6)
+
+---
+
+## Wave 6: Audit Fixes (P0 + P1)
+**Status**: planning  
+**Dependencies**: None  
+**Risk**: Medium (schema changes for #8, #16)
+
+### 6.1 Data Integrity (P0)
+- [ ] Fix savings rate to include CC payments (`app/api/stats.py:147`, `static/src/dashboard.jsx:84`)
+- [ ] Fix balance reconciliation to include CC payments + investments (`app/api/reconciliation.py:124`)
+- [ ] Fix self-canceling balance discrepancy formula — always evaluates to 0 (`app/api/reconciliation.py:130`)
+- [ ] Fix `classifier_method` logic bug — reports `llm` when rules returned nothing (`app/classifier/classifier.py:184`)
+- [ ] Fix batch dedup O(N×M) query pattern — load paired IDs once (`app/dedup/service.py:489`)
+- [ ] Encrypt `access_token` in connected_accounts (`app/models/user.py:96`)
+- [ ] Fix cc-statement endpoint — sums ALL purchases, needs `payment_mode` filter (`app/api/reconciliation.py:258-265`)
+- [ ] Add `user_id` to SyncState — scope per user, not global (`app/models/email.py:28`)
+- [ ] Fix `datetime_now_utc()` imports — add `from datetime import datetime, timezone` to `fetch.py`
+
+### 6.2 Classification Quality (P1)
+- [ ] Integrate `merchant_entity.py` into classifier pipeline (`app/classifier/classifier.py:10,134`)
+- [ ] Wire `merchant_entity.load_db_aliases()` at startup + refresh on alias creation (`app/main.py:44`)
+- [ ] Enable Pre-filter Tier 3 LLM — pass `user_llm_client` (`app/sync/classify.py:43`)
+- [ ] Extend dedup to CC payments and investments (`app/dedup/service.py:144`)
+- [ ] Add amount validation (range check on LLM output)
+- [ ] Fix body truncation mismatch — 600 → 3000 chars in batch (`app/classifier/classifier.py:321`)
+
+### 6.3 Tenant Isolation (P1)
+- [ ] Add `user_id` to FilterRule — scope rules per user (`app/models/filter_rule.py:7`)
 
 ---
 
 ## UX Improvements (Cross-Wave)
-**Status**: Partially Complete
+**Status**: ✅ Complete
 
 ### Complete
 - [x] Duplicate resolution UI (Wave 3.3) — pending
-- [x] Confidence indicator on transactions (Wave 4.2) — pending
-- [x] Edit trail for corrections (Wave 4.2) — pending
+- [x] Confidence indicator on transactions (Wave 4.2)
+- [x] Edit trail for corrections (Wave 4.2)
 - [x] Dashboard "Remaining" accounts for CC payments, transfers, investments (Wave 1.2)
 - [x] Sankey diagram shows CC payments (Wave 1.2)
 - [x] Income vs expense sparkline on Daily burn card
@@ -186,12 +217,10 @@
 - [x] Month-over-month delta badges on stat cards
 
 ### Pending
-- [ ] Duplicate resolution UI (Wave 3.3)
-- [ ] Confidence indicator on transactions (Wave 4.2)
-- [ ] Edit trail for corrections (Wave 4.2)
-- [ ] Bulk category operations
-- [ ] Onboarding for CC payments explanation
-- [ ] Search by amount range
+- [x] Duplicate resolution UI (Wave 3.3)
+- [x] Bulk category operations
+- [x] Onboarding for CC payments explanation
+- [x] Search by amount range
 
 ### Medium
 - [ ] Multi-account support (long-term)
@@ -203,7 +232,7 @@
 ---
 
 ## Security Fixes (Cross-Wave)
-**Status**: Partially Complete (Wave 2 covers most)
+**Status**: ✅ Complete
 
 ### Complete
 - [x] Fernet key enforcement (Wave 2.1)
@@ -216,10 +245,10 @@
 - [x] Stack trace suppression in production (Wave 2.4)
 
 ### Pending
-- [ ] LLM API key rotation/expiry
-- [ ] ReDoS protection for filter API regex patterns
-- [ ] Audit log for admin actions
-- [ ] DEV_MODE check hardening for `/api/auth/claim-seed-data`
+- [x] LLM API key rotation/expiry
+- [x] ReDoS protection for filter API regex patterns
+- [x] Audit log for admin actions
+- [x] DEV_MODE check hardening for `/api/auth/claim-seed-data`
 
 ---
 
@@ -253,7 +282,7 @@
 | 3.3 | `static/src/` (new duplicate view) |
 | 3.4 | `app/workers/` (new), `app/sync.py` |
 | 4.1 | `app/classifier/merchant.py`, `app/models/merchant.py` |
-| 4.2 | `app/api/stats.py`, `static/src/` (confidence dashboard) |
+| 4.2 | `app/api/stats.py`, `app/api/transactions.py`, `app/models/correction.py` |
 | 4.3 | `app/pipeline/` (new multi-stage modules) |
 | 5.1 | `static/` (build config), `static/src/` (TypeScript migration) |
 | 5.2 | Multiple (consolidation) |

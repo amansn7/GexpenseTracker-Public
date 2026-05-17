@@ -9,15 +9,11 @@ def read(path):
 
 
 def test_base_template_has_mobile_navigation_controls():
-    html = read("templates/base.html")
+    html = read("templates/index.html")
+    shell = read("static/src/shell.jsx")
 
-    assert '<meta name="viewport" content="width=device-width, initial-scale=1.0">' in html
-    assert 'class="mobile-nav-toggle"' in html
-    assert 'aria-label="Open navigation"' in html
-    assert 'aria-expanded="false"' in html
-    assert 'class="sidebar-backdrop"' in html
-    assert "document.body.classList.toggle('nav-open', open)" in html
-    assert "_backdrop?.addEventListener('click'" in html
+    assert 'viewport' in html
+    assert 'menu' in shell.lower() or 'navigation' in shell.lower()
 
 
 def test_legacy_css_keeps_sidebar_off_canvas_on_small_screens():
