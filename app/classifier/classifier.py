@@ -19,6 +19,24 @@ _AMOUNT_RE = re.compile(
     re.IGNORECASE
 )
 
+# Amount validation thresholds
+_AMOUNT_CEILING = 10_000_000  # ₹1 crore — reject above this
+_AMOUNT_REVIEW_THRESHOLD = 1_000_000  # ₹10 lakh — flag for review above this
+
+
+def _validate_llm_amount(amount, confidence, status):
+    """Validate LLM-extracted amount. Returns (amount, status, needs_review_flag)."""
+    if amount is None:
+        return amount, status, False
+    if amount <= 0:
+        return None, TransactionStatus.needs_review, True
+    if amount > _AMOUNT_CEILING:
+        return None, TransactionStatus.needs_review, True
+    if amount > _AMOUNT_REVIEW_THRESHOLD:
+        # Flag for review even if confidence is high
+        return amount, TransactionStatus.needs_review, True
+    return amount, status, False
+
 logger = logging.getLogger(__name__)
 
 
@@ -188,6 +206,10 @@ async def classify_email(
         if confidence >= settings.AUTO_CONFIRM_THRESHOLD
         else TransactionStatus.needs_review
     )
+
+    # Validate LLM-extracted amount
+    if llm_result:
+        amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
     if session is not None:
         try:
@@ -402,6 +424,9 @@ async def batch_classify_emails(
                         if confidence >= settings.AUTO_CONFIRM_THRESHOLD
                         else TransactionStatus.needs_review
                     )
+
+                    # Validate LLM-extracted amount
+                    amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
                     results[idx] = ClassificationResult(
                         label=label, amount=amount, merchant=merchant,
