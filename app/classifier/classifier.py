@@ -12,6 +12,7 @@ from app.classifier.merchant_entity import resolve_merchant
 from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
+from app.services.category_service import CategoryService
 
 _AMOUNT_RE = re.compile(
     r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)'  # prefix: Rs. 2754, INR 2754, ₹2754
@@ -120,7 +121,6 @@ async def classify_email(
     if categories_override is not None:
         user_categories = categories_override
     else:
-        from app.services.category_service import CategoryService
         user_categories = await CategoryService.load_for_llm(session, user_id)
 
     # Stage 1 pre-filter: skip LLM for clear non-financial emails
@@ -375,7 +375,6 @@ async def batch_classify_emails(
         List[ClassificationResult] in same order as items.
     """
     t0 = time.monotonic()
-    from app.services.category_service import CategoryService
     user_categories = await CategoryService.load_for_llm(session, user_id)
 
     n = len(items)

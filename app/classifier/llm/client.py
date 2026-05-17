@@ -59,9 +59,9 @@ class MultiLLMClient:
             return cached
 
         from sqlalchemy import select
+        from app.crypto import decrypt_ai_secret
         from app.database import AsyncSessionLocal
         from app.models import UserAIService
-        from app.api._account_helpers import _decrypt_secret
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(
@@ -73,7 +73,7 @@ class MultiLLMClient:
             self._user_clients[user_id] = None
             return None
 
-        decrypted_key = _decrypt_secret(config.encrypted_api_key) if config.encrypted_api_key else None
+        decrypted_key = decrypt_ai_secret(config.encrypted_api_key) if config.encrypted_api_key else None
         from app.classifier.llm.user_client import build_user_client
         client = build_user_client(
             user_id=user_id,

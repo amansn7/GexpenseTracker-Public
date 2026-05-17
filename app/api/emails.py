@@ -12,6 +12,7 @@ from app.auth_deps import get_current_user
 from app.database import get_db, AsyncSessionLocal
 from app.models import Email, Transaction, SenderRule, Label, User
 from app.classifier.classifier import classify_email
+from app.services.llm_service import get_user_llm_client
 
 
 def _body(email: Email) -> str:
@@ -239,7 +240,6 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
 
             user_llm_client = None
             if user_settings and user_settings.active_ai_service_id:
-                from app.services.llm_service import get_user_llm_client
                 user_llm_client = await get_user_llm_client(user_id, db)
                 if user_llm_client:
                     yield _sse({"type": "dim", "message": f"Using AI service: {user_settings.active_ai_service_id}"})

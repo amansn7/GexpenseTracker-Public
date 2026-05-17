@@ -72,12 +72,12 @@ async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depend
 
 @router.post("/sync/trigger")
 async def trigger_sync(current_user=Depends(get_current_user)):
-    from app.sync import run_sync
+    from app.workers.queue import task_queue
     user_id = getattr(current_user, "id", None)
-    task = asyncio.create_task(run_sync(user_id=user_id))
-    _background_tasks.add(task)
-    task.add_done_callback(_log_task_result)
-    return {"message": "Sync triggered"}
+    task_id = await task_queue.enqueue("sync", user_id, {"trigger": "manual"})
+    if task_id is None:
+        return {"message": "Sync already in progress"}
+    return {"message": "Sync queued", "task_id": task_id}
 
 
 class BackfillBody(BaseModel):
@@ -217,6 +217,23 @@ async def get_alerts(current_user: User = Depends(get_current_user)):
         raise HTTPException(403, "Admin only")
     from app.alerts import get_alerts as _get
     return _get()
+
+
+@router.get("/tasks")
+async def list_tasks(current_user: User = Depends(get_current_user)):
+    from app.workers.queue import task_queue
+    return {"tasks": task_queue.get_tasks(user_id=current_user.id, limit=20)}
+
+
+@router.get("/tasks/{task_id}")
+async def get_task_status(task_id: str, current_user: User = Depends(get_current_user)):
+    from app.workers.queue import task_queue
+    task = task_queue.get_status(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task["user_id"] != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your task")
+    return task
 
 
 @router.post("/alerts/clear")

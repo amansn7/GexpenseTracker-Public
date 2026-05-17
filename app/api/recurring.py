@@ -9,6 +9,7 @@ import re, json
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import RecurringExpense, User, Transaction, Email
+from app.services.llm_service import get_user_llm_client
 
 router = APIRouter()
 
@@ -230,27 +231,7 @@ async def find_recurring_from_transactions(
     prompt = _FIND_RECURRING_PROMPT.format(data=data_block)
 
     # Build user-specific LLM client
-    from app.models.user import UserAIService, UserSettings
-    from app.api._account_helpers import _decrypt_secret
-    from app.classifier.llm_client import build_user_client
-
-    user_settings = (await db.execute(
-        select(UserSettings).where(UserSettings.user_id == current_user.id)
-    )).scalar_one_or_none()
-    client = None
-    if user_settings and user_settings.active_ai_service_id:
-        ai_svc = (await db.execute(
-            select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
-        )).scalar_one_or_none()
-        if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
-            client = build_user_client(
-                user_id=current_user.id,
-                provider=ai_svc.provider,
-                base_url=ai_svc.base_url,
-                api_key=_decrypt_secret(ai_svc.encrypted_api_key),
-                model_id=ai_svc.model_id,
-            )
-
+    client = await get_user_llm_client(current_user.id, db)
     if not client:
         from app.classifier.llm_client import llm_client
         client = llm_client

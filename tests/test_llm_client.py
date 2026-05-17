@@ -19,8 +19,14 @@ async def test_classify_returns_classification(monkeypatch):
     mock_client.__aexit__ = AsyncMock(return_value=False)
     mock_client.post = AsyncMock(return_value=fake_response)
 
-    with patch("app.classifier.llm_client.httpx.AsyncClient", return_value=mock_client):
+    from app.classifier.llm.providers import Provider
+    from app.classifier.llm.parsing import parse_response
+
+    test_provider = Provider(name="test", model="test-model", base_url="http://test", api_key="test-key")
+
+    with patch("app.classifier.llm.client.httpx.AsyncClient", return_value=mock_client):
         client = LLMClient()
+        client._providers = [test_provider]
         result = await client.classify("no-reply@zomato.com", "Order confirmed", "Your order ₹299")
 
     assert isinstance(result, LLMClassification)
@@ -42,8 +48,13 @@ async def test_classify_strips_markdown_fences(monkeypatch):
     mock_client.__aexit__ = AsyncMock(return_value=False)
     mock_client.post = AsyncMock(return_value=fake_response)
 
-    with patch("app.classifier.llm_client.httpx.AsyncClient", return_value=mock_client):
+    from app.classifier.llm.providers import Provider
+
+    test_provider = Provider(name="test", model="test-model", base_url="http://test", api_key="test-key")
+
+    with patch("app.classifier.llm.client.httpx.AsyncClient", return_value=mock_client):
         client = LLMClient()
+        client._providers = [test_provider]
         result = await client.classify("hr@company.com", "Salary credited", "₹50000 salary")
 
     assert result.label == "income"

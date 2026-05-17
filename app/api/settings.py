@@ -22,10 +22,11 @@ from app.models import (
     UserProfile,
     UserSettings,
 )
+from app.crypto import encrypt_ai_secret
+from app.services.category_service import CategoryService
 from app.api._account_helpers import (
     _clean_email,
     _api_key_hint,
-    _encrypt_secret,
     _settings_dict,
     _account_dict,
     _category_dict,
@@ -203,7 +204,6 @@ async def list_categories(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.services.category_service import CategoryService
     rows = await CategoryService.get_active_list(db, str(user.id))
     return {"categories": rows}
 
@@ -371,7 +371,7 @@ async def create_ai_service(
         base_url=body.base_url,
         auth_header=body.auth_header,
         api_key_hint=_api_key_hint(body.api_key),
-        encrypted_api_key=_encrypt_secret(body.api_key),
+        encrypted_api_key=encrypt_ai_secret(body.api_key),
         enabled=body.enabled,
     )
     db.add(service)
@@ -430,7 +430,7 @@ async def update_ai_service(
     updates = patch.model_dump(exclude_unset=True)
     api_key = updates.pop("api_key", None)
     if api_key is not None:
-        service.encrypted_api_key = _encrypt_secret(api_key)
+        service.encrypted_api_key = encrypt_ai_secret(api_key)
         service.api_key_hint = _api_key_hint(api_key)
     for key, value in updates.items():
         if isinstance(value, str):
@@ -451,6 +451,75 @@ async def delete_ai_service(
     await db.delete(service)
     await db.commit()
     return {"deleted": service_id}
+
+
+class RotateKeyBody(BaseModel):
+    new_api_key: str
+    expires_in_days: Optional[int] = 90
+
+
+@router.post("/account/ai-services/{service_id}/rotate-key")
+async def rotate_api_key(
+    service_id: str,
+    body: RotateKeyBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate the API key for an AI service."""
+    from datetime import datetime, UTC, timedelta
+    from app.audit import log_audit
+
+    service = await _get_owned(db, UserAIService, user.id, service_id)
+    service.encrypted_api_key = encrypt_ai_secret(body.new_api_key)
+    service.api_key_hint = _api_key_hint(body.new_api_key)
+    service.last_rotated_at = datetime.now(UTC)
+    if body.expires_in_days and body.expires_in_days > 0:
+        service.key_expires_at = datetime.now(UTC) + timedelta(days=body.expires_in_days)
+    service.rotation_enabled = True
+    await db.commit()
+    await db.refresh(service)
+
+    await log_audit(
+        db,
+        action="rotate_api_key",
+        user_id=str(user.id),
+        resource_type="ai_service",
+        resource_id=service_id,
+        details=f"provider={service.provider} model={service.model_id}",
+    )
+
+    return {"ai_service": _ai_service_dict(service)}
+
+
+@router.get("/account/ai-services/expiring")
+async def list_expiring_ai_keys(
+    days: int = 30,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List AI services with keys expiring within N days."""
+    from datetime import datetime, UTC, timedelta
+    from sqlalchemy import select
+
+    threshold = datetime.now(UTC) + timedelta(days=days)
+    rows = (await db.execute(
+        select(UserAIService).where(
+            UserAIService.user_id == user.id,
+            UserAIService.key_expires_at.isnot(None),
+            UserAIService.key_expires_at <= threshold,
+        )
+    )).scalars().all()
+    return {
+        "expiring": [
+            {
+                "id": s.id,
+                "provider": s.provider,
+                "display_name": s.display_name,
+                "key_expires_at": s.key_expires_at.isoformat() if s.key_expires_at else None,
+            }
+            for s in rows
+        ],
+    }
 
 
 @router.post("/account/2fa/setup")

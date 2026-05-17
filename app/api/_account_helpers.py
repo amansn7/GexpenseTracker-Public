@@ -1,14 +1,10 @@
 """Shared helpers for account-related API modules."""
-import base64
-import hashlib
-from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.models import (
     ConnectedAccount,
     User,
@@ -17,6 +13,7 @@ from app.models import (
     UserProfile,
     UserSettings,
 )
+from app.services.category_service import CategoryService
 
 DEFAULT_CATEGORIES = [
     ("Food & Dining", "#e8d5b7", "expense"),
@@ -49,24 +46,6 @@ def _api_key_hint(api_key: Optional[str]) -> Optional[str]:
         return None
     suffix = api_key[-4:] if len(api_key) >= 4 else api_key
     return f"••{suffix}"
-
-
-def _encrypt_secret(secret: Optional[str]) -> Optional[str]:
-    if not secret:
-        return None
-    from cryptography.fernet import Fernet
-
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
-    return Fernet(key).encrypt(secret.encode("utf-8")).decode("utf-8")
-
-
-def _decrypt_secret(encrypted: Optional[str]) -> Optional[str]:
-    if not encrypted:
-        return None
-    from cryptography.fernet import Fernet
-
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
-    return Fernet(key).decrypt(encrypted.encode("utf-8")).decode("utf-8")
 
 
 def _profile_dict(profile: UserProfile) -> dict:
@@ -132,6 +111,9 @@ def _ai_service_dict(service: UserAIService) -> dict:
         "auth_header": service.auth_header,
         "api_key_hint": service.api_key_hint,
         "enabled": service.enabled,
+        "rotation_enabled": getattr(service, "rotation_enabled", False),
+        "last_rotated_at": service.last_rotated_at.isoformat() if service.last_rotated_at else None,
+        "key_expires_at": service.key_expires_at.isoformat() if service.key_expires_at else None,
     }
 
 
@@ -141,7 +123,6 @@ async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
     accounts = (await db.execute(
         select(ConnectedAccount).where(ConnectedAccount.user_id == user.id).order_by(ConnectedAccount.provider, ConnectedAccount.account_email)
     )).scalars().all()
-    from app.services.category_service import CategoryService
     categories = await CategoryService.get_list(db, str(user.id))
     services = (await db.execute(
         select(UserAIService).where(UserAIService.user_id == user.id).order_by(UserAIService.display_name)

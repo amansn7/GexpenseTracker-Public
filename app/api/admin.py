@@ -1,12 +1,13 @@
 import asyncio
 import logging
 from typing import Optional, Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import User, UserRole
+from app.audit import log_audit
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -127,6 +128,7 @@ async def classify_test(
 @router.post("/admin/seed-merchants")
 async def seed_merchants(
     body: SeedMerchantsBody,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_require_owner),
 ):
@@ -158,6 +160,16 @@ async def seed_merchants(
             seeded += 1
     await db.commit()
     logger.info("seed-merchants: seeded=%d skipped=%d", seeded, skipped)
+
+    await log_audit(
+        db,
+        action="seed_merchants",
+        user_id=str(current_user.id),
+        resource_type="merchant",
+        details=f"seeded={seeded} skipped={skipped}",
+        ip_address=request.client.host if request.client else None,
+    )
+
     return {"seeded": seeded, "skipped": skipped}
 
 
@@ -180,8 +192,8 @@ async def test_provider(
     client = MultiLLMClient(user_id=current_user.id)
 
     if body.is_user_service:
+        from app.crypto import decrypt_ai_secret
         from app.models import UserAIService
-        from app.api._account_helpers import _decrypt_secret
         from sqlalchemy import select
         query = select(UserAIService).where(
             UserAIService.user_id == current_user.id,
@@ -200,7 +212,7 @@ async def test_provider(
 
         from app.classifier.llm_client import build_user_client
 
-        api_key = _decrypt_secret(svc.encrypted_api_key)
+        api_key = decrypt_ai_secret(svc.encrypted_api_key)
         client = build_user_client(
             user_id=current_user.id,
             provider=svc.provider,
@@ -228,6 +240,7 @@ async def test_provider(
 
 @router.post("/admin/reset-my-data")
 async def reset_my_data(
+    request: Request,
     current_user: User = Depends(_require_owner),
     db: AsyncSession = Depends(get_db),
 ):
@@ -280,6 +293,17 @@ async def reset_my_data(
     )
 
     await db.commit()
+
+    await log_audit(
+        db,
+        action="reset_my_data",
+        user_id=uid,
+        resource_type="user",
+        resource_id=uid,
+        details=f"Deleted tables: {list(deleted.keys())}",
+        ip_address=request.client.host if request.client else None,
+    )
+
     return {"ok": True, "deleted": deleted, "message": "Data reset. Reload the app to start onboarding."}
 
 
@@ -334,6 +358,44 @@ async def list_sender_rules(
                 "category": r.category,
                 "source": r.source.value if r.source else None,
                 "enabled": r.enabled,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/admin/audit-logs")
+async def list_audit_logs(
+    skip: int = 0,
+    limit: int = 50,
+    action: Optional[str] = None,
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return audit log entries."""
+    from sqlalchemy import select
+    from app.models import AuditLog
+
+    query = select(AuditLog).order_by(AuditLog.created_at.desc())
+    if action:
+        query = query.where(AuditLog.action == action)
+
+    total_q = await db.execute(select(AuditLog.id))
+    total = len(total_q.all())
+
+    rows = (await db.execute(query.offset(skip).limit(limit))).scalars().all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "action": r.action,
+                "resource_type": r.resource_type,
+                "resource_id": r.resource_id,
+                "details": r.details,
+                "ip_address": r.ip_address,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows

@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 from app.gmail.auth import get_credentials
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +211,6 @@ def is_likely_financial(subject: str, snippet: str, sender_domain: str) -> bool:
     return bool(_FINANCIAL_RE.search(text))
 
 
-_FETCH_CONCURRENCY = 40  # Gmail quota: messages.get is 5 units; stay well under 250/sec burst
-
 def fetch_new_messages(
     last_history_id,
     email_filter: str = "all",
@@ -255,7 +254,7 @@ def fetch_new_messages(
         message_ids = []
         page_token = None
         while True:
-            kwargs = {"userId": "me", "q": query, "maxResults": 500}
+            kwargs = {"userId": "me", "q": query, "maxResults": settings.SYNC_PAGE_SIZE}
             if page_token:
                 kwargs["pageToken"] = page_token
             results = service.users().messages().list(**kwargs).execute()
@@ -296,7 +295,7 @@ def fetch_new_messages(
     skipped = 0
     for i, msg_id in enumerate(message_ids):
         # Throttle to avoid exceeding Gmail's 250 quota-units/sec burst limit
-        if i > 0 and i % _FETCH_CONCURRENCY == 0:
+        if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
             time.sleep(1)
 
         try:

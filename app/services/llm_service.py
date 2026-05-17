@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.classifier.llm_client import build_user_client
+from app.crypto import decrypt_ai_secret
 from app.models import UserSettings
 from app.models.user import UserAIService
 
@@ -34,9 +35,7 @@ async def get_user_llm_client(user_id: str, db: AsyncSession) -> Optional[object
         return None
 
     try:
-        from app.api._account_helpers import _decrypt_secret
-
-        decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
+        decrypted_key = decrypt_ai_secret(ai_svc.encrypted_api_key)
         return build_user_client(
             user_id=user_id,
             provider=ai_svc.provider,

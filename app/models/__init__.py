@@ -52,6 +52,15 @@ from .financial import (
     DuplicatePair,
 )
 
+from .merchant import (
+    MerchantAlias as MerchantEntityAlias,
+    MerchantEntity,
+)
+
+from .audit_log import (
+    AuditLog,
+)
+
 __all__ = [
     # base
     "Base",
@@ -93,4 +102,9 @@ __all__ = [
     "PatternRule",
     "DomainPairRule",
     "DuplicatePair",
+    # merchant entity resolution
+    "MerchantEntityAlias",
+    "MerchantEntity",
+    # audit log
+    "AuditLog",
 ]

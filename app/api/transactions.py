@@ -13,6 +13,10 @@ from app.database import get_db
 from app.dedup.service import detect_and_record_duplicates
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User, TransactionCorrection
 from app.classifier.merchant_store import merchant_store
+from app.services.classifier_service import get_classifier_context
+from app.services.llm_service import get_user_llm_client
+from app.services.transaction_formatter import format_transaction
+from app.config import settings
 router = APIRouter()
 
 class TransactionPatch(BaseModel):
@@ -42,8 +46,10 @@ class TransactionPatch(BaseModel):
 
 class BulkAction(BaseModel):
     ids: List[str] = []
-    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates"]
+    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates", "set_category", "set_label"]
     select_all: bool = False
+    category: Optional[str] = None
+    label: Optional[str] = None
 
 
 @router.post("/transactions/bulk")
@@ -92,34 +98,21 @@ async def bulk_transactions(
     elif payload.action == "detect_duplicates":
         for t in rows:
             await detect_and_record_duplicates(t, t.email, db)
+    elif payload.action == "set_category":
+        if not payload.category:
+            raise HTTPException(status_code=422, detail="category is required for set_category action")
+        for t in rows:
+            t.category = payload.category
+            t.status = TransactionStatus.corrected.value
+    elif payload.action == "set_label":
+        if not payload.label:
+            raise HTTPException(status_code=422, detail="label is required for set_label action")
+        for t in rows:
+            t.label = payload.label
+            t.status = TransactionStatus.corrected.value
 
     await db.commit()
     return {"updated": len(rows)}
-
-def _fmt(t: Transaction, e: "Email | None") -> dict:
-    return {
-        "id": t.id,
-        "label": t.label,
-        "transaction_type": t.transaction_type,
-        "amount": float(t.amount) if t.amount is not None else None,
-        "currency": t.currency,
-        "merchant": t.merchant,
-        "category": t.category,
-        "txn_date": t.txn_date.isoformat() if t.txn_date else None,
-        "confidence": t.confidence,
-        "status": t.status,
-        "classifier_method": t.classifier_method,
-        "user_notes": t.user_notes,
-        "read": bool(t.read),
-        "flagged": bool(t.flagged),
-        "email": {
-            "subject": e.subject if e else None,
-            "sender": e.sender if e else None,
-            "received_at": e.received_at.isoformat() if e and e.received_at else None,
-            "gmail_link": e.gmail_link if e else None,
-            "body_snippet": e.body_snippet if e else None,
-        },
-    }
 
 @router.get("/transactions")
 async def list_transactions(
@@ -156,7 +149,7 @@ async def list_transactions(
     total = (await db.execute(count_q)).scalar_one()
     rows = (await db.execute(data_q)).all()
     return {
-        "items": [_fmt(t, e) for t, e in rows],
+        "items": [format_transaction(t, e) for t, e in rows],
         "total": total,
         "offset": offset,
         "limit": limit,
@@ -165,38 +158,50 @@ async def list_transactions(
 @router.get("/search")
 async def search_transactions(
     q: str = "",
+    amount_min: Optional[float] = None,
+    amount_max: Optional[float] = None,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     q = q.strip()
-    if len(q) < 2:
-        return {"items": []}
-    term = f"%{q.lower()}%"
-    amount_val = None
-    try:
-        amount_val = float(q.replace(",", "").replace("₹", "").replace("Rs", ""))
-    except (ValueError, AttributeError):
-        pass
+    conditions = [Email.user_id == current_user.id, Transaction.label != "ignore"]
 
-    text_cond = or_(
-        func.lower(Transaction.merchant).like(term),
-        func.lower(Transaction.category).like(term),
-        func.lower(Email.subject).like(term),
-    )
-    if amount_val is not None:
-        match_cond = or_(text_cond, func.abs(Transaction.amount - amount_val) <= 10)
-    else:
-        match_cond = text_cond
+    if amount_min is not None:
+        conditions.append(Transaction.amount >= amount_min)
+    if amount_max is not None:
+        conditions.append(Transaction.amount <= amount_max)
+
+    if len(q) < 2 and amount_min is None and amount_max is None:
+        return {"items": []}
+
+    if len(q) >= 2:
+        term = f"%{q.lower()}%"
+        amount_val = None
+        try:
+            amount_val = float(q.replace(",", "").replace("₹", "").replace("Rs", ""))
+        except (ValueError, AttributeError):
+            pass
+
+        text_cond = or_(
+            func.lower(Transaction.merchant).like(term),
+            func.lower(Transaction.category).like(term),
+            func.lower(Email.subject).like(term),
+        )
+        if amount_val is not None:
+            match_cond = or_(text_cond, func.abs(Transaction.amount - amount_val) <= 10)
+        else:
+            match_cond = text_cond
+        conditions.append(match_cond)
 
     rows = (await db.execute(
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
-        .where(Email.user_id == current_user.id, Transaction.label != "ignore", match_cond)
+        .where(*conditions)
         .order_by(desc(Transaction.created_at))
         .limit(limit)
     )).all()
-    return {"items": [_fmt(t, e) for t, e in rows]}
+    return {"items": [format_transaction(t, e) for t, e in rows]}
 
 
 @router.get("/transactions/low-confidence")
@@ -210,12 +215,12 @@ async def list_low_confidence_transactions(
         .where(
             Email.user_id == current_user.id,
             Transaction.confidence.isnot(None),
-            Transaction.confidence < 0.7,
+            Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD,
         )
         .order_by(Transaction.confidence.asc())
         .limit(50)
     )).all()
-    return {"items": [_fmt(t, e) for t, e in rows], "total": len(rows)}
+    return {"items": [format_transaction(t, e) for t, e in rows], "total": len(rows)}
 
 
 EXPORT_COLUMNS = [
@@ -306,7 +311,7 @@ async def get_transaction(
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
-    result = _fmt(t, e)
+    result = format_transaction(t, e)
     result["email"]["sender_domain"] = e.sender_domain if e else None
     result["email"]["body_snippet"] = e.body_snippet if e else None
     result["email"]["body_text"] = e.body_text if e else None
@@ -438,24 +443,6 @@ async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
     return t, e
 
 
-async def _load_user_llm_client(user_id: str, db: AsyncSession):
-    from sqlalchemy import select as _sel
-    from app.models import UserSettings
-    from app.models.user import UserAIService
-    from app.api._account_helpers import _decrypt_secret
-    from app.classifier.llm_client import build_user_client
-    user_settings = (await db.execute(_sel(UserSettings).where(UserSettings.user_id == user_id))).scalar_one_or_none()
-    if not (user_settings and user_settings.active_ai_service_id):
-        return None
-    ai_svc = (await db.execute(_sel(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id))).scalar_one_or_none()
-    if not (ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key):
-        return None
-    try:
-        return build_user_client(user_id=user_id, provider=ai_svc.provider, base_url=ai_svc.base_url, api_key=_decrypt_secret(ai_svc.encrypted_api_key), model_id=ai_svc.model_id)
-    except Exception:
-        return None
-
-
 @router.post("/transactions/{transaction_id}/reclassify/preview")
 async def reclassify_preview(
     transaction_id: str,
@@ -466,16 +453,15 @@ async def reclassify_preview(
     """Preview reclassification. method=llm uses AI, method=rules uses deterministic rules."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
-    from app.services.category_service import CategoryService
-    user_cats = await CategoryService.load_for_llm(db, str(current_user.id))
+
+    ctx = await get_classifier_context(str(current_user.id), db)
 
     if method == "rules":
-        from app.classifier.rules import build_domain_rules
         from app.classifier.classifier import _rules_fallback_result
-        db_rules = await build_domain_rules(db)
+        db_rules = ctx["rules"]
         cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
     else:
-        user_llm_client = await _load_user_llm_client(str(current_user.id), db)
+        user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
             email_id=e.id,
             sender=e.sender or "",
@@ -486,7 +472,7 @@ async def reclassify_preview(
             rule_engine_enabled=False,
             user_id=str(current_user.id),
             llm_client_override=user_llm_client,
-            categories_override=user_cats,
+            categories_override=ctx["categories"],
         )
     return {
         "label":      cls.label.value,
@@ -511,12 +497,12 @@ async def reclassify_transaction(
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
     if method == "rules":
-        from app.classifier.rules import build_domain_rules
         from app.classifier.classifier import _rules_fallback_result
-        db_rules = await build_domain_rules(db)
+        ctx = await get_classifier_context(str(current_user.id), db)
+        db_rules = ctx["rules"]
         cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
     else:
-        user_llm_client = await _load_user_llm_client(str(current_user.id), db)
+        user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
             email_id=e.id,
             sender=e.sender or "",
@@ -570,7 +556,7 @@ async def reclassify_transaction(
         await db.commit()
 
     await db.refresh(t)
-    result = _fmt(t, e)
+    result = format_transaction(t, e)
     result["learned_rule"] = learned_rule
     return result
 
@@ -635,7 +621,7 @@ async def find_duplicates(
     groups: dict = defaultdict(list)
     for t, e in rows:
         key = (float(t.amount), t.txn_date.isoformat())
-        groups[key].append(_fmt(t, e))
+        groups[key].append(format_transaction(t, e))
 
     # Only return groups with 2+ items from different domains
     duplicates = []

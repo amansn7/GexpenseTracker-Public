@@ -1,4 +1,3 @@
-import re
 from typing import Dict, List, Optional
 
 from sqlalchemy import select
@@ -108,7 +107,7 @@ class CategoryService:
                 select(UserCategory)
                 .where(
                     UserCategory.user_id == user_id,
-                    UserCategory.active == True,
+                    UserCategory.active.is_(True),
                 )
                 .order_by(UserCategory.sort_order, UserCategory.name)
             )

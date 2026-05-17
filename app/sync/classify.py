@@ -8,6 +8,7 @@ from app.classifier.classifier import batch_classify_emails
 from app.classifier.pre_filter import load_engine_from_db
 from app.config import settings
 from app.models import Label, UserSettings
+from app.services.llm_service import get_user_llm_client
 
 
 async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id: str, prog: dict, uid: str) -> Tuple[List, int]:
@@ -31,7 +32,6 @@ async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id
         user_settings_q = select(UserSettings).where(UserSettings.user_id == user_id)
         user_settings = (await session.execute(user_settings_q)).scalar_one_or_none()
         if user_settings and user_settings.active_ai_service_id:
-            from app.services.llm_service import get_user_llm_client
             user_llm_client = await get_user_llm_client(user_id, session)
 
     new_pairs: List[Tuple] = []
@@ -96,7 +96,6 @@ async def _classify_batch(
 
     effective_llm_client = user_llm_client
     if not effective_llm_client and user_id and user_settings and user_settings.active_ai_service_id:
-        from app.services.llm_service import get_user_llm_client
         effective_llm_client = await get_user_llm_client(user_id, session)
 
     items = [(email.id, msg["sender"], msg["sender_domain"],

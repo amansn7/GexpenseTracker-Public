@@ -140,6 +140,9 @@ class UserAIService(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+    last_rotated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    key_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    rotation_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
 
     user: Mapped["User"] = relationship(back_populates="ai_services")
 

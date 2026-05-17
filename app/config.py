@@ -47,4 +47,26 @@ class Settings(BaseSettings):
     INVITE_CODE: str = ""
     DEV_MODE: bool = False
 
+    # Dedup
+    AUTO_RESOLVE_THRESHOLD: float = 0.85
+    DEDUP_BATCH_SIZE: int = 100
+
+    # Sync
+    FETCH_CONCURRENCY: int = 5
+    SYNC_PAGE_SIZE: int = 50
+
+    # Confidence governance
+    LOW_CONFIDENCE_THRESHOLD: float = 0.7
+    HIGH_CONFIDENCE_THRESHOLD: float = 0.9
+    MEDIUM_CONFIDENCE_THRESHOLD: float = 0.7
+
+    # Income classification
+    INCOME_MONTH_SHIFT: int = 1
+
+    # Stats
+    CATEGORY_BREAKDOWN_LIMIT: int = 6
+
+    # Reclassify
+    RECLASSIFY_METHODS: list = ["llm", "rules"]
+
 settings = Settings()
