@@ -29,7 +29,12 @@ const SankeyDiagram = ({ data }) => {
   const totalInvestments = data.expenses.filter(e => e.cat === "investment").reduce((a,e)=>a+e.amount, 0);
   const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const USABLE_H = H - PAD_Y * 2;
-  const scale = totalIncome > 0 ? USABLE_H / totalIncome : 0;
+
+  // Scale against whichever side has money — income, expenses, or fallback
+  const poolTotal = Math.max(totalIncome, totalExpense + totalCCPayments + totalInvestments, 1);
+  const scale = USABLE_H / poolTotal;
+  const hasIncome = totalIncome > 0;
+  const hasExpenses = totalExpense + totalCCPayments + totalInvestments > 0;
 
   // Layout income nodes (left)
   let yi = PAD_Y;
@@ -40,11 +45,12 @@ const SankeyDiagram = ({ data }) => {
     return node;
   });
 
-  // Hub (middle) — represents total money pool
-  const hubH = USABLE_H;
-  const hubY = PAD_Y;
+  // Hub (middle) — height proportional to income side; centered when income < expenses
+  const incomeRatio = hasIncome ? totalIncome / poolTotal : 0;
+  const hubH = Math.max(USABLE_H * incomeRatio, hasExpenses && !hasIncome ? USABLE_H : 60);
+  const hubY = PAD_Y + (USABLE_H - hubH) / 2;
 
-  // Right nodes: expenses + CC payments + investments + savings, each proportional
+  // Right nodes: expenses + CC payments + investments + savings
   let yo = PAD_Y;
   const rightNodes = [
     ...data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").map(e => {
@@ -62,7 +68,7 @@ const SankeyDiagram = ({ data }) => {
       y: yo, h: Math.max(6, totalInvestments * scale), kind: "inv",
     }].map(n => { yo += n.h + 10; return n; }) : []),
     (() => {
-      const h = Math.max(6, savings * scale);
+      const h = Math.max(6, Math.abs(savings) * scale);
       const node = { label: "Remaining", amount: savings, y: yo, h, kind: "sav" };
       yo += h + 10;
       return node;
@@ -78,6 +84,9 @@ const SankeyDiagram = ({ data }) => {
     return `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2} L${x2},${y2+h2} C${cx2},${y2+h2} ${cx1},${y1+h1} ${x1},${y1+h1} Z`;
   };
 
+  const hubLabel = hasIncome ? "TOTAL INFLOW" : "OUTFLOW";
+  const hubAmount = hasIncome ? totalIncome : totalExpense + totalCCPayments + totalInvestments;
+
   return (
     <div style={{ overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch" }}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560, minWidth: isMobile ? 760 : 0 }}>
@@ -89,11 +98,11 @@ const SankeyDiagram = ({ data }) => {
 
         {/* Hub */}
         <rect x={MID_X} y={hubY} width={MID_W} height={hubH} fill="var(--paper-2)" stroke="var(--line)" rx="4"/>
-        <text x={MID_X + MID_W/2} y={hubY + hubH/2 - 8} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="13" fill="var(--ink-3)" letterSpacing="0.08em">TOTAL INFLOW</text>
-        <text x={MID_X + MID_W/2} y={hubY + hubH/2 + 18} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="28" fill="var(--ink)">₹{(totalIncome/1000).toFixed(0)}K</text>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 - 8} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="13" fill="var(--ink-3)" letterSpacing="0.08em">{hubLabel}</text>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 + 18} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="28" fill="var(--ink)">₹{(hubAmount/1000).toFixed(0)}K</text>
 
         {/* Income → Hub flows */}
-        {incomeNodes.map((n, idx) => {
+        {hasIncome && incomeNodes.map((n, idx) => {
           const p = buildPath(LEFT_X + LEFT_W, n.y, n.h, MID_X, hubY + hubInOff, n.h);
           hubInOff += n.h + 10;
           return (
@@ -106,7 +115,7 @@ const SankeyDiagram = ({ data }) => {
         })}
 
         {/* Income nodes */}
-        {incomeNodes.map((n, idx) => {
+        {hasIncome && incomeNodes.map((n, idx) => {
           const pct = totalIncome > 0 ? ((n.amount / totalIncome) * 100).toFixed(1) : "0";
           return (
             <g key={`ni-${idx}`}>
@@ -123,7 +132,7 @@ const SankeyDiagram = ({ data }) => {
           return rightNodes.map((n, idx) => {
             const color = n.kind === "sav" ? "var(--pos)" : n.kind === "cc" ? "var(--cat-card-ink)" : n.kind === "inv" ? "var(--cat-investment-ink)" : CategoryService.colorVar(n.cat);
             const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
-            off += n.h + 10 * (n.h / n.h);
+            off += n.h + 10;
             return (
               <g key={`out-${idx}`}>
                 <title>{n.label} · ₹{n.amount.toLocaleString("en-IN")}</title>
@@ -160,7 +169,8 @@ const SankeyDiagram = ({ data }) => {
         })}
 
         {/* column labels */}
-        <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">INCOME SOURCES</text>
+        {hasIncome && <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">INCOME SOURCES</text>}
+        {!hasIncome && <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500" opacity="0.4">—</text>}
         <text x={MID_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">POOL</text>
         <text x={RIGHT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">WHERE IT WENT</text>
       </svg>

@@ -4,9 +4,13 @@ const inboxStyles = {
   wrap: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 0, height: "calc(100vh - 72px)", minHeight: 0 },
   wrapNoPanel: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "calc(100vh - 72px)" },
   list: { overflowY: "auto", borderRight: "1px solid var(--line)" },
-  toolbar: { display: "flex", alignItems: "center", gap: 6, padding: "10px 32px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--paper)", zIndex: 5, fontSize: 12, color: "var(--ink-3)" },
-  chip: { padding: "5px 10px", borderRadius: 20, border: "1px solid var(--line)", background: "var(--card)", fontSize: 11, color: "var(--ink-2)", display: "flex", alignItems: "center", gap: 6, fontWeight: 500, cursor: "pointer" },
+  toolbar: { display: "flex", alignItems: "center", gap: 4, padding: "10px 32px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--paper)", zIndex: 5, fontSize: 12, color: "var(--ink-3)" },
+  chip: { padding: "5px 12px", borderRadius: 20, border: "1px solid transparent", background: "transparent", fontSize: 12, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 500, cursor: "pointer", transition: "all 120ms ease", lineHeight: 1.2 },
+  chipHover: { background: "var(--paper-2)" },
   chipActive: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
+  chipDivider: { width: 1, height: 16, background: "var(--line)", margin: "0 4px", flexShrink: 0 },
+  chipCount: { opacity: 0.5, fontFamily: "'Geist Mono', monospace", fontSize: 11, fontVariantNumeric: "tabular-nums" },
+  chipIcon: { opacity: 0.7 },
 
   dayLabel: { padding: "20px 32px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, background: "var(--paper)", position: "sticky", top: 41, zIndex: 3, display: "flex", alignItems: "baseline", gap: 12 },
   dayTotal: { fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", textTransform: "none", letterSpacing: 0 },
@@ -803,6 +807,26 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
   );
 };
 
+const FilterChip = ({ label, icon, count, active, onClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...inboxStyles.chip,
+        ...(active ? inboxStyles.chipActive : {}),
+        ...(!active && hovered ? inboxStyles.chipHover : {}),
+      }}
+    >
+      {icon && <Icon name={icon} size={13} stroke={active ? "currentColor" : "var(--ink-4)"} style={inboxStyles.chipIcon} />}
+      {label}
+      {count != null && <span style={inboxStyles.chipCount}>{count}</span>}
+    </button>
+  );
+};
+
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
@@ -1227,29 +1251,32 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             ) : (
               <>
                 {[
-                  ["all","All", transactions.length],
-                  ["expenses","Expenses"],
-                  ["income","Income"],
-                  ["sub","Subscriptions"],
-                  ["flagged","Flagged"],
-                  ["low","Low conf."],
-                  ["duplicates","Duplicates"],
-                  ["review","Pending", reviewEmails.length],
-                ].map(([k,label,count]) => (
-                  <button key={k} onClick={()=>setFilter(k)} style={{ ...inboxStyles.chip, ...(filter===k ? inboxStyles.chipActive : {}) }}>
-                    {label}{count!=null && <span style={{ opacity: 0.6, fontFamily: "'Geist Mono', monospace" }}>{count}</span>}
-                  </button>
+                  ["all","All", "grid", transactions.length],
+                  ["expenses","Expenses", "bag"],
+                  ["income","Income", "trend-u"],
+                ].map(([k,label,icon,count]) => (
+                  <FilterChip key={k} label={label} icon={icon} count={count} active={filter===k} onClick={()=>setFilter(k)} />
+                ))}
+                <div style={inboxStyles.chipDivider} />
+                {[
+                  ["sub","Subscriptions", "repeat"],
+                  ["flagged","Flagged", "star"],
+                  ["low","Low confidence", "sparkle"],
+                  ["duplicates","Duplicates", "arrow-swap"],
+                  ["review","Pending", "inbox", reviewEmails.length],
+                ].map(([k,label,icon,count]) => (
+                  <FilterChip key={k} label={label} icon={icon} count={count} active={filter===k} onClick={()=>setFilter(k)} />
                 ))}
                 <div style={{ flex: 1 }}/>
                 <select
                   value={currentPreset?.label || "This Month"}
                   onChange={(e) => { const preset = datePresets.find(p => p.label === e.target.value); if (preset) setDateRange(preset.get()); }}
-                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}
+                  style={{ fontSize: 11, padding: "5px 24px 5px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-3)", cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2378736a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}
                 >
                   {datePresets.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
                 </select>
-                {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{filtered.length} transactions</span>}
-                {!isMobile && selectedId && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", display: "flex", alignItems: "center", gap: 4 }}>↑↓ <span style={{ opacity: 0.4 }}>·</span> Esc</span>}
+                {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginLeft: 4 }}>{filtered.length} transactions</span>}
+                {!isMobile && selectedId && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>↑↓ <span style={{ opacity: 0.4 }}>·</span> Esc</span>}
               </>
             )}
           </div>
