@@ -181,7 +181,7 @@ async def classify_email(
             txn_type = "purchase"
         else:
             txn_type = None
-    classifier_method = ClassifierMethod.llm if llm_result or confidence == 0.0 else ClassifierMethod.rule
+    classifier_method = ClassifierMethod.llm if llm_result else ClassifierMethod.rule
 
     status = (
         TransactionStatus.auto
