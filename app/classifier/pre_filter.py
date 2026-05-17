@@ -1,9 +1,83 @@
 import re
 import logging
+import signal
 from dataclasses import dataclass
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
+
+# ReDoS protection: reject patterns that look dangerous
+_REDOS_PATTERNS = [
+    re.compile(r"(\([^)]*\)|\[[^\]]*\])\*"),  # (abc)* or [abc]*
+    re.compile(r"(\([^)]*\)|\[[^\]]*\])\+"),  # (abc)+ or [abc]+
+    re.compile(r"\(\.\*\)\*"),                 # (.*)*
+    re.compile(r"\(\.\*\)\+"),                 # (.*)+
+    re.compile(r"\(\.\+\)\*"),                 # (.+)*
+    re.compile(r"\(\.\+\)\+"),                 # (.+)+
+    re.compile(r"\(\\w\+\)\*"),                # (\w+)*
+    re.compile(r"\(\\w\*\)\*"),                # (\w*)*
+    re.compile(r"\(\\d\+\)\*"),                # (\d+)*
+    re.compile(r"\(\\d\*\)\*"),                # (\d*)*
+    re.compile(r"\(\\s\+\)\*"),                # (\s+)*
+    re.compile(r"\(\\s\*\)\*"),                # (\s*)*
+]
+
+_MAX_PATTERN_LENGTH = 256
+
+
+def _is_safe_pattern(pattern: str) -> bool:
+    """Check if a regex pattern is safe from ReDoS attacks."""
+    if len(pattern) > _MAX_PATTERN_LENGTH:
+        return False
+    for dangerous in _REDOS_PATTERNS:
+        if dangerous.search(pattern):
+            return False
+    # Check for nested quantifiers like (a+)+ or (a*)*
+    depth = 0
+    for i, c in enumerate(pattern):
+        if c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth < 0:
+                return False
+        elif c in '*+?' and depth > 0:
+            # Check if preceded by another quantifier
+            if i > 0 and pattern[i-1] in '*+?':
+                return False
+    return depth == 0
+
+
+class RegexTimeoutError(Exception):
+    """Raised when a regex match takes too long."""
+    pass
+
+
+def _safe_match(pattern: re.Pattern, text: str, timeout_ms: int = 100) -> bool:
+    """Run regex match with timeout protection."""
+    import threading
+    
+    result = [False]
+    exception = [None]
+    
+    def _match():
+        try:
+            result[0] = bool(pattern.search(text))
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=_match)
+    thread.daemon = True
+    thread.start()
+    thread.join(timeout=timeout_ms / 1000.0)
+    
+    if thread.is_alive():
+        raise RegexTimeoutError(f"Regex match timed out after {timeout_ms}ms")
+    
+    if exception[0]:
+        raise exception[0]
+    
+    return result[0]
 
 
 @dataclass
@@ -30,11 +104,16 @@ class PreFilterEngine:
     def __init__(self, rules: list) -> None:
         self._allowlist = {r.value.lower() for r in rules if r.rule_type == "allowlist_domain"}
         self._blocklist = {r.value.lower() for r in rules if r.rule_type == "blocklist_domain"}
-        self._keyword_patterns = [
-            re.compile(re.escape(r.value), re.IGNORECASE)
-            for r in rules
-            if r.rule_type == "keyword_pattern"
-        ]
+        self._keyword_patterns = []
+        for r in rules:
+            if r.rule_type == "keyword_pattern":
+                if not _is_safe_pattern(r.value):
+                    logger.warning("Rejected unsafe keyword pattern: %s", r.value[:50])
+                    continue
+                try:
+                    self._keyword_patterns.append(re.compile(re.escape(r.value), re.IGNORECASE))
+                except re.error as exc:
+                    logger.warning("Invalid keyword pattern: %s (%s)", r.value[:50], exc)
 
     def evaluate_sync(self, subject: str, snippet: str, sender_domain: str) -> PreFilterResult:
         domain = (sender_domain or "").lower()
@@ -54,7 +133,7 @@ class PreFilterEngine:
             score += 0.30
         if self._NETWORK_RE.search(text):
             score += 0.20
-        if any(p.search(text) for p in self._keyword_patterns):
+        if any(_safe_match(p, text) for p in self._keyword_patterns):
             score += 0.10
 
         if score >= 0.60:
@@ -93,10 +172,13 @@ class PreFilterEngine:
             return PreFilterResult(decision="review", confidence=result.confidence, tier=3)
 
 
-async def load_engine_from_db(session) -> "PreFilterEngine":
+async def load_engine_from_db(session, user_id: str = None) -> "PreFilterEngine":
     """Load all FilterRule rows and build a PreFilterEngine. Call once per sync run."""
     from sqlalchemy import select
     from app.models import FilterRule
 
-    rules = (await session.execute(select(FilterRule))).scalars().all()
+    stmt = select(FilterRule)
+    if user_id:
+        stmt = stmt.where(FilterRule.user_id == user_id)
+    rules = (await session.execute(stmt)).scalars().all()
     return PreFilterEngine(rules)

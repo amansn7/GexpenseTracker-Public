@@ -109,6 +109,7 @@ async def review_email(
                     FilterRule.rule_type == "allowlist_domain",
                     FilterRule.value == email.sender_domain,
                     FilterRule.source == "user",
+                    FilterRule.user_id == current_user.id,
                 )
             )).scalar_one_or_none()
             if existing_rule:
@@ -118,6 +119,7 @@ async def review_email(
                     rule_type="allowlist_domain",
                     value=email.sender_domain,
                     source="user",
+                    user_id=current_user.id,
                 ))
 
     elif payload.action == "discard":
@@ -129,6 +131,7 @@ async def review_email(
                     FilterRule.rule_type == "blocklist_domain",
                     FilterRule.value == email.sender_domain,
                     FilterRule.source == "user",
+                    FilterRule.user_id == current_user.id,
                 )
             )).scalar_one_or_none()
             if existing_rule:
@@ -138,6 +141,7 @@ async def review_email(
                     rule_type="blocklist_domain",
                     value=email.sender_domain,
                     source="user",
+                    user_id=current_user.id,
                 ))
     else:
         raise HTTPException(status_code=400, detail="action must be 'keep' or 'discard'")
@@ -224,7 +228,7 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
             yield _sse({"type": "start", "message": f"▶ LLM reclassify on {total} email(s)"})
             yield _sse({"type": "divider", "message": "─" * 60})
 
-            # Load user's active AI service (mirrors sync.py pattern)
+            # Load user's active AI service
             from app.models import UserSettings
             from sqlalchemy import select as _select
             user_settings = (await db.execute(
@@ -233,25 +237,10 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
 
             user_llm_client = None
             if user_settings and user_settings.active_ai_service_id:
-                from app.models.user import UserAIService
-                from app.api._account_helpers import _decrypt_secret
-                from app.classifier.llm_client import build_user_client
-                ai_svc = (await db.execute(
-                    _select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
-                )).scalar_one_or_none()
-                if ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key:
-                    try:
-                        decrypted_key = _decrypt_secret(ai_svc.encrypted_api_key)
-                        user_llm_client = build_user_client(
-                            user_id=user_id,
-                            provider=ai_svc.provider,
-                            base_url=ai_svc.base_url,
-                            api_key=decrypted_key,
-                            model_id=ai_svc.model_id,
-                        )
-                        yield _sse({"type": "dim", "message": f"Using AI service: {ai_svc.display_name} ({ai_svc.provider})"})
-                    except Exception as _e:
-                        log.warning("Failed to build user LLM client: %s", _e)
+                from app.services.llm_service import get_user_llm_client
+                user_llm_client = await get_user_llm_client(user_id, db)
+                if user_llm_client:
+                    yield _sse({"type": "dim", "message": f"Using AI service: {user_settings.active_ai_service_id}"})
 
             ok = 0
             changed = 0

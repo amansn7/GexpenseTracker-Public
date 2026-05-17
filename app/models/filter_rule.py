@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime
+from sqlalchemy import String, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, _uuid_col, _utcnow
 
@@ -8,6 +8,7 @@ class FilterRule(Base):
     __tablename__ = "filter_rules"
 
     id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     rule_type: Mapped[str] = mapped_column(String(30), index=True)   # allowlist_domain | blocklist_domain | keyword_pattern
     value: Mapped[str] = mapped_column(String(255), index=True)
     source: Mapped[str] = mapped_column(String(20))      # system | user | llm

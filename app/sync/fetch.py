@@ -44,7 +44,10 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
     """Core sync logic operating on an injected session. Exposed for testing."""
     uid = user_id or "default"
     prog = _user_progress(uid)
-    state_result = await session.execute(select(SyncState))
+    state_result = await session.execute(
+        select(SyncState).where(SyncState.user_id == user_id)
+        if user_id else select(SyncState)
+    )
     sync_state = state_result.scalar_one_or_none()
     last_history_id = sync_state.last_history_id if sync_state else None
     email_filter = getattr(sync_state, "email_filter", "all") or "all"
@@ -125,7 +128,7 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
     await learn_pending_aliases(session)
 
     # ── Phase 5: update SyncState + commit ──────────────────────────────────
-    await _update_sync_state(session, sync_state, new_history_id)
+    await _update_sync_state(session, sync_state, new_history_id, user_id)
     await session.commit()
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}

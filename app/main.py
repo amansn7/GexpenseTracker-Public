@@ -43,7 +43,16 @@ async def lifespan(app: FastAPI):
             from app.database import AsyncSessionLocal
             from app.classifier.merchant import load_alias_cache_from_db
             from app.classifier.merchant_entity import load_db_aliases
+            from sqlalchemy import text
             async with AsyncSessionLocal() as db:
+                # Schema migrations: add user_id to sync_state and filter_rules
+                await db.execute(text("""
+                    ALTER TABLE sync_state ADD COLUMN IF NOT EXISTS user_id VARCHAR(36) REFERENCES users(id)
+                """))
+                await db.execute(text("""
+                    ALTER TABLE filter_rules ADD COLUMN IF NOT EXISTS user_id VARCHAR(36) REFERENCES users(id)
+                """))
+                await db.commit()
                 await load_alias_cache_from_db(db)
                 await load_db_aliases(db)
         except Exception as exc:
