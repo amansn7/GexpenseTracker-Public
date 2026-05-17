@@ -255,7 +255,7 @@ async def auth_me(
     if seed_row:
         try:
             seed_count = (await db.scalar(
-                select(func.count()).where(Email.user_id == seed_row.id)
+                select(func.count(Email.id)).where(Email.user_id == seed_row.id)
             )) or 0
             has_seed_data = seed_count > 0
         except Exception:
