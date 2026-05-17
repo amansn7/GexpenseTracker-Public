@@ -94,6 +94,8 @@ async def review_email(
         txn = Transaction(
             email_id=email.id,
             label=result.label,
+            transaction_type=result.transaction_type,
+            payment_mode=result.payment_mode,
             amount=result.amount,
             merchant=result.merchant,
             category=result.category,
@@ -298,6 +300,8 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                         txn = Transaction(
                             email_id=email.id,
                             label=cls.label.value,
+                            transaction_type=cls.transaction_type,
+                            payment_mode=cls.payment_mode,
                             amount=cls.amount,
                             merchant=cls.merchant,
                             category=cls.category,

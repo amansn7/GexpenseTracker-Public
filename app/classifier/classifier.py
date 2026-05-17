@@ -7,7 +7,8 @@ from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
 from app.classifier.llm_client import llm_client, MultiLLMClient
-from app.classifier.merchant import extract_raw_merchant, normalize_merchant
+from app.classifier.merchant import extract_raw_merchant
+from app.classifier.merchant_entity import resolve_merchant
 from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
@@ -22,6 +23,40 @@ _AMOUNT_RE = re.compile(
 # Amount validation thresholds
 _AMOUNT_CEILING = 10_000_000  # ₹1 crore — reject above this
 _AMOUNT_REVIEW_THRESHOLD = 1_000_000  # ₹10 lakh — flag for review above this
+
+_CC_PATTERNS = [
+    re.compile(r"credit\s*card", re.I),
+    re.compile(r"cc\s*statement", re.I),
+    re.compile(r"hdfc.*credit", re.I),
+    re.compile(r"icici.*credit", re.I),
+    re.compile(r"sbi\s*card", re.I),
+    re.compile(r"axis.*credit", re.I),
+    re.compile(r"amex", re.I),
+    re.compile(r"american.?express", re.I),
+]
+_UPI_PATTERNS = [
+    re.compile(r"@\w+", re.I),  # UPI handle
+    re.compile(r"upi", re.I),
+    re.compile(r"gpay|phonepe|paytm", re.I),
+    re.compile(r"ybl|ibl|okicici|axl", re.I),
+]
+_NET_BANKING_PATTERNS = [
+    re.compile(r"net\s*banking", re.I),
+    re.compile(r"neft|imps|rtgs", re.I),
+]
+
+
+def _detect_payment_mode(text: str) -> Optional[str]:
+    """Detect payment mode from email text. Returns credit_card, upi, net_banking, or None."""
+    if not text:
+        return None
+    if any(p.search(text) for p in _CC_PATTERNS):
+        return "credit_card"
+    if any(p.search(text) for p in _UPI_PATTERNS):
+        return "upi"
+    if any(p.search(text) for p in _NET_BANKING_PATTERNS):
+        return "net_banking"
+    return None
 
 
 def _validate_llm_amount(amount, confidence, status):
@@ -51,6 +86,7 @@ class ClassificationResult:
     txn_date: Optional[date] = None
     status: TransactionStatus = TransactionStatus.needs_review
     transaction_type: Optional[str] = None
+    payment_mode: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
 
 
@@ -110,6 +146,7 @@ async def classify_email(
                 status=status,
                 classifier_method=ClassifierMethod.rule,
                 transaction_type=txn_type,
+                payment_mode=_detect_payment_mode(body_text),
             )
 
     provider = "none"
@@ -149,8 +186,8 @@ async def classify_email(
 
     if llm_result:
         raw_merchant = llm_result.merchant
-        merchant, _ = normalize_merchant(raw_merchant) if raw_merchant else (None, 0.0)
-        merchant = merchant or None
+        merchant_info = resolve_merchant(raw_merchant) if raw_merchant else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+        merchant = merchant_info["canonical"] or None
         try:
             label = Label(llm_result.label)
         except ValueError:
@@ -179,9 +216,10 @@ async def classify_email(
             merchant_category = MERCHANT_MAP.get(rule_result.merchant.lower(), {}).get("category")
         else:
             raw_merchant = extract_raw_merchant(body_text)
-            normalized_merchant, merchant_conf = normalize_merchant(raw_merchant or "")
-            merchant_meta = MERCHANT_MAP.get(normalized_merchant, {})
-            merchant = merchant_meta.get("display") or (normalized_merchant.title() if normalized_merchant else None)
+            merchant_info = resolve_merchant(raw_merchant or "")
+            merchant_conf = merchant_info["confidence"]
+            merchant_meta = MERCHANT_MAP.get(merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {})
+            merchant = merchant_meta.get("display") or (merchant_info["canonical"].title() if merchant_info["canonical"] else None)
             merchant_category = merchant_meta.get("category")
         label = rule_result.label or Label.ignore
         amount = None
@@ -242,6 +280,7 @@ async def classify_email(
         status=status,
         classifier_method=classifier_method,
         transaction_type=txn_type,
+        payment_mode=_detect_payment_mode(body_text),
         warnings=result_warnings,
     )
 
@@ -257,9 +296,10 @@ def _rules_fallback_result(
         merchant_category = MERCHANT_MAP.get(rule_result.merchant.lower(), {}).get("category")
     else:
         raw_merchant = extract_raw_merchant(body_text)
-        normalized_merchant, merchant_conf = normalize_merchant(raw_merchant or "")
-        merchant_meta = MERCHANT_MAP.get(normalized_merchant, {})
-        merchant = merchant_meta.get("display") or (normalized_merchant.title() if normalized_merchant else None)
+        merchant_info = resolve_merchant(raw_merchant or "")
+        merchant_conf = merchant_info["confidence"]
+        merchant_meta = MERCHANT_MAP.get(merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {})
+        merchant = merchant_meta.get("display") or (merchant_info["canonical"].title() if merchant_info["canonical"] else None)
         merchant_category = merchant_meta.get("category")
     label = rule_result.label or Label.ignore
     amount = _extract_amount(body_text)
@@ -287,6 +327,7 @@ def _rules_fallback_result(
         txn_date=None, confidence=confidence, status=status,
         classifier_method=ClassifierMethod.rule,
         transaction_type=txn_type,
+        payment_mode=_detect_payment_mode(body_text),
     )
 
 
@@ -361,6 +402,7 @@ async def batch_classify_emails(
                     txn_date=None, confidence=rule_pre.confidence, status=status,
                     classifier_method=ClassifierMethod.rule,
                     transaction_type=txn_type,
+                    payment_mode=_detect_payment_mode(body_text),
                 )
                 continue
 
@@ -396,8 +438,8 @@ async def batch_classify_emails(
                     snippet = body_snippets[idx]
 
                     raw_merchant = llm_res.merchant
-                    merchant, _ = normalize_merchant(raw_merchant) if raw_merchant else (None, 0.0)
-                    merchant = merchant or None
+                    merchant_info = resolve_merchant(raw_merchant) if raw_merchant else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+                    merchant = merchant_info["canonical"] or None
                     try:
                         label = Label(llm_res.label)
                     except ValueError:
@@ -434,6 +476,7 @@ async def batch_classify_emails(
                         confidence=confidence, status=status,
                         classifier_method=ClassifierMethod.llm,
                         transaction_type=txn_type,
+                        payment_mode=_detect_payment_mode(items[idx][4]),
                     )
 
                     latency_ms = round((time.monotonic() - batch_ts) * 1000)

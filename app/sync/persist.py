@@ -23,6 +23,7 @@ async def _persist_transactions(
             email_id=email.id,
             label=cls.label.value,
             transaction_type=cls.transaction_type,
+            payment_mode=cls.payment_mode,
             amount=cls.amount,
             currency="INR",
             merchant=cls.merchant,
