@@ -62,6 +62,45 @@ async def list_emails(
     ]
 
 
+@router.post("/emails/{email_id}/fetch-body")
+async def fetch_email_body(
+    email_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-fetch clean body text for an email from Gmail API."""
+    import asyncio
+    from app.gmail.auth import get_credentials_for_user
+    from app.gmail.client import _build_service, _extract_body_text
+    from fastapi import HTTPException
+
+    email = (await db.execute(
+        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    creds = await get_credentials_for_user(db, current_user.id)
+    if not creds:
+        raise HTTPException(status_code=503, detail="Gmail not authenticated")
+    service = await asyncio.to_thread(_build_service, creds)
+
+    try:
+        msg = await asyncio.to_thread(
+            lambda eid=email.gmail_id: service.users().messages().get(
+                userId="me", id=eid, format="full"
+            ).execute()
+        )
+        body = _extract_body_text(msg.get("payload", {}))
+        if body:
+            email.body_text = body
+            await db.commit()
+            return {"body_text": body, "body_chars": len(body)}
+        return {"body_text": email.body_text or "", "body_chars": len(email.body_text or ""), "note": "Could not extract body from Gmail"}
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Gmail fetch failed: {str(exc)}")
+
+
 class ReviewAction(BaseModel):
     action: str  # "keep" | "discard"
 
