@@ -801,8 +801,8 @@ const RuleEngineSection = () => {
   };
 
   const labelColor = (l) => ({
-    expense: { background: "var(--neg-soft, #fee2e2)", color: "var(--neg, #ef4444)" },
-    income:  { background: "var(--pos-soft, #d1fae5)", color: "var(--pos, #059669)" },
+    expense: { background: "var(--neg-soft)", color: "var(--neg)" },
+    income:  { background: "var(--pos-soft)", color: "var(--pos)" },
     ignore:  { background: "var(--paper-2)",            color: "var(--ink-3)" },
   }[l] || { background: "var(--paper-2)", color: "var(--ink-3)" });
 

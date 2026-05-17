@@ -23,12 +23,9 @@ const dashStyles = {
 };
 
 const DashboardView = ({ transactions, categoryFilter }) => {
-  const { isMobile, isTablet } = useViewport();
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = (() => {
-    const d = new Date(); d.setDate(d.getDate() - 29);
-    return d.toISOString().slice(0, 10);
-  })();
+  var { isMobile, isTablet } = useViewport();
+  var todayStr = new Date().toISOString().slice(0, 10);
+  var thirtyDaysAgo = DateUtils.getLastNDays(29).from;
 
   const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
   const [rangeTo, setRangeTo] = React.useState(todayStr);
@@ -362,6 +359,12 @@ const DashboardView = ({ transactions, categoryFilter }) => {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                         <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--cat-card)", border: "1px solid var(--cat-card-ink)33", flexShrink: 0 }}/>
                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>CC Payments</span>
+                        <span
+                          title="Credit card payments you made to pay off your card balance. These are transfers from your bank to your CC account, not new expenses."
+                          style={{ fontSize: 11, color: "var(--ink-4)", cursor: "help", marginLeft: 2 }}
+                        >
+                          ⓘ
+                        </span>
                       </div>
                       <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>
                         ₹{totalCCPayments.toLocaleString("en-IN")}

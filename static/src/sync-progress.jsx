@@ -48,7 +48,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
           display: "flex", alignItems: "center", gap: 8,
           background: "var(--card)", border: "1px solid var(--line)",
           borderRadius: 24, padding: "8px 14px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 16px var(--shadow-md)",
           cursor: "pointer", fontSize: 12, color: "var(--ink-2)",
           fontFamily: "'Geist Mono', monospace",
         }}
@@ -67,7 +67,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       position: "fixed", ...panelPos,
       zIndex: 999, width: 420, maxWidth: "calc(100vw - 32px)",
       background: "var(--card)", border: "1px solid var(--line)",
-      borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+      borderRadius: 12, boxShadow: "0 8px 32px var(--shadow-lg)",
       display: "flex", flexDirection: "column",
       animation: "slideUp 200ms ease-out",
     }}>

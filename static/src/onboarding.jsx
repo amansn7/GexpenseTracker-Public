@@ -184,7 +184,7 @@ const ThemeToggle = () => {
       onMouseLeave={() => { setHover(false); setPressing(false); }}
       onMouseDown={() => setPressing(true)}
       onMouseUp={() => setPressing(true)}
-      style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1001, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 999, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)", padding: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.08)", transform: `scale(${scale})`, transition: spring, WebkitTapHighlightColor: "transparent" }}
+      style={{ position: "fixed", bottom: 20, right: 20, zIndex: 1001, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 999, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--ink-2)", padding: 0, boxShadow: "0 2px 8px var(--shadow-sm)", transform: `scale(${scale})`, transition: spring, WebkitTapHighlightColor: "transparent" }}
       aria-label="Toggle theme">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ overflow: "visible" }}>
         <mask id={maskId}>
@@ -216,7 +216,7 @@ const S = {
   btnPrimary: { padding: "10px 20px", background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
   btnSecondary: { padding: "10px 20px", background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
   error: { padding: "10px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 16 },
-  success: { padding: "10px 12px", background: "var(--pos-soft, #d1fae5)", color: "var(--pos, #059669)", borderRadius: 6, fontSize: 13, marginBottom: 16 },
+  success: { padding: "10px 12px", background: "var(--pos-soft)", color: "var(--pos)", borderRadius: 6, fontSize: 13, marginBottom: 16 },
   fieldWrap: { marginBottom: 14 },
   row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
   h2: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", margin: "0 0 6px", color: "var(--ink)" },
@@ -681,7 +681,7 @@ const StepDone = ({ stepData }) => {
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 999, background: "var(--pos-soft, #d1fae5)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 26 }}>
+        <div style={{ width: 56, height: 56, borderRadius: 999, background: "var(--pos-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 26 }}>
           ✓
         </div>
         <h2 style={{ ...S.h2, fontSize: 32, textAlign: "center" }}>You're set up.</h2>

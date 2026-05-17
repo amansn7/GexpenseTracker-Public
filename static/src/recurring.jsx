@@ -51,8 +51,8 @@ const RecurringModal = ({ item, onSave, onDelete, onClose, userCategories }) => 
   const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(26,24,20,0.44)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px rgba(0,0,0,0.3)" }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Recurring" : "Add Recurring"}</span>
           <button onClick={onClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>

@@ -19,7 +19,7 @@ const accountStyles = {
   btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
   btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
   toggle: { width: 36, height: 20, borderRadius: 20, padding: 2, border: "none", cursor: "pointer", transition: "background 160ms", display: "flex", alignItems: "center" },
-  toggleKnob: { width: 16, height: 16, borderRadius: 999, background: "white", transition: "transform 160ms", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" },
+  toggleKnob: { width: 16, height: 16, borderRadius: 999, background: "var(--paper)", transition: "transform 160ms", boxShadow: "0 1px 2px var(--shadow-sm)" },
 };
 
 const Toggle = ({ on, onChange, label }) => (
@@ -1061,7 +1061,7 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
   const isCreate = mode === "create";
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480 }}>
         <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>
           {isCreate ? `New ${RULE_TYPES[ruleType].label}` : `Edit ${RULE_TYPES[ruleType].label}`}
@@ -1312,7 +1312,7 @@ const SenderRulesSection = ({ categories }) => {
                       disabled={toggling === r.sender_domain}
                       style={{ width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer", background: r.enabled ? "var(--pos)" : "var(--ink-4)", padding: 2, transition: "background 160ms", opacity: toggling === r.sender_domain ? 0.5 : 1 }}
                     >
-                      <span style={{ display: "block", width: 14, height: 14, borderRadius: 999, background: "white", transition: "transform 160ms", transform: r.enabled ? "translateX(14px)" : "translateX(0)", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }}/>
+                      <span style={{ display: "block", width: 14, height: 14, borderRadius: 999, background: "var(--paper)", transition: "transform 160ms", transform: r.enabled ? "translateX(14px)" : "translateX(0)", boxShadow: "0 1px 2px var(--shadow-sm)" }}/>
                     </button>
                   </td>
                   <td style={TD}>
@@ -1412,7 +1412,7 @@ const PatternRulesSection = ({ categories }) => {
                       disabled={toggling === r.id}
                       style={{ width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer", background: r.enabled ? "var(--pos)" : "var(--ink-4)", padding: 2, transition: "background 160ms", opacity: toggling === r.id ? 0.5 : 1 }}
                     >
-                      <span style={{ display: "block", width: 14, height: 14, borderRadius: 999, background: "white", transition: "transform 160ms", transform: r.enabled ? "translateX(14px)" : "translateX(0)", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" }}/>
+                      <span style={{ display: "block", width: 14, height: 14, borderRadius: 999, background: "var(--paper)", transition: "transform 160ms", transform: r.enabled ? "translateX(14px)" : "translateX(0)", boxShadow: "0 1px 2px var(--shadow-sm)" }}/>
                     </button>
                   </td>
                   <td style={TD}>
@@ -2193,7 +2193,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {showDeleteModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
             <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
             <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>

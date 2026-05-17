@@ -46,12 +46,7 @@ const App = () => {
   const [navOpen, setNavOpen] = useState(false);
 
   // Helper to get current month range
-  const getCurrentMonthRange = () => {
-    const now = new Date();
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { from: first.toISOString().split("T")[0], to: last.toISOString().split("T")[0] };
-  };
+  var getCurrentMonthRange = DateUtils.getCurrentMonthRange;
 
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
@@ -271,7 +266,7 @@ const App = () => {
               <Icon name={catOpen ? "arrow-u" : "arrow-d"} size={11} stroke="var(--ink-3)" />
             </button>
             {catOpen && (
-              <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 200, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: 6 }}>
+              <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, minWidth: 200, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px var(--shadow-lg)", zIndex: 999, padding: 6 }}>
                 <button
                   onClick={() => { setCategoryFilter(null); setCatOpen(false); }}
                   style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "none", background: !categoryFilter ? "var(--paper-2)" : "transparent", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "var(--ink)", textAlign: "left", fontWeight: !categoryFilter ? 600 : 400 }}
@@ -365,7 +360,7 @@ const App = () => {
       </main>
 
       {showSeedModal && (
-  <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+  <div style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
     <div style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
       <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
       <div style={{ fontSize:14, color:"var(--ink-3)", lineHeight:1.6, marginBottom:24 }}>

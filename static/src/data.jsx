@@ -297,7 +297,7 @@ const showToast = (message, action, duration = 5000) => {
   if (action) {
     const btn = document.createElement("button");
     btn.textContent = action.label;
-    btn.style.cssText = "background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit";
+    btn.style.cssText = "background:var(--ink-3);border:1px solid var(--line);color:var(--paper);border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit";
     btn.onclick = () => { action.onClick(); el.remove(); };
     el.appendChild(btn);
   }

@@ -104,7 +104,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
   const [filtersOpen, setFiltersOpen] = React.useState(() => localStorage.getItem("_nav_filters") !== "0");
   const [catsOpen, setCatsOpen] = React.useState(() => localStorage.getItem("_nav_cats") !== "0");
   const sideStyle = mobile
-    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px rgba(0,0,0,0.45)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
+    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px var(--shadow-lg)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
     : shellStyles.side;
   const navigate = (fn) => {
     fn();
@@ -112,7 +112,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
   };
   return (
   <>
-  {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(26,24,20,0.36)", zIndex: 70 }} />}
+  {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 70 }} />}
   <aside role="navigation" aria-label="Main navigation" style={sideStyle} aria-hidden={mobile && !open}>
     <LiveBrand onNav={() => navigate(() => setView("inbox"))} mobile={mobile} onClose={onClose} />
 
@@ -163,7 +163,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
     ))}
 
     <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
-      {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"]].map(([k,bg,label]) => (
+      {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"],["observatory","#1a1814","Observatory"]].map(([k,bg,label]) => (
         <button key={k} title={label} aria-label={label} onClick={() => setTheme && setTheme(k)}
           style={{ flex: 1, minHeight: 28, borderRadius: 3, background: bg, border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)", cursor: "pointer", padding: "4px 0" }}
         />
@@ -192,7 +192,7 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
       {menu && (
         <>
           <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-          <div className="fade-in" style={{ position: "absolute", bottom: "calc(100% - 4px)", left: 8, right: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 6, boxShadow: "0 16px 30px -16px rgba(0,0,0,0.25)", zIndex: 60 }}>
+          <div className="fade-in" style={{ position: "absolute", bottom: "calc(100% - 4px)", left: 8, right: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 6, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
             <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: view==="profile"?"var(--paper-2)":"transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}>
               <Icon name="user" size={14}/> Profile
             </button>
@@ -301,7 +301,7 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
       {busy && <div style={{ width: 12, height: 12, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 600ms linear infinite", flexShrink: 0 }} />}
       {!mobile && !busy && <span style={shellStyles.kbd}>⌘K</span>}
       {open && results.length > 0 && (
-        <div className="fade-in" role="listbox" aria-live="polite" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, maxHeight: 380, overflowY: "auto" }}>
+        <div className="fade-in" role="listbox" aria-live="polite" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px var(--shadow-lg)", zIndex: 999, maxHeight: 380, overflowY: "auto" }}>
           <div style={{ padding: "6px 12px 4px", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>Results</div>
           {results.map((tx, i) => (
             <button key={tx.id} className="hover-row" onClick={() => handleSelect(tx)}
@@ -324,7 +324,7 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
         </div>
       )}
       {open && results.length === 0 && !busy && query.trim().length >= 2 && (
-        <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px rgba(0,0,0,0.3)", zIndex: 999, padding: "14px 14px", fontSize: 13, color: "var(--ink-3)", textAlign: "center" }}>
+        <div className="fade-in" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px var(--shadow-lg)", zIndex: 999, padding: "14px 14px", fontSize: 13, color: "var(--ink-3)", textAlign: "center" }}>
           No results for "{query}"
         </div>
       )}
