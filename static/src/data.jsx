@@ -198,7 +198,7 @@ const _initCSRF = async () => {
     const r = await fetch("/api/auth/csrf-token", { credentials: "include" });
     if (r.ok) {
       const data = await r.json();
-      _csrfToken = data.token;
+      _csrfToken = data.csrf_token;
     }
   } catch (_) {}
 };
