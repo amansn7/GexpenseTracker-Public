@@ -103,6 +103,18 @@ class ResolvePatch(BaseModel):
     primary_tx_id: str
 
 
+@router.post("/duplicates/{pair_id}/reopen")
+async def reopen_pair(pair_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Reopen a resolved duplicate pair back to pending status."""
+    pair, primary_tx, primary_email, dup_tx, dup_email = await _load_pair_with_txs(pair_id, db, current_user.id)
+    if pair.status == "pending":
+        raise HTTPException(status_code=409, detail="Pair is already pending")
+    pair.status = "pending"
+    pair.resolved_at = None
+    await db.commit()
+    return {"id": pair_id, "status": "pending"}
+
+
 @router.patch("/duplicates/{pair_id}")
 async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     if body.action not in ("confirmed", "dismissed"):

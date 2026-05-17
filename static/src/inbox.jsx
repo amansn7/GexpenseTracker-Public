@@ -881,6 +881,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     return () => window.removeEventListener("keydown", onKey);
   }, [bulkReclassItems, bulkReclassIdx]);
 
+  // Keyboard shortcuts for duplicates view
+  React.useEffect(() => {
+    if (filter !== "duplicates" || dupTab !== "pending") return;
+    const onKey = (e) => {
+      if (e.key === "Escape" && dupSelected.size > 0) { e.preventDefault(); setDupSelected(new Set()); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [filter, dupTab, dupSelected.size]);
+
   // Reset selection when switching filter tabs
   React.useEffect(() => {
     setSelectMode(false);
@@ -897,9 +907,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         .catch(() => setDupLoading(false));
     } else {
       setDupResolvedLoading(true);
-      API.get("/api/duplicates?status=auto_resolved")
-        .then(data => { setDupResolved(data || []); setDupResolvedLoading(false); })
-        .catch(() => setDupResolvedLoading(false));
+      Promise.all([
+        API.get("/api/duplicates?status=confirmed"),
+        API.get("/api/duplicates?status=dismissed"),
+        API.get("/api/duplicates?status=auto_resolved"),
+      ]).then(([confirmed, dismissed, autoResolved]) => {
+        const all = [...(confirmed || []), ...(dismissed || []), ...(autoResolved || [])]
+          .sort((a, b) => new Date(b.resolved_at || 0) - new Date(a.resolved_at || 0));
+        setDupResolved(all);
+        setDupResolvedLoading(false);
+      }).catch(() => setDupResolvedLoading(false));
     }
     setDupSelected(new Set());
   }, [filter, dupTab]);
@@ -1132,15 +1149,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (dupSelected.size === 0) return;
     setDupBulkResolving(true);
     const ids = [...dupSelected];
-    for (const pairId of ids) {
+    const promises = ids.map(async (pairId) => {
       const pair = dupPairs.find(p => p.id === pairId);
-      if (!pair) continue;
+      if (!pair) return;
       const primaryTxId = action === "confirmed" ? pair.primary.id : pair.duplicate.id;
       try {
         await API.patch(`/api/duplicates/${pairId}`, { action, primary_tx_id: primaryTxId });
         setDupPairs(prev => prev.filter(p => p.id !== pairId));
       } catch (_) {}
-    }
+    });
+    await Promise.allSettled(promises);
     setDupSelected(new Set());
     setDupBulkResolving(false);
   };
@@ -1319,12 +1337,23 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Duplicate detection</span>
                 <div style={{ display: "flex", gap: 2 }}>
-                  {["pending", "resolved"].map(tab => (
-                    <button key={tab} onClick={() => setDupTab(tab)}
-                      style={{ padding: "2px 8px", border: "none", borderRadius: 4, background: dupTab === tab ? "var(--ink)" : "transparent", color: dupTab === tab ? "var(--paper)" : "var(--ink-4)", fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" }}>
-                      {tab}{tab === "pending" && dupPairs.length > 0 ? ` (${dupPairs.length})` : tab === "resolved" && dupResolved.length > 0 ? ` (${dupResolved.length})` : ""}
-                    </button>
-                  ))}
+                  {["pending", "resolved"].map(tab => {
+                    const count = tab === "pending" ? dupPairs.length : dupResolved.length;
+                    const isActive = dupTab === tab;
+                    return (
+                      <button key={tab} onClick={() => setDupTab(tab)}
+                        style={{
+                          padding: "5px 12px", borderRadius: 20, border: isActive ? "1px solid var(--ink)" : "1px solid transparent",
+                          background: isActive ? "var(--ink)" : "transparent",
+                          color: isActive ? "var(--paper)" : "var(--ink-3)",
+                          fontSize: 12, fontWeight: 500, cursor: "pointer", textTransform: "capitalize",
+                          display: "inline-flex", alignItems: "center", gap: 5, lineHeight: 1.2,
+                          transition: "all 120ms ease",
+                        }}>
+                        {tab}{count > 0 ? ` (${count})` : ""}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -1343,10 +1372,17 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <button onClick={async () => {
                   setDupScanning(true);
                   try {
-                    await API.post("/api/duplicates/scan");
+                    const result = await API.post("/api/duplicates/scan");
                     const d = await API.get("/api/duplicates?status=pending");
                     setDupPairs(d || []);
-                  } catch (_) {}
+                    const newPairs = result?.new_pairs ?? 0;
+                    showToast(newPairs > 0
+                      ? `Scan complete: ${newPairs} duplicate${newPairs > 1 ? "s" : ""} found`
+                      : "Scan complete: no new duplicates"
+                    );
+                  } catch (_) {
+                    showToast("Scan failed — check server logs");
+                  }
                   setDupScanning(false);
                 }} disabled={dupScanning}
                   className="focus-ring"
@@ -1378,7 +1414,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <div key={pair.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 16px 4px 12px", borderBottom: "1px solid var(--line)" }}>
                     <input type="checkbox" checked={dupSelected.has(pair.id)} onChange={e => {
                       setDupSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(pair.id) : n.delete(pair.id); return n; });
-                    }} style={{ marginTop: 20, accentColor: "var(--accent)", cursor: "pointer" }} />
+                    }} style={{ marginTop: 22, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
                     <div style={{ flex: 1 }}><DuplicatePairCard pair={pair} onResolve={resolveDup} /></div>
                   </div>
                 ))
@@ -1392,24 +1428,51 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <div style={{ fontSize: 13, color: "var(--ink-3)" }}>No resolved duplicates yet.</div>
               </div>
             ) : (
-              dupResolved.map(pair => (
-                <div key={pair.id} style={{ padding: "12px 24px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
-                      ₹{pair.primary?.amount?.toLocaleString("en-IN")} · {pair.primary?.merchant || "Unknown"}
+              dupResolved.map(pair => {
+                const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
+                const statusColor = pair.status === "confirmed" ? "var(--pos)" : pair.status === "dismissed" ? "var(--neg)" : "var(--ink-3)";
+                return (
+                  <div key={pair.id} style={{ padding: "14px 24px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                          {fmtAmt(pair.primary?.amount)} · {pair.primary?.merchant || "Unknown"}
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--ink-4)" }}>→</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                          discarded {fmtAmt(pair.duplicate?.amount)} {pair.duplicate?.merchant || ""}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                        {pair.rule_source} · confidence {Math.round((pair.confidence || 0) * 100)}%
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
-                      {pair.rule_source} · confidence {Math.round((pair.confidence || 0) * 100)}%
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", color: statusColor }}>{pair.status}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+                          {pair.resolved_at ? new Date(pair.resolved_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await API.post(`/api/duplicates/${pair.id}/reopen`);
+                            setDupResolved(prev => prev.filter(p => p.id !== pair.id));
+                            setDupPairs(prev => [...prev, pair]);
+                            showToast("Duplicate pair reopened");
+                          } catch (_) {
+                            showToast("Failed to reopen pair");
+                          }
+                        }}
+                        className="focus-ring"
+                        style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink-3)", fontSize: 11, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>
+                        Undo
+                      </button>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 10, color: "var(--pos)", fontWeight: 600, textTransform: "uppercase" }}>{pair.status}</div>
-                    <div style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
-                      {pair.resolved_at ? new Date(pair.resolved_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : ""}
-                    </div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </>) : (
             <>
