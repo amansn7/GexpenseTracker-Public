@@ -66,7 +66,7 @@ def setup_scheduler() -> None:
         hours=settings.SYNC_INTERVAL_HOURS,
         id="gmail_sync",
         replace_existing=True,
-        next_run_time=datetime.now(),
+        # Don't run immediately on startup — let server become healthy first
     )
     scheduler.add_job(
         _delete_expired_accounts,
@@ -101,7 +101,7 @@ def setup_scheduler() -> None:
         hours=1,
         id="dedup_scan",
         replace_existing=True,
-        next_run_time=datetime.now(),
+        # Don't run immediately on startup — let server become healthy first
     )
 
     scheduler.start()
