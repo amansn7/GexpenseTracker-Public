@@ -162,7 +162,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
         {menu && (
           <>
             <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-            <div className="fade-in" style={{ position: "absolute", bottom: "100%", left: 8, right: 8, marginBottom: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
+            <div className="fade-in" style={{ position: "fixed", bottom: mobile ? "calc(100dvh - 284px + 8px)" : "calc(100vh - 232px + 8px)", left: 8, width: mobile ? 268 : 216, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
               <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
                 onMouseLeave={e => e.currentTarget.style.background = "transparent"}
@@ -300,7 +300,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       {menu && (
         <>
           <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-          <div className="fade-in" style={{ position: "absolute", bottom: "100%", left: 8, right: 8, marginBottom: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
+          <div className="fade-in" style={{ position: "fixed", bottom: mobile ? "calc(100dvh - 284px + 8px)" : "calc(100vh - 232px + 8px)", left: 8, width: mobile ? 268 : 216, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
             <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
               onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
