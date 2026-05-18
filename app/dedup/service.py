@@ -470,6 +470,7 @@ async def batch_detect_duplicates(
         # Load paired IDs once per new transaction (not per existing candidate)
         already_paired_ids = await _load_paired_ids(new_tx.id, db)
 
+        # Compare against existing transactions in DB
         for existing_tx, existing_email in existing_map.values():
             if existing_tx.id == new_tx.id:
                 continue
@@ -579,6 +580,117 @@ async def batch_detect_duplicates(
                     rule_source=rule_source,
                 ))
                 logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
+
+        # Compare against OTHER new transactions in the same batch (intra-batch dedup)
+        for other_tx, other_email in new_transactions:
+            if other_tx.id == new_tx.id:
+                continue
+            if not other_email or not other_email.sender_domain:
+                continue
+
+            other_domain = other_email.sender_domain.lower()
+            other_amount = float(other_tx.amount) if other_tx.amount else 0
+            other_subject = (other_email.subject or "").lower()
+            other_merchant = other_tx.merchant or ""
+            other_effective = other_tx.txn_date or (other_email.received_at.date() if other_email.received_at else None)
+            if other_effective is None:
+                continue
+
+            # Amount proximity check
+            if abs(new_amount - other_amount) > new_tol:
+                continue
+
+            # Time proximity check
+            day_diff = abs((new_effective - other_effective).days)
+            if day_diff > 3:
+                continue
+
+            # Sort pair key to avoid duplicates
+            pair_key = tuple(sorted([new_tx.id, other_tx.id]))
+            if pair_key in seen_pairs:
+                continue
+
+            # Check if already paired
+            if other_tx.id in already_paired_ids:
+                continue
+
+            # Multi-layer scoring (same logic as above)
+            score = 0.0
+            rule_source = "unknown"
+
+            # Layer 1: Same domain (highest confidence)
+            if new_domain == other_domain:
+                same_domain_window = 3 if (new_email.received_at and other_email.received_at) else 3
+                if day_diff <= same_domain_window:
+                    score = 1.0
+                    rule_source = "same_domain_exact"
+
+            # Layer 2: Merchant alias match across domains
+            if score == 0.0:
+                m_score = _merchant_match(new_merchant, other_merchant, new_domain, other_domain)
+                if m_score >= 0.7:
+                    score = 0.75 + m_score * 0.2
+                    rule_source = "merchant_alias"
+
+            # Layer 3: Cross-domain with domain pair rule
+            if score == 0.0:
+                domain_a, domain_b = _sorted_domains(new_domain, other_domain)
+                rule = (await db.execute(
+                    select(DomainPairRule).where(
+                        DomainPairRule.domain_a == domain_a,
+                        DomainPairRule.domain_b == domain_b,
+                    )
+                )).scalar_one_or_none()
+                if rule:
+                    score = rule.confidence
+                    rule_source = "domain_pair"
+
+            # Layer 4: Investment flow
+            if score == 0.0:
+                other_is_order = _subject_has_any(other_subject, _INVEST_ORDER_SIGNALS)
+                other_is_confirm = _subject_has_any(other_subject, _INVEST_CONFIRM_SIGNALS)
+                if (is_order and other_is_confirm) or (is_confirm and other_is_order):
+                    if new_domain != other_domain and day_diff <= 3:
+                        score = 0.65
+                        rule_source = "investment_flow"
+
+            # Layer 5: Amount + date only (lowest confidence)
+            if score == 0.0:
+                if abs(new_amount - other_amount) <= new_tol and day_diff <= 1:
+                    score = 0.5
+                    rule_source = "amount_date"
+
+            if score < 0.5:
+                continue
+
+            seen_pairs.add(pair_key)
+            stats[rule_source] = stats.get(rule_source, 0) + 1
+
+            # Resolve or queue
+            if score >= settings.AUTO_RESOLVE_THRESHOLD:
+                primary_id = _pick_primary(new_tx, new_email, other_tx, other_email)
+                dup_id = new_tx.id if primary_id == other_tx.id else other_tx.id
+                dup_tx = new_tx if dup_id == new_tx.id else other_tx
+                dup_tx.label = "ignore"
+                db.add(DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=primary_id,
+                    duplicate_tx_id=dup_id,
+                    status="auto_resolved",
+                    confidence=score,
+                    rule_source=rule_source,
+                ))
+                logger.info("Batch intra-batch auto-resolved: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
+            else:
+                db.add(DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=new_tx.id,
+                    duplicate_tx_id=other_tx.id,
+                    status="pending",
+                    confidence=score,
+                    rule_source=rule_source,
+                ))
+                logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
 
     return stats
 
