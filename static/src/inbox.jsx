@@ -1227,7 +1227,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     try {
       const result = await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
       const dupStats = result?.duplicates || {};
-      const totalDups = (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
+      const totalDups = (dupStats.same_domain_exact || 0) + (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
       if (totalDups > 0) {
         showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
       } else {
@@ -1816,11 +1816,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results — {dupBulkResult.checked} transactions checked</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+                      {dupBulkResult.same_domain_exact > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain_exact}</strong></span>}
                       {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
                       {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
                       {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
                       {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
-                      {(!dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+                      {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
                     </div>
                   </div>
                   <button onClick={() => setDupBulkResult(null)}
