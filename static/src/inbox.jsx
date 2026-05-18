@@ -2324,12 +2324,90 @@ const SearchView = ({ query, categoryFilter }) => {
   const [loading, setLoading] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState(null);
   const [pickerFor, setPickerFor] = React.useState(null);
+  const [selectedIds, setSelectedIds] = React.useState(new Set());
+  const [selectMode, setSelectMode] = React.useState(false);
+  const [selectAllFlag, setSelectAllFlag] = React.useState(false);
+  const [dupBulkResult, setDupBulkResult] = React.useState(null);
   const { isMobile } = useViewport();
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelect = () => { setSelectMode(false); setSelectedIds(new Set()); setSelectAllFlag(false); };
+
+  const bulkAction = async (action, localPatch) => {
+    if (selectAllFlag) {
+      if (localPatch) setResults(rs => rs.map(t => ({ ...t, ...localPatch })));
+      clearSelect();
+      try {
+        await API.post("/api/transactions/bulk", { ids: [], action, select_all: true });
+      } catch (err) {
+        console.error("bulk action failed:", err);
+        showToast(`Bulk ${action} failed`);
+      }
+    } else {
+      const ids = [...selectedIds];
+      setResults(rs => rs.map(t => selectedIds.has(t.id) ? { ...t, ...localPatch } : t));
+      clearSelect();
+      try {
+        await API.post("/api/transactions/bulk", { ids, action });
+      } catch (err) {
+        console.error("bulk action failed:", err);
+        showToast(`Bulk ${action} failed`);
+      }
+    }
+  };
+
+  const bulkMarkRead   = () => bulkAction("mark_read",   { read: true });
+  const bulkMarkUnread = () => bulkAction("mark_unread", { read: false });
+  const bulkFlag       = () => bulkAction("flag",        { flag: true });
+  const bulkUnflag     = () => bulkAction("unflag",      { flag: false });
+
+  const bulkDelete = async () => {
+    const count = selectedIds.size;
+    if (!window.confirm(`Delete ${count} transaction(s)?`)) return;
+    const ids = [...selectedIds];
+    clearSelect();
+    setResults(rs => rs.filter(t => !ids.includes(t.id)));
+    try {
+      await API.post("/api/transactions/bulk", { ids, action: "delete" });
+    } catch (err) {
+      console.error("bulk delete failed:", err);
+      showToast("Bulk delete failed");
+    }
+  };
+
+  const bulkDetectDuplicates = async () => {
+    const ids = [...selectedIds];
+    clearSelect();
+    try {
+      const result = await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
+      const dupStats = result?.duplicates || {};
+      const totalDups = (dupStats.same_domain_exact || 0) + (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
+      if (totalDups > 0) {
+        showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
+      } else if (dupStats.existing_pairs > 0) {
+        showToast(`${dupStats.existing_pairs} pair${dupStats.existing_pairs > 1 ? "s" : ""} already detected`);
+      } else {
+        showToast("No new duplicates found");
+      }
+      setDupBulkResult({ ...dupStats, newPairIds: dupStats.new_pair_ids || [] });
+    } catch (e) {
+      console.error("bulk detect duplicates failed:", e);
+      showToast("Duplicate detection failed. Try again.");
+    }
+  };
 
   React.useEffect(() => {
     if (!query || query.trim().length < 2) return;
     setLoading(true);
     setSelectedId(null);
+    clearSelect();
     API.get(`/api/search?q=${encodeURIComponent(query.trim())}&limit=200`)
       .then(d => {
         let items = (d.items || []).map(transformTransaction);
@@ -2339,6 +2417,12 @@ const SearchView = ({ query, categoryFilter }) => {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [query, categoryFilter]);
+
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") clearSelect(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const updateTx = (id, patch) => {
     if (patch._openPicker) { setPickerFor(id); return; }
@@ -2376,10 +2460,28 @@ const SearchView = ({ query, categoryFilter }) => {
     <div style={{ ...wrapStyle, height: "calc(100vh - 72px)" }}>
       <div style={inboxStyles.list}>
         <div style={{ ...inboxStyles.toolbar }}>
-          {loading
-            ? <span>Searching…</span>
-            : <span>{results.length} result{results.length !== 1 ? "s" : ""} for <strong style={{ color: "var(--ink)", fontWeight: 600 }}>"{query}"</strong></span>
-          }
+          {selectMode ? (
+            <>
+              <input type="checkbox" style={{ margin: 0, cursor: "pointer" }}
+                checked={(selectedIds.size === results.length && results.length > 0) || selectAllFlag}
+                onChange={e => {
+                  if (e.target.checked) {
+                    setSelectedIds(new Set(results.map(t => t.id)));
+                    setSelectAllFlag(true);
+                  } else {
+                    setSelectedIds(new Set());
+                    setSelectAllFlag(false);
+                  }
+                }}
+              />
+              <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>{selectAllFlag ? results.length : selectedIds.size} selected</span>
+              <button onClick={clearSelect} style={{ marginLeft: "auto", padding: "4px 8px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", fontSize: 11 }}>Cancel</button>
+            </>
+          ) : (
+            loading
+              ? <span>Searching…</span>
+              : <span>{results.length} result{results.length !== 1 ? "s" : ""} for <strong style={{ color: "var(--ink)", fontWeight: 600 }}>"{query}"</strong></span>
+          )}
         </div>
 
         {loading && (
@@ -2397,23 +2499,67 @@ const SearchView = ({ query, categoryFilter }) => {
 
         {!loading && grouped.map(([date, txs]) => (
           <div key={date}>
-            <div style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}) }}>
+            <div onClick={() => {
+              if (!selectMode) { setSelectMode(true); setSelectedIds(new Set(txs.map(t => t.id))); }
+              else {
+                const allSelected = txs.every(t => selectedIds.has(t.id));
+                setSelectedIds(prev => {
+                  const next = new Set(prev);
+                  txs.forEach(t => allSelected ? next.delete(t.id) : next.add(t.id));
+                  return next;
+                });
+              }
+            }} style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}), cursor: "pointer" }}>
               <span>{dateLabel(date)}</span>
             </div>
             {txs.map(tx => (
               <Row
                 key={tx.id}
                 tx={tx}
-                selected={selectedId === tx.id}
-                selectMode={false}
-                onRowClick={() => { setSelectedId(tx.id); updateTx(tx.id, { read: true }); }}
-                onCheckbox={() => {}}
+                selected={selectMode ? selectedIds.has(tx.id) : selectedId === tx.id}
+                selectMode={selectMode}
+                onRowClick={() => {
+                  if (selectMode) { toggleSelect(tx.id); }
+                  else { setSelectedId(tx.id); updateTx(tx.id, { read: true }); }
+                }}
+                onCheckbox={() => { if (!selectMode) { setSelectMode(true); } toggleSelect(tx.id); }}
                 onEditCat={() => setPickerFor(tx.id)}
               />
             ))}
           </div>
         ))}
       </div>
+
+      {dupBulkResult && (
+        <div style={{ margin: "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results — {dupBulkResult.checked} transactions checked</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+              {dupBulkResult.same_domain_exact > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain_exact}</strong></span>}
+              {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
+              {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
+              {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
+              {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
+              {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already detected</span>}
+              {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+            </div>
+          </div>
+          <button onClick={() => setDupBulkResult(null)} style={{ padding: "4px 8px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}>Dismiss</button>
+        </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div style={{ position: "fixed", bottom: isMobile ? 12 : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px var(--shadow-lg)", zIndex: 50, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible" }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectAllFlag ? results.length : selectedIds.size} selected</span>
+          <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
+          <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
+          <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
+          <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
+          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
+          <button onClick={bulkDetectDuplicates} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Detect Duplicates</button>
+          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
+        </div>
+      )}
 
       {selected && <DetailPanel tx={selected} onClose={() => setSelectedId(null)} onUpdate={p => updateTx(selected.id, p)} />}
       {pickerFor && (
