@@ -117,13 +117,13 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     if (menu) { setMenu(false); return; }
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) {
-      setMenuPos({ top: rect.top, left: rect.left, width: rect.width });
+      setMenuPos({ bottom: window.innerHeight - rect.top + 8, left: rect.left, width: rect.width });
     }
     setMenu(true);
   };
 
   const AccountMenu = ({ settingsView }) => (
-    <div className="fade-in" style={{ position: "fixed", top: menuPos ? menuPos.top - 4 : 0, left: menuPos ? menuPos.left : 0, width: menuPos ? menuPos.width : 220, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
+    <div className="fade-in" style={{ position: "fixed", bottom: menuPos ? menuPos.bottom : 0, left: menuPos ? menuPos.left : 0, width: menuPos ? menuPos.width : 220, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
       <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
         onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
