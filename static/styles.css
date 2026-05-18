@@ -427,6 +427,11 @@ body {
 .nav-btn:hover { background: var(--paper-2); color: var(--ink); }
 .nav-btn.active { background: var(--paper-2); color: var(--ink); }
 
+/* Theme buttons in sidebar footer */
+.theme-btn { transition: border-color 120ms ease, filter 120ms ease; }
+.theme-btn:hover { filter: brightness(1.06); }
+.theme-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* Sidebar thin scrollbar */
 aside[role="navigation"]::-webkit-scrollbar { width: 4px; }
 aside[role="navigation"]::-webkit-scrollbar-track { background: transparent; }

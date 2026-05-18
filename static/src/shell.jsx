@@ -247,21 +247,33 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       </div>
     ))}
 
-    {/* Theme switcher — compact swatches with tooltip labels */}
-    <div style={{ display: "flex", gap: 8, padding: "12px 8px 8px", marginTop: "auto" }}>
-      {[["paper","var(--theme-paper-swatch)","Paper"],["cool","var(--theme-cool-swatch)","Cool"],["midnight","var(--theme-midnight-swatch)","Midnight"],["observatory","var(--theme-observatory-swatch)","Observatory"]].map(([k,swatch,label]) => (
-        <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => setTheme && setTheme(k)}
-          style={{
-            width: 32, height: 32, borderRadius: 8, border: "1px solid var(--line)", cursor: "pointer",
-            background: swatch, padding: 0,
-            boxShadow: theme === k ? "0 0 0 2px var(--accent)" : "none",
-            transition: "box-shadow 120ms ease, transform 120ms ease",
-            transform: theme === k ? "scale(1.1)" : "scale(1)",
-          }}
-          onMouseEnter={e => { if (theme !== k) e.currentTarget.style.transform = "scale(1.15)"; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = theme === k ? "scale(1.1)" : "scale(1)"; }}
-        />
-      ))}
+    {/* Appearance — equal-width theme buttons via grid */}
+    <div style={{ padding: "12px 8px 4px", marginTop: "auto" }}>
+      <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)", padding: "0 0 6px", fontWeight: 600 }}>Appearance</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+        {[
+          ["paper","var(--theme-paper-swatch)","Paper","#1a1814"],
+          ["cool","var(--theme-cool-swatch)","Cool","#171923"],
+          ["midnight","var(--theme-midnight-swatch)","Midnight","#efe9d8"],
+          ["observatory","var(--theme-observatory-swatch)","Observatory","#e8e4df"],
+        ].map(([k,swatch,label,ink]) => (
+          <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => setTheme && setTheme(k)}
+            className="theme-btn"
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+              minHeight: 48, borderRadius: 6, cursor: "pointer", padding: "6px 2px",
+              background: swatch,
+              border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)",
+              transition: "border-color 120ms ease",
+            }}
+          >
+            <span style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: "0.02em", lineHeight: 1,
+              color: theme === k ? ink : ink + "99",
+            }}>{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
 
     <div style={{ padding: "4px 8px 8px" }}>
