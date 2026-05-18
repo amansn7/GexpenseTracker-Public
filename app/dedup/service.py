@@ -404,9 +404,9 @@ async def batch_detect_duplicates(
              "merchant_alias": N, "new_pair_ids": [str, ...]}.
     """
     if not new_transactions:
-        return {"checked": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "new_pair_ids": []}
+        return {"checked": 0, "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "new_pair_ids": []}
 
-    stats = {"checked": len(new_transactions), "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0}
+    stats = {"checked": len(new_transactions), "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0}
     new_pair_ids: List[str] = []
 
     # Collect date range and amounts for the windowed query
@@ -582,21 +582,18 @@ async def batch_detect_duplicates(
             seen_pairs.add(pair_key)
             stats[rule_source] = stats.get(rule_source, 0) + 1
 
-            # Resolve or queue
-            if score >= settings.AUTO_RESOLVE_THRESHOLD:
-                primary_id = _pick_primary(new_tx, new_email, existing_tx, existing_email)
-                dup_id = new_tx.id if primary_id == existing_tx.id else existing_tx.id
-                dup_tx = new_tx if dup_id == new_tx.id else existing_tx
-                dup_tx.label = "ignore"
-                db.add(DuplicatePair(
-                    id=str(uuid.uuid4()),
-                    primary_tx_id=primary_id,
-                    duplicate_tx_id=dup_id,
-                    status="auto_resolved",
-                    confidence=score,
-                    rule_source=rule_source,
-                ))
-                logger.info("Batch auto-resolved: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
+            # Bulk detect always creates pending pairs (user initiated this)
+            pair_id = str(uuid.uuid4())
+            db.add(DuplicatePair(
+                id=pair_id,
+                primary_tx_id=new_tx.id,
+                duplicate_tx_id=existing_tx.id,
+                status="pending",
+                confidence=score,
+                rule_source=rule_source,
+            ))
+            new_pair_ids.append(pair_id)
+            logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
             else:
                 pair_id = str(uuid.uuid4())
                 db.add(DuplicatePair(
@@ -703,33 +700,18 @@ async def batch_detect_duplicates(
             seen_pairs.add(pair_key)
             stats[rule_source] = stats.get(rule_source, 0) + 1
 
-            # Resolve or queue
-            if score >= settings.AUTO_RESOLVE_THRESHOLD:
-                primary_id = _pick_primary(new_tx, new_email, other_tx, other_email)
-                dup_id = new_tx.id if primary_id == other_tx.id else other_tx.id
-                dup_tx = new_tx if dup_id == new_tx.id else other_tx
-                dup_tx.label = "ignore"
-                db.add(DuplicatePair(
-                    id=str(uuid.uuid4()),
-                    primary_tx_id=primary_id,
-                    duplicate_tx_id=dup_id,
-                    status="auto_resolved",
-                    confidence=score,
-                    rule_source=rule_source,
-                ))
-                logger.info("Batch intra-batch auto-resolved: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
-            else:
-                pair_id = str(uuid.uuid4())
-                db.add(DuplicatePair(
-                    id=pair_id,
-                    primary_tx_id=new_tx.id,
-                    duplicate_tx_id=other_tx.id,
-                    status="pending",
-                    confidence=score,
-                    rule_source=rule_source,
-                ))
-                new_pair_ids.append(pair_id)
-                logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
+            # Bulk detect always creates pending pairs (user initiated this)
+            pair_id = str(uuid.uuid4())
+            db.add(DuplicatePair(
+                id=pair_id,
+                primary_tx_id=new_tx.id,
+                duplicate_tx_id=other_tx.id,
+                status="pending",
+                confidence=score,
+                rule_source=rule_source,
+            ))
+            new_pair_ids.append(pair_id)
+            logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
 
     print(f"DEDUP_DEBUG: complete stats={stats} new_pair_ids={new_pair_ids}", flush=True)
     return {**stats, "new_pair_ids": new_pair_ids}
