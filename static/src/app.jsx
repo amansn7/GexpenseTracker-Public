@@ -3,8 +3,7 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const App = () => {
-  const [mode, setMode] = useState(() => localStorage.getItem("mf_mode") || "classic");
-  const [view, setView] = useState(() => localStorage.getItem("mf_view") || (mode === "new" ? "today" : "inbox"));
+  const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
   const [transactions, setTransactions] = useState([]);
   const [reviewEmails, setReviewEmails] = React.useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,25 +45,11 @@ const App = () => {
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
 
-  // New mode state
-  const [todayData, setTodayData] = useState(null);
-  const [todayLoading, setTodayLoading] = useState(false);
-  const [reviewQueue, setReviewQueue] = useState([]);
-  const [reviewLoading, setReviewLoading] = useState(false);
-  const [pictureData, setPictureData] = useState(null);
-  const [pictureLoading, setPictureLoading] = useState(false);
-  const [picturePeriod, setPicturePeriod] = useState("1m");
-
   // Helper to get current month range
   var getCurrentMonthRange = DateUtils.getCurrentMonthRange;
 
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
-  useEffect(() => { localStorage.setItem("mf_mode", mode); }, [mode]);
-  useEffect(() => {
-    if (mode === "new" && view === "inbox") setView("today");
-    if (mode === "classic" && (view === "today" || view === "review" || view === "picture")) setView("inbox");
-  }, [mode]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
   useEffect(() => {
     window._goSettings = () => setView("settings");
@@ -145,56 +130,6 @@ const App = () => {
     API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
   }, []);
 
-  // New mode: load Today data
-  useEffect(() => {
-    if (mode !== "new" || view !== "today") return;
-    setTodayLoading(true);
-    API.get("/api/today")
-      .then((data) => { setTodayData(data); })
-      .catch(() => {})
-      .finally(() => setTodayLoading(false));
-  }, [mode, view]);
-
-  // New mode: load Review queue
-  useEffect(() => {
-    if (mode !== "new" || view !== "review") return;
-    setReviewLoading(true);
-    API.get("/api/today/review-queue")
-      .then((data) => { setReviewQueue(data); })
-      .catch(() => {})
-      .finally(() => setReviewLoading(false));
-  }, [mode, view]);
-
-  // New mode: load Picture data
-  useEffect(() => {
-    if (mode !== "new" || view !== "picture") return;
-    setPictureLoading(true);
-    Promise.all([
-      API.get(`/api/stats/summary?period=${picturePeriod}`),
-      API.get(`/api/stats/category-breakdown?period=${picturePeriod}`),
-      API.get(`/api/stats/monthly-trend?period=${picturePeriod}`),
-      API.get(`/api/stats/top-merchants?period=${picturePeriod}`),
-      API.get("/api/stats/health"),
-    ])
-      .then(([summary, catBreakdown, monthlyTrend, topMerchants, health]) => {
-        const rangeStart = picturePeriod === "1m" ? new Date().toISOString().slice(0, 8) + "01" : null;
-        const txsForFlow = transactions.filter((t) => {
-          if (!rangeStart) return true;
-          return t.date >= rangeStart;
-        });
-        const flowSummary = summary && catBreakdown ? buildFlowSummary(txsForFlow, summary, catBreakdown, rangeStart, new Date().toISOString().slice(0, 10)) : null;
-        setPictureData({
-          flowSummary,
-          categoryBreakdown: catBreakdown?.categories || [],
-          monthlyTrend: { months: monthlyTrend?.months || [], currentBalance: health?.current_balance || 0 },
-          topMerchants: topMerchants?.merchants || [],
-          health,
-        });
-      })
-      .catch(() => {})
-      .finally(() => setPictureLoading(false));
-  }, [mode, view, picturePeriod, transactions]);
-
   useEffect(() => {
     const handler = (e) => setSyncPanelPosition(e.detail);
     window.addEventListener("sync-pos-change", handler);
@@ -270,33 +205,6 @@ const App = () => {
     return `Gmail · ${Math.floor(diff / 60)}h`;
   };
 
-  // New mode: review queue actions
-  const handleReviewApprove = async (id) => {
-    try {
-      await API.post(`/api/today/review/${id}/approve`);
-      setReviewQueue((q) => q.filter((t) => t.id !== id));
-    } catch (e) {
-      console.error("Approve failed:", e);
-    }
-  };
-
-  const handleReviewSkip = async (id) => {
-    try {
-      await API.post(`/api/today/review/${id}/skip`);
-      setReviewQueue((q) => q.filter((t) => t.id !== id));
-    } catch (e) {
-      console.error("Skip failed:", e);
-    }
-  };
-
-  const handleRefreshToday = () => {
-    setTodayLoading(true);
-    API.get("/api/today")
-      .then((data) => { setTodayData(data); })
-      .catch(() => {})
-      .finally(() => setTodayLoading(false));
-  };
-
   const counts = {
     unread:   transactions.filter(t => !t.read).length,
     expense:  transactions.filter(t => t.amount < 0 && t.tag !== "subscription").length,
@@ -323,10 +231,6 @@ const App = () => {
     settings:  { title: "Settings",       sub: "preferences & integrations" },
     admin:     { title: "Admin",          sub: "service testing & diagnostics" },
     search:    { title: "Search",         sub: searchQuery ? `"${searchQuery}"` : "search your transactions" },
-    // New mode views
-    today:     { title: "Today",          sub: "your situation right now" },
-    review:    { title: "Review",         sub: reviewQueue.length > 0 ? `${reviewQueue.length} need${reviewQueue.length === 1 ? "s" : ""} your decision` : "all caught up" },
-    picture:   { title: "Picture",        sub: "where did your money go" },
   };
 
   return (
@@ -334,8 +238,6 @@ const App = () => {
       <Sidebar
         view={view}
         setView={setView}
-        mode={mode}
-        setMode={setMode}
         counts={counts}
         filter={inboxFilter}
         onFilter={setInboxFilter}
@@ -453,12 +355,6 @@ const App = () => {
           {view === "debt"      && <DebtView />}
           {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
           {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
-
-          {/* New mode views */}
-          {view === "today"    && <TodayView onNavigate={setView} todayData={todayData} loading={todayLoading} onRefresh={handleRefreshToday} />}
-          {view === "review"   && <ReviewView reviewQueue={reviewQueue} loading={reviewLoading} onApprove={handleReviewApprove} onSkip={handleReviewSkip} onEdit={(id) => { setView("inbox"); setSelectedId(id); }} />}
-          {view === "picture"  && <PictureView pictureData={pictureData} loading={pictureLoading} period={picturePeriod} onPeriodChange={setPicturePeriod} />}
-          {view === "settings-new" && (account ? <NewSettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
           </>
         )}
       </main>
