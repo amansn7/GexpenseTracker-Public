@@ -594,18 +594,6 @@ async def batch_detect_duplicates(
             ))
             new_pair_ids.append(pair_id)
             logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
-            else:
-                pair_id = str(uuid.uuid4())
-                db.add(DuplicatePair(
-                    id=pair_id,
-                    primary_tx_id=new_tx.id,
-                    duplicate_tx_id=existing_tx.id,
-                    status="pending",
-                    confidence=score,
-                    rule_source=rule_source,
-                ))
-                new_pair_ids.append(pair_id)
-                logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
 
         # Compare against OTHER new transactions in the same batch (intra-batch dedup)
         for other_tx, other_email in new_transactions:
