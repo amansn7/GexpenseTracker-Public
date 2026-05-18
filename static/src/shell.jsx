@@ -145,7 +145,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
           aria-expanded={menu}
           aria-haspopup="menu"
           aria-label="Account menu"
-          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease", position: "relative", zIndex: menu ? 51 : "auto" }}
           onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
           onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
         >
@@ -283,7 +283,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
         aria-expanded={menu}
         aria-haspopup="menu"
         aria-label="Account menu"
-        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease", position: "relative", zIndex: menu ? 51 : "auto" }}
         onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
         onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
       >
