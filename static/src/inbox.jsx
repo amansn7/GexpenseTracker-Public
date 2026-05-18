@@ -1189,8 +1189,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const count = ids.length;
     clearSelect();
     try {
-      await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
-      showToast(`${count} transaction${count > 1 ? "s" : ""} scanned — duplicates hidden`, { label: "View Duplicates", onClick: () => { setFilter("duplicates"); setDupTab("pending"); } });
+      const result = await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
+      const dupStats = result?.duplicates || {};
+      const totalDups = (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
+      if (totalDups > 0) {
+        showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found — duplicates hidden`, { label: "View Duplicates", onClick: () => { setFilter("duplicates"); setDupTab("pending"); } });
+      } else {
+        showToast("No new duplicates found");
+      }
       await loadData();
     } catch {
       setBulkDetectError("Detection failed. Try again.");
@@ -1823,10 +1829,43 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             )}
             {grouped.map(([date, txs]) => {
             const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
+            const allSelected = txs.every(t => selectedIds.has(t.id));
+            const someSelected = txs.some(t => selectedIds.has(t.id));
             return (
               <div key={date}>
-                <div style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}) }}>
-                  <span>{dateLabel(date)}</span>
+                <div
+                  onClick={() => {
+                    if (!selectMode) setSelectMode(true);
+                    if (allSelected) {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev);
+                        txs.forEach(t => next.delete(t.id));
+                        return next;
+                      });
+                    } else {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev);
+                        txs.forEach(t => next.add(t.id));
+                        return next;
+                      });
+                    }
+                  }}
+                  style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}), cursor: "pointer", userSelect: "none" }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {selectMode && (
+                      <span style={{
+                        width: 14, height: 14, borderRadius: 3,
+                        border: `1.5px solid ${allSelected ? "var(--accent)" : someSelected ? "var(--ink-3)" : "var(--line)"}`,
+                        background: allSelected ? "var(--accent)" : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 120ms ease",
+                      }}>
+                        {allSelected && <Icon name="check" size={10} stroke="var(--paper)" />}
+                      </span>
+                    )}
+                    {dateLabel(date)}
+                  </span>
                   <span style={inboxStyles.dayTotal}>
                     {dayTotal !== 0 && (dayTotal > 0 ? <span style={{color:"var(--pos)"}}>+₹{dayTotal.toLocaleString("en-IN")}</span> : <span>−₹{Math.abs(dayTotal).toLocaleString("en-IN")}</span>)}
                   </span>

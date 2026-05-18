@@ -447,6 +447,18 @@ async def batch_detect_duplicates(
     }
 
     # Track which pairs we've already created to avoid duplicates
+    # Pre-load ALL existing pairs for this user to avoid UniqueConstraint violations on re-runs
+    all_user_pairs = (await db.execute(
+        select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id)
+        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
+        .join(Email, Email.id == Transaction.email_id)
+        .where(Email.user_id == user_id)
+    )).all()
+    db_existing_pairs: Set[Tuple[str, str]] = {
+        tuple(sorted([row.primary_tx_id, row.duplicate_tx_id]))
+        for row in all_user_pairs
+    }
+
     seen_pairs: Set[Tuple[str, str]] = set()
 
     for new_tx, new_email in new_transactions:
@@ -550,6 +562,10 @@ async def batch_detect_duplicates(
                     rule_source = "amount_date"
 
             if score < 0.5:
+                continue
+
+            # Skip if this pair already exists in DB (handles re-runs gracefully)
+            if pair_key in db_existing_pairs:
                 continue
 
             seen_pairs.add(pair_key)
@@ -661,6 +677,10 @@ async def batch_detect_duplicates(
                     rule_source = "amount_date"
 
             if score < 0.5:
+                continue
+
+            # Skip if this pair already exists in DB (handles re-runs gracefully)
+            if pair_key in db_existing_pairs:
                 continue
 
             seen_pairs.add(pair_key)

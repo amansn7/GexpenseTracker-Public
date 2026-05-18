@@ -98,7 +98,9 @@ async def bulk_transactions(
     elif payload.action == "detect_duplicates":
         tx_email_pairs = [(t, t.email) for t in rows if t.email]
         user_id = str(current_user.id)
-        await batch_detect_duplicates(tx_email_pairs, db, user_id)
+        stats = await batch_detect_duplicates(tx_email_pairs, db, user_id)
+        await db.commit()
+        return {"updated": len(rows), "duplicates": stats}
     elif payload.action == "set_category":
         if not payload.category:
             raise HTTPException(status_code=422, detail="category is required for set_category action")
