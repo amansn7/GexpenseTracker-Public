@@ -104,7 +104,9 @@ def _sorted_domains(d1: str, d2: str) -> Tuple[str, str]:
     return (d1, d2) if d1 <= d2 else (d2, d1)
 
 
-def _amount_tolerance(amount: float) -> float:
+def _amount_tolerance(amount: float, *, bulk: bool = False) -> float:
+    if bulk:
+        return max(abs(amount) * 0.03, 5.0)
     return max(abs(amount) * 0.005, 5.0)
 
 
@@ -469,7 +471,7 @@ async def batch_detect_duplicates(
             continue
 
         new_amount = float(new_tx.amount)
-        new_tol = _amount_tolerance(new_amount)
+        new_tol = _amount_tolerance(new_amount, bulk=True)
         new_domain = new_email.sender_domain.lower()
         new_subject = (new_email.subject or "").lower()
         new_merchant = new_tx.merchant or ""
@@ -492,6 +494,7 @@ async def batch_detect_duplicates(
             if existing_tx.id == new_tx.id:
                 continue
             if not existing_email or not existing_email.sender_domain:
+                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP no email/domain", flush=True)
                 continue
 
             existing_domain = existing_email.sender_domain.lower()
@@ -612,6 +615,7 @@ async def batch_detect_duplicates(
             if other_tx.id == new_tx.id:
                 continue
             if not other_email or not other_email.sender_domain:
+                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP no email/domain", flush=True)
                 continue
 
             other_domain = other_email.sender_domain.lower()
