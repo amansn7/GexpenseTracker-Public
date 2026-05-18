@@ -340,6 +340,7 @@ const App = () => {
               dateRange={dateRange}
               setDateRange={setDateRange}
               loadMore={loadMore}
+              loadData={loadData}
               totalTransactions={totalTransactions}
               loadingMore={loadingMore}
               reviewEmails={reviewEmails}

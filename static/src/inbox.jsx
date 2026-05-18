@@ -911,7 +911,7 @@ const FilterChip = ({ label, icon, count, active, onClick }) => {
   );
 };
 
-const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
+const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, loadData = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
@@ -1186,9 +1186,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   const bulkDetectDuplicates = async () => {
     const ids = [...selectedIds];
+    const count = ids.length;
     clearSelect();
     try {
       await API.post("/api/transactions/bulk", { ids, action: "detect_duplicates" });
+      showToast(`${count} transaction${count > 1 ? "s" : ""} scanned — duplicates hidden`, { label: "View Duplicates", onClick: () => { setFilter("duplicates"); setDupTab("pending"); } });
+      await loadData();
     } catch {
       setBulkDetectError("Detection failed. Try again.");
       setTimeout(() => setBulkDetectError(""), 4000);
@@ -1368,6 +1371,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   };
 
   const filtered = transactions.filter(t => {
+    if (t.tag === "ignore") return false;
     if (filter === "all") return true;
     if (filter === "expenses") return t.amount < 0 && t.tag !== "subscription";
     if (filter === "income") return t.amount > 0;
