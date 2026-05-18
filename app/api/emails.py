@@ -137,6 +137,7 @@ async def review_email(
             transaction_type=result.transaction_type,
             payment_mode=result.payment_mode,
             amount=result.amount,
+            currency=result.currency,
             merchant=result.merchant,
             category=result.category,
             confidence=result.confidence,
@@ -348,7 +349,7 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                             classifier_method=cls.classifier_method.value,
                             txn_date=cls.txn_date,
                             status=cls.status.value,
-                            currency="INR",
+                            currency=cls.currency,
                         )
                         db.add(txn)
                         label_changed = True

@@ -24,7 +24,8 @@ PRE-EXTRACTED FACTS (regex-based - verify against email; override if contradicte
 def build_pre_extraction_block(pre: dict) -> str:
     lines = []
     if pre.get("amount") is not None:
-        lines.append(f"- Amount: {pre['amount']} INR")
+        currency_label = pre.get("source_currency") or "INR"
+        lines.append(f"- Amount: {pre['amount']} {currency_label}")
     if pre.get("date"):
         lines.append(f"- Date: {pre['date']}")
     if pre.get("direction") not in (None, "unknown"):
@@ -101,9 +102,20 @@ Body: {body_snippet}
 Available categories: {categories}
 
 # AMOUNT EXTRACTION
-INR in rupees (number only, no currency symbols or commas).
-"Rs.499.00" → 499, "INR 1,200.50" → 1200.5, "₹1,299" → 1299
-null if no INR amount found or email is non-transaction
+Extract amount as a pure number (no symbols, no commas) in whatever currency is shown in the email.
+"Rs.499.00" → amount=499, source_currency="INR"
+"INR 1,200.50" → amount=1200.5, source_currency="INR"
+"₹1,299" → amount=1299, source_currency="INR"
+"USD5.90" → amount=5.90, source_currency="USD"
+"$99.99" → amount=99.99, source_currency="USD"
+"EUR 50.00" → amount=50.0, source_currency="EUR"
+"5.90 USD" → amount=5.90, source_currency="USD"
+
+source_currency must be a 3-letter ISO code (INR, USD, EUR, GBP, etc.). Default to "INR" for rupee transactions.
+Do NOT convert currencies — just extract the raw amount and its source currency.
+Our system applies the correct FX conversion automatically.
+
+null if no amount found or email is non-transaction
 DO NOT extract savings, cashback offers, discounts, credit limits, or statement totals unless payment executed.
 DO NOT extract itemized line prices ("1 x Item ₹94", "1 × Butter ₹122") as the amount. Only extract a single total paid amount if stated explicitly.
 
@@ -241,7 +253,7 @@ When uncertain → null fields + lower confidence.
 
 ========================================
 Respond ONLY with valid JSON:
-{{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0,"email_type":"type or null"}}"""
+{{"label":"expense|income|ignore","amount":0.00,"merchant":"name or null","category":"category or null","txn_date":"YYYY-MM-DD or null","confidence":0.0,"email_type":"type or null","source_currency":"USD or null"}}"""
 
 # ── Batch user prompt ─────────────────────────────────────────────────────────
 
@@ -299,8 +311,9 @@ INSURANCE — money going OUT for insurance premiums:
 ========================================
 EXTRACTION RULES:
 ========================================
-- amount: INR in rupees (number only, no symbols or commas). "Rs.499" → 499, "INR 1200.50" → 1200.5. null if no amount found.
-
+- amount: INR in rupees (number only, no symbols or commas). "Rs.499" → 499, "INR 1200.50" → 1200.5. For foreign currencies, convert to INR and set source_currency.
+- source_currency: 3-letter currency code if amount is in a foreign currency (e.g. "USD", "EUR", "GBP"). null if INR.
+- 
 - merchant: payee / store / service — NOT bank, NOT payment gateway.
   Clean codes: "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy",
   "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",
@@ -319,7 +332,7 @@ EXTRACTION RULES:
 
 ========================================
 Respond ONLY with a JSON array — one object per email, in order:
-[{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0,"email_type":"..."}},...]"""
+[{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0,"email_type":"...","source_currency":"USD or null"}},...]"""
 
 
 _DEFAULT_CATEGORIES = (

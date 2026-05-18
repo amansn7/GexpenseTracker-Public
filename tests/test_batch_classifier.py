@@ -5,6 +5,7 @@ from app.classifier.classifier import (
     ClassificationResult,
 )
 from app.classifier.llm_client import _parse_batch_response, LLMClassification
+from app.classifier.transaction_extractor import _extract_foreign_amount, extract
 from app.models import Label, TransactionStatus, ClassifierMethod
 
 
@@ -39,6 +40,54 @@ def test_extract_amount_bare_int_no_match():
 
 def test_extract_amount_date_no_match():
     assert _extract_amount("Payment due on 2026-05-15") is None
+
+
+# ── _extract_foreign_amount ───────────────────────────────────────────────────
+
+def test_extract_foreign_amount_none():
+    assert _extract_foreign_amount("Rs. 500 debited") == (None, None)
+
+def test_extract_foreign_amount_usd_prefix():
+    assert _extract_foreign_amount("USD5.90 spent on your card") == (5.90, "USD")
+
+def test_extract_foreign_amount_usd_prefix_space():
+    assert _extract_foreign_amount("USD 5.90 spent") == (5.90, "USD")
+
+def test_extract_foreign_amount_dollar_symbol():
+    assert _extract_foreign_amount("$99.99 charged") == (99.99, "USD")
+
+def test_extract_foreign_amount_euro_symbol():
+    assert _extract_foreign_amount("€50.00 spent") == (50.0, "EUR")
+
+def test_extract_foreign_amount_pound_symbol():
+    assert _extract_foreign_amount("£25.00 charged") == (25.0, "GBP")
+
+def test_extract_foreign_amount_suffix():
+    assert _extract_foreign_amount("5.90 USD") == (5.90, "USD")
+
+def test_extract_foreign_amount_us_dollars():
+    assert _extract_foreign_amount("10.50 US Dollars") == (10.50, "USD")
+
+def test_extract_foreign_amount_eur_prefix():
+    assert _extract_foreign_amount("EUR 100.00 charged") == (100.0, "EUR")
+
+
+# ── extract() with source_currency ────────────────────────────────────────────
+
+def test_extract_inr_returns_currency():
+    result = extract("Subject", "Rs. 500 debited from account")
+    assert result["amount"] == 500.0
+    assert result["source_currency"] == "INR"
+
+def test_extract_usd_returns_currency():
+    result = extract("Subject", "USD5.90 spent on your card at ANTHROPIC")
+    assert result["amount"] == 5.90
+    assert result["source_currency"] == "USD"
+
+def test_extract_no_amount_no_currency():
+    result = extract("Subject", "Just a friendly email")
+    assert result["amount"] is None
+    assert result["source_currency"] is None
 
 
 # ── _rules_fallback_result ───────────────────────────────────────────────────

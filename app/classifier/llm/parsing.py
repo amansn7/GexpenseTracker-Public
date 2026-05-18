@@ -17,6 +17,7 @@ class LLMClassification:
     txn_date: Optional[str]
     confidence: float
     email_type: Optional[str] = None
+    source_currency: Optional[str] = None
 
 
 def extract_json(text: str) -> str:
@@ -73,6 +74,9 @@ def parse_response(raw: str) -> LLMClassification:
             continue
     else:
         raise ValueError(f"Cannot parse response: {cleaned[:200]}")
+    source_currency = data.get("source_currency") or data.get("currency")
+    if source_currency:
+        source_currency = source_currency.upper() if len(source_currency) <= 3 else source_currency
     return LLMClassification(
         label=data.get("label", "ignore"),
         amount=float(data["amount"]) if data.get("amount") is not None else None,
@@ -81,6 +85,7 @@ def parse_response(raw: str) -> LLMClassification:
         txn_date=data.get("txn_date"),
         confidence=float(data.get("confidence", 0.5)),
         email_type=data.get("email_type"),
+        source_currency=source_currency,
     )
 
 
@@ -107,6 +112,9 @@ def parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificatio
                 category=None, txn_date=None, confidence=0.0,
             ))
             continue
+        sc = item.get("source_currency") or item.get("currency")
+        if sc:
+            sc = sc.upper() if len(sc) <= 3 else sc
         results.append(LLMClassification(
             label=str(item.get("label", "ignore")),
             amount=float(item["amount"]) if item.get("amount") is not None else None,
@@ -115,6 +123,7 @@ def parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificatio
             txn_date=item.get("txn_date"),
             confidence=float(item.get("confidence", 0.5)),
             email_type=item.get("email_type"),
+            source_currency=sc,
         ))
 
     if len(results) != expected_count:

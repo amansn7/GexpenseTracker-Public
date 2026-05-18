@@ -6,6 +6,8 @@ No external ML models required.
 import re
 from typing import Optional
 
+from app.services.currency import SUPPORTED_CURRENCIES
+
 # ── Amount ────────────────────────────────────────────────────────────────────
 
 _AMOUNT_RE = re.compile(
@@ -14,6 +16,57 @@ _AMOUNT_RE = re.compile(
     r'([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)',  # suffix: 2754 INR, 2754 Rs, 2754₹
     re.IGNORECASE
 )
+
+_CURRENCY_CODES = "|".join(sorted(SUPPORTED_CURRENCIES - {"INR"}, key=len, reverse=True))
+_SYMBOL_MAP = {"$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "A$": "AUD", "C$": "CAD", "HK$": "HKD", "S$": "SGD", "NZ$": "NZD"}
+
+_FOREIGN_CURRENCY_RE = re.compile(
+    # 1. Currency code prefix: USD5.90, USD 5.90
+    r'(?:(' + _CURRENCY_CODES + r')\s*([\d,]+(?:\.\d{1,2})?))'
+    r'|'
+    # 2. Symbol prefix: $5.90, €50.00, £25.00
+    r'(?:([$€£¥])\s*([\d,]+(?:\.\d{1,2})?))'
+    r'|'
+    # 3. Amount suffix: 5.90 USD, 10.50 US Dollars
+    r'(?:([\d,]+(?:\.\d{1,2})?)\s+((?:' + _CURRENCY_CODES + r'|US\s+Dollars?)))',
+    re.IGNORECASE
+)
+
+
+def _resolve_symbol_currency(symbol: str) -> str:
+    upper = symbol.upper()
+    for prefix, curr in _SYMBOL_MAP.items():
+        if upper == prefix.upper():
+            return curr
+    return "USD"
+
+
+def _extract_foreign_amount(text: str) -> tuple[Optional[float], Optional[str]]:
+    m = _FOREIGN_CURRENCY_RE.search(text)
+    if not m:
+        return None, None
+    raw = None
+    currency = None
+    # Group 1-2: currency code prefix
+    if m.group(1):
+        raw = m.group(2)
+        currency = m.group(1).upper()
+    # Group 3-4: symbol prefix
+    elif m.group(3):
+        raw = m.group(4)
+        currency = _resolve_symbol_currency(m.group(3))
+    # Group 5-6: amount suffix
+    elif m.group(5):
+        raw = m.group(5)
+        currency = m.group(6).upper()
+        if currency.startswith("US"):
+            currency = "USD"
+    if not raw:
+        return None, None
+    try:
+        return float(raw.replace(",", "")), currency
+    except ValueError:
+        return None, None
 
 # ── Date ─────────────────────────────────────────────────────────────────────
 
@@ -224,6 +277,7 @@ def extract(subject: str, body: str) -> dict:
     text_clean = re.sub(r'\s+', ' ', text)
 
     amount: Optional[float] = None
+    foreign_amount, foreign_currency = _extract_foreign_amount(text_clean)
     m = _AMOUNT_RE.search(text_clean)
     if m:
         raw = m.group(1) or m.group(2) or m.group(3)
@@ -232,6 +286,13 @@ def extract(subject: str, body: str) -> dict:
                 amount = float(raw.replace(',', ''))
             except ValueError:
                 pass
+
+    source_currency: Optional[str] = None
+    if amount is not None:
+        source_currency = "INR"
+    elif foreign_amount is not None:
+        amount = foreign_amount
+        source_currency = foreign_currency
 
     date: Optional[str] = None
     dm = _DATE_RE.search(text_clean)
@@ -250,4 +311,5 @@ def extract(subject: str, body: str) -> dict:
         'mode': mode,
         'merchant': merchant,
         'category_hint': category_hint,
+        'source_currency': source_currency,
     }

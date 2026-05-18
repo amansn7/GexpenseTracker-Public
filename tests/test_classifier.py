@@ -6,17 +6,82 @@ from app.models import Label, TransactionStatus, ClassifierMethod
 
 
 def _mock_verbose_result(label="expense", amount=499.0, merchant="Swiggy",
-                          category="Food", txn_date="2026-04-10", confidence=0.95):
+                          category="Food", txn_date="2026-04-10", confidence=0.95,
+                          source_currency=None):
     return {
         "result": LLMClassification(
             label=label, amount=amount, merchant=merchant,
             category=category, txn_date=txn_date, confidence=confidence,
+            source_currency=source_currency,
         ),
         "provider": "google",
         "model": "gemini-2.0-flash-exp",
         "prompt": "...",
         "raw_response": '{"label":"expense","amount":499.0,"merchant":"Swiggy","category":"Food","txn_date":"2026-04-10","confidence":0.95}',
     }
+
+
+@pytest.mark.asyncio
+async def test_classify_email_default_currency_inr():
+    """With no session/user, defaults to INR currency."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock, return_value=_mock_verbose_result()):
+        result = await classify_email(
+            email_id="e-curr", sender="s@bank.com", sender_domain="bank.com",
+            subject="Debit", body_text="Rs.500 debited",
+        )
+    assert result.currency == "INR"
+    assert result.source_currency is None
+
+
+@pytest.mark.asyncio
+async def test_classify_email_skips_conversion_when_source_is_inr():
+    """INR source_currency → no conversion needed."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock,
+               return_value=_mock_verbose_result(amount=500.0, source_currency="INR")):
+        result = await classify_email(
+            email_id="e-inr", sender="s@bank.com", sender_domain="bank.com",
+            subject="Debit", body_text="Rs.500 debited",
+        )
+    assert result.amount == 500.0
+    assert result.currency == "INR"
+
+
+@pytest.mark.asyncio
+async def test_classify_email_skips_conversion_no_source():
+    """No source_currency → no conversion, keep amount as-is."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock,
+               return_value=_mock_verbose_result(amount=500.0)):
+        result = await classify_email(
+            email_id="e-nosrc", sender="s@bank.com", sender_domain="bank.com",
+            subject="Debit", body_text="Rs.500 debited",
+        )
+    assert result.amount == 500.0
+    assert result.currency == "INR"
+
+
+@pytest.mark.asyncio
+async def test_classify_email_converts_foreign_currency():
+    """Foreign source_currency triggers conversion."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock,
+               return_value=_mock_verbose_result(
+                   amount=5.90, merchant="Anthropic", category="Software",
+                   source_currency="USD",
+               )), \
+         patch("app.classifier.classifier.convert_amount",
+               new_callable=AsyncMock, return_value=491.47):
+        result = await classify_email(
+            email_id="e-fx", sender="alert@sbicard.com",
+            sender_domain="sbicard.com",
+            subject="Transaction alert",
+            body_text="USD5.90 spent on your SBI Credit Card at ANTHROPIC",
+        )
+    assert result.amount == 491.47
+    assert result.currency == "INR"
+    assert result.source_currency == "USD"
 
 
 @pytest.mark.asyncio

@@ -13,6 +13,11 @@ from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
 from app.services.category_service import CategoryService
+from app.services.currency import (
+    SUPPORTED_CURRENCIES,
+    convert_amount,
+    load_user_default_currency,
+)
 
 _AMOUNT_RE = re.compile(
     r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)'  # prefix: Rs. 2754, INR 2754, ₹2754
@@ -88,6 +93,8 @@ class ClassificationResult:
     status: TransactionStatus = TransactionStatus.needs_review
     transaction_type: Optional[str] = None
     payment_mode: Optional[str] = None
+    currency: str = "INR"
+    source_currency: Optional[str] = None
     warnings: List[str] = field(default_factory=list)
 
 
@@ -123,6 +130,8 @@ async def classify_email(
     else:
         user_categories = await CategoryService.load_for_llm(session, user_id)
 
+    default_currency = await load_user_default_currency(session, user_id)
+
     # Stage 1 pre-filter: skip LLM for clear non-financial emails
     if rule_engine_enabled and not llm_priority:
         rule_pre = apply_rules(sender_domain, subject, body_text, db_rules or {})
@@ -149,12 +158,6 @@ async def classify_email(
                 payment_mode=_detect_payment_mode(body_text),
             )
 
-    provider = "none"
-    model_name = "none"
-    raw_response = ""
-    llm_result = None
-    result_warnings: List[str] = []
-
     pre_extraction = rule_engine_adapter.extract(subject, body_snippet)
     logger.debug("Pre-extraction for email %s: %s", email_id, pre_extraction)
 
@@ -163,6 +166,7 @@ async def classify_email(
     raw_response = ""
     llm_result = None
     result_warnings: List[str] = []
+    source_currency: Optional[str] = None
 
     if not use_llm:
         logger.debug("LLM disabled for email %s, using rules only", email_id)
@@ -197,6 +201,23 @@ async def classify_email(
         category = llm_result.category
         confidence = llm_result.confidence
         txn_date = _parse_date(llm_result.txn_date)
+        source_currency = llm_result.source_currency
+        if source_currency and source_currency not in SUPPORTED_CURRENCIES:
+            source_currency = None
+
+        # Currency conversion: if source currency differs from user's default, convert
+        if amount is not None and source_currency and source_currency != default_currency:
+            try:
+                converted = await convert_amount(amount, source_currency, default_currency)
+                logger.info(
+                    "Converted %.2f %s → %.2f %s for email %s",
+                    amount, source_currency, converted, default_currency, email_id,
+                )
+                amount = converted
+            except Exception as exc:
+                logger.warning("Currency conversion failed for email %s: %s", email_id, exc)
+                result_warnings.append(f"Currency conversion from {source_currency} failed: {exc}")
+                source_currency = None
 
         if label == Label.ignore and category == "CC Payment":
             txn_type = "cc_payment"
@@ -281,6 +302,8 @@ async def classify_email(
         classifier_method=classifier_method,
         transaction_type=txn_type,
         payment_mode=_detect_payment_mode(body_text),
+        currency=default_currency,
+        source_currency=source_currency if llm_result else None,
         warnings=result_warnings,
     )
 
@@ -376,6 +399,7 @@ async def batch_classify_emails(
     """
     t0 = time.monotonic()
     user_categories = await CategoryService.load_for_llm(session, user_id)
+    default_currency = await load_user_default_currency(session, user_id)
 
     n = len(items)
     body_snippets: List[str] = []
@@ -448,6 +472,22 @@ async def batch_classify_emails(
                     category = llm_res.category
                     confidence = llm_res.confidence
                     txn_date = _parse_date(llm_res.txn_date)
+                    source_currency_batch = llm_res.source_currency
+                    if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
+                        source_currency_batch = None
+
+                    # Currency conversion
+                    if amount is not None and source_currency_batch and source_currency_batch != default_currency:
+                        try:
+                            converted = await convert_amount(amount, source_currency_batch, default_currency)
+                            logger.info(
+                                "Batch convert: %.2f %s → %.2f %s for email %s",
+                                amount, source_currency_batch, converted, default_currency, email_id,
+                            )
+                            amount = converted
+                        except Exception as exc:
+                            logger.warning("Batch currency conversion failed for email %s: %s", email_id, exc)
+                            source_currency_batch = None
 
                     if label == Label.ignore and category == "CC Payment":
                         txn_type = "cc_payment"
@@ -476,6 +516,8 @@ async def batch_classify_emails(
                         classifier_method=ClassifierMethod.llm,
                         transaction_type=txn_type,
                         payment_mode=_detect_payment_mode(items[idx][4]),
+                        currency=default_currency,
+                        source_currency=source_currency_batch,
                     )
 
                     latency_ms = round((time.monotonic() - batch_ts) * 1000)

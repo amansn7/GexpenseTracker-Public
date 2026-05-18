@@ -93,7 +93,7 @@ async def run_sync_range(
                     transaction_type=cls.transaction_type,
                     payment_mode=cls.payment_mode,
                     amount=cls.amount,
-                    currency="INR",
+                    currency=cls.currency,
                     merchant=cls.merchant,
                     category=cls.category,
                     txn_date=cls.txn_date,
