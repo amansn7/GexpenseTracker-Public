@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.classifier.llm_client import build_user_client
+from app.classifier.llm_client import MultiLLMClient, build_user_client
 from app.crypto import decrypt_ai_secret
 from app.models import UserSettings
 from app.models.user import UserAIService
@@ -13,7 +13,7 @@ from app.models.user import UserAIService
 logger = logging.getLogger(__name__)
 
 
-async def get_user_llm_client(user_id: str, db: AsyncSession) -> Optional[object]:
+async def get_user_llm_client(user_id: str, db: AsyncSession) -> Optional[MultiLLMClient]:
     """Build a user-specific LLM client from their active AI service config.
 
     Returns None if the user has no active AI service or if building fails.
@@ -44,5 +44,8 @@ async def get_user_llm_client(user_id: str, db: AsyncSession) -> Optional[object
             model_id=ai_svc.model_id,
         )
     except Exception as exc:
-        logger.error("Failed to build user LLM client for %s: %s", user_id, exc)
+        logger.error(
+            "Failed to build user LLM client for %s (provider=%s model=%s): %s",
+            user_id, ai_svc.provider, ai_svc.model_id, exc,
+        )
         return None

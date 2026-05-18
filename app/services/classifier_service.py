@@ -14,12 +14,11 @@ async def get_classifier_context(
     db: AsyncSession,
     include_rules: bool = True,
 ) -> dict:
-    """Load all classifier context for a user: rules, categories, and merchant hints.
+    """Load classifier context for a user: rules and categories.
 
     Returns dict with keys:
       - rules: dict[str, tuple] from build_domain_rules (or {} if disabled)
       - categories: str — comma-separated active category names (or None)
-      - merchant_hints: None placeholder for future merchant resolution hints
     """
     user_settings = (
         await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
@@ -36,5 +35,4 @@ async def get_classifier_context(
     return {
         "rules": rules,
         "categories": categories,
-        "merchant_hints": None,
     }
