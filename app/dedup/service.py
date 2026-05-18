@@ -417,37 +417,32 @@ async def batch_detect_duplicates(
         if tx.amount:
             amounts.append(float(tx.amount))
 
-    if not dates or not amounts:
-        return stats
+    # ── Windowed query for existing expenses (skip if no dates/amounts) ─────
+    existing_map: Dict[str, Tuple[Transaction, Email]] = {}
+    if dates and amounts:
+        min_date = min(dates) - timedelta(days=3)
+        max_date = max(dates) + timedelta(days=3)
+        min_amount = min(amounts) * 0.95
+        max_amount = max(amounts) * 1.05
 
-    min_date = min(dates) - timedelta(days=3)
-    max_date = max(dates) + timedelta(days=3)
-    min_amount = min(amounts) * 0.95
-    max_amount = max(amounts) * 1.05
+        existing = (await db.execute(
+            select(Transaction, Email)
+            .outerjoin(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.label == "expense",
+                Transaction.amount >= min_amount,
+                Transaction.amount <= max_amount,
+                Email.user_id == user_id,
+                or_(
+                    and_(Transaction.txn_date >= min_date, Transaction.txn_date <= max_date),
+                    and_(Email.received_at >= min_date, Email.received_at <= max_date),
+                ),
+            )
+        )).all()
 
-    # Single windowed query: all expense transactions in the date/amount range for this user
-    existing = (await db.execute(
-        select(Transaction, Email)
-        .outerjoin(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.label == "expense",
-            Transaction.amount >= min_amount,
-            Transaction.amount <= max_amount,
-            Email.user_id == user_id,
-            or_(
-                and_(Transaction.txn_date >= min_date, Transaction.txn_date <= max_date),
-                and_(Email.received_at >= min_date, Email.received_at <= max_date),
-            ),
-        )
-    )).all()
+        existing_map = {row[0].id: (row[0], row[1]) for row in existing if row[1]}
 
-    # Build lookup: existing tx IDs → (tx, email)
-    existing_map: Dict[str, Tuple[Transaction, Email]] = {
-        row[0].id: (row[0], row[1]) for row in existing if row[1]
-    }
-
-    # Track which pairs we've already created to avoid duplicates
-    # Pre-load ALL existing pairs for this user to avoid UniqueConstraint violations on re-runs
+    # Pre-load ALL existing DuplicatePair rows for this user
     all_user_pairs = (await db.execute(
         select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id)
         .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
@@ -463,8 +458,10 @@ async def batch_detect_duplicates(
 
     for new_tx, new_email in new_transactions:
         if not _is_dedup_candidate(new_tx):
+            logger.info("batch_detect_duplicates: skip tx=%s (not a dedup candidate, label=%s)", new_tx.id, new_tx.label)
             continue
         if not new_email or not new_email.sender_domain:
+            logger.info("batch_detect_duplicates: skip tx=%s (no email or sender_domain)", new_tx.id)
             continue
 
         new_amount = float(new_tx.amount)
@@ -474,6 +471,7 @@ async def batch_detect_duplicates(
         new_merchant = new_tx.merchant or ""
         new_effective = new_tx.txn_date or (new_email.received_at.date() if new_email.received_at else None)
         if new_effective is None:
+            logger.info("batch_detect_duplicates: skip tx=%s (no effective date)", new_tx.id)
             continue
 
         is_order = _subject_has_any(new_subject, _INVEST_ORDER_SIGNALS)
