@@ -598,7 +598,7 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
   );
 };
 
-const DuplicatePairCard = ({ pair, onResolve }) => {
+const DuplicatePairCard = ({ pair, onResolve, isNew }) => {
   const [resolving, setResolving] = React.useState(false);
   const { isMobile } = useViewport();
   const confidence = pair.confidence || 0;
@@ -615,7 +615,7 @@ const DuplicatePairCard = ({ pair, onResolve }) => {
   return (
     <div style={{ padding: isMobile ? "16px 14px" : "18px 24px", borderBottom: "1px solid var(--line)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)" }}>{reasonLabel}</span>
+        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>{reasonLabel}{isNew && <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", background: "var(--accent)", color: "white", borderRadius: 3, padding: "1px 5px 1px 5px", lineHeight: "14px" }}>New</span>}</span>
         {confidence > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <div style={{ width: 44, height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
@@ -1011,6 +1011,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [dupTab, setDupTab] = React.useState("pending");
   const [dupSelected, setDupSelected] = React.useState(new Set());
   const [dupBulkResolving, setDupBulkResolving] = React.useState(false);
+  const [dupBulkResult, setDupBulkResult] = React.useState(null);
   const headerCheckRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -1228,7 +1229,10 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       const dupStats = result?.duplicates || {};
       const totalDups = (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
       if (totalDups > 0) {
-        showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found — duplicates hidden`, { label: "View Duplicates", onClick: () => { setFilter("duplicates"); setDupTab("pending"); } });
+        showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
+        setDupBulkResult({ ...dupStats, newPairIds: dupStats.new_pair_ids || [] });
+        setFilter("duplicates");
+        setDupTab("pending");
       } else {
         showToast("No new duplicates found");
       }
@@ -1785,6 +1789,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 )}
                 <button onClick={async () => {
                   setDupScanning(true);
+                  setDupBulkResult(null);
                   try {
                     const result = await API.post("/api/duplicates/scan");
                     const d = await API.get("/api/duplicates?status=pending");
@@ -1805,8 +1810,24 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 </button>
               </div>
             </div>
-            {dupTab === "pending" ? (
-              dupLoading && !dupScanning ? (
+            {dupTab === "pending" ? (<>
+              {dupBulkResult && (
+                <div style={{ margin: "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results — {dupBulkResult.checked} transactions checked</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+                      {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
+                      {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
+                      {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
+                      {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
+                      {(!dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => setDupBulkResult(null)}
+                    style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 2, fontSize: 14, lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+              )}
+              {dupLoading && !dupScanning ? (
                 <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
                   <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
                 </div>
@@ -1824,16 +1845,18 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <div style={{ fontSize: 12, color: "var(--ink-4)" }}>Run a scan to check your expense history.</div>
                 </div>
               ) : (
-                dupPairs.map(pair => (
+                dupPairs.map(pair => {
+                  const isNew = dupBulkResult?.newPairIds?.includes(pair.id);
+                  return (
                   <div key={pair.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 16px 4px 12px", borderBottom: "1px solid var(--line)" }}>
                     <input type="checkbox" checked={dupSelected.has(pair.id)} onChange={e => {
                       setDupSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(pair.id) : n.delete(pair.id); return n; });
                     }} style={{ marginTop: 22, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}><DuplicatePairCard pair={pair} onResolve={resolveDup} /></div>
-                  </div>
-                ))
-              )
-            ) : dupResolvedLoading ? (
+                    <div style={{ flex: 1 }}><DuplicatePairCard pair={pair} onResolve={resolveDup} isNew={isNew} /></div>
+                  </div>);
+                })
+              )}
+            </>) : dupResolvedLoading ? (
               <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
                 <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
               </div>

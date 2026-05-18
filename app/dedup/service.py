@@ -128,6 +128,16 @@ async def _load_paired_ids(tx_id: str, db: AsyncSession) -> Set[str]:
     }
 
 
+def _is_dedup_candidate(transaction):
+    if transaction.amount is None:
+        return False
+    if transaction.label == "expense":
+        return True
+    if transaction.label == "ignore" and transaction.transaction_type in ("cc_payment", "investment"):
+        return True
+    return False
+
+
 async def detect_and_record_duplicates(
     tx: Transaction,
     email: Optional[Email],
@@ -141,16 +151,6 @@ async def detect_and_record_duplicates(
       3. Investment flow: "order sent" + "confirmation" pair for same amount
     All queries are scoped to email.user_id to prevent cross-user false positives.
     """
-    def _is_dedup_candidate(transaction):
-        """Check if transaction should be considered for dedup."""
-        if transaction.amount is None:
-            return False
-        if transaction.label == "expense":
-            return True
-        if transaction.label == "ignore" and transaction.transaction_type in ("cc_payment", "investment"):
-            return True
-        return False
-
     if not _is_dedup_candidate(tx):
         return
     if not email or not email.sender_domain:
@@ -393,18 +393,20 @@ async def batch_detect_duplicates(
     new_transactions: List[Tuple[Transaction, Email]],
     db: AsyncSession,
     user_id: str,
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     """
     Batch dedup: replace N individual detect_and_record_duplicates calls with
     a single windowed query + multi-layer scoring.
 
     new_transactions: list of (Transaction, Email) tuples just written.
-    Returns {"checked": N, "same_domain": N, "cross_domain": N, "investment_flow": N, "merchant_alias": N}.
+    Returns {"checked": N, "same_domain": N, "cross_domain": N, "investment_flow": N,
+             "merchant_alias": N, "new_pair_ids": [str, ...]}.
     """
     if not new_transactions:
-        return {"checked": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0}
+        return {"checked": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "new_pair_ids": []}
 
     stats = {"checked": len(new_transactions), "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0}
+    new_pair_ids: List[str] = []
 
     # Collect date range and amounts for the windowed query
     dates = []
@@ -587,14 +589,16 @@ async def batch_detect_duplicates(
                 ))
                 logger.info("Batch auto-resolved: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
             else:
+                pair_id = str(uuid.uuid4())
                 db.add(DuplicatePair(
-                    id=str(uuid.uuid4()),
+                    id=pair_id,
                     primary_tx_id=new_tx.id,
                     duplicate_tx_id=existing_tx.id,
                     status="pending",
                     confidence=score,
                     rule_source=rule_source,
                 ))
+                new_pair_ids.append(pair_id)
                 logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
 
         # Compare against OTHER new transactions in the same batch (intra-batch dedup)
@@ -702,17 +706,19 @@ async def batch_detect_duplicates(
                 ))
                 logger.info("Batch intra-batch auto-resolved: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
             else:
+                pair_id = str(uuid.uuid4())
                 db.add(DuplicatePair(
-                    id=str(uuid.uuid4()),
+                    id=pair_id,
                     primary_tx_id=new_tx.id,
                     duplicate_tx_id=other_tx.id,
                     status="pending",
                     confidence=score,
                     rule_source=rule_source,
                 ))
+                new_pair_ids.append(pair_id)
                 logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
 
-    return stats
+    return {**stats, "new_pair_ids": new_pair_ids}
 
 
 async def resolve_duplicate(
