@@ -38,9 +38,8 @@ Fix: type-annotate `t: Transaction, e: Email | None`. Consider `email=None` when
 Memory obs 278/279 confirm `Transaction.email` uses default lazy loading. Callers must `selectinload(Transaction.email)` upstream. No assertion or comment in formatter.
 Fix: 1-line module docstring noting "caller must eager-load email" OR accept `email` kwarg required when relationship not loaded.
 
-**M4. `CategoryService.load_for_llm` defensive None-checks are dead weight.**
-`if not session or not user_id: return None` (`:73`). Every caller already has both. Reduces type clarity (Optional in signature).
-Fix: drop the None guards; make `session: AsyncSession, user_id: str`.
+**M4. `CategoryService.load_for_llm` defensive None-checks. [WONTFIX]**
+Verified callers — `classify_email` (api/transactions reclassify flow with `session=None`) and tests legitimately pass `None`. Guards required. Skip.
 
 **M5. `_CANONICAL_MAP` lives only in `category_service.py`.**
 Comment says "mirrors frontend `_CAT_ALIAS`". Two sources of truth. Drift risk (audit obs 330 flags CC payment analytics distortion — likely related: `"cc payment": "card"` collapses both repayments and CC purchases).
@@ -48,18 +47,16 @@ Fix: export a JSON file or `/api/categories/canonical-map` endpoint; frontend co
 
 ### LOW
 
-**L1. `re` imported in `category_service.py:1` but unused.** Dead.
+**L1. `re` imported in `category_service.py:1` but unused. [DONE 2026-05-18]** Dead — removed.
 
-**L2. `classifier_service.py` `merchant_hints: None` placeholder.**
-Comment says "for future". YAGNI — drop the key. Add it when merchant resolution lands.
+**L2. `classifier_service.py` `merchant_hints: None` placeholder. [DONE 2026-05-18]**
+Removed. No caller read the key. Re-add when merchant resolution lands.
 
-**L3. `llm_service.get_user_llm_client` returns `Optional[object]`.**
-Loses type info. `MultiLLMClient` is the actual type (verified in `app/classifier/llm_client.py`).
-Fix: `Optional[MultiLLMClient]`. Forward-ref or TYPE_CHECKING guard if needed.
+**L3. `llm_service.get_user_llm_client` returns `Optional[object]`. [DONE 2026-05-18]**
+Now `Optional[MultiLLMClient]`. `MultiLLMClient` re-exported via `app/classifier/llm_client.py` facade.
 
-**L4. Logging context thin.**
-`logger.error("Failed to build user LLM client for %s: %s", user_id, exc)` — no provider/model in log. Hard to triage which provider config broke.
-Fix: include `ai_svc.provider` and `ai_svc.model_id` in error message.
+**L4. Logging context thin. [DONE 2026-05-18]**
+Error log now includes `provider=` and `model=` for triage.
 
 **L5. Lazy import in `llm_service.py:36` (`from app.api._account_helpers import _decrypt_secret`).**
 Once H1 lands, hoist to top.
@@ -81,11 +78,12 @@ Fix: add `tests/test_services_unit.py` — pure unit tests, no DB needed for `fo
 
 ## Recommended fix order
 
-1. ~~H1 (move `_decrypt_secret` to `app/crypto.py`) — unblocks H2.~~ **DONE**
-2. ~~H2 (hoist top-level imports) — cleanup.~~ **DONE**
-3. M1, L1, L2 — trivial. **NEXT**
-4. L3, L4 — type/log polish.
-5. M5 — canonical-map endpoint (largest change, real bug-fix candidate).
-6. L6 — unit tests last so they cover the refactor.
+1. ~~H1 (move `_decrypt_secret` to `app/crypto.py`) — unblocks H2.~~ **DONE** (commit `01560dc`)
+2. ~~H2 (hoist top-level imports) — cleanup.~~ **DONE** (commit `01560dc`)
+3. ~~M1, L1~~ **DONE** (commit `01560dc`); ~~L2~~ **DONE** (commit `dc2078d`).
+4. ~~L3, L4 — type/log polish.~~ **DONE** (commit `dc2078d`).
+5. M2, M3 — formatter type annotations + eager-load contract. **NEXT**
+6. M5 — canonical-map endpoint (largest change, real bug-fix candidate).
+7. L6 — unit tests last so they cover the refactor.
 
-Total: ~1 day of work. No behavior changes except M5 (which is the only one worth a separate commit).
+M4 marked **WONTFIX** — None guards in `load_for_llm` are required by reclassify flow + tests.
