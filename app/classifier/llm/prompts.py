@@ -16,7 +16,7 @@ _SYSTEM = (
 # ── Pre-extraction block ──────────────────────────────────────────────────────
 
 _PRE_EXTRACTION_BLOCK = """
-PRE-EXTRACTED FACTS (regex-based - verify against email; override if contradicted):
+PRE-EXTRACTED FACTS (regex-based — these are ground truth from the email body. Use these values exactly. Only override if the email body clearly shows a different transaction amount):
 {lines}
 """
 
@@ -102,6 +102,7 @@ Body: {body_snippet}
 Available categories: {categories}
 
 # AMOUNT EXTRACTION
+If PRE-EXTRACTED FACTS above shows an Amount, USE THAT VALUE exactly. Do NOT invent or estimate a different number.
 Extract amount as a pure number (no symbols, no commas) in whatever currency is shown in the email.
 "Rs.499.00" → amount=499, source_currency="INR"
 "INR 1,200.50" → amount=1200.5, source_currency="INR"
