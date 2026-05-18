@@ -15,7 +15,7 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 import asyncio
 from app.scheduler import setup_scheduler, scheduler
-from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api, filter as filter_api, merchant_aliases as merchant_aliases_api, reconciliation as reconciliation_api, merchants as merchants_api
+from app.api import auth, transactions, review, sync as sync_api, rules as rules_api, recurring as recurring_api, stats as stats_api, budgets as budgets_api, emails as emails_api, admin as admin_api, duplicates as duplicates_api, debt as debt_api, settings as settings_api, onboarding as onboarding_api, filter as filter_api, merchant_aliases as merchant_aliases_api, reconciliation as reconciliation_api, merchants as merchants_api, today as today_api
 from app.config import settings
 from app.csrf import validate_csrf
 from app.rate_limiter import rate_limiter, RATE_LIMITS
@@ -159,6 +159,7 @@ app.include_router(filter_api.router, prefix="/api")
 app.include_router(merchant_aliases_api.router, prefix="/api")
 app.include_router(reconciliation_api.router, prefix="/api")
 app.include_router(merchants_api.router, prefix="/api")
+app.include_router(today_api.router, prefix="/api")
 
 
 @app.get("/health")

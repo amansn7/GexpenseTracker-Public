@@ -98,18 +98,103 @@ const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
   </button>
 ));
 
-const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCategoryFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
+const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, filter, onFilter, categoryFilter, onCategoryFilter, theme, setTheme, mobile = false, open = true, onClose = () => {}, account }) => {
   const [menu, setMenu] = React.useState(false);
   const [viewsOpen, setViewsOpen] = React.useState(() => localStorage.getItem("_nav_views") !== "0");
   const [filtersOpen, setFiltersOpen] = React.useState(() => localStorage.getItem("_nav_filters") !== "0");
   const [catsOpen, setCatsOpen] = React.useState(() => localStorage.getItem("_nav_cats") !== "0");
   const sideStyle = mobile
-    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 80, boxShadow: "18px 0 48px -24px var(--shadow-lg)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
+    ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 70, boxShadow: "18px 0 48px -24px var(--shadow-lg)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
     : shellStyles.side;
   const navigate = (fn) => {
     fn();
     if (mobile) onClose();
   };
+
+  // New mode sidebar
+  if (mode === "new") {
+    return (
+    <>
+    {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 70 }} />}
+    <aside role="navigation" aria-label="Main navigation" style={sideStyle} aria-hidden={mobile && !open}>
+      <LiveBrand onNav={() => navigate(() => setView("today"))} mobile={mobile} onClose={onClose} />
+
+      {/* New mode nav items */}
+      <NavItem icon="sun"    label="Today"     active={view==="today"}     onClick={()=>navigate(()=>setView("today"))} />
+      <NavItem icon="inbox"  label="Review"    count={counts?.unread > 0 ? counts.unread : null} active={view==="review"} onClick={()=>navigate(()=>setView("review"))} />
+      <NavItem icon="chart"  label="Picture"   active={view==="picture"}   onClick={()=>navigate(()=>setView("picture"))} />
+      <NavItem icon="repeat" label="Recurring" active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
+      <NavItem icon="trending-down" label="Debt" active={view==="debt"}    onClick={()=>navigate(()=>setView("debt"))} />
+
+      {/* Mode toggle */}
+      <div style={{ marginTop: "auto", padding: "12px 8px", borderTop: "1px solid var(--line)" }}>
+        <button
+          onClick={() => setMode("classic")}
+          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}
+        >
+          <Icon name="grid" size={14} />
+          <span>Switch to Classic</span>
+        </button>
+      </div>
+
+      {/* Account menu */}
+      <div style={{ padding: "4px 8px 8px" }}>
+        <button
+          onClick={()=>setMenu(m=>!m)}
+          className="focus-ring"
+          aria-expanded={menu}
+          aria-haspopup="menu"
+          aria-label="Account menu"
+          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
+          onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
+          onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
+        >
+          {account?.avatar_url
+            ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
+            : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{account?.name || account?.email || "—"}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
+          </div>
+          <Icon name="arrow-d" size={12} stroke="var(--ink-3)" />
+        </button>
+        {menu && (
+          <>
+            <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
+            <div className="fade-in" style={{ position: "absolute", bottom: "100%", left: 8, right: 8, marginBottom: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
+              <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <Icon name="user" size={14}/> Profile
+              </button>
+              <button onClick={()=>{ setView("settings-new"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <Icon name="gear" size={14}/> Settings
+              </button>
+              <div style={{ height: 1, background: "var(--line)", margin: "4px 4px" }}/>
+              <button
+                onClick={async () => {
+                  await API.post("/api/auth/logout");
+                  window.location.href = "/login";
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
+              >
+                <Icon name="arrow-u-r" size={14}/> Sign out
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </aside>
+    </>
+    );
+  }
   return (
   <>
   {mobile && open && <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 70 }} />}
@@ -162,25 +247,57 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
       </div>
     ))}
 
-    <div style={{ display: "flex", gap: 4, padding: "14px 10px 4px", marginTop: "auto" }}>
-      {[["paper","#f6f3ec","Paper"],["cool","#e8eaee","Cool"],["midnight","#1c1a15","Midnight"],["observatory","#1a1814","Observatory"]].map(([k,bg,label]) => (
-        <button key={k} title={label} aria-label={label} onClick={() => setTheme && setTheme(k)}
-          style={{ flex: 1, minHeight: 28, borderRadius: 3, background: bg, border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)", cursor: "pointer", padding: "4px 0" }}
-        />
+    {/* Mode toggle */}
+    <div style={{ padding: "8px 8px", borderTop: "1px solid var(--line)", marginTop: 8 }}>
+      <button
+        onClick={() => setMode("new")}
+        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}
+      >
+        <Icon name="sparkle" size={14} />
+        <span>Try New View</span>
+      </button>
+    </div>
+
+    {/* Theme switcher — labeled swatches with consistent active indicator */}
+    <div style={{ display: "flex", gap: 6, padding: "12px 8px 8px", marginTop: "auto" }}>
+      {[["paper","var(--theme-paper-swatch)","Paper"],["cool","var(--theme-cool-swatch)","Cool"],["midnight","var(--theme-midnight-swatch)","Midnight"],["observatory","var(--theme-observatory-swatch)","Observatory"]].map(([k,swatch,label]) => (
+        <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => setTheme && setTheme(k)}
+          style={{
+            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+            minHeight: 44, borderRadius: 6, border: "none", cursor: "pointer",
+            background: "transparent", padding: "4px 2px",
+            transition: "background 120ms ease",
+          }}
+          onMouseEnter={e => { if (theme !== k) e.currentTarget.style.background = "var(--paper-2)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 6, background: swatch,
+            border: "1px solid var(--line)",
+            boxShadow: theme === k ? "0 0 0 2px var(--accent)" : "none",
+            transition: "box-shadow 120ms ease",
+          }} />
+          <span style={{
+            fontSize: 9, fontWeight: 500, color: theme === k ? "var(--ink)" : "var(--ink-4)",
+            letterSpacing: "0.02em", lineHeight: 1,
+          }}>{label}</span>
+        </button>
       ))}
     </div>
 
-    <div style={{ ...shellStyles.sideFooter, position: "relative", borderTop: "none", paddingTop: 0 }}>
+    <div style={{ padding: "4px 8px 8px" }}>
       <button
         onClick={()=>setMenu(m=>!m)}
         className="focus-ring"
         aria-expanded={menu}
         aria-haspopup="menu"
         aria-label="Account menu"
-        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: 6, border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 6, cursor: "pointer", textAlign: "left" }}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
+        onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
+        onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
       >
         {account?.avatar_url
-          ? <img src={account.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
+          ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
           : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
         }
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -192,20 +309,28 @@ const Sidebar = ({ view, setView, counts, filter, onFilter, categoryFilter, onCa
       {menu && (
         <>
           <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-          <div className="fade-in" style={{ position: "absolute", bottom: "calc(100% - 4px)", left: 8, right: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 6, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
-            <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: view==="profile"?"var(--paper-2)":"transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}>
+          <div className="fade-in" style={{ position: "absolute", bottom: "100%", left: 8, right: 8, marginBottom: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 60 }}>
+            <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
               <Icon name="user" size={14}/> Profile
             </button>
-            <button onClick={()=>{ setView("settings"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: view==="settings"?"var(--paper-2)":"transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}>
+            <button onClick={()=>{ setView("settings"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
               <Icon name="gear" size={14}/> Settings
             </button>
-            <div style={{ height: 1, background: "var(--line)", margin: "4px 2px" }}/>
+            <div style={{ height: 1, background: "var(--line)", margin: "4px 4px" }}/>
             <button
               onClick={async () => {
                 await API.post("/api/auth/logout");
                 window.location.href = "/login";
               }}
-              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 5, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
             >
               <Icon name="arrow-u-r" size={14}/> Sign out
             </button>

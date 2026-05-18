@@ -34,6 +34,10 @@
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
+  --theme-midnight-swatch: #1c1a15;
+  --theme-paper-swatch: #f6f3ec;
+  --theme-cool-swatch: #e8eaee;
+  --theme-observatory-swatch: #1a1814;
   --cat-food: #5a4a32;
   --cat-food-ink: #e8d5b7;
   --cat-groceries: #4a5a3a;
