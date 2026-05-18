@@ -40,6 +40,16 @@ _CANONICAL_MAP: Dict[str, str] = {
 }
 
 
+def get_canonical_map() -> Dict[str, str]:
+    """Return a copy of the canonical category alias map.
+
+    Public accessor for `_CANONICAL_MAP` so external callers (e.g. the
+    `/api/categories/canonical-map` endpoint) can expose the mapping without
+    relying on a private symbol. Returns a shallow copy to prevent mutation.
+    """
+    return dict(_CANONICAL_MAP)
+
+
 def _category_dict(cat: UserCategory) -> dict:
     return {
         "id": cat.id,

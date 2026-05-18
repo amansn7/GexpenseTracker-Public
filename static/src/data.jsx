@@ -27,8 +27,13 @@ const TAGS = {
   ignore:       { label: "Ignored",     dot: "var(--ink-4)"  },
 };
 
-// DB category value → CATEGORIES key
-const _CAT_ALIAS = {
+// DB category value → CATEGORIES key.
+// Single source of truth lives on the backend (`app/services/category_service.py`,
+// exposed via `GET /api/categories/canonical-map`). The literal below is a
+// fallback used only on first render or if the fetch fails — kept in sync with
+// the backend map so dashboards still resolve categories before the network
+// response lands.
+let _CAT_ALIAS = {
   food: "food", dining: "food", "food & dining": "food", restaurant: "food",
   meal: "food", cafe: "food", eat: "food",
   groceries: "groceries", grocery: "groceries", kirana: "groceries",
@@ -59,6 +64,13 @@ const _CAT_ALIAS = {
   cash: "other",
   other: "other",
 };
+
+// Replace fallback with authoritative backend map (fire-and-forget; degrades
+// gracefully if the request fails — fallback above is still valid).
+fetch("/api/categories/canonical-map", { credentials: "include" })
+  .then((r) => (r.ok ? r.json() : null))
+  .then((j) => { if (j && j.map && typeof j.map === "object") _CAT_ALIAS = j.map; })
+  .catch(() => {});
 
 const _normCat = (cat, isIncome) => {
   if (isIncome) return "income";

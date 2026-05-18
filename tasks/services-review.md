@@ -30,20 +30,19 @@ Resolved: all deferred `from app.services.…` imports hoisted to module top acr
 `app/services/category_service.py:80` uses `UserCategory.active.is_(True)` but `:111` uses `UserCategory.active == True`. Same semantics, but `== True` trips linters (E712) and is non-idiomatic.
 Fix: replace `:111` with `.is_(True)`.
 
-**M2. `format_transaction` accepts `e: Optional[object]` — no type, no protocol.**
-Email is positional, untyped. Callers (`api/transactions.py:150,202,221,312,561,626`, `api/duplicates.py:21`) all pass a concrete `Email` ORM row, but signature loses safety and the `email: {...}` block always emits keys even when `e=None`.
-Fix: type-annotate `t: Transaction, e: Email | None`. Consider `email=None` when `e is None` instead of dict-with-all-Nones — saves bytes and matches frontend expectations only if checked.
+**M2. `format_transaction` accepts `e: Optional[object]` — no type, no protocol. [DONE 2026-05-18]**
+Signature now `format_transaction(t: "Transaction", e: "Email | None" = None) -> dict` via `from __future__ import annotations` + `TYPE_CHECKING` guard. `"email": {...}` block structure preserved (keys always present even when `e=None`) — frontend expects them.
 
-**M3. `format_transaction` silently relies on `t.email` not being lazy-loaded.**
-Memory obs 278/279 confirm `Transaction.email` uses default lazy loading. Callers must `selectinload(Transaction.email)` upstream. No assertion or comment in formatter.
-Fix: 1-line module docstring noting "caller must eager-load email" OR accept `email` kwarg required when relationship not loaded.
+**M3. `format_transaction` silently relies on `t.email` not being lazy-loaded. [DONE 2026-05-18]**
+Docstring now spells out the eager-load contract: caller eager-loads via `selectinload(Transaction.email)` and passes the row in as `e`. Formatter never touches `t.email` so async lazy-load traps cannot fire.
 
 **M4. `CategoryService.load_for_llm` defensive None-checks. [WONTFIX]**
 Verified callers — `classify_email` (api/transactions reclassify flow with `session=None`) and tests legitimately pass `None`. Guards required. Skip.
 
-**M5. `_CANONICAL_MAP` lives only in `category_service.py`.**
-Comment says "mirrors frontend `_CAT_ALIAS`". Two sources of truth. Drift risk (audit obs 330 flags CC payment analytics distortion — likely related: `"cc payment": "card"` collapses both repayments and CC purchases).
-Fix: export a JSON file or `/api/categories/canonical-map` endpoint; frontend consumes once.
+**M5. `_CANONICAL_MAP` lives only in `category_service.py`. [DONE 2026-05-18]**
+Backend now exposes `GET /api/categories/canonical-map` (no auth, `Cache-Control: public, max-age=3600`) via new public `get_canonical_map()` accessor in `category_service.py`. Frontend `static/src/data.jsx` now keeps the literal as fallback for first render + graceful degradation, then fire-and-forget fetches the live map at module load. Bundle rebuilt (`static/dist/data.js`). Endpoint test in `tests/test_categories_canonical_map.py`.
+
+**CC payment bug NOT fixed in this task** — `"cc payment": "card"` still collapses CC repayments and CC purchases together. Follow-up: split into `"cc repayment"`/`"cc statement"` → distinct canonical key so dashboard analytics stops double-counting. Tracked separately.
 
 ### LOW
 
@@ -61,9 +60,8 @@ Error log now includes `provider=` and `model=` for triage.
 **L5. Lazy import in `llm_service.py:36` (`from app.api._account_helpers import _decrypt_secret`).**
 Once H1 lands, hoist to top.
 
-**L6. Test coverage minimal.**
-Only `tests/test_admin.py` and `tests/test_account_onboarding.py` even string-match "services". No unit test for `format_transaction`, `get_classifier_context`, `get_user_llm_client`, or `CategoryService.resolve`.
-Fix: add `tests/test_services_unit.py` — pure unit tests, no DB needed for `format_transaction` + `CategoryService.resolve`.
+**L6. Test coverage minimal. [DONE 2026-05-18]**
+`tests/test_services_unit.py` added (13 tests, no DB): 8 for `CategoryService.resolve` (canonical lookup, whitespace/case, `is_income` shortcut, fallback to `"other"`, `"cc payment"` → `"card"` documented), 5 for `format_transaction` (SimpleNamespace mocks, key set guards, `None` propagation). `tests/test_categories_canonical_map.py` added (3 tests: endpoint shape, known keys, cache header, copy-not-reference).
 
 ---
 
@@ -78,12 +76,15 @@ Fix: add `tests/test_services_unit.py` — pure unit tests, no DB needed for `fo
 
 ## Recommended fix order
 
-1. ~~H1 (move `_decrypt_secret` to `app/crypto.py`) — unblocks H2.~~ **DONE** (commit `01560dc`)
-2. ~~H2 (hoist top-level imports) — cleanup.~~ **DONE** (commit `01560dc`)
-3. ~~M1, L1~~ **DONE** (commit `01560dc`); ~~L2~~ **DONE** (commit `dc2078d`).
-4. ~~L3, L4 — type/log polish.~~ **DONE** (commit `dc2078d`).
-5. M2, M3 — formatter type annotations + eager-load contract. **NEXT**
-6. M5 — canonical-map endpoint (largest change, real bug-fix candidate).
-7. L6 — unit tests last so they cover the refactor.
+1. ~~H1~~ **DONE** (commit `01560dc`)
+2. ~~H2~~ **DONE** (commit `01560dc`)
+3. ~~M1, L1~~ **DONE** (commit `01560dc`); ~~L2, L3, L4~~ **DONE** (commit `dc2078d`)
+4. ~~M2, M3, M5, L6~~ **DONE** (this commit)
 
-M4 marked **WONTFIX** — None guards in `load_for_llm` are required by reclassify flow + tests.
+M4 marked **WONTFIX** — None guards in `load_for_llm` required by reclassify flow + tests.
+
+## Remaining out-of-scope follow-ups
+
+- **CC payment vs CC purchase bucket collapse** in `_CANONICAL_MAP` (audit obs 330 / 330–333). Real analytics bug, separate ticket.
+- **Inconsistent canonical asymmetry**: `"card payment"` / `"card"` / `"credit card payment"` fall through to `"other"` instead of `"card"` (surfaced by L6 tests). Cheap to fix; not blocking.
+- **`investment` / `cash`** canonicalize to `"other"` rather than dedicated keys — possibly intentional. Worth confirming with product.

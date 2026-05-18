@@ -23,7 +23,7 @@ from app.models import (
     UserSettings,
 )
 from app.crypto import encrypt_ai_secret
-from app.services.category_service import CategoryService
+from app.services.category_service import CategoryService, get_canonical_map
 from app.api._account_helpers import (
     _clean_email,
     _api_key_hint,
@@ -197,6 +197,17 @@ async def delete_connected_account(
     await db.delete(account)
     await db.commit()
     return {"deleted": account_id}
+
+
+@router.get("/categories/canonical-map")
+async def get_categories_canonical_map(response: Response):
+    """Return the canonical DB-category-value → canonical-key alias map.
+
+    Static config; no auth required. Single source of truth shared between
+    backend and frontend (see `static/src/data.jsx`).
+    """
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return {"map": get_canonical_map()}
 
 
 @router.get("/account/categories")

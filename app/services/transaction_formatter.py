@@ -1,9 +1,23 @@
 """Centralized transaction formatting for API responses."""
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models import Email, Transaction
 
 
-def format_transaction(t, e: Optional[object] = None) -> dict:
-    """Format a Transaction + optional Email into a consistent API response dict."""
+def format_transaction(t: "Transaction", e: "Email | None" = None) -> dict:
+    """Format a Transaction plus optional Email into a consistent API response dict.
+
+    Eager-load contract: the caller is responsible for eager-loading the
+    ``email`` relationship (typically via ``selectinload(Transaction.email)``)
+    and passing the resulting ``Email`` row in explicitly as ``e``. This
+    formatter never touches ``t.email`` directly, so it will not trigger
+    implicit lazy-loads in async contexts; passing ``e=None`` is supported and
+    yields a fully-populated ``"email"`` block with ``None`` values so callers
+    (and the frontend) can rely on the keys always existing.
+    """
     return {
         "id": t.id,
         "label": t.label,
