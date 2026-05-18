@@ -247,17 +247,6 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       </div>
     ))}
 
-    {/* Mode toggle */}
-    <div style={{ padding: "8px 8px", borderTop: "1px solid var(--line)", marginTop: 8 }}>
-      <button
-        onClick={() => setMode("new")}
-        style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}
-      >
-        <Icon name="sparkle" size={14} />
-        <span>Try New View</span>
-      </button>
-    </div>
-
     {/* Theme switcher — compact swatches with tooltip labels */}
     <div style={{ display: "flex", gap: 8, padding: "12px 8px 8px", marginTop: "auto" }}>
       {[["paper","var(--theme-paper-swatch)","Paper"],["cool","var(--theme-cool-swatch)","Cool"],["midnight","var(--theme-midnight-swatch)","Midnight"],["observatory","var(--theme-observatory-swatch)","Observatory"]].map(([k,swatch,label]) => (
