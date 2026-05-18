@@ -258,30 +258,20 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       </button>
     </div>
 
-    {/* Theme switcher — labeled swatches with consistent active indicator */}
-    <div style={{ display: "flex", gap: 6, padding: "12px 8px 8px", marginTop: "auto" }}>
+    {/* Theme switcher — compact swatches with tooltip labels */}
+    <div style={{ display: "flex", gap: 8, padding: "12px 8px 8px", marginTop: "auto" }}>
       {[["paper","var(--theme-paper-swatch)","Paper"],["cool","var(--theme-cool-swatch)","Cool"],["midnight","var(--theme-midnight-swatch)","Midnight"],["observatory","var(--theme-observatory-swatch)","Observatory"]].map(([k,swatch,label]) => (
         <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => setTheme && setTheme(k)}
           style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
-            minHeight: 44, borderRadius: 6, border: "none", cursor: "pointer",
-            background: "transparent", padding: "4px 2px",
-            transition: "background 120ms ease",
-          }}
-          onMouseEnter={e => { if (theme !== k) e.currentTarget.style.background = "var(--paper-2)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-        >
-          <div style={{
-            width: 20, height: 20, borderRadius: 6, background: swatch,
-            border: "1px solid var(--line)",
+            width: 32, height: 32, borderRadius: 8, border: "1px solid var(--line)", cursor: "pointer",
+            background: swatch, padding: 0,
             boxShadow: theme === k ? "0 0 0 2px var(--accent)" : "none",
-            transition: "box-shadow 120ms ease",
-          }} />
-          <span style={{
-            fontSize: 9, fontWeight: 500, color: theme === k ? "var(--ink)" : "var(--ink-4)",
-            letterSpacing: "0.02em", lineHeight: 1,
-          }}>{label}</span>
-        </button>
+            transition: "box-shadow 120ms ease, transform 120ms ease",
+            transform: theme === k ? "scale(1.1)" : "scale(1)",
+          }}
+          onMouseEnter={e => { if (theme !== k) e.currentTarget.style.transform = "scale(1.15)"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = theme === k ? "scale(1.1)" : "scale(1)"; }}
+        />
       ))}
     </div>
 
