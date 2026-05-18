@@ -131,11 +131,9 @@ async def _load_paired_ids(tx_id: str, db: AsyncSession) -> Set[str]:
 def _is_dedup_candidate(transaction):
     if transaction.amount is None:
         return False
-    if transaction.label == "expense":
-        return True
-    if transaction.label == "ignore" and transaction.transaction_type in ("cc_payment", "investment"):
-        return True
-    return False
+    if transaction.label == "income":
+        return False
+    return True
 
 
 async def detect_and_record_duplicates(
