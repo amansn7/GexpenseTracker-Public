@@ -16,8 +16,12 @@ _SYSTEM = (
 # ── Pre-extraction block ──────────────────────────────────────────────────────
 
 _PRE_EXTRACTION_BLOCK = """
-PRE-EXTRACTED FACTS (regex-based — these are ground truth from the email body. Use these values exactly. Only override if the email body clearly shows a different transaction amount):
+═══════════════════════════════════════════════════════════════
+PRE-EXTRACTED FACTS (regex-based — these are GROUND TRUTH from the email body)
+═══════════════════════════════════════════════════════════════
+IMPORTANT: You MUST use these values exactly as shown. Do NOT override them unless the email body clearly shows a DIFFERENT transaction (not the same one).
 {lines}
+═══════════════════════════════════════════════════════════════
 """
 
 
@@ -102,7 +106,7 @@ Body: {body_snippet}
 Available categories: {categories}
 
 # AMOUNT EXTRACTION
-If PRE-EXTRACTED FACTS above shows an Amount, USE THAT VALUE exactly. Do NOT invent or estimate a different number.
+CRITICAL: If PRE-EXTRACTED FACTS above shows an Amount, you MUST use that exact value. Do NOT invent, estimate, or substitute a different number. The pre-extracted amount is ground truth from regex parsing of the email.
 Extract amount as a pure number (no symbols, no commas) in whatever currency is shown in the email.
 "Rs.499.00" → amount=499, source_currency="INR"
 "INR 1,200.50" → amount=1200.5, source_currency="INR"
@@ -143,6 +147,8 @@ Pick closest match from: {categories}. If none fits, use "Other".
 UPI payment → UPI Payment | Mutual fund/SIP → Investment | Insurance premium → Insurance
 Refund/reversal → Refund | Salary credit → Income | EMI debit → EMI
 ATM withdrawal → Cash | P2P transfer → Bank Transfer | Streaming → Subscription
+AI services (Anthropic, OpenAI, ChatGPT, Claude) → Subscriptions
+Software/SaaS subscriptions → Subscriptions
 Credit card BILL PAYMENTS are IGNORE, category CC Payment (underlying purchases already recorded).
 
 # DATE EXTRACTION

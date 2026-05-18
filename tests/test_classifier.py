@@ -156,7 +156,7 @@ async def test_classify_email_llm_failure_returns_ignore_no_exception():
     assert result.label == Label.ignore
     assert result.confidence == 0.0
     assert result.status == TransactionStatus.needs_review
-    assert result.classifier_method == ClassifierMethod.llm
+    assert result.classifier_method == ClassifierMethod.rule  # Falls back to rules when LLM fails
 
 
 @pytest.mark.asyncio
@@ -219,3 +219,28 @@ async def test_classify_email_empty_merchant_stored_as_none():
             subject="Debit", body_text="Rs.50 debited",
         )
     assert result.merchant is None
+
+
+@pytest.mark.asyncio
+async def test_classify_email_anthropic_usd_converts_to_inr():
+    """Anthropic USD transaction: LLM returns USD amount + source_currency, classifier converts to INR."""
+    with patch("app.classifier.classifier.llm_client.classify_verbose",
+               new_callable=AsyncMock,
+               return_value=_mock_verbose_result(
+                   amount=5.90, merchant="Anthropic", category="Subscriptions",
+                   source_currency="USD", confidence=0.95,
+               )), \
+         patch("app.classifier.classifier.convert_amount",
+               new_callable=AsyncMock, return_value=491.47):
+        result = await classify_email(
+            email_id="e-anthropic", sender="alert@sbicard.com",
+            sender_domain="sbicard.com",
+            subject="Transaction Alert from CASHBACK SBI Card",
+            body_text="SBI Card TRANSACTION ALERT! Dear Cardholder, This is to inform you that, USD5.90 spent on your SBI Credit Card ending 7853 at ANTHROPIC on 17/05/26.",
+        )
+    assert result.amount == 491.47
+    assert result.currency == "INR"
+    assert result.source_currency == "USD"
+    assert result.category == "Subscriptions"
+    assert result.merchant == "Anthropic"
+    assert result.label == Label.expense

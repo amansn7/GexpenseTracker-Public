@@ -42,6 +42,10 @@ MERCHANT_MAP = {
     "bigbasket": {"display": "BigBasket", "category": "Groceries"},
     "netflix": {"display": "Netflix", "category": "Subscriptions"},
     "youtube premium": {"display": "YouTube Premium", "category": "Subscriptions"},
+    "anthropic": {"display": "Anthropic", "category": "Subscriptions"},
+    "openai": {"display": "OpenAI", "category": "Subscriptions"},
+    "claude": {"display": "Anthropic", "category": "Subscriptions"},
+    "chatgpt": {"display": "OpenAI", "category": "Subscriptions"},
 }
 
 EXPENSE_KEYWORDS = (

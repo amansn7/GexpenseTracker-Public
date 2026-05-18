@@ -22,14 +22,14 @@ _SYMBOL_MAP = {"$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "A$": "AUD", 
 
 _FOREIGN_CURRENCY_RE = re.compile(
     # 1. Currency code prefix: USD5.90, USD 5.90
-    r'(?:(' + _CURRENCY_CODES + r')\s*([\d,]+(?:\.\d{1,2})?))'
+    r'(?:(' + _CURRENCY_CODES + r')\s*([\d][\d,]*(?:\.\d{1,2})?))'
     r'|'
     # 2. Symbol prefix: $5.90, €50.00, £25.00
-    r'(?:([$€£¥])\s*([\d,]+(?:\.\d{1,2})?))'
+    r'(?:([$€£¥])\s*([\d][\d,]*(?:\.\d{1,2})?))'
     r'|'
-    # 3. Amount suffix: 5.90 USD, 10.50 US Dollars
-    r'(?:([\d,]+(?:\.\d{1,2})?)\s+((?:' + _CURRENCY_CODES + r'|US\s+Dollars?)))',
-    re.IGNORECASE
+    # 3. Amount suffix: 5.90 USD, 10.50 US Dollars (amount must start with digit)
+    r'(?:((?<![\d,])[\d][\d,]*(?:\.\d{1,2})?)\s+((?:' + _CURRENCY_CODES + r'|US\s+Dollars?)))',
+    re.IGNORECASE,
 )
 
 
@@ -228,6 +228,10 @@ _MERCHANT_EXACT: dict[str, str] = {
     'pharmeasy':    'Healthcare',
     '1mg':          'Healthcare',
     'cred':         'Other',
+    'anthropic':    'Subscriptions',
+    'openai':       'Subscriptions',
+    'claude':       'Subscriptions',
+    'chatgpt':      'Subscriptions',
 }
 
 _CATEGORY_KEYWORDS: dict[str, list[str]] = {
