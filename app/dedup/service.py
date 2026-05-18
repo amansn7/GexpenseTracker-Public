@@ -1,5 +1,6 @@
 import uuid
 import logging
+import sys
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Set, Tuple, List, Dict, Any
@@ -457,10 +458,13 @@ async def batch_detect_duplicates(
     seen_pairs: Set[Tuple[str, str]] = set()
 
     for new_tx, new_email in new_transactions:
+        print(f"DEDUP_DEBUG: checking tx={new_tx.id} label={new_tx.label} amount={new_tx.amount} merchant={new_tx.merchant}", flush=True)
         if not _is_dedup_candidate(new_tx):
+            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP not a dedup candidate (label={new_tx.label})", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (not a dedup candidate, label=%s)", new_tx.id, new_tx.label)
             continue
         if not new_email or not new_email.sender_domain:
+            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP no email or sender_domain", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (no email or sender_domain)", new_tx.id)
             continue
 
@@ -471,6 +475,7 @@ async def batch_detect_duplicates(
         new_merchant = new_tx.merchant or ""
         new_effective = new_tx.txn_date or (new_email.received_at.date() if new_email.received_at else None)
         if new_effective is None:
+            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP no effective date (txn_date={new_tx.txn_date} received_at={new_email.received_at})", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (no effective date)", new_tx.id)
             continue
 
@@ -714,6 +719,7 @@ async def batch_detect_duplicates(
                 new_pair_ids.append(pair_id)
                 logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
 
+    print(f"DEDUP_DEBUG: complete stats={stats} new_pair_ids={new_pair_ids}", flush=True)
     return {**stats, "new_pair_ids": new_pair_ids}
 
 
