@@ -26,3 +26,20 @@ Fall back to `rg`, `find`, or direct file reads only when the graph cannot answe
 - `.agents/`: shared skill sources owned by the repo
 - `.mcp.json`: MCP server configuration
 - `graphify-out/` and `.code-review-graph/`: generated graph artifacts
+
+## Frontend Hook: Always use impeccable skill
+
+**Rule:** For ANY frontend task — design, redesign, audit, polish, animate, colorize, extract, optimize, adapt, or improve a UI — invoke the `impeccable` skill FIRST before doing anything else.
+
+This applies to:
+- Websites, landing pages, dashboards, product UI, app shells
+- Components, forms, settings, onboarding, empty states
+- UX review, visual hierarchy, information architecture, cognitive load
+- Accessibility, performance, responsive behavior, theming
+- Typography, fonts, spacing, layout, alignment, color, motion
+- Micro-interactions, UX copy, error states, edge cases, i18n
+- Design systems, tokens, reusable patterns
+
+Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `component`, `theme`, `responsive`, `animate`, `polish`, `redesign`, `audit`, `visual`, `ux`
+
+**Never skip this step.** Even for "small" frontend fixes, load impeccable first to get the full design system context and workflow guidance.
