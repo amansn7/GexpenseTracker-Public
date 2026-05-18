@@ -10,7 +10,7 @@ from typing import Optional, List, Literal
 from datetime import date
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.dedup.service import detect_and_record_duplicates
+from app.dedup.service import batch_detect_duplicates
 from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User, TransactionCorrection
 from app.classifier.merchant_store import merchant_store
 from app.services.classifier_service import get_classifier_context
@@ -96,8 +96,9 @@ async def bulk_transactions(
                     await db.delete(email)
                 t.email_id = None
     elif payload.action == "detect_duplicates":
-        for t in rows:
-            await detect_and_record_duplicates(t, t.email, db)
+        tx_email_pairs = [(t, t.email) for t in rows if t.email]
+        user_id = str(current_user.id)
+        await batch_detect_duplicates(tx_email_pairs, db, user_id)
     elif payload.action == "set_category":
         if not payload.category:
             raise HTTPException(status_code=422, detail="category is required for set_category action")
