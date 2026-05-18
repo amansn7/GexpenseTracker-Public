@@ -276,10 +276,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     }
   };
 
+  const [saving, setSaving] = React.useState(false);
+
   const saveAmt = () => {
     const n = parseFloat(amtDraft) || 0;
+    setSaving(true);
     onUpdate({ amount: isIncome ? n : -n });
     setEditingAmt(false);
+    setTimeout(() => setSaving(false), 600);
   };
 
   return (
@@ -320,7 +324,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             </div>
           </div>
         )}
-        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>{dateLabel(tx.date)} · {tx.time}</div>
+        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+          {dateLabel(tx.date)} · {tx.time}
+          {saving && (
+            <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 8, height: 8, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              Saving…
+            </span>
+          )}
+        </div>
       </div>
 
       <div style={inboxStyles.panelSection}>
@@ -410,11 +422,19 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       </div>
 
       <div style={inboxStyles.panelSection}>
-        <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Note</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Note</div>
+          {saving && (
+            <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ width: 8, height: 8, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              Saving…
+            </span>
+          )}
+        </div>
         <textarea
           value={note}
           onChange={(e)=>setNote(e.target.value)}
-          onBlur={()=>onUpdate({ note })}
+          onBlur={()=>{ setSaving(true); onUpdate({ note }); setTimeout(()=>setSaving(false), 600); }}
           placeholder="Add context for yourself…"
           className="focus-ring"
           style={{ width: "100%", minHeight: 60, border: "1px solid var(--line)", borderRadius: 6, padding: 10, background: "var(--paper)", color: "var(--ink)", fontSize: 12, resize: "vertical", outline: "none", fontFamily: "inherit" }}
@@ -1160,12 +1180,22 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (selectAllFlag) {
       if (localPatch) setTransactions(ts => ts.map(t => ({ ...t, ...localPatch })));
       clearSelect();
-      await API.post("/api/transactions/bulk", { ids: [], action, select_all: true }).catch(() => {});
+      try {
+        await API.post("/api/transactions/bulk", { ids: [], action, select_all: true });
+      } catch (err) {
+        console.error("bulk action failed:", err);
+        showToast(`Bulk ${action} failed — check connection and try again`);
+      }
     } else {
       const ids = [...selectedIds];
       setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? { ...t, ...localPatch } : t));
       clearSelect();
-      await API.post("/api/transactions/bulk", { ids, action }).catch(() => {});
+      try {
+        await API.post("/api/transactions/bulk", { ids, action });
+      } catch (err) {
+        console.error("bulk action failed:", err);
+        showToast(`Bulk ${action} failed — check connection and try again`);
+      }
     }
   };
 
@@ -1181,7 +1211,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     const idsSet = new Set(ids);
     setTransactions(ts => ts.filter(t => !idsSet.has(t.id)));
     clearSelect();
-    await API.post("/api/transactions/bulk", { ids, action: "delete" }).catch(() => {});
+    try {
+      await API.post("/api/transactions/bulk", { ids, action: "delete" });
+    } catch (err) {
+      console.error("bulk delete failed:", err);
+      showToast("Bulk delete failed — check connection and try again");
+    }
   };
 
   const bulkDetectDuplicates = async () => {
@@ -1408,12 +1443,27 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     loadMore();
   }, [filter, filtered.length, transactions.length, totalTransactions, loadingMore]);
 
+  // Debounced save queue: maps tx id → { timer, optimisticSnapshot }
+  const saveQueueRef = React.useRef(new Map());
+
+  // Cleanup: flush pending saves on unmount
+  React.useEffect(() => {
+    return () => {
+      saveQueueRef.current.forEach(({ timer }) => clearTimeout(timer));
+    };
+  }, []);
+
   const updateTx = (id, patch) => {
     if (patch._openPicker) { setPickerFor(id); return; }
+
+    // Capture state before optimistic update for rollback
+    const prevSnapshot = transactions.find(t => t.id === id);
+
     // Optimistic local update
     setTransactions(ts => ts.map(t => t.id === id ? { ...t, ...patch } : t));
     if (patch._skipApi) return;
-    // Persist to DB
+
+    // Build API patch object
     const apiPatch = {};
     if (patch.tag   !== undefined) apiPatch.label     = patch.tag;
     if (patch.cat    !== undefined) apiPatch.category   = patch.cat;
@@ -1421,13 +1471,32 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (patch.amount !== undefined) apiPatch.amount     = Math.abs(patch.amount);
     if (patch.read   !== undefined) apiPatch.read       = patch.read;
     if (patch.flag   !== undefined) apiPatch.flagged    = patch.flag;
-    if (Object.keys(apiPatch).length > 0) {
-      API.patch(`/api/transactions/${id}`, apiPatch).then(data => {
-        if (data && data.learned_rule) {
-          showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
-        }
-      }).catch(err => console.error("patch failed:", err));
-    }
+    if (patch.status !== undefined) apiPatch.status     = patch.status;
+    if (Object.keys(apiPatch).length === 0) return;
+
+    // Debounce: clear pending timer for this id, set new one
+    const queue = saveQueueRef.current;
+    if (queue.has(id)) clearTimeout(queue.get(id).timer);
+
+    const timer = setTimeout(() => {
+      queue.delete(id);
+      API.patch(`/api/transactions/${id}`, apiPatch)
+        .then(data => {
+          if (data && data.learned_rule) {
+            showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+          }
+        })
+        .catch(err => {
+          console.error("patch failed:", err);
+          // Rollback optimistic update
+          if (prevSnapshot) {
+            setTransactions(ts => ts.map(t => t.id === id ? { ...prevSnapshot } : t));
+          }
+          showToast("Save failed — check connection and try again");
+        });
+    }, 400);
+
+    queue.set(id, { timer, prevSnapshot });
   };
 
   // Keyboard shortcuts for the inbox list
@@ -2246,20 +2315,30 @@ const SearchView = ({ query, categoryFilter }) => {
 
   const updateTx = (id, patch) => {
     if (patch._openPicker) { setPickerFor(id); return; }
+    const prevSnapshot = results.find(t => t.id === id);
     setResults(rs => rs.map(t => t.id === id ? { ...t, ...patch } : t));
     if (patch._skipApi || patch._delete) return;
     const api = {};
+    if (patch.tag   !== undefined) api.label       = patch.tag;
     if (patch.cat    !== undefined) api.category   = patch.cat;
     if (patch.note   !== undefined) api.user_notes = patch.note;
     if (patch.amount !== undefined) api.amount     = Math.abs(patch.amount);
     if (patch.read   !== undefined) api.read       = patch.read;
     if (patch.flag   !== undefined) api.flagged    = patch.flag;
     if (Object.keys(api).length > 0)
-      API.patch(`/api/transactions/${id}`, api).then(data => {
-        if (data && data.learned_rule) {
-          showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
-        }
-      }).catch(e => console.error(e));
+      API.patch(`/api/transactions/${id}`, api)
+        .then(data => {
+          if (data && data.learned_rule) {
+            showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+          }
+        })
+        .catch(e => {
+          console.error("search patch failed:", e);
+          if (prevSnapshot) {
+            setResults(rs => rs.map(t => t.id === id ? { ...prevSnapshot } : t));
+          }
+          showToast("Save failed — check connection and try again");
+        });
   };
 
   const grouped = groupByDate(results);
