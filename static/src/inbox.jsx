@@ -1230,16 +1230,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       const totalDups = (dupStats.same_domain || 0) + (dupStats.cross_domain || 0) + (dupStats.merchant_alias || 0) + (dupStats.investment_flow || 0);
       if (totalDups > 0) {
         showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
-        setDupBulkResult({ ...dupStats, newPairIds: dupStats.new_pair_ids || [] });
-        setFilter("duplicates");
-        setDupTab("pending");
       } else {
         showToast("No new duplicates found");
       }
+      setDupBulkResult({ ...dupStats, newPairIds: dupStats.new_pair_ids || [] });
+      setFilter("duplicates");
+      setDupTab("pending");
       await loadData();
-    } catch {
-      setBulkDetectError("Detection failed. Try again.");
-      setTimeout(() => setBulkDetectError(""), 4000);
+    } catch (e) {
+      console.error("bulk detect duplicates failed:", e);
+      showToast("Duplicate detection failed. Try again.");
     }
   };
 
