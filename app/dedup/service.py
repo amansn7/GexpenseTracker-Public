@@ -503,6 +503,7 @@ async def batch_detect_duplicates(
             existing_merchant = existing_tx.merchant or ""
             existing_effective = existing_tx.txn_date or (existing_email.received_at.date() if existing_email.received_at else None)
             if existing_effective is None:
+                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP no effective date", flush=True)
                 continue
 
             # Amount proximity check
@@ -610,6 +611,7 @@ async def batch_detect_duplicates(
             other_merchant = other_tx.merchant or ""
             other_effective = other_tx.txn_date or (other_email.received_at.date() if other_email.received_at else None)
             if other_effective is None:
+                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP no effective date", flush=True)
                 continue
 
             # Amount proximity check
