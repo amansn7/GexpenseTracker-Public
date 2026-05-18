@@ -1232,6 +1232,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
       } else if (dupStats.existing_pairs > 0) {
         showToast(`${dupStats.existing_pairs} pair${dupStats.existing_pairs > 1 ? "s" : ""} already detected`);
+      } else if (dupStats.already_paired > 0) {
+        showToast(`${dupStats.already_paired} potential match${dupStats.already_paired > 1 ? "es" : ""} already paired`);
       } else {
         showToast("No new duplicates found");
       }
@@ -1823,8 +1825,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
                       {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
                       {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
-                      {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already detected</span>}
-                      {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+                      {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already in DB</span>}
+                      {dupBulkResult.already_paired > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.already_paired} potential match{dupBulkResult.already_paired > 1 ? "es" : ""} already paired</span>}
+                      {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs && !dupBulkResult.already_paired) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
                     </div>
                   </div>
                   <button onClick={() => setDupBulkResult(null)}
@@ -2393,6 +2396,8 @@ const SearchView = ({ query, categoryFilter }) => {
         showToast(`${totalDups} duplicate pair${totalDups > 1 ? "s" : ""} found`);
       } else if (dupStats.existing_pairs > 0) {
         showToast(`${dupStats.existing_pairs} pair${dupStats.existing_pairs > 1 ? "s" : ""} already detected`);
+      } else if (dupStats.already_paired > 0) {
+        showToast(`${dupStats.already_paired} potential match${dupStats.already_paired > 1 ? "es" : ""} already paired`);
       } else {
         showToast("No new duplicates found");
       }
@@ -2540,8 +2545,9 @@ const SearchView = ({ query, categoryFilter }) => {
               {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
               {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
               {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
-              {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already detected</span>}
-              {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+              {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already in DB</span>}
+              {dupBulkResult.already_paired > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.already_paired} potential match{dupBulkResult.already_paired > 1 ? "es" : ""} already paired</span>}
+              {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs && !dupBulkResult.already_paired) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
             </div>
           </div>
           <button onClick={() => setDupBulkResult(null)} style={{ padding: "4px 8px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer" }}>Dismiss</button>

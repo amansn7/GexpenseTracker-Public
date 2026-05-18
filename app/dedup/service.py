@@ -404,9 +404,9 @@ async def batch_detect_duplicates(
              "merchant_alias": N, "new_pair_ids": [str, ...]}.
     """
     if not new_transactions:
-        return {"checked": 0, "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "new_pair_ids": []}
+        return {"checked": 0, "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "already_paired": 0, "new_pair_ids": []}
 
-    stats = {"checked": len(new_transactions), "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0}
+    stats = {"checked": len(new_transactions), "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "already_paired": 0}
     new_pair_ids: List[str] = []
 
     # Collect date range and amounts for the windowed query
@@ -525,6 +525,7 @@ async def batch_detect_duplicates(
 
             # Check if already paired
             if existing_tx.id in already_paired_ids:
+                stats["already_paired"] += 1
                 continue
 
             # Multi-layer scoring
@@ -633,6 +634,7 @@ async def batch_detect_duplicates(
 
             # Check if already paired
             if other_tx.id in already_paired_ids:
+                stats["already_paired"] += 1
                 continue
 
             # Multi-layer scoring (same logic as above)
