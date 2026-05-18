@@ -139,6 +139,96 @@ def _is_dedup_candidate(transaction):
     return True
 
 
+async def _score_pair(
+    tx_a: Transaction,
+    email_a: Email,
+    tx_b: Transaction,
+    email_b: Email,
+    db: AsyncSession,
+) -> Tuple[float, str]:
+    """
+    Run the shared 5-layer scoring pipeline against an arbitrary pair.
+
+    Returns (confidence, rule_source). Returns (0.0, "unknown") if no layer
+    fires with score >= 0.5 or the pair is structurally ineligible (missing
+    effective date, amount diff outside tolerance, or day diff > 3).
+
+    Layer order:
+      1. same_domain_exact (1.0)
+      2. merchant_alias    (0.75 - 0.95)
+      3. domain_pair       (rule.confidence)
+      4. investment_flow   (0.65)
+      5. amount_date       (0.5)
+
+    Tolerance: uses _amount_tolerance(amount, bulk=True) (3%) so callers do
+    not need to pre-filter. Per-tx callers accepting the looser reach is
+    intentional for layers 2-5 — same_domain stays on the per-tx tighter path.
+    """
+    if tx_a.amount is None or tx_b.amount is None:
+        return (0.0, "unknown")
+    if not email_a or not email_b:
+        return (0.0, "unknown")
+    if not email_a.sender_domain or not email_b.sender_domain:
+        return (0.0, "unknown")
+
+    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
+    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    if eff_a is None or eff_b is None:
+        return (0.0, "unknown")
+
+    amount_a = float(tx_a.amount)
+    amount_b = float(tx_b.amount)
+    tol = _amount_tolerance(amount_a, bulk=True)
+    if abs(amount_a - amount_b) > tol:
+        return (0.0, "unknown")
+
+    day_diff = abs((eff_a - eff_b).days)
+    if day_diff > 3:
+        return (0.0, "unknown")
+
+    domain_a = email_a.sender_domain.lower()
+    domain_b = email_b.sender_domain.lower()
+    subject_a = (email_a.subject or "").lower()
+    subject_b = (email_b.subject or "").lower()
+    merchant_a = tx_a.merchant or ""
+    merchant_b = tx_b.merchant or ""
+
+    # Layer 1: same domain (highest confidence)
+    if domain_a == domain_b:
+        return (1.0, "same_domain_exact")
+
+    # Layer 2: merchant alias across domains
+    m_score = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
+    if m_score >= 0.7:
+        return (0.75 + m_score * 0.2, "merchant_alias")
+
+    # Layer 3: cross-domain with DomainPairRule
+    da, db_ = _sorted_domains(domain_a, domain_b)
+    rule = (await db.execute(
+        select(DomainPairRule).where(
+            DomainPairRule.domain_a == da,
+            DomainPairRule.domain_b == db_,
+        )
+    )).scalar_one_or_none()
+    if rule and rule.confidence >= 0.5:
+        return (rule.confidence, "domain_pair")
+
+    # Layer 4: investment flow
+    a_is_order = _subject_has_any(subject_a, _INVEST_ORDER_SIGNALS)
+    a_is_confirm = _subject_has_any(subject_a, _INVEST_CONFIRM_SIGNALS)
+    b_is_order = _subject_has_any(subject_b, _INVEST_ORDER_SIGNALS)
+    b_is_confirm = _subject_has_any(subject_b, _INVEST_CONFIRM_SIGNALS)
+    if (a_is_order and b_is_confirm) or (a_is_confirm and b_is_order):
+        if day_diff <= 3:
+            return (0.65, "investment_flow")
+
+    # Layer 5: amount + date fallback (lowest confidence)
+    if day_diff <= 1:
+        return (0.5, "amount_date")
+
+    return (0.0, "unknown")
+
+
 async def detect_and_record_duplicates(
     tx: Transaction,
     email: Optional[Email],
@@ -150,6 +240,8 @@ async def detect_and_record_duplicates(
       1. Same-domain: same sender, same amount (±0.5%), within ±3 days
       2. Cross-domain: different sender, same amount (±0.5%), within ±1 day
       3. Investment flow: "order sent" + "confirmation" pair for same amount
+    Then runs a final shared-scorer pass for merchant_alias / amount_date hits
+    the strategies above don't cover.
     All queries are scoped to email.user_id to prevent cross-user false positives.
     """
     if not _is_dedup_candidate(tx):
@@ -306,6 +398,73 @@ async def detect_and_record_duplicates(
     # ── 3. Investment flow detection (order + confirmation across domains) ─────
     await _detect_investment_flow(tx, email, tx_domain, amount, tol, user_id, paired_ids, db)
 
+    # ── 4. Shared-scorer pass (merchant_alias + amount_date fallback) ─────────
+    # Uses the bulk tolerance (3%) and a ±3-day window so old data picks up
+    # the same layers batch_detect_duplicates uses. We only record matches
+    # the prior blocks would have missed: rule_source in {merchant_alias,
+    # amount_date}. The higher-confidence layers (same_domain_exact,
+    # domain_pair, investment_flow) are already handled above with their
+    # auto-resolve semantics — re-handling them here would double-create pairs.
+    bulk_tol = _amount_tolerance(amount, bulk=True)
+    extra_window_start = effective_date - timedelta(days=3)
+    extra_window_end   = effective_date + timedelta(days=3)
+
+    if email.received_at is not None:
+        recv_lo = email.received_at - timedelta(days=3)
+        recv_hi = email.received_at + timedelta(days=3)
+        extra_date_filter = or_(
+            and_(
+                Transaction.txn_date.isnot(None),
+                Transaction.txn_date >= extra_window_start,
+                Transaction.txn_date <= extra_window_end,
+            ),
+            and_(
+                Transaction.txn_date.is_(None),
+                Email.received_at.isnot(None),
+                Email.received_at >= recv_lo,
+                Email.received_at <= recv_hi,
+            ),
+        )
+    else:
+        extra_date_filter = and_(
+            Transaction.txn_date >= extra_window_start,
+            Transaction.txn_date <= extra_window_end,
+        )
+
+    extra_candidates = (await db.execute(
+        select(Transaction, Email)
+        .outerjoin(Email, Transaction.email_id == Email.id)
+        .where(
+            Transaction.id != tx.id,
+            Transaction.label == "expense",
+            func.abs(Transaction.amount - amount) <= bulk_tol,
+            extra_date_filter,
+            Email.user_id == user_id,
+            Email.sender_domain.isnot(None),
+        )
+    )).all()
+
+    for cand_tx, cand_email in extra_candidates:
+        if cand_tx.id in paired_ids:
+            continue
+        score, rule_source = await _score_pair(tx, email, cand_tx, cand_email, db)
+        if score < 0.5:
+            continue
+        if rule_source not in ("merchant_alias", "amount_date"):
+            # Higher-confidence layers already handled above.
+            continue
+        paired_ids.add(cand_tx.id)
+        db.add(DuplicatePair(
+            id=str(uuid.uuid4()),
+            primary_tx_id=tx.id,
+            duplicate_tx_id=cand_tx.id,
+            status="pending",
+            confidence=score,
+            rule_source=rule_source,
+        ))
+        logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)",
+                    rule_source, tx.id, cand_tx.id, score)
+
 
 async def _detect_investment_flow(
     tx: Transaction,
@@ -460,62 +619,24 @@ async def batch_detect_duplicates(
     seen_pairs: Set[Tuple[str, str]] = set()
 
     for new_tx, new_email in new_transactions:
-        print(f"DEDUP_DEBUG: checking tx={new_tx.id} label={new_tx.label} amount={new_tx.amount} merchant={new_tx.merchant}", flush=True)
         if not _is_dedup_candidate(new_tx):
-            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP not a dedup candidate (label={new_tx.label})", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (not a dedup candidate, label=%s)", new_tx.id, new_tx.label)
             continue
         if not new_email or not new_email.sender_domain:
-            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP no email or sender_domain", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (no email or sender_domain)", new_tx.id)
             continue
 
-        new_amount = float(new_tx.amount)
-        new_tol = _amount_tolerance(new_amount, bulk=True)
-        new_domain = new_email.sender_domain.lower()
-        new_subject = (new_email.subject or "").lower()
-        new_merchant = new_tx.merchant or ""
         new_effective = new_tx.txn_date or (new_email.received_at.date() if new_email.received_at else None)
         if new_effective is None:
-            print(f"DEDUP_DEBUG: tx={new_tx.id} SKIP no effective date (txn_date={new_tx.txn_date} received_at={new_email.received_at})", flush=True)
             logger.info("batch_detect_duplicates: skip tx=%s (no effective date)", new_tx.id)
             continue
-
-        is_order = _subject_has_any(new_subject, _INVEST_ORDER_SIGNALS)
-        is_confirm = _subject_has_any(new_subject, _INVEST_CONFIRM_SIGNALS)
 
         # Load paired IDs once per new transaction (not per existing candidate)
         already_paired_ids = await _load_paired_ids(new_tx.id, db)
 
-        print(f"DEDUP_DEBUG: existing_map has {len(existing_map)} items for tx={new_tx.id}", flush=True)
-
         # Compare against existing transactions in DB
         for existing_tx, existing_email in existing_map.values():
             if existing_tx.id == new_tx.id:
-                continue
-            if not existing_email or not existing_email.sender_domain:
-                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP no email/domain", flush=True)
-                continue
-
-            existing_domain = existing_email.sender_domain.lower()
-            existing_amount = float(existing_tx.amount) if existing_tx.amount else 0
-            existing_subject = (existing_email.subject or "").lower()
-            existing_merchant = existing_tx.merchant or ""
-            existing_effective = existing_tx.txn_date or (existing_email.received_at.date() if existing_email.received_at else None)
-            if existing_effective is None:
-                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP no effective date", flush=True)
-                continue
-
-            # Amount proximity check
-            amount_diff = abs(new_amount - existing_amount)
-            if amount_diff > new_tol:
-                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP amount: {amount_diff:.2f} > tol {new_tol:.2f}", flush=True)
-                continue
-
-            # Time proximity check
-            day_diff = abs((new_effective - existing_effective).days)
-            if day_diff > 3:
-                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP days: {day_diff} > 3", flush=True)
                 continue
 
             # Sort pair key to avoid duplicates
@@ -528,52 +649,7 @@ async def batch_detect_duplicates(
                 stats["already_paired"] += 1
                 continue
 
-            # Multi-layer scoring
-            score = 0.0
-            rule_source = "unknown"
-
-            # Layer 1: Same domain (highest confidence)
-            if new_domain == existing_domain:
-                same_domain_window = 3 if (new_email.received_at and existing_email.received_at) else 3
-                if day_diff <= same_domain_window:
-                    score = 1.0
-                    rule_source = "same_domain_exact"
-
-            # Layer 2: Merchant alias match across domains
-            if score == 0.0:
-                m_score = _merchant_match(new_merchant, existing_merchant, new_domain, existing_domain)
-                if m_score >= 0.7:
-                    score = 0.75 + m_score * 0.2  # 0.75 to 0.95
-                    rule_source = "merchant_alias"
-
-            # Layer 3: Cross-domain with domain pair rule
-            if score == 0.0:
-                domain_a, domain_b = _sorted_domains(new_domain, existing_domain)
-                rule = (await db.execute(
-                    select(DomainPairRule).where(
-                        DomainPairRule.domain_a == domain_a,
-                        DomainPairRule.domain_b == domain_b,
-                    )
-                )).scalar_one_or_none()
-                if rule:
-                    score = rule.confidence
-                    rule_source = "domain_pair"
-
-            # Layer 4: Investment flow
-            if score == 0.0:
-                existing_is_order = _subject_has_any(existing_subject, _INVEST_ORDER_SIGNALS)
-                existing_is_confirm = _subject_has_any(existing_subject, _INVEST_CONFIRM_SIGNALS)
-                if (is_order and existing_is_confirm) or (is_confirm and existing_is_order):
-                    if new_domain != existing_domain and day_diff <= 3:
-                        score = 0.65
-                        rule_source = "investment_flow"
-
-            # Layer 5: Amount + date only (lowest confidence)
-            if score == 0.0:
-                if abs(new_amount - existing_amount) <= new_tol and day_diff <= 1:
-                    score = 0.5
-                    rule_source = "amount_date"
-
+            score, rule_source = await _score_pair(new_tx, new_email, existing_tx, existing_email, db)
             if score < 0.5:
                 continue
 
@@ -602,30 +678,6 @@ async def batch_detect_duplicates(
         for other_tx, other_email in new_transactions:
             if other_tx.id == new_tx.id:
                 continue
-            if not other_email or not other_email.sender_domain:
-                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP no email/domain", flush=True)
-                continue
-
-            other_domain = other_email.sender_domain.lower()
-            other_amount = float(other_tx.amount) if other_tx.amount else 0
-            other_subject = (other_email.subject or "").lower()
-            other_merchant = other_tx.merchant or ""
-            other_effective = other_tx.txn_date or (other_email.received_at.date() if other_email.received_at else None)
-            if other_effective is None:
-                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP no effective date", flush=True)
-                continue
-
-            # Amount proximity check
-            amount_diff = abs(new_amount - other_amount)
-            if amount_diff > new_tol:
-                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP amount: {amount_diff:.2f} > tol {new_tol:.2f}", flush=True)
-                continue
-
-            # Time proximity check
-            day_diff = abs((new_effective - other_effective).days)
-            if day_diff > 3:
-                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP days: {day_diff} > 3", flush=True)
-                continue
 
             # Sort pair key to avoid duplicates
             pair_key = tuple(sorted([new_tx.id, other_tx.id]))
@@ -637,52 +689,7 @@ async def batch_detect_duplicates(
                 stats["already_paired"] += 1
                 continue
 
-            # Multi-layer scoring (same logic as above)
-            score = 0.0
-            rule_source = "unknown"
-
-            # Layer 1: Same domain (highest confidence)
-            if new_domain == other_domain:
-                same_domain_window = 3 if (new_email.received_at and other_email.received_at) else 3
-                if day_diff <= same_domain_window:
-                    score = 1.0
-                    rule_source = "same_domain_exact"
-
-            # Layer 2: Merchant alias match across domains
-            if score == 0.0:
-                m_score = _merchant_match(new_merchant, other_merchant, new_domain, other_domain)
-                if m_score >= 0.7:
-                    score = 0.75 + m_score * 0.2
-                    rule_source = "merchant_alias"
-
-            # Layer 3: Cross-domain with domain pair rule
-            if score == 0.0:
-                domain_a, domain_b = _sorted_domains(new_domain, other_domain)
-                rule = (await db.execute(
-                    select(DomainPairRule).where(
-                        DomainPairRule.domain_a == domain_a,
-                        DomainPairRule.domain_b == domain_b,
-                    )
-                )).scalar_one_or_none()
-                if rule:
-                    score = rule.confidence
-                    rule_source = "domain_pair"
-
-            # Layer 4: Investment flow
-            if score == 0.0:
-                other_is_order = _subject_has_any(other_subject, _INVEST_ORDER_SIGNALS)
-                other_is_confirm = _subject_has_any(other_subject, _INVEST_CONFIRM_SIGNALS)
-                if (is_order and other_is_confirm) or (is_confirm and other_is_order):
-                    if new_domain != other_domain and day_diff <= 3:
-                        score = 0.65
-                        rule_source = "investment_flow"
-
-            # Layer 5: Amount + date only (lowest confidence)
-            if score == 0.0:
-                if abs(new_amount - other_amount) <= new_tol and day_diff <= 1:
-                    score = 0.5
-                    rule_source = "amount_date"
-
+            score, rule_source = await _score_pair(new_tx, new_email, other_tx, other_email, db)
             if score < 0.5:
                 continue
 
@@ -707,7 +714,7 @@ async def batch_detect_duplicates(
             new_pair_ids.append(pair_id)
             logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, other_tx.id, rule_source, score)
 
-    print(f"DEDUP_DEBUG: complete stats={stats} new_pair_ids={new_pair_ids}", flush=True)
+    logger.debug("batch_detect_duplicates: complete stats=%s new_pair_ids=%s", stats, new_pair_ids)
     return {**stats, "new_pair_ids": new_pair_ids}
 
 
