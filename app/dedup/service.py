@@ -485,6 +485,8 @@ async def batch_detect_duplicates(
         # Load paired IDs once per new transaction (not per existing candidate)
         already_paired_ids = await _load_paired_ids(new_tx.id, db)
 
+        print(f"DEDUP_DEBUG: existing_map has {len(existing_map)} items for tx={new_tx.id}", flush=True)
+
         # Compare against existing transactions in DB
         for existing_tx, existing_email in existing_map.values():
             if existing_tx.id == new_tx.id:
@@ -501,12 +503,15 @@ async def batch_detect_duplicates(
                 continue
 
             # Amount proximity check
-            if abs(new_amount - existing_amount) > new_tol:
+            amount_diff = abs(new_amount - existing_amount)
+            if amount_diff > new_tol:
+                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP amount: {amount_diff:.2f} > tol {new_tol:.2f}", flush=True)
                 continue
 
             # Time proximity check
             day_diff = abs((new_effective - existing_effective).days)
             if day_diff > 3:
+                print(f"DEDUP_DEBUG: existing pair {new_tx.id} vs {existing_tx.id} SKIP days: {day_diff} > 3", flush=True)
                 continue
 
             # Sort pair key to avoid duplicates
@@ -618,12 +623,15 @@ async def batch_detect_duplicates(
                 continue
 
             # Amount proximity check
-            if abs(new_amount - other_amount) > new_tol:
+            amount_diff = abs(new_amount - other_amount)
+            if amount_diff > new_tol:
+                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP amount: {amount_diff:.2f} > tol {new_tol:.2f}", flush=True)
                 continue
 
             # Time proximity check
             day_diff = abs((new_effective - other_effective).days)
             if day_diff > 3:
+                print(f"DEDUP_DEBUG: intra-batch pair {new_tx.id} vs {other_tx.id} SKIP days: {day_diff} > 3", flush=True)
                 continue
 
             # Sort pair key to avoid duplicates
