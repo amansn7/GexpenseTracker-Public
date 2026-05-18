@@ -103,6 +103,8 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
   const [viewsOpen, setViewsOpen] = React.useState(() => localStorage.getItem("_nav_views") !== "0");
   const [filtersOpen, setFiltersOpen] = React.useState(() => localStorage.getItem("_nav_filters") !== "0");
   const [catsOpen, setCatsOpen] = React.useState(() => localStorage.getItem("_nav_cats") !== "0");
+  const [menuPos, setMenuPos] = React.useState(null);
+  const triggerRef = React.useRef(null);
   const sideStyle = mobile
     ? { ...shellStyles.side, position: "fixed", top: 0, left: 0, bottom: 0, width: 284, maxWidth: "86vw", height: "100dvh", zIndex: 70, boxShadow: "18px 0 48px -24px var(--shadow-lg)", transform: open ? "translateX(0)" : "translateX(-105%)", transition: "transform 180ms ease", overflowY: "auto" }
     : shellStyles.side;
@@ -110,6 +112,68 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     fn();
     if (mobile) onClose();
   };
+
+  const openMenu = () => {
+    if (menu) { setMenu(false); return; }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPos({ top: rect.top, left: rect.left, width: rect.width });
+    }
+    setMenu(true);
+  };
+
+  const AccountMenu = ({ settingsView }) => (
+    <div className="fade-in" style={{ position: "fixed", top: menuPos ? menuPos.top - 4 : 0, left: menuPos ? menuPos.left : 0, width: menuPos ? menuPos.width : 220, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
+      <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        <Icon name="user" size={14}/> Profile
+      </button>
+      <button onClick={()=>{ setView(settingsView); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        <Icon name="gear" size={14}/> Settings
+      </button>
+      <div style={{ height: 1, background: "var(--line)", margin: "4px 4px" }}/>
+      <button
+        onClick={async () => {
+          await API.post("/api/auth/logout");
+          window.location.href = "/login";
+        }}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
+        onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
+      >
+        <Icon name="arrow-u-r" size={14}/> Sign out
+      </button>
+    </div>
+  );
+
+  const AccountTrigger = () => (
+    <button
+      ref={triggerRef}
+      onClick={openMenu}
+      className="focus-ring"
+      aria-expanded={menu}
+      aria-haspopup="menu"
+      aria-label="Account menu"
+      style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
+      onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
+      onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
+    >
+      {account?.avatar_url
+        ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
+        : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
+      }
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{account?.name || account?.email || "—"}</div>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
+      </div>
+      <Icon name="arrow-d" size={12} stroke="var(--ink-3)" />
+    </button>
+  );
 
   // New mode sidebar
   if (mode === "new") {
@@ -139,55 +203,11 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
 
       {/* Account menu */}
       <div style={{ padding: "4px 8px 8px" }}>
-        <button
-          onClick={()=>setMenu(m=>!m)}
-          className="focus-ring"
-          aria-expanded={menu}
-          aria-haspopup="menu"
-          aria-label="Account menu"
-          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease", position: "relative", zIndex: menu ? 51 : "auto" }}
-          onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
-          onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
-        >
-          {account?.avatar_url
-            ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
-            : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
-          }
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{account?.name || account?.email || "—"}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
-          </div>
-          <Icon name="arrow-d" size={12} stroke="var(--ink-3)" />
-        </button>
+        <AccountTrigger />
         {menu && (
           <>
             <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-            <div className="fade-in" style={{ position: "fixed", bottom: mobile ? "calc(100dvh - 284px + 8px)" : "calc(100vh - 232px + 8px)", left: 8, width: mobile ? 268 : 216, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
-              <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-                onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              >
-                <Icon name="user" size={14}/> Profile
-              </button>
-              <button onClick={()=>{ setView("settings-new"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-                onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              >
-                <Icon name="gear" size={14}/> Settings
-              </button>
-              <div style={{ height: 1, background: "var(--line)", margin: "4px 4px" }}/>
-              <button
-                onClick={async () => {
-                  await API.post("/api/auth/logout");
-                  window.location.href = "/login";
-                }}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
-              >
-                <Icon name="arrow-u-r" size={14}/> Sign out
-              </button>
-            </div>
+            <AccountMenu settingsView="settings-new" />
           </>
         )}
       </div>
@@ -277,55 +297,11 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     </div>
 
     <div style={{ padding: "4px 8px 8px" }}>
-      <button
-        onClick={()=>setMenu(m=>!m)}
-        className="focus-ring"
-        aria-expanded={menu}
-        aria-haspopup="menu"
-        aria-label="Account menu"
-        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease", position: "relative", zIndex: menu ? 51 : "auto" }}
-        onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
-        onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
-      >
-        {account?.avatar_url
-          ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
-          : <div style={shellStyles.avatar}>{(account?.name || account?.email || "?")[0].toUpperCase()}</div>
-        }
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{account?.name || account?.email || "—"}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{account?.email || ""}</div>
-        </div>
-        <Icon name="arrow-d" size={12} stroke="var(--ink-3)" />
-      </button>
+      <AccountTrigger />
       {menu && (
         <>
           <div onClick={()=>setMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 50 }}/>
-          <div className="fade-in" style={{ position: "fixed", bottom: mobile ? "calc(100dvh - 284px + 8px)" : "calc(100vh - 232px + 8px)", left: 8, width: mobile ? 268 : 216, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
-            <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-              onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-            >
-              <Icon name="user" size={14}/> Profile
-            </button>
-            <button onClick={()=>{ setView("settings"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-              onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-            >
-              <Icon name="gear" size={14}/> Settings
-            </button>
-            <div style={{ height: 1, background: "var(--line)", margin: "4px 4px" }}/>
-            <button
-              onClick={async () => {
-                await API.post("/api/auth/logout");
-                window.location.href = "/login";
-              }}
-              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
-            >
-              <Icon name="arrow-u-r" size={14}/> Sign out
-            </button>
-          </div>
+          <AccountMenu settingsView="settings" />
         </>
       )}
     </div>
