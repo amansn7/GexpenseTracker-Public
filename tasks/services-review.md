@@ -85,6 +85,10 @@ M4 marked **WONTFIX** — None guards in `load_for_llm` required by reclassify f
 
 ## Remaining out-of-scope follow-ups
 
-- **CC payment vs CC purchase bucket collapse** in `_CANONICAL_MAP` (audit obs 330 / 330–333). Real analytics bug, separate ticket.
-- **Inconsistent canonical asymmetry**: `"card payment"` / `"card"` / `"credit card payment"` fall through to `"other"` instead of `"card"` (surfaced by L6 tests). Cheap to fix; not blocking.
-- **`investment` / `cash`** canonicalize to `"other"` rather than dedicated keys — possibly intentional. Worth confirming with product.
+- **CC payment vs CC purchase bucket collapse [RESOLVED — not a bug 2026-05-18].** Investigated. Backend gates CC payments via `Transaction.transaction_type == "cc_payment"`, not via canonical category. Frontend `data.jsx:157` injects `catMap["card"]` from `stats.total_cc_payments`; Sankey filters `cat === "card"` to render as separate flow. `"card"` is the load-bearing canonical for CC repayments. Map was correct. Audit obs 330 misread.
+
+- **Asymmetric canonical card aliases [DONE 2026-05-18].** `"card"`, `"card payment"`, `"credit card payment"` now all canonicalize to `"card"`. Backend + frontend fallback + tests updated; bundle rebuilt.
+
+- **`investment` canonicalized to `"other"` [DONE 2026-05-18 — real bug].** Frontend `flow.jsx:29,255` filters `cat === "investment"` expecting an `"investment"` canonical key. Backend map collapsed `investment → other`, so any user-labelled "Investment" category leaked into "regular expenses" rather than the dedicated investment Sankey node. Now `"investment"`/`"investments"`/`"mutual fund"`/`"mutual funds"`/`"stocks"`/`"sip"` → `"investment"`.
+
+- **`cash` still canonicalized to `"other"`.** Intentional — no dedicated `"cash"` bucket downstream; would need product input + dashboard/Sankey work to split.

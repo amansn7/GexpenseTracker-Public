@@ -45,10 +45,26 @@ def test_resolve_unknown_raw_falls_back_to_other():
 
 
 def test_resolve_cc_payment_maps_to_card():
-    # Documents current behavior. Audit flagged this as a possible bug
-    # (caller may expect "card payment" -> "card" too), but the canonical
-    # map currently only handles "cc payment", "cc", and "credit card".
+    # `"card"` is the canonical key for CC repayments (load-bearing in
+    # Sankey + dashboard, fed by stats summary `total_cc_payments`).
     assert CategoryService.resolve("cc payment", False) == "card"
+
+
+def test_resolve_card_aliases_all_map_to_card():
+    for alias in ("card", "card payment", "credit card payment", "cc", "credit card"):
+        assert CategoryService.resolve(alias, False) == "card", alias
+
+
+def test_resolve_investment_aliases_all_map_to_investment():
+    # `"investment"` is the canonical key for investment outflows
+    # (load-bearing — frontend filters `cat === "investment"`).
+    for alias in ("investment", "investments", "mutual fund", "mutual funds", "stocks", "sip"):
+        assert CategoryService.resolve(alias, False) == "investment", alias
+
+
+def test_resolve_cash_maps_to_other():
+    # `cash` intentionally collapses to "other" — no dedicated bucket today.
+    assert CategoryService.resolve("cash", False) == "other"
 
 
 # ---------------------------------------------------------------------------

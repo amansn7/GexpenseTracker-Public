@@ -30,12 +30,16 @@ _CANONICAL_MAP: Dict[str, str] = {
     "electricity": "util", "internet": "util", "broadband": "util",
     "water": "util", "recharge": "util",
     "cc payment": "card", "cc": "card", "credit card": "card",
+    "card": "card", "card payment": "card", "credit card payment": "card",
     "transfers": "transfer", "transfer": "transfer",
     "bank transfer": "transfer", "upi payment": "transfer",
     "upi": "transfer", "neft": "transfer", "imps": "transfer",
     "income": "income", "salary": "income", "freelance": "income",
     "refund": "income", "cashback": "income", "reward": "income",
-    "investment": "other", "cash": "other",
+    "investment": "investment", "investments": "investment",
+    "mutual fund": "investment", "mutual funds": "investment",
+    "stocks": "investment", "sip": "investment",
+    "cash": "other",
     "other": "other",
 }
 
