@@ -10,7 +10,12 @@ def _fernet():
     from cryptography.fernet import Fernet
     if not settings.FERNET_KEY:
         raise RuntimeError("FERNET_KEY is not configured. Encryption is required.")
-    return Fernet(settings.FERNET_KEY.encode())
+    try:
+        return Fernet(settings.FERNET_KEY.encode())
+    except ValueError:
+        # If FERNET_KEY is not valid url-safe base64, derive a proper key from it
+        key = base64.urlsafe_b64encode(hashlib.sha256(settings.FERNET_KEY.encode("utf-8")).digest())
+        return Fernet(key)
 
 
 def encrypt_secret(plaintext: str) -> str:
