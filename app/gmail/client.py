@@ -2,6 +2,7 @@ import base64
 import html as html_module
 import logging
 import re
+import time
 from datetime import datetime, timezone
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -231,7 +232,6 @@ def fetch_new_messages(
     Each message dict keys:
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
     """
-    import time
     from google.auth.exceptions import RefreshError
 
     service = _build_service(creds)
