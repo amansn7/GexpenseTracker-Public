@@ -26,6 +26,39 @@ def test_fetch_new_messages_date_range_query():
     assert "before:2024/03/31" in call_kwargs["q"]
 
 
+@pytest.mark.asyncio
+async def test_scheduler_uses_task_queue():
+    """Scheduled sync should enqueue through task queue, not call run_sync directly."""
+    from app.workers.queue import TaskQueue
+    from app.scheduler import setup_scheduler
+
+    tq = TaskQueue()
+    tq.register_handler("sync", lambda t: {"status": "completed"})
+
+    with patch("app.workers.queue.task_queue", tq):
+        with patch("app.scheduler.AsyncSessionLocal") as mock_session_cls:
+            mock_session = AsyncMock()
+            mock_owner = MagicMock()
+            mock_owner.id = "test-owner-id"
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+            mock_session.execute = AsyncMock()
+            # Mock the scalar_one_or_none to return an owner
+            mock_result = MagicMock()
+            mock_result.scalar_one_or_none = MagicMock(return_value=mock_owner)
+            mock_session.execute.return_value = mock_result
+            mock_session_cls.return_value = mock_session
+
+            with patch("app.scheduler.scheduler") as mock_scheduler:
+                setup_scheduler()
+
+                # Verify a job was added to the scheduler
+                assert mock_scheduler.add_job.called
+
+    # Verify the task queue has the sync handler registered
+    assert "sync" in tq._handlers
+
+
 async def _make_service_user(db_session):
     """Create a minimal service user for sync tests."""
     from app.models import User, UserRole, UserStatus

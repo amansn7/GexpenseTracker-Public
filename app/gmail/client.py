@@ -12,6 +12,48 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Retry configuration for transient Gmail API errors
+_MAX_RETRIES = 3
+_RETRYABLE_STATUS = {500, 502, 503, 504, 429}  # Server errors + rate limit
+_RETRY_BACKOFF_BASE = 2  # seconds
+
+
+def _retry_with_backoff(func, max_retries=_MAX_RETRIES):
+    """Execute func with exponential backoff for retryable errors."""
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except HttpError as exc:
+            if exc.resp.status in _RETRYABLE_STATUS and attempt < max_retries:
+                wait = _RETRY_BACKOFF_BASE ** attempt
+                if exc.resp.status == 429:
+                    # Rate limit: extract Retry-After header if present
+                    retry_after = exc.resp.get("retry-after")
+                    if retry_after:
+                        wait = max(wait, int(retry_after))
+                logger.warning(
+                    "Gmail API error %s (attempt %d/%d), retrying in %ds",
+                    exc.resp.status, attempt + 1, max_retries, wait,
+                )
+                time.sleep(wait)
+                last_exc = exc
+                continue
+            raise
+        except OSError as exc:
+            # Connection errors, timeouts — retryable
+            if attempt < max_retries:
+                wait = _RETRY_BACKOFF_BASE ** attempt
+                logger.warning(
+                    "Gmail API connection error (attempt %d/%d), retrying in %ds: %s",
+                    attempt + 1, max_retries, wait, exc,
+                )
+                time.sleep(wait)
+                last_exc = exc
+                continue
+            raise
+    raise last_exc
+
 def extract_domain(sender: str) -> str:
     match = re.search(r"@([\w.-]+)", sender)
     return match.group(1).lower() if match else ""
@@ -280,7 +322,9 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             kwargs = {"userId": "me", "q": query, "maxResults": settings.SYNC_PAGE_SIZE}
             if page_token:
                 kwargs["pageToken"] = page_token
-            results = service.users().messages().list(**kwargs).execute()
+            results = _retry_with_backoff(
+                lambda: service.users().messages().list(**kwargs).execute()
+            )
             message_ids.extend(m["id"] for m in results.get("messages", []))
             page_token = results.get("nextPageToken")
             if not page_token:
@@ -289,15 +333,19 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
         if after_date is not None:
             new_history_id = last_history_id
         else:
-            profile = service.users().getProfile(userId="me").execute()
+            profile = _retry_with_backoff(
+                lambda: service.users().getProfile(userId="me").execute()
+            )
             new_history_id = str(profile["historyId"])
     else:
         try:
-            history = service.users().history().list(
-                userId="me",
-                startHistoryId=last_history_id,
-                historyTypes=["messageAdded"],
-            ).execute()
+            history = _retry_with_backoff(
+                lambda: service.users().history().list(
+                    userId="me",
+                    startHistoryId=last_history_id,
+                    historyTypes=["messageAdded"],
+                ).execute()
+            )
             # History API returns minimal message objects (id + threadId only),
             # so we can't filter by labelIds here. Collect all ids and filter
             # after fetching the full message below.
@@ -322,9 +370,11 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             time.sleep(1)
 
         try:
-            msg = service.users().messages().get(
-                userId="me", id=msg_id, format="full",
-            ).execute()
+            msg = _retry_with_backoff(
+                lambda: service.users().messages().get(
+                    userId="me", id=msg_id, format="full",
+                ).execute()
+            )
         except HttpError as e:
             if e.resp.status == 404:
                 logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)

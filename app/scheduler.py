@@ -40,7 +40,7 @@ async def _delete_expired_accounts():
 
 
 def setup_scheduler() -> None:
-    from app.sync import run_sync
+    from app.workers.queue import task_queue
 
     async def _sync_job():
         logger.info("Scheduled Gmail sync starting")
@@ -55,8 +55,12 @@ def setup_scheduler() -> None:
             if owner_id is None:
                 logger.warning("Scheduled sync skipped: no owner user found")
                 return
-            result = await run_sync(user_id=owner_id)
-            logger.info("Sync complete: %s", result)
+            # Enqueue through task queue for consistent timeout handling and progress tracking
+            task_id = await task_queue.enqueue("sync", owner_id, {"trigger": "scheduled"})
+            if task_id is None:
+                logger.info("Scheduled sync skipped: sync already in progress")
+            else:
+                logger.info("Scheduled sync enqueued as task %s", task_id)
         except Exception as exc:
             logger.error("Sync job error: %s", exc)
 

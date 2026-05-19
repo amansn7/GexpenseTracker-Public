@@ -176,13 +176,26 @@ async def clean_bodies_job(user_id: str):
 
     async with AsyncSessionLocal() as session:
         try:
-            all_emails = (await session.execute(select(Email))).scalars().all()
+            # Paginate through emails to avoid loading all into memory
+            batch_size = 100
+            offset = 0
+            candidates = []
+            while True:
+                batch = (await session.execute(
+                    select(Email)
+                    .where(Email.user_id == user_id if user_id else True)
+                    .offset(offset)
+                    .limit(batch_size)
+                )).scalars().all()
+                if not batch:
+                    break
+                candidates.extend([e for e in batch if e.body_text and _DIRTY_BODY_RE.search(e.body_text)])
+                offset += batch_size
         except Exception as exc:
             prog.update({"phase": "error", "running": False, "error": str(exc)})
             _log_event(uid, f"DB query failed: {exc}", "error")
             return
 
-        candidates = [e for e in all_emails if e.body_text and _DIRTY_BODY_RE.search(e.body_text)]
         total = len(candidates)
         prog["total"] = total
         _log_event(uid, f"Found {total} emails with dirty body text")

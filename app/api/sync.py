@@ -35,7 +35,9 @@ async def sync_progress_endpoint(current_user=Depends(get_current_user)):
 
 @router.get("/sync/status")
 async def sync_status(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    state = (await db.execute(select(SyncState))).scalar_one_or_none()
+    state = (await db.execute(
+        select(SyncState).where(SyncState.user_id == current_user.id)
+    )).scalar_one_or_none()
     if state and state.last_synced_at:
         next_sync = state.last_synced_at + timedelta(hours=settings.SYNC_INTERVAL_HOURS)
         return {
@@ -60,9 +62,11 @@ class SyncSettingsBody(BaseModel):
 async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
     if body.email_filter not in ("all", "unread", "read"):
         raise HTTPException(status_code=422, detail="email_filter must be all, unread, or read")
-    state = (await db.execute(select(SyncState))).scalar_one_or_none()
+    state = (await db.execute(
+        select(SyncState).where(SyncState.user_id == current_user.id)
+    )).scalar_one_or_none()
     if state is None:
-        state = SyncState(id=1, email_filter=body.email_filter)
+        state = SyncState(id=1, user_id=current_user.id, email_filter=body.email_filter)
         db.add(state)
     else:
         state.email_filter = body.email_filter
@@ -96,15 +100,24 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
 
     if payload.email_ids:
         result = await db.execute(
-            select(Email).where(Email.id.in_(payload.email_ids))
+            select(Email).where(Email.id.in_(payload.email_ids), Email.user_id == current_user.id)
         )
     else:
-        result = await db.execute(
-            select(Email).where(
-                or_(Email.body_text.is_(None), Email.body_text == "")
-            )
-        )
-    emails = result.scalars().all()
+        # Paginate to avoid loading all emails into memory
+        batch_size = 100
+        offset = 0
+        emails = []
+        while True:
+            batch = (await db.execute(
+                select(Email)
+                .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
+                .offset(offset)
+                .limit(batch_size)
+            )).scalars().all()
+            if not batch:
+                break
+            emails.extend(batch)
+            offset += batch_size
     if not emails:
         return {"updated": 0, "message": "All emails already have body text"}
 
