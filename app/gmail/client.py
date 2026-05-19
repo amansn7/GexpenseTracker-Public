@@ -271,6 +271,7 @@ def fetch_new_messages(
     after_date: str | None = None,
     before_date: str | None = None,
     query_extra: str | None = None,
+    existing_gmail_ids: set | None = None,
 ):
     """
     Returns (messages, new_history_id).
@@ -281,6 +282,10 @@ def fetch_new_messages(
     query_extra: additional Gmail search operators (e.g. "from:x subject:y")
                  appended to the after+date query. Ignored in history mode.
 
+    existing_gmail_ids: set of gmail_ids already in DB. If provided, uses
+        two-phase fetch: metadata first, then full bodies only for new messages.
+        This is MUCH faster for large mailboxes.
+
     Each message dict keys:
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
     """
@@ -289,7 +294,7 @@ def fetch_new_messages(
     service = _build_service(creds)
 
     try:
-        return _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra)
+        return _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids)
     except RefreshError as exc:
         raise RuntimeError(f"Gmail credential refresh failed: {exc}. Please reconnect Gmail")
     except OSError as exc:
@@ -297,7 +302,8 @@ def fetch_new_messages(
         raise RuntimeError(f"Gmail API connection error: {exc}")
 
 
-def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra):
+def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids=None):
+    use_two_phase = existing_gmail_ids is not None
 
     if last_history_id is None or after_date is not None:
         if after_date is not None:
@@ -359,50 +365,128 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             # 404 = historyId too old (expired), 410 = Gone — both warrant a full re-fetch
             if e.resp.status in (404, 410):
                 logger.warning("History ID expired (status %s), falling back to full fetch", e.resp.status)
-                return fetch_new_messages(None, email_filter, creds)
+                return fetch_new_messages(None, email_filter, creds, existing_gmail_ids=existing_gmail_ids)
             raise
 
     messages = []
     skipped = 0
-    for i, msg_id in enumerate(message_ids):
-        # Throttle to avoid exceeding Gmail's 250 quota-units/sec burst limit
-        if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
-            time.sleep(1)
+    full_fetch_count = 0
+    metadata_fetch_count = 0
 
-        try:
-            msg = _retry_with_backoff(
-                lambda: service.users().messages().get(
-                    userId="me", id=msg_id, format="full",
-                ).execute()
-            )
-        except HttpError as e:
-            if e.resp.status == 404:
-                logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
+    if use_two_phase:
+        # Phase 1: Fetch metadata for all messages (fast)
+        logger.info("Two-phase fetch: fetching metadata for %d messages", len(message_ids))
+        metadata_map = {}
+        for i, msg_id in enumerate(message_ids):
+            if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
+                time.sleep(0.5)
+
+            try:
+                msg = _retry_with_backoff(
+                    lambda: service.users().messages().get(
+                        userId="me", id=msg_id, format="metadata",
+                        metadataHeaders=["From", "Subject", "Date"],
+                    ).execute()
+                )
+                metadata_fetch_count += 1
+                metadata_map[msg_id] = msg
+            except HttpError as e:
+                if e.resp.status == 404:
+                    logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
+                    skipped += 1
+                    continue
+                raise
+
+        # Filter: skip already-synced messages
+        new_msg_ids = [mid for mid in metadata_map if mid not in existing_gmail_ids]
+        already_synced = len(metadata_map) - len(new_msg_ids)
+        logger.info("Two-phase: %d already synced, %d new messages to fetch full bodies", already_synced, len(new_msg_ids))
+        skipped += already_synced
+
+        # Phase 2: Fetch full bodies only for new messages
+        for i, msg_id in enumerate(new_msg_ids):
+            if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
+                time.sleep(1)
+
+            try:
+                full_msg = _retry_with_backoff(
+                    lambda: service.users().messages().get(
+                        userId="me", id=msg_id, format="full",
+                    ).execute()
+                )
+                full_fetch_count += 1
+            except HttpError as e:
+                if e.resp.status == 404:
+                    logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
+                    skipped += 1
+                    continue
+                raise
+
+            if not _passes_filter(full_msg, email_filter):
                 skipped += 1
                 continue
-            raise
 
-        if not _passes_filter(msg, email_filter):
-            skipped += 1
-            continue
+            headers = {h["name"]: h["value"] for h in full_msg.get("payload", {}).get("headers", [])}
+            sender = headers.get("From", "")
+            messages.append({
+                "gmail_id": msg_id,
+                "subject": headers.get("Subject", ""),
+                "sender": sender,
+                "sender_domain": extract_domain(sender),
+                "received_at": datetime.fromtimestamp(
+                    int(full_msg["internalDate"]) / 1000, tz=timezone.utc
+                ),
+                "body_snippet": full_msg.get("snippet", "")[:500],
+                "body_text": _extract_body_text(full_msg.get("payload", {})),
+                "gmail_link": get_gmail_link(msg_id),
+            })
+    else:
+        # Legacy single-phase: fetch full for all messages
+        for i, msg_id in enumerate(message_ids):
+            # Throttle to avoid exceeding Gmail's 250 quota-units/sec burst limit
+            if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
+                time.sleep(1)
 
-        headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
-        sender = headers.get("From", "")
-        messages.append({
-            "gmail_id": msg_id,
-            "subject": headers.get("Subject", ""),
-            "sender": sender,
-            "sender_domain": extract_domain(sender),
-            "received_at": datetime.fromtimestamp(
-                int(msg["internalDate"]) / 1000, tz=timezone.utc
-            ),
-            "body_snippet": msg.get("snippet", "")[:500],
-            "body_text": _extract_body_text(msg.get("payload", {})),
-            "gmail_link": get_gmail_link(msg_id),
-        })
+            try:
+                msg = _retry_with_backoff(
+                    lambda: service.users().messages().get(
+                        userId="me", id=msg_id, format="full",
+                    ).execute()
+                )
+            except HttpError as e:
+                if e.resp.status == 404:
+                    logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
+                    skipped += 1
+                    continue
+                raise
+
+            if not _passes_filter(msg, email_filter):
+                skipped += 1
+                continue
+
+            headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+            sender = headers.get("From", "")
+            messages.append({
+                "gmail_id": msg_id,
+                "subject": headers.get("Subject", ""),
+                "sender": sender,
+                "sender_domain": extract_domain(sender),
+                "received_at": datetime.fromtimestamp(
+                    int(msg["internalDate"]) / 1000, tz=timezone.utc
+                ),
+                "body_snippet": msg.get("snippet", "")[:500],
+                "body_text": _extract_body_text(msg.get("payload", {})),
+                "gmail_link": get_gmail_link(msg_id),
+            })
 
     if skipped:
-        logger.info("Skipped %d message(s) that were deleted/trashed since listing", skipped)
+        logger.info("Skipped %d message(s) that were deleted/trashed or already synced", skipped)
 
-    logger.info("Fetched %d messages (%d skipped)", len(messages), skipped)
+    if use_two_phase:
+        logger.info(
+            "Two-phase fetch complete: %d metadata + %d full = %d new messages (%d skipped)",
+            metadata_fetch_count, full_fetch_count, len(messages), skipped,
+        )
+    else:
+        logger.info("Fetched %d messages (%d skipped)", len(messages), skipped)
     return messages, new_history_id

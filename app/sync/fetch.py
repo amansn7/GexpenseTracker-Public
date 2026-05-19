@@ -71,11 +71,20 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     new_history_id = last_history_id
     logger.info("Fetching messages with filter=%s", email_filter)
     try:
+        # Load existing gmail_ids for two-phase fetch optimization
+        from app.models import Email
+        existing_ids_result = await session.execute(
+            select(Email.gmail_id).where(Email.user_id == user_id) if user_id else select(Email.gmail_id)
+        )
+        existing_gmail_ids = {row[0] for row in existing_ids_result.all()}
+        logger.info("Two-phase fetch: %d existing gmail_ids in DB", len(existing_gmail_ids))
+
         creds = await get_credentials_for_user(session, user_id) if user_id else None
         if not creds:
             raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
         messages, new_history_id = await asyncio.to_thread(
-            fetch_new_messages, last_history_id, email_filter, creds
+            fetch_new_messages, last_history_id, email_filter, creds,
+            existing_gmail_ids=existing_gmail_ids,
         )
     except Exception as exc:
         logger.error("Gmail fetch failed: %s", exc, exc_info=True)

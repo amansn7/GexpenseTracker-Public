@@ -192,3 +192,81 @@ def test_retry_with_backoff_does_not_retry_404():
     except HttpError as e:
         assert e.resp.status == 404
         assert call_count == 1  # Only called once, no retries
+
+
+def test_two_phase_fetch_skips_existing():
+    """fetch_new_messages with existing_gmail_ids uses two-phase: metadata first, full only for new."""
+    from app.gmail.client import fetch_new_messages
+
+    mock_service = MagicMock()
+
+    # Simulate 3 message IDs, 2 already exist
+    mock_service.users().messages().list().execute.return_value = {
+        "messages": [
+            {"id": "msg1"},
+            {"id": "msg2"},
+            {"id": "msg3"},
+        ]
+    }
+    mock_service.users().getProfile().execute.return_value = {"historyId": "999"}
+
+    # Metadata fetch for all 3
+    def mock_metadata_get(userId, id, format, metadataHeaders):
+        msg = MagicMock()
+        msg.execute.return_value = {
+            "id": id,
+            "internalDate": "1700000000000",
+            "snippet": f"Snippet for {id}",
+            "payload": {
+                "headers": [
+                    {"name": "From", "value": f"sender{id}@example.com"},
+                    {"name": "Subject", "value": f"Subject {id}"},
+                ]
+            },
+            "labelIds": ["INBOX"],
+        }
+        return msg
+
+    # Full fetch only for new messages (msg3)
+    def mock_full_get(userId, id, format):
+        msg = MagicMock()
+        msg.execute.return_value = {
+            "id": id,
+            "internalDate": "1700000000000",
+            "snippet": f"Full snippet for {id}",
+            "payload": {
+                "mimeType": "text/plain",
+                "body": {"data": _b64(f"Body for {id}")},
+                "headers": [
+                    {"name": "From", "value": f"sender{id}@example.com"},
+                    {"name": "Subject", "value": f"Subject {id}"},
+                ],
+                "parts": [],
+            },
+            "labelIds": ["INBOX"],
+        }
+        return msg
+
+    mock_service.users().messages().get.side_effect = lambda **kwargs: (
+        mock_metadata_get(**kwargs) if kwargs.get("format") == "metadata"
+        else mock_full_get(**kwargs)
+    )
+
+    with patch("app.gmail.client._build_service", return_value=mock_service):
+        messages, history_id = fetch_new_messages(
+            last_history_id=None,
+            email_filter="all",
+            existing_gmail_ids={"msg1", "msg2"},  # msg3 is new
+        )
+
+    # Only msg3 should be in results (msg1, msg2 skipped as existing)
+    assert len(messages) == 1
+    assert messages[0]["gmail_id"] == "msg3"
+    assert history_id == "999"
+
+    # Verify metadata was fetched for all 3, but full only for msg3
+    get_calls = mock_service.users().messages().get.call_args_list
+    metadata_calls = [c for c in get_calls if c[1].get("format") == "metadata"]
+    full_calls = [c for c in get_calls if c[1].get("format") == "full"]
+    assert len(metadata_calls) == 3  # All 3 got metadata
+    assert len(full_calls) == 1  # Only msg3 got full fetch
