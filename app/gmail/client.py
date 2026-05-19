@@ -19,10 +19,14 @@ def get_gmail_link(gmail_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#inbox/{gmail_id}"
 
 def _build_service(creds: Credentials | None = None):
+    import httplib2
     creds = creds or get_credentials()
     if not creds:
         raise RuntimeError("Gmail not authenticated. Visit /api/auth/gmail")
-    return build("gmail", "v1", credentials=creds)
+    # Set explicit timeout on the HTTP transport to prevent hangs
+    # on credential refresh or slow API responses
+    http = httplib2.Http(timeout=60)
+    return build("gmail", "v1", credentials=creds, http=http)
 
 
 def _decode_part(part: dict) -> str:
@@ -232,7 +236,20 @@ def fetch_new_messages(
         gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, gmail_link
     """
     import time
+    from google.auth.exceptions import RefreshError
+
     service = _build_service(creds)
+
+    try:
+        return _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra)
+    except RefreshError as exc:
+        raise RuntimeError(f"Gmail credential refresh failed: {exc}. Please reconnect Gmail")
+    except OSError as exc:
+        # socket.timeout, connection errors, etc.
+        raise RuntimeError(f"Gmail API connection error: {exc}")
+
+
+def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra):
 
     if last_history_id is None or after_date is not None:
         if after_date is not None:

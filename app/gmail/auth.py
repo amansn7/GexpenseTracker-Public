@@ -102,7 +102,19 @@ async def get_credentials_for_user(db, user_id: str):
     if creds.expired and creds.refresh_token:
         import asyncio
         from google.auth.transport.requests import Request as GRequest
-        await asyncio.get_event_loop().run_in_executor(None, lambda: creds.refresh(GRequest()))
+        from google.auth.exceptions import RefreshError
+
+        try:
+            loop = asyncio.get_running_loop()
+            await asyncio.wait_for(
+                loop.run_in_executor(None, lambda: creds.refresh(GRequest())),
+                timeout=30,
+            )
+        except asyncio.TimeoutError:
+            raise RuntimeError("Gmail token refresh timed out — please reconnect Gmail")
+        except RefreshError as exc:
+            raise RuntimeError(f"Gmail token refresh failed: {exc}. Please reconnect Gmail")
+
         account.access_token = encrypt_secret(creds.token)
         account.token_expiry = creds.expiry
         await db.commit()
