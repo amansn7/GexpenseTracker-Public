@@ -379,7 +379,7 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
         # Phase 1: Fetch metadata in batches — 50x fewer HTTP round-trips
         logger.info("Two-phase fetch: fetching metadata for %d messages", len(message_ids))
         metadata_map = {}
-        meta_batch_size = settings.FETCH_CONCURRENCY * 10  # 50 metadata calls per batch
+        meta_batch_size = settings.FETCH_CONCURRENCY * 2  # 10 metadata calls per batch (avoids concurrent request limit)
 
         def _meta_cb(request_id, response, exception):
             nonlocal skipped
@@ -418,7 +418,7 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
         )
 
         # Phase 2: Fetch full bodies in batches for new messages
-        full_batch_size = max(1, settings.FETCH_CONCURRENCY * 5)  # 25 full calls per batch
+        full_batch_size = settings.FETCH_CONCURRENCY  # 5 full calls per batch (avoids concurrent request limit)
 
         def _full_cb(request_id, response, exception):
             nonlocal skipped, full_fetch_count
