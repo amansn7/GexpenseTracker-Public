@@ -171,6 +171,7 @@ const App = () => {
       const trigger = await API.post("/api/sync/trigger");
       let started = false;
       let attempts = 0;
+      const MAX_ATTEMPTS = 500; // 10 min at 1.2s interval
       const poll = setInterval(async () => {
         attempts++;
         try {
@@ -178,15 +179,22 @@ const App = () => {
           setSyncProgress(p);
           if (p.running) started = true;
           const done = !p.running && (started || p.phase === "error" || p.phase === "done");
-          if (done || attempts >= 180) {
+          if (done) {
             clearInterval(poll);
             await loadData();
             API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
             setSyncing(false);
+            return;
+          }
+          if (attempts >= MAX_ATTEMPTS) {
+            clearInterval(poll);
+            console.error("Sync polling timed out after", MAX_ATTEMPTS, "attempts");
+            setSyncing(false);
+            setSyncProgress(prev => prev ? { ...prev, phase: "error", error: "Sync timed out — please try again" } : null);
           }
         } catch (e) {
           console.error("Poll error:", e);
-          if (attempts >= 180) { clearInterval(poll); setSyncing(false); }
+          if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); }
         }
       }, 1200);
     } catch (e) {

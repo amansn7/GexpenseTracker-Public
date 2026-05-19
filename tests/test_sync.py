@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+import asyncio
 
 
 def test_fetch_new_messages_date_range_query():
@@ -169,3 +170,179 @@ async def test_fetch_range_endpoint_owner_succeeds(db_session):
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_task_queue_idempotency_clears_completed():
+    """Completed/failed tasks should not block new enqueues with same payload."""
+    from app.workers.queue import TaskQueue, TaskStatus
+
+    tq = TaskQueue()
+    tq.register_handler("sync", lambda t: {"status": "completed"})
+
+    async def _run():
+        task_id_1 = await tq.enqueue("sync", "user1", {"trigger": "manual"})
+        assert task_id_1 is not None
+
+        task_id_2 = await tq.enqueue("sync", "user1", {"trigger": "manual"})
+        assert task_id_2 == task_id_1  # same task, still pending
+
+        task = tq._tasks[task_id_1]
+        task.status = TaskStatus.completed
+
+        task_id_3 = await tq.enqueue("sync", "user1", {"trigger": "manual"})
+        assert task_id_3 is not None
+        assert task_id_3 != task_id_1  # new task, old one was completed
+
+    asyncio.run(_run())
+
+
+def test_task_queue_idempotency_clears_failed():
+    """Failed tasks should not block new enqueues with same payload."""
+    from app.workers.queue import TaskQueue, TaskStatus
+
+    tq = TaskQueue()
+
+    async def _run():
+        task_id_1 = await tq.enqueue("sync", "user1", {"trigger": "manual"})
+        task = tq._tasks[task_id_1]
+        task.status = TaskStatus.failed
+        task.error = "test failure"
+
+        task_id_2 = await tq.enqueue("sync", "user1", {"trigger": "manual"})
+        assert task_id_2 is not None
+        assert task_id_2 != task_id_1
+
+    asyncio.run(_run())
+
+
+@pytest.mark.asyncio
+async def test_sync_emails_running_flag_always_cleared():
+    """sync_emails must set running=False even on unexpected exceptions."""
+    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
+    from app.sync.fetch import sync_emails
+
+    user_id = "test_running_flag"
+    _reset_progress(user_id)
+
+    mock_session = AsyncMock()
+    mock_session.execute.side_effect = RuntimeError("unexpected DB error")
+
+    with pytest.raises(RuntimeError, match="unexpected DB error"):
+        await sync_emails(mock_session, user_id=user_id)
+
+    prog = _user_progress(user_id)
+    assert prog["running"] is False, "running should always be False after sync_emails exits"
+
+    _sync_progress.pop(user_id, None)
+
+
+@pytest.mark.asyncio
+async def test_handle_sync_task_sets_running_true():
+    """handle_sync_task must set running:true before starting sync."""
+    from app.sync.progress import _sync_progress, _user_progress
+    from app.workers.queue import Task
+    from app.workers.sync_worker import handle_sync_task
+
+    user_id = "test_running_true"
+    _sync_progress[user_id] = {
+        "running": False, "phase": "idle", "phase_detail": "",
+        "current": 0, "total": 0, "tally": {}, "previews": [],
+        "current_email": None, "log": [], "result": None,
+        "error": None, "minimized": False,
+    }
+
+    task = Task("task-1", "sync", user_id, {"trigger": "manual"})
+
+    with patch("app.workers.sync_worker.AsyncSessionLocal") as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session_cls.return_value = mock_session
+
+        with patch("app.workers.sync_worker.sync_emails", return_value={
+            "processed": 5, "total_fetched": 10, "skipped": 5
+        }):
+            result = await handle_sync_task(task)
+
+    prog = _user_progress(user_id)
+    assert result["status"] == "completed"
+    assert prog["running"] is False
+
+    _sync_progress.pop(user_id, None)
+
+
+@pytest.mark.asyncio
+async def test_handle_sync_task_timeout():
+    """handle_sync_task should raise TimeoutError when sync exceeds limit."""
+    from app.sync.progress import _sync_progress, _user_progress
+    from app.workers.queue import Task
+    from app.workers.sync_worker import handle_sync_task
+
+    user_id = "test_timeout"
+    _sync_progress[user_id] = {
+        "running": False, "phase": "idle", "phase_detail": "",
+        "current": 0, "total": 0, "tally": {}, "previews": [],
+        "current_email": None, "log": [], "result": None,
+        "error": None, "minimized": False,
+    }
+
+    task = Task("task-timeout", "sync", user_id, {"trigger": "manual"})
+
+    async def slow_sync(*args, **kwargs):
+        await asyncio.sleep(999)
+
+    with patch("app.workers.sync_worker.AsyncSessionLocal") as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session_cls.return_value = mock_session
+
+        with patch("app.workers.sync_worker.sync_emails", side_effect=slow_sync):
+            with patch("app.workers.sync_worker.SYNC_TIMEOUT_SECS", 0.1):
+                with pytest.raises(asyncio.TimeoutError):
+                    await handle_sync_task(task)
+
+    prog = _user_progress(user_id)
+    assert prog["running"] is False
+    assert prog["phase"] == "error"
+    assert "timed out" in prog["error"].lower()
+
+    _sync_progress.pop(user_id, None)
+
+
+@pytest.mark.asyncio
+async def test_handle_sync_task_error_result():
+    """handle_sync_task should handle error results from sync_emails."""
+    from app.sync.progress import _sync_progress, _user_progress
+    from app.workers.queue import Task
+    from app.workers.sync_worker import handle_sync_task
+
+    user_id = "test_error_result"
+    _sync_progress[user_id] = {
+        "running": False, "phase": "idle", "phase_detail": "",
+        "current": 0, "total": 0, "tally": {}, "previews": [],
+        "current_email": None, "log": [], "result": None,
+        "error": None, "minimized": False,
+    }
+
+    task = Task("task-error", "sync", user_id, {"trigger": "manual"})
+
+    with patch("app.workers.sync_worker.AsyncSessionLocal") as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+        mock_session_cls.return_value = mock_session
+
+        with patch("app.workers.sync_worker.sync_emails", return_value={
+            "error": "Gmail not authenticated", "processed": 0
+        }):
+            result = await handle_sync_task(task)
+
+    assert result["status"] == "failed"
+    assert "Gmail not authenticated" in result["error"]
+
+    prog = _user_progress(user_id)
+    assert prog["running"] is False
+    assert prog["phase"] == "error"
+
+    _sync_progress.pop(user_id, None)

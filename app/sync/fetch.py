@@ -44,13 +44,28 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
     """Core sync logic operating on an injected session. Exposed for testing."""
     uid = user_id or "default"
     prog = _user_progress(uid)
-    state_result = await session.execute(
-        select(SyncState).where(SyncState.user_id == user_id)
-        if user_id else select(SyncState)
-    )
-    sync_state = state_result.scalar_one_or_none()
-    last_history_id = sync_state.last_history_id if sync_state else None
-    email_filter = getattr(sync_state, "email_filter", "all") or "all"
+    prog["running"] = True
+
+    try:
+        state_result = await session.execute(
+            select(SyncState).where(SyncState.user_id == user_id)
+            if user_id else select(SyncState)
+        )
+        sync_state = state_result.scalar_one_or_none()
+        last_history_id = sync_state.last_history_id if sync_state else None
+        email_filter = getattr(sync_state, "email_filter", "all") or "all"
+
+        return await _sync_emails_inner(session, user_id, uid, prog, sync_state, last_history_id, email_filter)
+    except Exception as exc:
+        logger.error("Sync crashed for user %s: %s", user_id, exc, exc_info=True)
+        _log_event(uid, f"Sync failed: {exc}", "error")
+        prog.update({"phase": "error", "error": str(exc)})
+        raise
+    finally:
+        prog["running"] = False
+
+
+async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_state, last_history_id, email_filter) -> dict:
 
     # ── Phase 1: fetch from Gmail ──────────────────────────────────────────
     new_history_id = last_history_id

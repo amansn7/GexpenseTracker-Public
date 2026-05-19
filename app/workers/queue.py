@@ -84,6 +84,10 @@ class TaskQueue:
                 if task and task.status in (TaskStatus.pending, TaskStatus.running):
                     logger.info("Idempotent skip: %s already %s", existing, task.status.value)
                     return existing
+                # Stale completed/failed/cancelled task — allow new one
+                if task:
+                    logger.info("Idempotent key cleared: %s is %s, allowing new task", existing, task.status.value)
+                del self._idempotency[idem_key]
 
             task_id = str(uuid4())
             task = Task(task_id, task_type, user_id, payload)
