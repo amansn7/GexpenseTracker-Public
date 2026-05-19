@@ -195,12 +195,11 @@ def test_retry_with_backoff_does_not_retry_404():
 
 
 def test_two_phase_fetch_skips_existing():
-    """fetch_new_messages with existing_gmail_ids uses two-phase: metadata first, full only for new."""
+    """fetch_new_messages with existing_gmail_ids uses batch API, skips existing messages."""
     from app.gmail.client import fetch_new_messages
 
     mock_service = MagicMock()
 
-    # Simulate 3 message IDs, 2 already exist
     mock_service.users().messages().list().execute.return_value = {
         "messages": [
             {"id": "msg1"},
@@ -210,63 +209,85 @@ def test_two_phase_fetch_skips_existing():
     }
     mock_service.users().getProfile().execute.return_value = {"historyId": "999"}
 
-    # Metadata fetch for all 3
-    def mock_metadata_get(userId, id, format, metadataHeaders):
-        msg = MagicMock()
-        msg.execute.return_value = {
-            "id": id,
-            "internalDate": "1700000000000",
-            "snippet": f"Snippet for {id}",
-            "payload": {
-                "headers": [
-                    {"name": "From", "value": f"sender{id}@example.com"},
-                    {"name": "Subject", "value": f"Subject {id}"},
-                ]
-            },
-            "labelIds": ["INBOX"],
-        }
-        return msg
+    added_metadata = []
+    added_full = []
+    phase = [0]  # 0=pre, 1=metadata, 2=full
 
-    # Full fetch only for new messages (msg3)
-    def mock_full_get(userId, id, format):
-        msg = MagicMock()
-        msg.execute.return_value = {
-            "id": id,
-            "internalDate": "1700000000000",
-            "snippet": f"Full snippet for {id}",
-            "payload": {
-                "mimeType": "text/plain",
-                "body": {"data": _b64(f"Body for {id}")},
-                "headers": [
-                    {"name": "From", "value": f"sender{id}@example.com"},
-                    {"name": "Subject", "value": f"Subject {id}"},
-                ],
-                "parts": [],
-            },
-            "labelIds": ["INBOX"],
-        }
-        return msg
+    def _make_batch(callback=None):
+        batch = MagicMock()
+        batch._requests = []
 
-    mock_service.users().messages().get.side_effect = lambda **kwargs: (
-        mock_metadata_get(**kwargs) if kwargs.get("format") == "metadata"
-        else mock_full_get(**kwargs)
-    )
+        def _add(request, request_id=None):
+            batch._requests.append(request_id)
+            if phase[0] == 1:
+                added_metadata.append(request_id)
+            else:
+                added_full.append(request_id)
+
+        def _execute():
+            for request_id in batch._requests:
+                if phase[0] == 1:
+                    callback(request_id, {
+                        "id": request_id,
+                        "internalDate": "1700000000000",
+                        "snippet": f"Snippet for {request_id}",
+                        "payload": {
+                            "headers": [
+                                {"name": "From", "value": f"sender{request_id}@example.com"},
+                                {"name": "Subject", "value": f"Subject {request_id}"},
+                            ]
+                        },
+                        "labelIds": ["INBOX"],
+                    }, None)
+                else:
+                    callback(request_id, {
+                        "id": request_id,
+                        "internalDate": "1700000000000",
+                        "snippet": f"Full snippet for {request_id}",
+                        "payload": {
+                            "mimeType": "text/plain",
+                            "body": {"data": _b64(f"Body for {request_id}")},
+                            "headers": [
+                                {"name": "From", "value": f"sender{request_id}@example.com"},
+                                {"name": "Subject", "value": f"Subject {request_id}"},
+                            ],
+                            "parts": [],
+                        },
+                        "labelIds": ["INBOX"],
+                    }, None)
+
+        batch.add.side_effect = _add
+        batch.execute.side_effect = _execute
+        return batch
+
+    call_order = []
+    def _batch_factory(callback=None):
+        if not call_order:
+            call_order.append("metadata")
+            phase[0] = 1
+        else:
+            call_order.append("full")
+            phase[0] = 2
+        return _make_batch(callback)
+
+    mock_service.new_batch_http_request.side_effect = _batch_factory
 
     with patch("app.gmail.client._build_service", return_value=mock_service):
         messages, history_id = fetch_new_messages(
             last_history_id=None,
             email_filter="all",
-            existing_gmail_ids={"msg1", "msg2"},  # msg3 is new
+            existing_gmail_ids={"msg1", "msg2"},
         )
 
-    # Only msg3 should be in results (msg1, msg2 skipped as existing)
     assert len(messages) == 1
     assert messages[0]["gmail_id"] == "msg3"
     assert history_id == "999"
 
-    # Verify metadata was fetched for all 3, but full only for msg3
-    get_calls = mock_service.users().messages().get.call_args_list
-    metadata_calls = [c for c in get_calls if c[1].get("format") == "metadata"]
-    full_calls = [c for c in get_calls if c[1].get("format") == "full"]
-    assert len(metadata_calls) == 3  # All 3 got metadata
-    assert len(full_calls) == 1  # Only msg3 got full fetch
+    # msg1 and msg2 filtered before batch add (already in DB)
+    assert added_metadata == ["msg3"]
+    assert added_full == ["msg3"]
+
+    # Verify query includes inbox filter and 10-day window
+    list_kwargs = mock_service.users().messages().list.call_args[1]
+    assert "in:inbox" in list_kwargs["q"]
+    assert "newer_than:10d" in list_kwargs["q"]

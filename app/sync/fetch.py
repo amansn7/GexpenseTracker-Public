@@ -52,6 +52,20 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
             if user_id else select(SyncState)
         )
         sync_state = state_result.scalar_one_or_none()
+
+        # Fallback: adopt orphaned sync_state (user_id=NULL, from pre-multi-user code)
+        if sync_state is None and user_id:
+            orphan_result = await session.execute(
+                select(SyncState).where(SyncState.user_id.is_(None))
+            )
+            sync_state = orphan_result.scalar_one_or_none()
+            if sync_state is not None:
+                logger.info(
+                    "Adopted orphan SyncState (id=%s, last_history_id=%s) for user %s",
+                    sync_state.id, sync_state.last_history_id, user_id,
+                )
+                sync_state.user_id = user_id
+
         last_history_id = sync_state.last_history_id if sync_state else None
         email_filter = getattr(sync_state, "email_filter", "all") or "all"
 

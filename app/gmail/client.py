@@ -313,7 +313,7 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             if query_extra:
                 query += f" {query_extra}"
         else:
-            query = "newer_than:90d"
+            query = "in:inbox newer_than:10d"
             if email_filter == "unread":
                 query += " is:unread"
             elif email_filter == "read":
@@ -374,72 +374,93 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
     metadata_fetch_count = 0
 
     if use_two_phase:
-        # Phase 1: Fetch metadata for all messages (fast)
+        from googleapiclient.http import BatchHttpRequest
+
+        # Phase 1: Fetch metadata in batches — 50x fewer HTTP round-trips
         logger.info("Two-phase fetch: fetching metadata for %d messages", len(message_ids))
         metadata_map = {}
-        for i, msg_id in enumerate(message_ids):
-            if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
-                time.sleep(0.5)
+        meta_batch_size = settings.FETCH_CONCURRENCY * 10  # 50 metadata calls per batch
 
-            try:
-                msg = _retry_with_backoff(
-                    lambda: service.users().messages().get(
+        def _meta_cb(request_id, response, exception):
+            nonlocal skipped
+            if exception is not None:
+                if isinstance(exception, HttpError) and exception.resp.status == 404:
+                    skipped += 1
+                    return
+                raise exception
+            metadata_map[request_id] = response
+
+        for i in range(0, len(message_ids), meta_batch_size):
+            batch = service.new_batch_http_request(callback=_meta_cb)
+            chunk = message_ids[i:i + meta_batch_size]
+            for msg_id in chunk:
+                if msg_id in existing_gmail_ids:
+                    skipped += 1
+                    continue
+                batch.add(
+                    service.users().messages().get(
                         userId="me", id=msg_id, format="metadata",
                         metadataHeaders=["From", "Subject", "Date"],
-                    ).execute()
+                    ),
+                    request_id=msg_id,
                 )
-                metadata_fetch_count += 1
-                metadata_map[msg_id] = msg
-            except HttpError as e:
-                if e.resp.status == 404:
-                    logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
-                    skipped += 1
-                    continue
-                raise
-
-        # Filter: skip already-synced messages
-        new_msg_ids = [mid for mid in metadata_map if mid not in existing_gmail_ids]
-        already_synced = len(metadata_map) - len(new_msg_ids)
-        logger.info("Two-phase: %d already synced, %d new messages to fetch full bodies", already_synced, len(new_msg_ids))
-        skipped += already_synced
-
-        # Phase 2: Fetch full bodies only for new messages
-        for i, msg_id in enumerate(new_msg_ids):
-            if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
+            if batch._requests:
+                _retry_with_backoff(lambda b=batch: b.execute())
+            if i + meta_batch_size < len(message_ids):
                 time.sleep(1)
 
-            try:
-                full_msg = _retry_with_backoff(
-                    lambda: service.users().messages().get(
-                        userId="me", id=msg_id, format="full",
-                    ).execute()
-                )
-                full_fetch_count += 1
-            except HttpError as e:
-                if e.resp.status == 404:
-                    logger.debug("Message %s not found (deleted/trashed), skipping", msg_id)
+        metadata_fetch_count = len(metadata_map)
+        skipped_pre = skipped
+        new_msg_ids = list(metadata_map.keys())
+        logger.info(
+            "Two-phase: %d already synced, %d new messages to fetch full bodies",
+            skipped_pre, len(new_msg_ids),
+        )
+
+        # Phase 2: Fetch full bodies in batches for new messages
+        full_batch_size = max(1, settings.FETCH_CONCURRENCY * 5)  # 25 full calls per batch
+
+        def _full_cb(request_id, response, exception):
+            nonlocal skipped, full_fetch_count
+            if exception is not None:
+                if isinstance(exception, HttpError) and exception.resp.status == 404:
                     skipped += 1
-                    continue
-                raise
+                    return
+                raise exception
+            full_fetch_count += 1
 
-            if not _passes_filter(full_msg, email_filter):
+            if not _passes_filter(response, email_filter):
                 skipped += 1
-                continue
+                return
 
-            headers = {h["name"]: h["value"] for h in full_msg.get("payload", {}).get("headers", [])}
+            headers = {h["name"]: h["value"] for h in response.get("payload", {}).get("headers", [])}
             sender = headers.get("From", "")
             messages.append({
-                "gmail_id": msg_id,
+                "gmail_id": request_id,
                 "subject": headers.get("Subject", ""),
                 "sender": sender,
                 "sender_domain": extract_domain(sender),
                 "received_at": datetime.fromtimestamp(
-                    int(full_msg["internalDate"]) / 1000, tz=timezone.utc
+                    int(response["internalDate"]) / 1000, tz=timezone.utc
                 ),
-                "body_snippet": full_msg.get("snippet", "")[:500],
-                "body_text": _extract_body_text(full_msg.get("payload", {})),
-                "gmail_link": get_gmail_link(msg_id),
+                "body_snippet": response.get("snippet", "")[:500],
+                "body_text": _extract_body_text(response.get("payload", {})),
+                "gmail_link": get_gmail_link(request_id),
             })
+
+        for i in range(0, len(new_msg_ids), full_batch_size):
+            batch = service.new_batch_http_request(callback=_full_cb)
+            chunk = new_msg_ids[i:i + full_batch_size]
+            for msg_id in chunk:
+                batch.add(
+                    service.users().messages().get(
+                        userId="me", id=msg_id, format="full",
+                    ),
+                    request_id=msg_id,
+                )
+            _retry_with_backoff(lambda b=batch: b.execute())
+            if i + full_batch_size < len(new_msg_ids):
+                time.sleep(1)
     else:
         # Legacy single-phase: fetch full for all messages
         for i, msg_id in enumerate(message_ids):
