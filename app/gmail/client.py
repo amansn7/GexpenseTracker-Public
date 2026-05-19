@@ -20,15 +20,19 @@ def get_gmail_link(gmail_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#inbox/{gmail_id}"
 
 def _build_service(creds: Credentials | None = None):
+    import socket
     import httplib2
     from google_auth_httplib2 import AuthorizedHttp
 
     creds = creds or get_credentials()
     if not creds:
         raise RuntimeError("Gmail not authenticated. Visit /api/auth/gmail")
-    # AuthorizedHttp wraps credentials with refresh logic; httplib2 timeout
-    # prevents hangs on token refresh or slow API responses
-    http = AuthorizedHttp(creds, http=httplib2.Http(timeout=60))
+    # Global socket timeout as safety net for any blocking call
+    socket.setdefaulttimeout(30)
+    # httplib2 with explicit timeout and NO retries
+    http_transport = httplib2.Http(timeout=30)
+    http_transport.num_retries = 0
+    http = AuthorizedHttp(creds, http=http_transport)
     return build("gmail", "v1", http=http)
 
 
