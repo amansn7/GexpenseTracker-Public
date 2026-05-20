@@ -1,15 +1,30 @@
-from datetime import datetime, UTC, timedelta
-from typing import Optional
-from fastapi import Cookie, Depends, HTTPException, Response
+import hashlib
+import hmac
+import os
+from datetime import UTC, datetime, timedelta
+
+from fastapi import Cookie, Depends, HTTPException, Request, Response
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+
 from app.database import get_db
+from app.jwt_utils import TokenType, decode_token
 from app.models import Session, User, UserRole
 
 SESSION_ROTATION_DAYS = 7
+TOTP_COOKIE_NAME = "totp_verified"
 
 
-def is_owner(user: Optional[User]) -> bool:
+def _sign_totp_token(session_hex: str) -> str:
+    key = os.getenv("SECRET_KEY", "fallback-dev-key").encode()
+    return hmac.new(key, session_hex.encode(), hashlib.sha256).hexdigest()
+
+
+def _verify_totp_token(session_hex: str, token: str) -> bool:
+    return hmac.compare_digest(_sign_totp_token(session_hex), token)
+
+
+def is_owner(user: User | None) -> bool:
     """Return True if the user exists and has the owner role."""
     if user is None:
         return False
@@ -20,10 +35,37 @@ def is_owner(user: Optional[User]) -> bool:
 
 
 async def get_current_user(
-    session: Optional[str] = Cookie(default=None),
+    session: str | None = Cookie(default=None),
     db: AsyncSession = Depends(get_db),
     response: Response = None,
+    request: Request = None,
 ) -> User:
+    # ── Bearer JWT path (mobile clients) ──────────────────────────────────
+    if request is not None:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            raw_token = auth_header.removeprefix("Bearer ").strip()
+            try:
+                payload = decode_token(raw_token, expected_type=TokenType.ACCESS)
+            except ValueError as exc:
+                raise HTTPException(status_code=401, detail=str(exc))
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            user = (await db.execute(
+                select(User).where(User.id == user_id)
+            )).scalar_one_or_none()
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            if user.scheduled_deletion_at:
+                sched = user.scheduled_deletion_at
+                if sched.tzinfo is None:
+                    sched = sched.replace(tzinfo=UTC)
+                if sched <= datetime.now(UTC):
+                    raise HTTPException(status_code=403, detail="Account scheduled for deletion")
+            return user
+
+    # ── Cookie / session path (web clients — unchanged) ───────────────────
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -81,5 +123,14 @@ async def get_current_user(
             sched = sched.replace(tzinfo=UTC)
         if sched <= datetime.now(UTC):
             raise HTTPException(status_code=403, detail="Account deleted")
+
+    if user.totp_enabled:
+        totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
+        session_hex = session
+        if not totp_token or not _verify_totp_token(session_hex, totp_token):
+            raise HTTPException(
+                status_code=401,
+                detail={"detail": "2fa_required", "totp_pending": True},
+            )
 
     return user
