@@ -185,9 +185,31 @@ def set_sync_minimized(user_id: str, minimized: bool):
     _persist_progress(user_id, prog)
 
 
+def _delete_from_db(user_id: str):
+    """Delete sync progress for a user from the database (fire-and-forget)."""
+    if not _db_session_factory:
+        return
+
+    async def _delete():
+        try:
+            from app.models import SyncProgress
+            from sqlalchemy import delete
+
+            async with _db_session_factory() as session:
+                await session.execute(
+                    delete(SyncProgress).where(SyncProgress.user_id == user_id)
+                )
+                await session.commit()
+        except Exception:
+            pass
+
+    asyncio.create_task(_delete())
+
+
 def clear_sync_progress(user_id: str = None):
     key = user_id or "default"
     _sync_progress.pop(key, None)
+    _delete_from_db(user_id)
 
 
 async def recover_stale_progresses():
