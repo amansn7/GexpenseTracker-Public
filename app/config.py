@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     INVITE_CODE: str = ""
     DEV_MODE: bool = False
 
+    # Database connection pool
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800  # 30 minutes
+
     # Dedup
     AUTO_RESOLVE_THRESHOLD: float = 0.85
     DEDUP_BATCH_SIZE: int = 100
