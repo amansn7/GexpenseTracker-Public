@@ -13,7 +13,7 @@ class Email(Base):
     gmail_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     subject: Mapped[Optional[str]] = mapped_column(Text)
     sender: Mapped[Optional[str]] = mapped_column(String(500))
-    sender_domain: Mapped[Optional[str]] = mapped_column(String(255))
+    sender_domain: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     received_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     body_snippet: Mapped[Optional[str]] = mapped_column(Text)
     body_text: Mapped[Optional[str]] = mapped_column(Text)
