@@ -20,9 +20,11 @@ class TokenType(str, Enum):
 
 
 def _secret() -> str:
-    secret = os.getenv("JWT_SECRET", "")
+    # Prefer settings object; fall back to env var for test isolation
+    from app.config import settings as _settings
+    secret = _settings.JWT_SECRET or os.getenv("JWT_SECRET", "")
     if not secret:
-        raise RuntimeError("JWT_SECRET env var is not set")
+        raise RuntimeError("JWT_SECRET is not configured — set it in .env")
     return secret
 
 

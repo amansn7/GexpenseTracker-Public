@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -43,6 +44,7 @@ class Settings(BaseSettings):
     LLM_BATCH_SIZE: int = 5
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
+    JWT_SECRET: str = ""   # Required for JWT auth — set in .env
     FERNET_KEY: str = ""   # base64 Fernet key; if empty, tokens stored plaintext
     INVITE_CODE: str = ""
     DEV_MODE: bool = False
@@ -69,10 +71,15 @@ class Settings(BaseSettings):
     # Income classification
     INCOME_MONTH_SHIFT: int = 1
 
+    # LLM cost controls
+    DAILY_LLM_BUDGET: float = 10.0  # Global daily LLM budget in USD
+
     # Stats
     CATEGORY_BREAKDOWN_LIMIT: int = 6
 
     # Reclassify
     RECLASSIFY_METHODS: list = ["llm", "rules"]
+
+    LOG_LEVEL: str = "INFO"
 
 settings = Settings()
