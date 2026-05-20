@@ -2,67 +2,65 @@
 # are re-exported here so that existing `from app.models import X` imports
 # continue to work without modification.
 
-from .base import Base, _uuid_col, _utcnow
-
-from .user import (
-    UserRole,
-    UserStatus,
-    User,
-    UserProfile,
-    UserSettings,
-    ConnectedAccount,
-    UserCategory,
-    UserAIService,
-    Session,
-    OAuthState,
+from .audit_log import (
+    AuditLog,
 )
-
+from .base import Base, _utcnow, _uuid_col
+from .correction import (
+    TransactionCorrection,
+)
 from .email import (
     Email,
     SyncState,
 )
-
 from .filter_rule import (
     FilterRule,
 )
-
-from .transaction import (
-    Label,
-    TransactionType,
-    TransactionStatus,
-    ClassifierMethod,
-    Transaction,
-    ClassificationLog,
-)
-
-from .correction import (
-    TransactionCorrection,
-)
-
 from .financial import (
-    RuleSource,
     Budget,
     Debt,
-    RecurringExpense,
-    SenderRule,
-    MerchantAlias,
-    UserMerchantOverride,
-    PatternRule,
     DomainPairRule,
     DuplicatePair,
+    LLMSpendTracker,
+    MerchantAlias,
+    PatternRule,
+    RecurringExpense,
+    RuleSource,
+    SenderRule,
+    UserMerchantOverride,
 )
-
 from .merchant import (
     MerchantAlias as MerchantEntityAlias,
+)
+from .merchant import (
     MerchantEntity,
 )
-
 from .sync_progress import (
     SyncProgress,
 )
-
-from .audit_log import (
-    AuditLog,
+from .transaction import (
+    ClassificationLog,
+    ClassifierMethod,
+    Label,
+    Transaction,
+    TransactionStatus,
+    TransactionType,
+)
+from .user import (
+    ConnectedAccount,
+    OAuthState,
+    Session,
+    User,
+    UserAIService,
+    UserCategory,
+    UserProfile,
+    UserRole,
+    UserSettings,
+    UserStatus,
+)
+from .device_token import (
+    DeviceToken,
+    RefreshTokenBlacklist,
 )
 
 __all__ = [
@@ -106,6 +104,7 @@ __all__ = [
     "PatternRule",
     "DomainPairRule",
     "DuplicatePair",
+    "LLMSpendTracker",
     # merchant entity resolution
     "MerchantEntityAlias",
     "MerchantEntity",
@@ -113,4 +112,7 @@ __all__ = [
     "SyncProgress",
     # audit log
     "AuditLog",
+    # device / JWT
+    "DeviceToken",
+    "RefreshTokenBlacklist",
 ]
