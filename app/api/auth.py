@@ -3,26 +3,57 @@ import json
 import logging
 import os
 import secrets
-from datetime import datetime, UTC, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+from typing import Literal
 
+import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
-from sqlalchemy import select, func, delete as sa_delete, update
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel
+from sqlalchemy import delete as sa_delete
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth_deps import get_current_user, is_owner
-from app.crypto import encrypt_secret
+from app.auth_deps import TOTP_COOKIE_NAME, _sign_totp_token, get_current_user, is_owner
 from app.config import settings
-from app.database import get_db
-from app.gmail.auth import get_oauth_flow, get_google_userinfo
-from app.models import (
-    ConnectedAccount, Email, OAuthState, Session, User, UserProfile, UserRole,
-    UserSettings, UserStatus, UserAIService,
-)
+from app.crypto import encrypt_secret
 from app.csrf import generate_csrf_token
+from app.database import get_db
+from app.gmail.auth import get_google_userinfo, get_oauth_flow
+from app.jwt_utils import TokenType, create_token_pair, decode_token
+from app.models import (
+    ConnectedAccount,
+    DeviceToken,
+    Email,
+    OAuthState,
+    RefreshTokenBlacklist,
+    Session,
+    User,
+    UserAIService,
+    UserProfile,
+    UserRole,
+    UserSettings,
+    UserStatus,
+)
 
 router = APIRouter()
+
+
+class _RefreshBody(BaseModel):
+    refresh_token: str
+
+
+class _DeviceTokenBody(BaseModel):
+    token: str
+    platform: Literal["ios", "android"]
+
+
+class _DeleteDeviceTokenBody(BaseModel):
+    token: str
+
+
+class _LogoutBearerBody(BaseModel):
+    refresh_token: str | None = None
 
 
 
@@ -64,7 +95,7 @@ async def _get_or_create_user(
     db: AsyncSession,
     email: str,
     name: str,
-    picture: Optional[str],
+    picture: str | None,
 ) -> User:
     existing_count = (await db.scalar(select(func.count(User.id)).where(
         User.email != "service@localhost"
@@ -175,6 +206,7 @@ async def start_google_auth(db: AsyncSession = Depends(get_db)):
 async def google_callback(
     code: str,
     state: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     state_row = (await db.execute(
@@ -210,7 +242,6 @@ async def google_callback(
             status="connected",
         )
         db.add(account)
-    from app.crypto import encrypt_secret
     account.access_token = encrypt_secret(creds.token)
     if creds.refresh_token:
         account.refresh_token = encrypt_secret(creds.refresh_token)
@@ -218,6 +249,12 @@ async def google_callback(
     account.status = "connected"
     await db.commit()
     token = await _create_session(db, user)
+
+    # Mobile clients send Accept: application/json — return JWT pair directly.
+    # Browsers follow the redirect as before.
+    accept = request.headers.get("Accept", "")
+    if "application/json" in accept:
+        return JSONResponse(_jwt_response_for_user(user))
 
     response = RedirectResponse("/", status_code=302)
     _set_session_cookie(response, token)
@@ -231,6 +268,30 @@ async def logout(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # ── Bearer path: blacklist provided refresh token ──────────────────────
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        refresh_raw = body.get("refresh_token") if isinstance(body, dict) else None
+        if refresh_raw:
+            try:
+                payload = decode_token(refresh_raw, expected_type=TokenType.REFRESH)
+                jti = payload.get("jti")
+                if jti:
+                    existing = (await db.execute(
+                        select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti)
+                    )).scalar_one_or_none()
+                    if not existing:
+                        db.add(RefreshTokenBlacklist(user_id=user.id, jti=jti))
+                        await db.commit()
+            except ValueError:
+                pass  # Invalid refresh token — still OK to return 200
+        return {"ok": True}
+
+    # ── Cookie path: delete session row (unchanged) ────────────────────────
     raw_cookie = request.cookies.get(COOKIE_NAME)
     if raw_cookie:
         try:
@@ -363,3 +424,166 @@ async def remove_from_allowlist(
     settings_row.allowed_emails = json.dumps(current)
     await db.commit()
     return {"allowed_emails": current}
+
+
+@router.post("/auth/verify-2fa")
+async def verify_2fa(
+    body: dict,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    session_hex = request.cookies.get(COOKIE_NAME)
+    if not session_hex:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        token_bytes = bytes.fromhex(session_hex)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid session")
+
+    row = (await db.execute(
+        select(Session).where(Session.token == token_bytes)
+    )).scalar_one_or_none()
+
+    if not row:
+        raise HTTPException(status_code=401, detail="Session not found")
+
+    expires = row.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    if expires < datetime.now(UTC):
+        await db.execute(sa_delete(Session).where(Session.id == row.id))
+        await db.commit()
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    user = (await db.execute(
+        select(User).where(User.id == row.user_id)
+    )).scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if not user.totp_enabled or not user.totp_secret:
+        raise HTTPException(status_code=400, detail="2FA not enabled")
+
+    code = body.get("code", "")
+    if not code:
+        raise HTTPException(status_code=422, detail="Code required")
+
+    try:
+        valid = pyotp.TOTP(user.totp_secret).verify(code)
+    except Exception:
+        valid = False
+
+    if not valid:
+        raise HTTPException(status_code=401, detail="Invalid TOTP code")
+
+    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    totp_token = _sign_totp_token(session_hex)
+    response.set_cookie(
+        TOTP_COOKIE_NAME,
+        value=totp_token,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=86400,
+        path="/",
+    )
+    return {"ok": True}
+
+
+# ── Dual-issue helper ─────────────────────────────────────────────────────
+
+def _jwt_response_for_user(user: User) -> dict:
+    """Build the JSON payload returned to mobile clients after OAuth."""
+    pair = create_token_pair(user_id=user.id, email=user.email)
+    return {
+        **pair,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role if isinstance(user.role, str) else user.role.value,
+        },
+    }
+
+
+# ── POST /auth/token/refresh ──────────────────────────────────────────────
+
+@router.post("/auth/token/refresh")
+async def refresh_access_token(
+    body: _RefreshBody,
+    db: AsyncSession = Depends(get_db),
+):
+    """Exchange a valid refresh JWT for a new access+refresh pair.
+
+    If the token carries a `jti` claim, it is checked against the blacklist.
+    """
+    try:
+        payload = decode_token(body.refresh_token, expected_type=TokenType.REFRESH)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+    jti = payload.get("jti")
+    if jti:
+        blacklisted = (await db.execute(
+            select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti)
+        )).scalar_one_or_none()
+        if blacklisted:
+            raise HTTPException(status_code=401, detail="Token has been revoked")
+
+    user_id = payload.get("sub")
+    email = payload.get("email", "")
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return create_token_pair(user_id=user_id, email=email)
+
+
+# ── POST /auth/device-token ───────────────────────────────────────────────
+
+@router.post("/auth/device-token")
+async def register_device_token(
+    body: _DeviceTokenBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Register (or re-register) a mobile push-notification device token."""
+    existing = (await db.execute(
+        select(DeviceToken).where(DeviceToken.token == body.token)
+    )).scalar_one_or_none()
+
+    if existing:
+        # Update ownership if token was re-registered by this user
+        existing.user_id = user.id
+        existing.platform = body.platform
+        await db.commit()
+        return {"id": existing.id}
+
+    dt = DeviceToken(user_id=user.id, token=body.token, platform=body.platform)
+    db.add(dt)
+    await db.commit()
+    await db.refresh(dt)
+    return {"id": dt.id}
+
+
+# ── DELETE /auth/device-token ─────────────────────────────────────────────
+
+@router.delete("/auth/device-token")
+async def delete_device_token(
+    body: _DeleteDeviceTokenBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a device token belonging to the current user."""
+    row = (await db.execute(
+        select(DeviceToken).where(
+            DeviceToken.token == body.token,
+            DeviceToken.user_id == user.id,
+        )
+    )).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Device token not found")
+    await db.delete(row)
+    await db.commit()
+    return {"deleted": True}
