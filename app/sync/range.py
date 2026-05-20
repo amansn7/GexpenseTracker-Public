@@ -56,8 +56,8 @@ async def run_sync_range(
             creds = await get_credentials_for_user(session, user_id)
             if not creds:
                 raise RuntimeError("Gmail not authenticated")
-            messages, _ = await asyncio.to_thread(
-                fetch_new_messages, None, "all", creds, after_date, before_date, query_extra
+            messages, _ = await fetch_new_messages(
+                None, "all", creds, after_date, before_date, query_extra
             )
         except Exception as exc:
             logger.error("fetch-range: Gmail fetch failed: %s", exc)

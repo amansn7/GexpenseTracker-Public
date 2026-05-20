@@ -1,8 +1,8 @@
+import asyncio
 import base64
 import html as html_module
 import logging
 import re
-import time
 from datetime import datetime, timezone
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -18,17 +18,16 @@ _RETRYABLE_STATUS = {500, 502, 503, 504, 429}  # Server errors + rate limit
 _RETRY_BACKOFF_BASE = 2  # seconds
 
 
-def _retry_with_backoff(func, max_retries=_MAX_RETRIES):
-    """Execute func with exponential backoff for retryable errors."""
+async def _async_retry_with_backoff(func, max_retries=_MAX_RETRIES):
+    """Execute func (sync callable) with exponential backoff for retryable errors."""
     last_exc = None
     for attempt in range(max_retries + 1):
         try:
-            return func()
+            return await asyncio.to_thread(func)
         except HttpError as exc:
             if exc.resp.status in _RETRYABLE_STATUS and attempt < max_retries:
                 wait = _RETRY_BACKOFF_BASE ** attempt
                 if exc.resp.status == 429:
-                    # Rate limit: extract Retry-After header if present
                     retry_after = exc.resp.get("retry-after")
                     if retry_after:
                         wait = max(wait, int(retry_after))
@@ -36,19 +35,18 @@ def _retry_with_backoff(func, max_retries=_MAX_RETRIES):
                     "Gmail API error %s (attempt %d/%d), retrying in %ds",
                     exc.resp.status, attempt + 1, max_retries, wait,
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
                 last_exc = exc
                 continue
             raise
         except OSError as exc:
-            # Connection errors, timeouts — retryable
             if attempt < max_retries:
                 wait = _RETRY_BACKOFF_BASE ** attempt
                 logger.warning(
                     "Gmail API connection error (attempt %d/%d), retrying in %ds: %s",
                     attempt + 1, max_retries, wait, exc,
                 )
-                time.sleep(wait)
+                await asyncio.sleep(wait)
                 last_exc = exc
                 continue
             raise
@@ -264,7 +262,7 @@ def is_likely_financial(subject: str, snippet: str, sender_domain: str) -> bool:
     return bool(_FINANCIAL_RE.search(text))
 
 
-def fetch_new_messages(
+async def fetch_new_messages(
     last_history_id,
     email_filter: str = "all",
     creds: Credentials | None = None,
@@ -294,7 +292,7 @@ def fetch_new_messages(
     service = _build_service(creds)
 
     try:
-        return _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids)
+        return await _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids)
     except RefreshError as exc:
         raise RuntimeError(f"Gmail credential refresh failed: {exc}. Please reconnect Gmail")
     except OSError as exc:
@@ -302,7 +300,7 @@ def fetch_new_messages(
         raise RuntimeError(f"Gmail API connection error: {exc}")
 
 
-def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids=None):
+async def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids=None):
     use_two_phase = existing_gmail_ids is not None
 
     if last_history_id is None or after_date is not None:
@@ -328,7 +326,7 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             kwargs = {"userId": "me", "q": query, "maxResults": settings.SYNC_PAGE_SIZE}
             if page_token:
                 kwargs["pageToken"] = page_token
-            results = _retry_with_backoff(
+            results = await _async_retry_with_backoff(
                 lambda: service.users().messages().list(**kwargs).execute()
             )
             message_ids.extend(m["id"] for m in results.get("messages", []))
@@ -339,13 +337,13 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
         if after_date is not None:
             new_history_id = last_history_id
         else:
-            profile = _retry_with_backoff(
+            profile = await _async_retry_with_backoff(
                 lambda: service.users().getProfile(userId="me").execute()
             )
             new_history_id = str(profile["historyId"])
     else:
         try:
-            history = _retry_with_backoff(
+            history = await _async_retry_with_backoff(
                 lambda: service.users().history().list(
                     userId="me",
                     startHistoryId=last_history_id,
@@ -365,7 +363,7 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
             # 404 = historyId too old (expired), 410 = Gone — both warrant a full re-fetch
             if e.resp.status in (404, 410):
                 logger.warning("History ID expired (status %s), falling back to full fetch", e.resp.status)
-                return fetch_new_messages(None, email_filter, creds, existing_gmail_ids=existing_gmail_ids)
+                return await fetch_new_messages(None, email_filter, creds, existing_gmail_ids=existing_gmail_ids)
             raise
 
     messages = []
@@ -405,9 +403,9 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
                     request_id=msg_id,
                 )
             if batch._requests:
-                _retry_with_backoff(lambda b=batch: b.execute())
+                await _async_retry_with_backoff(lambda b=batch: b.execute())
             if i + meta_batch_size < len(message_ids):
-                time.sleep(1)
+                await asyncio.sleep(1)
 
         metadata_fetch_count = len(metadata_map)
         skipped_pre = skipped
@@ -458,18 +456,18 @@ def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_d
                     ),
                     request_id=msg_id,
                 )
-            _retry_with_backoff(lambda b=batch: b.execute())
+            await _async_retry_with_backoff(lambda b=batch: b.execute())
             if i + full_batch_size < len(new_msg_ids):
-                time.sleep(1)
+                await asyncio.sleep(1)
     else:
         # Legacy single-phase: fetch full for all messages
         for i, msg_id in enumerate(message_ids):
             # Throttle to avoid exceeding Gmail's 250 quota-units/sec burst limit
             if i > 0 and i % settings.FETCH_CONCURRENCY == 0:
-                time.sleep(1)
+                await asyncio.sleep(1)
 
             try:
-                msg = _retry_with_backoff(
+                msg = await _async_retry_with_backoff(
                     lambda: service.users().messages().get(
                         userId="me", id=msg_id, format="full",
                     ).execute()

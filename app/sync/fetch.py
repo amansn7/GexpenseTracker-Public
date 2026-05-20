@@ -93,8 +93,8 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
         creds = await get_credentials_for_user(session, user_id) if user_id else None
         if not creds:
             raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
-        messages, new_history_id = await asyncio.to_thread(
-            fetch_new_messages, last_history_id, email_filter, creds,
+        messages, new_history_id = await fetch_new_messages(
+            last_history_id, email_filter, creds,
             existing_gmail_ids=existing_gmail_ids,
         )
     except Exception as exc:

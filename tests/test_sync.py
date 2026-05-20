@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import asyncio
 
 
-def test_fetch_new_messages_date_range_query():
+@pytest.mark.asyncio
+async def test_fetch_new_messages_date_range_query():
     """fetch_new_messages with after_date builds correct Gmail query and preserves history_id."""
     from unittest.mock import patch, MagicMock
     from app.gmail.client import fetch_new_messages
@@ -12,7 +13,7 @@ def test_fetch_new_messages_date_range_query():
     mock_service.users().messages().list().execute.return_value = {"messages": []}
 
     with patch("app.gmail.client._build_service", return_value=mock_service):
-        messages, returned_history_id = fetch_new_messages(
+        messages, returned_history_id = await fetch_new_messages(
             last_history_id="abc123",
             after_date="2024/01/01",
             before_date="2024/03/31",

@@ -1,7 +1,8 @@
+import asyncio
 import base64
 from unittest.mock import MagicMock, patch
 from googleapiclient.errors import HttpError
-from app.gmail.client import extract_domain, get_gmail_link, _extract_body_text, _retry_with_backoff
+from app.gmail.client import extract_domain, get_gmail_link, _extract_body_text, _async_retry_with_backoff
 
 def test_extract_domain_standard():
     assert extract_domain("Amazon <no-reply@amazon.in>") == "amazon.in"
@@ -105,20 +106,20 @@ def test_extract_body_already_padded_base64():
     assert _extract_body_text(payload) == "Hello"
 
 
-def test_retry_with_backoff_succeeds_on_first_try():
-    """_retry_with_backoff returns result immediately on success."""
+async def test_async_retry_with_backoff_succeeds_on_first_try():
+    """_async_retry_with_backoff returns result immediately on success."""
     call_count = 0
     def success_func():
         nonlocal call_count
         call_count += 1
         return "ok"
-    result = _retry_with_backoff(success_func, max_retries=2)
+    result = await _async_retry_with_backoff(success_func, max_retries=2)
     assert result == "ok"
     assert call_count == 1
 
 
-def test_retry_with_backoff_retries_on_503():
-    """_retry_with_backoff retries on 503 and succeeds."""
+async def test_async_retry_with_backoff_retries_on_503():
+    """_async_retry_with_backoff retries on 503 and succeeds."""
     call_count = 0
     def flaky_func():
         nonlocal call_count
@@ -128,13 +129,13 @@ def test_retry_with_backoff_retries_on_503():
             resp.status = 503
             raise HttpError(resp, b"Service Unavailable")
         return "recovered"
-    result = _retry_with_backoff(flaky_func, max_retries=3)
+    result = await _async_retry_with_backoff(flaky_func, max_retries=3)
     assert result == "recovered"
     assert call_count == 3
 
 
-def test_retry_with_backoff_retries_on_429():
-    """_retry_with_backoff retries on 429 (rate limit)."""
+async def test_async_retry_with_backoff_retries_on_429():
+    """_async_retry_with_backoff retries on 429 (rate limit)."""
     call_count = 0
     def rate_limited_func():
         nonlocal call_count
@@ -145,13 +146,13 @@ def test_retry_with_backoff_retries_on_429():
             resp.get = MagicMock(return_value=None)
             raise HttpError(resp, b"Rate Limited")
         return "allowed"
-    result = _retry_with_backoff(rate_limited_func, max_retries=2)
+    result = await _async_retry_with_backoff(rate_limited_func, max_retries=2)
     assert result == "allowed"
     assert call_count == 2
 
 
-def test_retry_with_backoff_retries_on_oserror():
-    """_retry_with_backoff retries on OSError (connection errors)."""
+async def test_async_retry_with_backoff_retries_on_oserror():
+    """_async_retry_with_backoff retries on OSError (connection errors)."""
     call_count = 0
     def flaky_connection():
         nonlocal call_count
@@ -159,26 +160,26 @@ def test_retry_with_backoff_retries_on_oserror():
         if call_count < 2:
             raise OSError("Connection reset")
         return "connected"
-    result = _retry_with_backoff(flaky_connection, max_retries=2)
+    result = await _async_retry_with_backoff(flaky_connection, max_retries=2)
     assert result == "connected"
     assert call_count == 2
 
 
-def test_retry_with_backoff_gives_up_after_max_retries():
-    """_retry_with_backoff raises after exhausting retries."""
+async def test_async_retry_with_backoff_gives_up_after_max_retries():
+    """_async_retry_with_backoff raises after exhausting retries."""
     def always_fails():
         resp = MagicMock()
         resp.status = 500
         raise HttpError(resp, b"Internal Server Error")
     try:
-        _retry_with_backoff(always_fails, max_retries=2)
+        await _async_retry_with_backoff(always_fails, max_retries=2)
         assert False, "Should have raised"
     except HttpError as e:
         assert e.resp.status == 500
 
 
-def test_retry_with_backoff_does_not_retry_404():
-    """_retry_with_backoff does not retry 404 (not retryable)."""
+async def test_async_retry_with_backoff_does_not_retry_404():
+    """_async_retry_with_backoff does not retry 404 (not retryable)."""
     call_count = 0
     def not_found():
         nonlocal call_count
@@ -187,14 +188,14 @@ def test_retry_with_backoff_does_not_retry_404():
         resp.status = 404
         raise HttpError(resp, b"Not Found")
     try:
-        _retry_with_backoff(not_found, max_retries=3)
+        await _async_retry_with_backoff(not_found, max_retries=3)
         assert False, "Should have raised"
     except HttpError as e:
         assert e.resp.status == 404
         assert call_count == 1  # Only called once, no retries
 
 
-def test_two_phase_fetch_skips_existing():
+async def test_two_phase_fetch_skips_existing():
     """fetch_new_messages with existing_gmail_ids uses batch API, skips existing messages."""
     from app.gmail.client import fetch_new_messages
 
@@ -273,7 +274,7 @@ def test_two_phase_fetch_skips_existing():
     mock_service.new_batch_http_request.side_effect = _batch_factory
 
     with patch("app.gmail.client._build_service", return_value=mock_service):
-        messages, history_id = fetch_new_messages(
+        messages, history_id = await fetch_new_messages(
             last_history_id=None,
             email_filter="all",
             existing_gmail_ids={"msg1", "msg2"},
