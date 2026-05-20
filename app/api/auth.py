@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, func, delete as sa_delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth_deps import get_current_user
+from app.auth_deps import get_current_user, is_owner
 from app.crypto import encrypt_secret
 from app.config import settings
 from app.database import get_db
@@ -315,7 +315,7 @@ async def get_allowlist(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.role not in (UserRole.owner, "owner"):
+    if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     raw = (await db.execute(
         select(UserSettings.allowed_emails).where(UserSettings.user_id == user.id)
@@ -329,7 +329,7 @@ async def add_to_allowlist(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.role not in (UserRole.owner, "owner"):
+    if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     email_to_add = (body.get("email") or "").strip().lower()
     if not email_to_add or "@" not in email_to_add:
@@ -351,7 +351,7 @@ async def remove_from_allowlist(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.role not in (UserRole.owner, "owner"):
+    if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     if email.lower() == user.email.lower():
         raise HTTPException(status_code=400, detail="Cannot remove owner email")

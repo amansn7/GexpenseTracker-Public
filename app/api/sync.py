@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.database import get_db
 from app.models import SyncState, User, UserRole
 from app.config import settings
-from app.auth_deps import get_current_user
+from app.auth_deps import get_current_user, is_owner
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class BackfillBody(BaseModel):
 
 @router.post("/sync/backfill-bodies")
 async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     import asyncio
     from sqlalchemy import or_
@@ -197,7 +197,7 @@ async def trigger_clean_bodies(
     current_user: User = Depends(get_current_user),
 ):
     """Trigger a background job to re-fetch and clean dirty email body text."""
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.sync import clean_bodies_job
     task = asyncio.create_task(clean_bodies_job(user_id=current_user.id))
@@ -228,7 +228,7 @@ async def fetch_range(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.sync import run_sync_range
     result = await asyncio.wait_for(
@@ -250,7 +250,7 @@ async def trigger_fetch_range(
     body: FetchRangeBody,
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.workers.queue import task_queue
     task_id = await task_queue.enqueue("fetch_range", current_user.id, {
@@ -265,7 +265,7 @@ async def trigger_fetch_range(
 
 @router.get("/alerts")
 async def get_alerts(current_user: User = Depends(get_current_user)):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(403, "Admin only")
     from app.alerts import get_alerts as _get
     return _get()
@@ -290,7 +290,7 @@ async def get_task_status(task_id: str, current_user: User = Depends(get_current
 
 @router.post("/alerts/clear")
 async def clear_alerts(current_user: User = Depends(get_current_user)):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(403, "Admin only")
     from app.alerts import clear_alerts as _clear
     _clear()
@@ -320,7 +320,7 @@ async def llm_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_user.role not in (UserRole.owner, "owner"):
+    if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.classifier.llm_client import llm_client
     from app.models import UserAIService

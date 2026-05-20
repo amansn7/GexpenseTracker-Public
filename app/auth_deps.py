@@ -4,9 +4,19 @@ from fastapi import Cookie, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from app.database import get_db
-from app.models import Session, User
+from app.models import Session, User, UserRole
 
 SESSION_ROTATION_DAYS = 7
+
+
+def is_owner(user: Optional[User]) -> bool:
+    """Return True if the user exists and has the owner role."""
+    if user is None:
+        return False
+    role = user.role
+    if hasattr(role, "value"):
+        role = role.value
+    return role == UserRole.owner.value
 
 
 async def get_current_user(
