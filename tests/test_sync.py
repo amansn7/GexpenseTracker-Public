@@ -249,12 +249,12 @@ def test_task_queue_idempotency_clears_failed():
 
 
 @pytest.mark.asyncio
-async def test_sync_emails_running_flag_always_cleared():
-    """sync_emails must set running=False even on unexpected exceptions."""
+async def test_sync_emails_does_not_clear_running_flag():
+    """sync_emails no longer sets running=False — the caller (handle_sync_task) is responsible."""
     from app.sync.progress import _sync_progress, _reset_progress, _user_progress
     from app.sync.fetch import sync_emails
 
-    user_id = "test_running_flag"
+    user_id = "test_running_flag_caller_responsibility"
     _reset_progress(user_id)
 
     mock_session = AsyncMock()
@@ -264,7 +264,10 @@ async def test_sync_emails_running_flag_always_cleared():
         await sync_emails(mock_session, user_id=user_id)
 
     prog = _user_progress(user_id)
-    assert prog["running"] is False, "running should always be False after sync_emails exits"
+    assert prog["phase"] == "error"
+    assert prog["error"] == "unexpected DB error"
+    # running is NOT cleared by sync_emails — caller must do it
+    assert prog["running"] is True
 
     _sync_progress.pop(user_id, None)
 

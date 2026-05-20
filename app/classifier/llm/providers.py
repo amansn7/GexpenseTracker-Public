@@ -25,6 +25,9 @@ class Provider:
     def available(self) -> bool:
         return bool(self.api_key) and time.time() >= self.rate_limited_until
 
+    def is_rate_limited(self) -> bool:
+        return time.time() < self.rate_limited_until
+
     def mark_rate_limited(self, retry_after: int = 60) -> None:
         self.rate_limit_count += 1
         self.rate_limited_until = time.time() + retry_after

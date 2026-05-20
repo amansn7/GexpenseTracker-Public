@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -58,12 +58,13 @@ class Task:
 
 
 def _payload_hash(task_type: str, user_id: str, payload: dict) -> str:
-    raw = json.dumps({"type": task_type, "user_id": user_id, "payload": payload}, sort_keys=True)
+    stable_payload = {k: v for k, v in payload.items() if k != "trigger"}
+    raw = json.dumps({"type": task_type, "user_id": user_id, "payload": stable_payload}, sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 class TaskQueue:
-    def __init__(self, maxsize: int = 0):
+    def __init__(self, maxsize: int = 0, worker_count: int = 3):
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=maxsize)
         self._tasks: Dict[str, Task] = {}
         self._user_tasks: Dict[str, List[str]] = {}
@@ -71,9 +72,25 @@ class TaskQueue:
         self._lock = asyncio.Lock()
         self._running = False
         self._handlers: Dict[str, Any] = {}
+        self._worker_count = worker_count
+        self._running_users: Set[str] = set()
 
     def register_handler(self, task_type: str, handler):
         self._handlers[task_type] = handler
+
+    def _can_start_task(self, task: Task) -> bool:
+        """Return True if this task can start. Sync tasks are serialized per user."""
+        if task.type == "sync":
+            return task.user_id not in self._running_users
+        return True
+
+    def _mark_user_running(self, task: Task):
+        if task.type == "sync":
+            self._running_users.add(task.user_id)
+
+    def _mark_user_done(self, task: Task):
+        if task.type == "sync":
+            self._running_users.discard(task.user_id)
 
     async def enqueue(self, task_type: str, user_id: str, payload: dict) -> Optional[str]:
         idem_key = _payload_hash(task_type, user_id, payload)
@@ -122,7 +139,18 @@ class TaskQueue:
 
     async def worker_loop(self):
         self._running = True
-        logger.info("Task queue worker started")
+        logger.info("Task queue worker started (%d workers)", self._worker_count)
+        workers = [
+            asyncio.create_task(self._worker(i))
+            for i in range(self._worker_count)
+        ]
+        try:
+            await asyncio.gather(*workers, return_exceptions=True)
+        finally:
+            self._running = False
+
+    async def _worker(self, worker_id: int):
+        logger.info("Worker %d started", worker_id)
         while self._running:
             try:
                 task_id = await asyncio.wait_for(self._queue.get(), timeout=1.0)
@@ -131,6 +159,12 @@ class TaskQueue:
 
             task = self._tasks.get(task_id)
             if not task:
+                self._queue.task_done()
+                continue
+
+            if not self._can_start_task(task):
+                await self._queue.put(task_id)
+                await asyncio.sleep(0.5)
                 self._queue.task_done()
                 continue
 
@@ -145,19 +179,22 @@ class TaskQueue:
 
             task.status = TaskStatus.running
             task.started_at = datetime.now(timezone.utc)
-            logger.info("Processing task %s (type=%s)", task_id, task.type)
+            self._mark_user_running(task)
+            logger.info("Worker %d processing task %s (type=%s, user=%s)", worker_id, task_id, task.type, task.user_id)
 
             try:
                 result = await handler(task)
                 task.result = result if isinstance(result, dict) else {"output": result}
                 task.status = TaskStatus.completed
                 task.completed_at = datetime.now(timezone.utc)
-                logger.info("Task %s completed", task_id)
+                logger.info("Worker %d: task %s completed", worker_id, task_id)
             except Exception as exc:
                 task.status = TaskStatus.failed
                 task.error = str(exc)
                 task.completed_at = datetime.now(timezone.utc)
-                logger.error("Task %s failed: %s", task_id, exc, exc_info=True)
+                logger.error("Worker %d: task %s failed: %s", worker_id, task_id, exc, exc_info=True)
+            finally:
+                self._mark_user_done(task)
 
             self._queue.task_done()
 
@@ -165,4 +202,4 @@ class TaskQueue:
         self._running = False
 
 
-task_queue = TaskQueue()
+task_queue = TaskQueue(worker_count=3)

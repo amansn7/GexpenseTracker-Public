@@ -36,7 +36,9 @@ async def lifespan(app: FastAPI):
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
         from app.workers.sync_worker import register as register_sync_worker
+        from app.workers.sync_worker import register_fetch_range
         register_sync_worker(task_queue)
+        register_fetch_range(task_queue)
         worker_task = asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
         # Run schema migrations and cache loading in background so /health responds fast
@@ -59,6 +61,10 @@ async def lifespan(app: FastAPI):
                     await db.commit()
                     await load_alias_cache_from_db(db)
                     await load_db_aliases(db)
+                from app.sync.progress import recover_stale_progresses, set_db_session_factory
+                from app.database import AsyncSessionLocal
+                set_db_session_factory(AsyncSessionLocal)
+                await recover_stale_progresses()
             except Exception as exc:
                 logging.getLogger(__name__).warning("startup cache load failed: %s", exc)
         asyncio.create_task(_startup_init())

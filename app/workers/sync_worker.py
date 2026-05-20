@@ -80,5 +80,51 @@ async def handle_sync_task(task: Task) -> Dict[str, Any]:
         raise
 
 
+FETCH_RANGE_TIMEOUT_SECS = 1800  # 30 minutes
+
+
+async def handle_fetch_range_task(task: Task) -> Dict[str, Any]:
+    """Execute a fetch-range operation with timeout protection."""
+    user_id = task.user_id
+    payload = task.payload
+
+    _log_event(user_id, f"Worker picked up fetch-range task {task.id}", "info")
+
+    try:
+        from app.sync.range import run_sync_range
+        result = await asyncio.wait_for(
+            run_sync_range(
+                user_id=user_id,
+                after_date=payload["after_date"],
+                before_date=payload["before_date"],
+                llm_priority=payload.get("llm_priority", False),
+                sender=payload.get("sender"),
+                subject=payload.get("subject"),
+            ),
+            timeout=FETCH_RANGE_TIMEOUT_SECS,
+        )
+        return {"status": "completed", "task_id": task.id, "result": result}
+    except asyncio.TimeoutError:
+        logger.error("Fetch-range task %s timed out after %ds", task.id, FETCH_RANGE_TIMEOUT_SECS)
+        _log_event(user_id, f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s", "error")
+        prog = _user_progress(user_id)
+        prog.update({
+            "running": False,
+            "phase": "error",
+            "error": f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s",
+        })
+        raise
+    except Exception as exc:
+        logger.error("Fetch-range task %s failed: %s", task.id, exc, exc_info=True)
+        _log_event(user_id, f"Fetch-range failed: {exc}", "error")
+        prog = _user_progress(user_id)
+        prog.update({"running": False, "phase": "error", "error": str(exc)})
+        raise
+
+
 def register(queue):
     queue.register_handler("sync", handle_sync_task)
+
+
+def register_fetch_range(queue):
+    queue.register_handler("fetch_range", handle_fetch_range_task)

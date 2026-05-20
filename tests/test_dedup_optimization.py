@@ -1,0 +1,396 @@
+import pytest
+import uuid
+from datetime import date, datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Dict, Tuple, Set
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Transaction, Email, DuplicatePair, DomainPairRule
+from app.dedup.service import (
+    _score_pair,
+    _score_pair_with_rules,
+    batch_detect_duplicates,
+    detect_and_record_duplicates,
+    _sorted_domains,
+)
+
+
+def _make_email(
+    id: str,
+    user_id: str,
+    sender_domain: str,
+    received_at: datetime,
+    subject: str = "",
+) -> Email:
+    return Email(
+        id=id,
+        gmail_id=f"g-{id[:8]}",
+        sender=f"noreply@{sender_domain}",
+        sender_domain=sender_domain,
+        user_id=user_id,
+        received_at=received_at,
+        subject=subject,
+    )
+
+
+def _make_tx(
+    id: str,
+    email_id: str,
+    amount: float,
+    txn_date: date,
+    merchant: str = "",
+    label: str = "expense",
+) -> Transaction:
+    return Transaction(
+        id=id,
+        email_id=email_id,
+        label=label,
+        amount=amount,
+        txn_date=txn_date,
+        status="auto",
+        merchant=merchant,
+    )
+
+
+# ── Test 1: Query count optimization ────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_batch_detect_duplicates_query_count(db_session, mock_user):
+    """
+    batch_detect_duplicates with 10 new x 10 existing should use <= 5 DB queries,
+    not 100+ (one per pair).
+    """
+    uid = str(mock_user.id)
+    query_count = 0
+    original_execute = db_session.execute
+
+    async def counting_execute(*args, **kwargs):
+        nonlocal query_count
+        query_count += 1
+        return await original_execute(*args, **kwargs)
+
+    db_session.execute = counting_execute
+
+    # Create 10 existing transactions
+    existing_pairs = []
+    for i in range(10):
+        eid = str(uuid.uuid4())
+        tid = str(uuid.uuid4())
+        email = _make_email(eid, uid, "swiggy.in",
+                            datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+        tx = _make_tx(tid, eid, 500.0, date(2026, 4, 10))
+        db_session.add_all([email, tx])
+        existing_pairs.append((tx, email))
+    await db_session.flush()
+
+    # Create 10 new transactions
+    new_pairs = []
+    for i in range(10):
+        eid = str(uuid.uuid4())
+        tid = str(uuid.uuid4())
+        email = _make_email(eid, uid, "swiggy.in",
+                            datetime(2026, 4, 11, 10, 0, tzinfo=timezone.utc))
+        tx = _make_tx(tid, eid, 500.0, date(2026, 4, 11))
+        new_pairs.append((tx, email))
+
+    query_count_before = query_count
+    result = await batch_detect_duplicates(new_pairs, db_session, uid)
+
+    queries_used = query_count - query_count_before
+    # Expected: 1 (DomainPairRule) + 1 (windowed existing query) + 1 (DuplicatePair) = 3
+    assert queries_used <= 5, f"Used {queries_used} queries, expected <= 5"
+    assert result["checked"] == 10
+
+
+# ── Test 2: _score_pair_with_rules produces identical results to _score_pair ─
+
+@pytest.mark.asyncio
+async def test_score_pair_with_rules_matches_score_pair(db_session, mock_user):
+    """
+    _score_pair_with_rules must produce identical (score, rule_source) as
+    _score_pair for the same inputs when the rules dict is populated correctly.
+    """
+    uid = str(mock_user.id)
+
+    # Create a DomainPairRule
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="hdfcbank.com",
+        domain_b="swiggy.in",
+        confirmed_count=2,
+        dismissed_count=0,
+        confidence=0.75,
+        auto_resolve=False,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+
+    email_a = _make_email(str(uuid.uuid4()), uid, "hdfcbank.com",
+                          datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
+
+    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
+                          datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
+
+    db_session.add_all([email_a, tx_a, email_b, tx_b])
+    await db_session.flush()
+
+    # Build rules map
+    all_rules = (await db_session.execute(select(DomainPairRule))).scalars().all()
+    rules_map: Dict[Tuple[str, str], DomainPairRule] = {
+        (r.domain_a, r.domain_b): r for r in all_rules
+    }
+
+    # Compare results
+    score_async, source_async = await _score_pair(tx_a, email_a, tx_b, email_b, db_session)
+    score_sync, source_sync = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, rules_map)
+
+    assert score_async == score_sync, f"Scores differ: {score_async} vs {score_sync}"
+    assert source_async == source_sync, f"Sources differ: {source_async} vs {source_sync}"
+    assert score_sync == 0.75
+    assert source_sync == "domain_pair"
+
+
+@pytest.mark.asyncio
+async def test_score_pair_with_rules_same_domain(db_session, mock_user):
+    """Same-domain pair should return (1.0, 'same_domain_exact') in both functions."""
+    uid = str(mock_user.id)
+
+    email_a = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
+                          datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
+
+    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
+                          datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
+
+    db_session.add_all([email_a, tx_a, email_b, tx_b])
+    await db_session.flush()
+
+    rules_map: Dict[Tuple[str, str], DomainPairRule] = {}
+
+    score_async, source_async = await _score_pair(tx_a, email_a, tx_b, email_b, db_session)
+    score_sync, source_sync = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, rules_map)
+
+    assert score_async == score_sync == 1.0
+    assert source_async == source_sync == "same_domain_exact"
+
+
+@pytest.mark.asyncio
+async def test_score_pair_with_rules_amount_date_fallback(db_session, mock_user):
+    """Different domains with no rule should fall back to amount_date (0.5)."""
+    uid = str(mock_user.id)
+
+    email_a = _make_email(str(uuid.uuid4()), uid, "unknown-a.com",
+                          datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
+
+    email_b = _make_email(str(uuid.uuid4()), uid, "unknown-b.com",
+                          datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
+
+    db_session.add_all([email_a, tx_a, email_b, tx_b])
+    await db_session.flush()
+
+    rules_map: Dict[Tuple[str, str], DomainPairRule] = {}
+
+    score_async, source_async = await _score_pair(tx_a, email_a, tx_b, email_b, db_session)
+    score_sync, source_sync = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, rules_map)
+
+    assert score_async == score_sync == 0.5
+    assert source_async == source_sync == "amount_date"
+
+
+# ── Test 3: detect_and_record_duplicates (single-tx path) still works ────────
+
+@pytest.mark.asyncio
+async def test_single_tx_path_still_works(db_session, mock_user):
+    """
+    detect_and_record_duplicates (single-tx path) should still work unchanged
+    after adding _score_pair_with_rules.
+    """
+    uid = str(mock_user.id)
+
+    # Create an existing transaction
+    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
+                         datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+    tx1 = _make_tx(str(uuid.uuid4()), email1.id, 500.0, date(2026, 4, 10))
+    db_session.add_all([email1, tx1])
+    await db_session.flush()
+
+    # Create a new transaction that should match
+    email2 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
+                         datetime(2026, 4, 11, 10, 0, tzinfo=timezone.utc))
+    tx2 = _make_tx(str(uuid.uuid4()), email2.id, 500.0, date(2026, 4, 11))
+    db_session.add_all([email2, tx2])
+    await db_session.flush()
+
+    await detect_and_record_duplicates(tx2, email2, db_session)
+    await db_session.flush()
+
+    pairs = (await db_session.execute(select(DuplicatePair))).scalars().all()
+    assert len(pairs) == 1
+    assert pairs[0].rule_source == "same_domain_exact"
+    assert pairs[0].status == "auto_resolved"
+    assert pairs[0].confidence == 1.0
+
+
+# ── Test 4: Dedup correctness preserved (same pairs, same scores) ────────────
+
+@pytest.mark.asyncio
+async def batch_detect_duplicates_preserves_correctness(db_session, mock_user):
+    """
+    batch_detect_duplicates should detect the same pairs with the same scores
+    as the old per-pair DB query approach would have.
+    """
+    uid = str(mock_user.id)
+
+    # Create a DomainPairRule
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="hdfcbank.com",
+        domain_b="swiggy.in",
+        confirmed_count=2,
+        dismissed_count=0,
+        confidence=0.75,
+        auto_resolve=False,
+    )
+    db_session.add(rule)
+
+    # Create 3 existing transactions with different domains
+    existing_data = [
+        ("swiggy.in", 500.0, date(2026, 4, 10)),
+        ("hdfcbank.com", 500.0, date(2026, 4, 10)),
+        ("zomato.com", 999.0, date(2026, 4, 10)),  # different amount, should not match
+    ]
+    for domain, amount, txn_date in existing_data:
+        eid = str(uuid.uuid4())
+        tid = str(uuid.uuid4())
+        email = _make_email(eid, uid, domain,
+                            datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+        tx = _make_tx(tid, eid, amount, txn_date)
+        db_session.add_all([email, tx])
+    await db_session.flush()
+
+    # Create 2 new transactions
+    new_pairs = []
+    for domain, amount, txn_date in [("swiggy.in", 500.0, date(2026, 4, 11)),
+                                      ("hdfcbank.com", 500.0, date(2026, 4, 11))]:
+        eid = str(uuid.uuid4())
+        tid = str(uuid.uuid4())
+        email = _make_email(eid, uid, domain,
+                            datetime(2026, 4, 11, 10, 0, tzinfo=timezone.utc))
+        tx = _make_tx(tid, eid, amount, txn_date)
+        new_pairs.append((tx, email))
+
+    result = await batch_detect_duplicates(new_pairs, db_session, uid)
+
+    # Each new tx should match 2 existing (swiggy + hdfcbank), but not zomato (different amount)
+    # Plus intra-batch: the 2 new txes should match each other
+    # Expected pairs: new_swiggy x existing_swiggy (same_domain),
+    #                 new_swiggy x existing_hdfcbank (domain_pair),
+    #                 new_hdfcbank x existing_swiggy (domain_pair),
+    #                 new_hdfcbank x existing_hdfcbank (same_domain),
+    #                 new_swiggy x new_hdfcbank (domain_pair, intra-batch)
+    assert result["checked"] == 2
+    assert result["same_domain_exact"] == 2  # swiggy-swiggy, hdfcbank-hdfcbank
+    assert result["domain_pair"] == 3  # swiggy-hdfcbank x2 + intra-batch
+    assert len(result["new_pair_ids"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_batch_detect_empty_input():
+    """batch_detect_duplicates with empty list returns zeroed stats."""
+    db = AsyncMock(spec=AsyncSession)
+    result = await batch_detect_duplicates([], db, "test-user")
+    assert result["checked"] == 0
+    assert result["new_pair_ids"] == []
+
+
+@pytest.mark.asyncio
+async def test_batch_detect_skips_non_candidates(db_session, mock_user):
+    """Transactions with label='income' or no sender_domain are skipped."""
+    uid = str(mock_user.id)
+
+    # Income transaction — should be skipped
+    email_income = _make_email(str(uuid.uuid4()), uid, "bank.com",
+                               datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+    tx_income = _make_tx(str(uuid.uuid4()), email_income.id, 5000.0,
+                         date(2026, 4, 10), label="income")
+
+    # No sender_domain — should be skipped
+    email_no_domain = Email(
+        id=str(uuid.uuid4()), gmail_id="g-nodomain", sender="unknown",
+        sender_domain=None, user_id=uid,
+        received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc),
+    )
+    tx_no_domain = _make_tx(str(uuid.uuid4()), email_no_domain.id, 500.0,
+                            date(2026, 4, 10))
+
+    db_session.add_all([email_income, tx_income, email_no_domain, tx_no_domain])
+    await db_session.flush()
+
+    result = await batch_detect_duplicates(
+        [(tx_income, email_income), (tx_no_domain, email_no_domain)],
+        db_session, uid,
+    )
+    assert result["checked"] == 2
+    assert len(result["new_pair_ids"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_score_pair_with_rules_missing_amount():
+    """_score_pair_with_rules returns (0.0, 'unknown') when amount is None."""
+    email_a = MagicMock(spec=Email)
+    email_a.sender_domain = "a.com"
+    email_a.received_at = datetime(2026, 4, 10, tzinfo=timezone.utc)
+    email_a.subject = ""
+
+    email_b = MagicMock(spec=Email)
+    email_b.sender_domain = "b.com"
+    email_b.received_at = datetime(2026, 4, 10, tzinfo=timezone.utc)
+    email_b.subject = ""
+
+    tx_a = MagicMock(spec=Transaction)
+    tx_a.amount = None
+    tx_a.txn_date = date(2026, 4, 10)
+    tx_a.merchant = ""
+
+    tx_b = MagicMock(spec=Transaction)
+    tx_b.amount = 500.0
+    tx_b.txn_date = date(2026, 4, 10)
+    tx_b.merchant = ""
+
+    score, source = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, {})
+    assert score == 0.0
+    assert source == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_score_pair_with_rules_day_diff_too_large():
+    """_score_pair_with_rules returns (0.0, 'unknown') when day_diff > 3."""
+    email_a = MagicMock(spec=Email)
+    email_a.sender_domain = "a.com"
+    email_a.received_at = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    email_a.subject = ""
+
+    email_b = MagicMock(spec=Email)
+    email_b.sender_domain = "b.com"
+    email_b.received_at = datetime(2026, 4, 10, tzinfo=timezone.utc)
+    email_b.subject = ""
+
+    tx_a = MagicMock(spec=Transaction)
+    tx_a.amount = 500.0
+    tx_a.txn_date = date(2026, 4, 1)
+    tx_a.merchant = ""
+
+    tx_b = MagicMock(spec=Transaction)
+    tx_b.amount = 500.0
+    tx_b.txn_date = date(2026, 4, 10)
+    tx_b.merchant = ""
+
+    score, source = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, {})
+    assert score == 0.0
+    assert source == "unknown"

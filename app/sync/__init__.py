@@ -9,6 +9,7 @@ from app.sync.progress import (
     _user_progress,
     clear_sync_progress,
     get_sync_progress,
+    get_sync_progress_public,
     set_sync_minimized,
 )
 from app.sync.range import run_sync_range
@@ -75,6 +76,7 @@ __all__ = [
     "_user_progress",
     "_log_event",
     "get_sync_progress",
+    "get_sync_progress_public",
     "_reset_progress",
     "_add_preview",
     "set_sync_minimized",

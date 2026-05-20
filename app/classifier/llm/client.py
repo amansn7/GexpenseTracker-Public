@@ -1,4 +1,5 @@
 """LLMClient class with _call_provider, batch_classify, and chat."""
+import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
 
@@ -116,8 +117,24 @@ class MultiLLMClient:
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
                     retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    provider.mark_rate_limited(retry_after)
-                    last_error = exc
+                    retry_delay = min(retry_after, 5)
+                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
+                    await asyncio.sleep(retry_delay)
+                    try:
+                        result = await self._call_provider_raw(provider, prompt)
+                        provider.success_count += 1
+                        return result
+                    except httpx.HTTPStatusError as exc2:
+                        if exc2.response.status_code == 429:
+                            provider.mark_rate_limited(max(retry_after, 60))
+                        else:
+                            provider.fail_count += 1
+                            logger.error("Provider '%s' HTTP %d: %s", provider.name, exc2.response.status_code, exc2.response.text[:200])
+                        last_error = exc2
+                    except Exception as exc2:
+                        provider.fail_count += 1
+                        logger.error("Provider '%s' error: %s", provider.name, exc2)
+                        last_error = exc2
                     continue
                 provider.fail_count += 1
                 logger.error(
@@ -251,8 +268,23 @@ class MultiLLMClient:
                         "prompt": prompt, "raw_response": raw}
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
-                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
-                    last_error = exc
+                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                    retry_delay = min(retry_after, 5)
+                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
+                    await asyncio.sleep(retry_delay)
+                    try:
+                        result, raw = await self._call_provider_verbose(provider, prompt)
+                        provider.success_count += 1
+                        return {"result": result, "provider": provider.name, "model": provider.model, "prompt": prompt, "raw_response": raw}
+                    except httpx.HTTPStatusError as exc2:
+                        if exc2.response.status_code == 429:
+                            provider.mark_rate_limited(max(retry_after, 60))
+                        else:
+                            provider.fail_count += 1
+                        last_error = exc2
+                    except Exception as exc2:
+                        provider.fail_count += 1
+                        last_error = exc2
                     continue
                 provider.fail_count += 1
                 last_error = exc
@@ -315,8 +347,24 @@ class MultiLLMClient:
                 }
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
-                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
-                    last_error = exc
+                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                    retry_delay = min(retry_after, 5)
+                    logger.info("Provider '%s' batch rate limited, retrying in %ds", provider.name, retry_delay)
+                    await asyncio.sleep(retry_delay)
+                    try:
+                        raw = await self._provider_http_call(provider, prompt, timeout=60.0, max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS))
+                        provider.success_count += 1
+                        results = parse_batch_response(raw, len(email_list))
+                        return {"results": results, "provider": provider.name, "model": provider.model, "raw_response": raw, "prompt": prompt}
+                    except httpx.HTTPStatusError as exc2:
+                        if exc2.response.status_code == 429:
+                            provider.mark_rate_limited(max(retry_after, 60))
+                        else:
+                            provider.fail_count += 1
+                        last_error = exc2
+                    except Exception as exc2:
+                        provider.fail_count += 1
+                        last_error = exc2
                     continue
                 provider.fail_count += 1
                 last_error = exc
@@ -352,8 +400,24 @@ class MultiLLMClient:
                 return raw
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
-                    provider.mark_rate_limited(int(exc.response.headers.get("Retry-After", "60")))
-                    last_error = exc
+                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                    retry_delay = min(retry_after, 5)
+                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
+                    await asyncio.sleep(retry_delay)
+                    try:
+                        raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
+                        provider.success_count += 1
+                        return raw
+                    except httpx.HTTPStatusError as exc2:
+                        if exc2.response.status_code == 429:
+                            provider.mark_rate_limited(max(retry_after, 60))
+                        else:
+                            provider.fail_count += 1
+                        last_error = exc2
+                    except Exception as exc2:
+                        provider.fail_count += 1
+                        logger.error("Provider '%s' chat error: %s", provider.name, exc2)
+                        last_error = exc2
                     continue
                 provider.fail_count += 1
                 last_error = exc

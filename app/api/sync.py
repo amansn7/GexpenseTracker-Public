@@ -29,8 +29,8 @@ def _log_task_result(task: asyncio.Task):
 
 @router.get("/sync/progress")
 async def sync_progress_endpoint(current_user=Depends(get_current_user)):
-    from app.sync import get_sync_progress
-    return get_sync_progress(user_id=current_user.id)
+    from app.sync import get_sync_progress_public
+    return get_sync_progress_public(user_id=current_user.id)
 
 
 @router.get("/sync/status")
@@ -102,50 +102,89 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
         result = await db.execute(
             select(Email).where(Email.id.in_(payload.email_ids), Email.user_id == current_user.id)
         )
-    else:
-        # Paginate to avoid loading all emails into memory
-        batch_size = 100
-        offset = 0
-        emails = []
-        while True:
-            batch = (await db.execute(
-                select(Email)
-                .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
-                .offset(offset)
-                .limit(batch_size)
-            )).scalars().all()
-            if not batch:
-                break
-            emails.extend(batch)
-            offset += batch_size
-    if not emails:
-        return {"updated": 0, "message": "All emails already have body text"}
+        emails = result.scalars().all()
+        if not emails:
+            return {"updated": 0, "message": "No matching emails found"}
+
+        creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
+        if not creds:
+            raise HTTPException(status_code=503, detail="Gmail not authenticated. Visit /api/auth/google")
+        service = await asyncio.to_thread(_build_service, creds)
+
+        total_updated = 0
+        total_errors = 0
+        total_scanned = len(emails)
+
+        for email in emails:
+            try:
+                msg = await asyncio.to_thread(
+                    lambda eid=email.gmail_id: service.users().messages().get(
+                        userId="me", id=eid, format="full"
+                    ).execute()
+                )
+                body = _extract_body_text(msg.get("payload", {}))
+                if body:
+                    email.body_text = body
+                    total_updated += 1
+            except Exception as exc:
+                logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
+                total_errors += 1
+
+        await db.commit()
+        logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
+        return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
+
+    from sqlalchemy import func
+
+    count = (await db.execute(
+        select(func.count(Email.id))
+        .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
+    )).scalar()
+    if not count:
+        return {"updated": 0, "errors": 0, "total": 0}
+
+    batch_size = 100
+    offset = 0
+    total_updated = 0
+    total_errors = 0
+    total_scanned = 0
 
     creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
     if not creds:
         raise HTTPException(status_code=503, detail="Gmail not authenticated. Visit /api/auth/google")
     service = await asyncio.to_thread(_build_service, creds)
 
-    updated = 0
-    errors = 0
-    for email in emails:
-        try:
-            msg = await asyncio.to_thread(
-                lambda eid=email.gmail_id: service.users().messages().get(
-                    userId="me", id=eid, format="full"
-                ).execute()
-            )
-            body = _extract_body_text(msg.get("payload", {}))
-            if body:
-                email.body_text = body
-                updated += 1
-        except Exception as exc:
-            logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
-            errors += 1
+    while True:
+        batch = (await db.execute(
+            select(Email)
+            .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
+            .offset(offset)
+            .limit(batch_size)
+        )).scalars().all()
+        if not batch:
+            break
 
-    await db.commit()
-    logger.info("backfill-bodies: updated=%d errors=%d", updated, errors)
-    return {"updated": updated, "errors": errors, "total": len(emails)}
+        for email in batch:
+            total_scanned += 1
+            try:
+                msg = await asyncio.to_thread(
+                    lambda eid=email.gmail_id: service.users().messages().get(
+                        userId="me", id=eid, format="full"
+                    ).execute()
+                )
+                body = _extract_body_text(msg.get("payload", {}))
+                if body:
+                    email.body_text = body
+                    total_updated += 1
+            except Exception as exc:
+                logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
+                total_errors += 1
+
+        await db.commit()
+        offset += batch_size
+
+    logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
+    return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
 
 
 _DIRTY_BODY_RE = re.compile(
@@ -192,13 +231,16 @@ async def fetch_range(
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.sync import run_sync_range
-    result = await run_sync_range(
-        user_id=current_user.id,
-        after_date=body.after_date.strftime("%Y/%m/%d"),
-        before_date=body.before_date.strftime("%Y/%m/%d"),
-        llm_priority=body.llm_priority,
-        sender=body.sender,
-        subject=body.subject,
+    result = await asyncio.wait_for(
+        run_sync_range(
+            user_id=current_user.id,
+            after_date=body.after_date.strftime("%Y/%m/%d"),
+            before_date=body.before_date.strftime("%Y/%m/%d"),
+            llm_priority=body.llm_priority,
+            sender=body.sender,
+            subject=body.subject,
+        ),
+        timeout=1800,
     )
     return result
 
@@ -210,18 +252,15 @@ async def trigger_fetch_range(
 ):
     if current_user.role not in (UserRole.owner, "owner"):
         raise HTTPException(status_code=403, detail="Owner only")
-    from app.sync import run_sync_range
-    task = asyncio.create_task(run_sync_range(
-        user_id=current_user.id,
-        after_date=body.after_date.strftime("%Y/%m/%d"),
-        before_date=body.before_date.strftime("%Y/%m/%d"),
-        llm_priority=body.llm_priority,
-        sender=body.sender,
-        subject=body.subject,
-    ))
-    _background_tasks.add(task)
-    task.add_done_callback(_log_task_result)
-    return {"message": "Fetch-range started"}
+    from app.workers.queue import task_queue
+    task_id = await task_queue.enqueue("fetch_range", current_user.id, {
+        "after_date": body.after_date.strftime("%Y/%m/%d"),
+        "before_date": body.before_date.strftime("%Y/%m/%d"),
+        "llm_priority": body.llm_priority,
+        "sender": body.sender,
+        "subject": body.subject,
+    })
+    return {"message": "Fetch-range queued", "task_id": task_id}
 
 
 @router.get("/alerts")

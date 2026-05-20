@@ -130,11 +130,19 @@ async def run_sync_range(
                 Email.received_at <= before_dt,
                 or_(Email.body_text.is_(None), Email.body_text == ""),
             )
-            missing_emails = (await session.execute(missing_q)).scalars().all()
-            if missing_emails:
-                prog["phase_detail"] = f"Backfilling {len(missing_emails)} bodies..."
-                service = await asyncio.to_thread(_build_service, creds)
-                for backfill_idx, email in enumerate(missing_emails):
+
+            backfill_batch_size = 50
+            backfill_offset = 0
+            service = await asyncio.to_thread(_build_service, creds)
+
+            while True:
+                batch = (await session.execute(
+                    missing_q.offset(backfill_offset).limit(backfill_batch_size)
+                )).scalars().all()
+                if not batch:
+                    break
+
+                for email in batch:
                     try:
                         msg = await asyncio.to_thread(
                             lambda eid=email.gmail_id: service.users().messages().get(
@@ -148,8 +156,11 @@ async def run_sync_range(
                     except Exception as exc:
                         logger.warning("fetch-range backfill: failed for %s: %s", email.gmail_id, exc)
                         errors += 1
-                    prog["current"] = fetched + backfill_idx + 1
-                    prog["total"] = fetched + len(missing_emails)
+                    prog["current"] = fetched + backfill_offset + batch.index(email) + 1
+                    prog["total"] = fetched + backfill_offset + len(batch)
+
+                await session.commit()
+                backfill_offset += backfill_batch_size
 
         await session.commit()
 

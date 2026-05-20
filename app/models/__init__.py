@@ -57,6 +57,10 @@ from .merchant import (
     MerchantEntity,
 )
 
+from .sync_progress import (
+    SyncProgress,
+)
+
 from .audit_log import (
     AuditLog,
 )
@@ -105,6 +109,8 @@ __all__ = [
     # merchant entity resolution
     "MerchantEntityAlias",
     "MerchantEntity",
+    # sync progress
+    "SyncProgress",
     # audit log
     "AuditLog",
 ]

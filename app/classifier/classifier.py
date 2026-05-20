@@ -1,3 +1,4 @@
+import asyncio
 import re
 import time
 import logging
@@ -167,6 +168,7 @@ async def classify_email(
     llm_result = None
     result_warnings: List[str] = []
     source_currency: Optional[str] = None
+    raw_merchant: Optional[str] = None
 
     if not use_llm:
         logger.debug("LLM disabled for email %s, using rules only", email_id)
@@ -545,7 +547,22 @@ async def batch_classify_emails(
             except Exception as exc:
                 logger.error("Batch classification failed for %d emails: %s", len(batch), exc, exc_info=True)
 
+            # Inter-batch backoff: if any provider is rate-limited, pause before next batch
+            if batch_start + batch_size < len(need_llm):
+                try:
+                    providers = client._ranked_providers()
+                    if hasattr(providers, "__await__"):
+                        providers = await providers
+                    for p in providers:
+                        if hasattr(p, "is_rate_limited") and p.is_rate_limited():
+                            logger.info("Rate-limit pressure detected, sleeping 2s before next batch")
+                            await asyncio.sleep(2)
+                            break
+                except Exception:
+                    pass  # Never block sync for backoff check failure
+
     # ── Phase 3: retry remaining with per-email LLM, fall back to rules ──
+    rules_fallback_count = 0
     for i in range(n):
         if results[i] is not None:
             continue
@@ -560,5 +577,13 @@ async def batch_classify_emails(
             )
         except Exception:
             results[i] = _rules_fallback_result(sender_domain, subject, body_text, db_rules)
+            rules_fallback_count += 1
+
+    if rules_fallback_count > 0:
+        pct = rules_fallback_count / n * 100
+        logger.warning(
+            "Batch classification: %d/%d emails (%.0f%%) fell back to rules-only",
+            rules_fallback_count, n, pct,
+        )
 
     return results  # type: ignore[return-value]

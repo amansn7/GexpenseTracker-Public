@@ -229,6 +229,77 @@ async def _score_pair(
     return (0.0, "unknown")
 
 
+def _score_pair_with_rules(
+    tx_a: Transaction,
+    email_a: Email,
+    tx_b: Transaction,
+    email_b: Email,
+    rules: Dict[Tuple[str, str], DomainPairRule],
+) -> Tuple[float, str]:
+    """
+    Synchronous variant of _score_pair that uses a pre-loaded rules dict
+    instead of hitting the database. Returns (confidence, rule_source).
+    """
+    if tx_a.amount is None or tx_b.amount is None:
+        return (0.0, "unknown")
+    if not email_a or not email_b:
+        return (0.0, "unknown")
+    if not email_a.sender_domain or not email_b.sender_domain:
+        return (0.0, "unknown")
+
+    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
+    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    if eff_a is None or eff_b is None:
+        return (0.0, "unknown")
+
+    amount_a = float(tx_a.amount)
+    amount_b = float(tx_b.amount)
+    tol = _amount_tolerance(amount_a, bulk=True)
+    if abs(amount_a - amount_b) > tol:
+        return (0.0, "unknown")
+
+    day_diff = abs((eff_a - eff_b).days)
+    if day_diff > 3:
+        return (0.0, "unknown")
+
+    domain_a = email_a.sender_domain.lower()
+    domain_b = email_b.sender_domain.lower()
+    subject_a = (email_a.subject or "").lower()
+    subject_b = (email_b.subject or "").lower()
+    merchant_a = tx_a.merchant or ""
+    merchant_b = tx_b.merchant or ""
+
+    # Layer 1: same domain (highest confidence)
+    if domain_a == domain_b:
+        return (1.0, "same_domain_exact")
+
+    # Layer 2: merchant alias across domains
+    m_score = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
+    if m_score >= 0.7:
+        return (0.75 + m_score * 0.2, "merchant_alias")
+
+    # Layer 3: cross-domain with DomainPairRule (dict lookup instead of DB query)
+    da, db_ = _sorted_domains(domain_a, domain_b)
+    rule = rules.get((da, db_))
+    if rule and rule.confidence >= 0.5:
+        return (rule.confidence, "domain_pair")
+
+    # Layer 4: investment flow
+    a_is_order = _subject_has_any(subject_a, _INVEST_ORDER_SIGNALS)
+    a_is_confirm = _subject_has_any(subject_a, _INVEST_CONFIRM_SIGNALS)
+    b_is_order = _subject_has_any(subject_b, _INVEST_ORDER_SIGNALS)
+    b_is_confirm = _subject_has_any(subject_b, _INVEST_CONFIRM_SIGNALS)
+    if (a_is_order and b_is_confirm) or (a_is_confirm and b_is_order):
+        if day_diff <= 3:
+            return (0.65, "investment_flow")
+
+    # Layer 5: amount + date fallback (lowest confidence)
+    if day_diff <= 1:
+        return (0.5, "amount_date")
+
+    return (0.0, "unknown")
+
+
 async def detect_and_record_duplicates(
     tx: Transaction,
     email: Optional[Email],
@@ -568,6 +639,12 @@ async def batch_detect_duplicates(
     stats = {"checked": len(new_transactions), "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "already_paired": 0}
     new_pair_ids: List[str] = []
 
+    # Load ALL DomainPairRule rows once (eliminates per-pair DB queries)
+    all_rules = (await db.execute(select(DomainPairRule))).scalars().all()
+    rules_map: Dict[Tuple[str, str], DomainPairRule] = {
+        (r.domain_a, r.domain_b): r for r in all_rules
+    }
+
     # Collect date range and amounts for the windowed query
     dates = []
     amounts = []
@@ -616,6 +693,12 @@ async def batch_detect_duplicates(
         for row in all_user_pairs
     }
 
+    # Build a lookup: tx_id -> set of tx_ids it's already paired with
+    paired_ids_map: Dict[str, Set[str]] = {}
+    for tid_a, tid_b in db_existing_pairs:
+        paired_ids_map.setdefault(tid_a, set()).add(tid_b)
+        paired_ids_map.setdefault(tid_b, set()).add(tid_a)
+
     seen_pairs: Set[Tuple[str, str]] = set()
 
     for new_tx, new_email in new_transactions:
@@ -631,8 +714,8 @@ async def batch_detect_duplicates(
             logger.info("batch_detect_duplicates: skip tx=%s (no effective date)", new_tx.id)
             continue
 
-        # Load paired IDs once per new transaction (not per existing candidate)
-        already_paired_ids = await _load_paired_ids(new_tx.id, db)
+        # Use pre-built paired_ids map (eliminates per-tx DB query)
+        already_paired_ids = paired_ids_map.get(new_tx.id, set())
 
         # Compare against existing transactions in DB
         for existing_tx, existing_email in existing_map.values():
@@ -649,7 +732,7 @@ async def batch_detect_duplicates(
                 stats["already_paired"] += 1
                 continue
 
-            score, rule_source = await _score_pair(new_tx, new_email, existing_tx, existing_email, db)
+            score, rule_source = _score_pair_with_rules(new_tx, new_email, existing_tx, existing_email, rules_map)
             if score < 0.5:
                 continue
 
@@ -689,7 +772,7 @@ async def batch_detect_duplicates(
                 stats["already_paired"] += 1
                 continue
 
-            score, rule_source = await _score_pair(new_tx, new_email, other_tx, other_email, db)
+            score, rule_source = _score_pair_with_rules(new_tx, new_email, other_tx, other_email, rules_map)
             if score < 0.5:
                 continue
 

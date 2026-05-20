@@ -44,7 +44,6 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
     """Core sync logic operating on an injected session. Exposed for testing."""
     uid = user_id or "default"
     prog = _user_progress(uid)
-    prog["running"] = True
 
     try:
         state_result = await session.execute(
@@ -75,8 +74,6 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
         _log_event(uid, f"Sync failed: {exc}", "error")
         prog.update({"phase": "error", "error": str(exc)})
         raise
-    finally:
-        prog["running"] = False
 
 
 async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_state, last_history_id, email_filter) -> dict:
@@ -135,6 +132,19 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     _log_event(uid, f"Classifying {len(new_pairs)} emails with batch LLM")
 
     classifications = await _classify_batch(new_pairs, session, user_id)
+
+    # Check for LLM degradation
+    rules_only = sum(1 for c in classifications if c.classifier_method.value == "rule")
+    total = len(classifications)
+    if total > 0 and rules_only / total > 0.5:
+        from app.alerts import add_alert
+        add_alert(
+            "warning",
+            f"{rules_only}/{total} emails classified with rules only (LLM unavailable). "
+            "Check AI service configuration.",
+            source="classifier",
+        )
+        _log_event(uid, f"WARNING: {rules_only}/{total} emails used rules-only classification", "warning")
 
     for i, (email, msg) in enumerate(new_pairs):
         prog["current"] = skipped + i + 1
@@ -197,40 +207,41 @@ async def clean_bodies_job(user_id: str):
     prog["phase_detail"] = "Scanning for dirty email bodies..."
     _log_event(uid, "Starting clean-bodies job...")
 
+    # First pass: count candidates without holding them all in memory
+    batch_size = 50
+    offset = 0
+    total = 0
     async with AsyncSessionLocal() as session:
         try:
-            # Paginate through emails to avoid loading all into memory
-            batch_size = 100
-            offset = 0
-            candidates = []
             while True:
-                batch = (await session.execute(
+                count_batch = (await session.execute(
                     select(Email)
                     .where(Email.user_id == user_id if user_id else True)
                     .offset(offset)
                     .limit(batch_size)
                 )).scalars().all()
-                if not batch:
+                if not count_batch:
                     break
-                candidates.extend([e for e in batch if e.body_text and _DIRTY_BODY_RE.search(e.body_text)])
+                total += sum(1 for e in count_batch if e.body_text and _DIRTY_BODY_RE.search(e.body_text))
                 offset += batch_size
         except Exception as exc:
             prog.update({"phase": "error", "running": False, "error": str(exc)})
             _log_event(uid, f"DB query failed: {exc}", "error")
             return
 
-        total = len(candidates)
-        prog["total"] = total
-        _log_event(uid, f"Found {total} emails with dirty body text")
+    prog["total"] = total
+    _log_event(uid, f"Found {total} emails with dirty body text")
 
-        if not candidates:
-            prog.update({
-                "phase": "done", "running": False, "phase_detail": "All bodies clean",
-                "result": {"cleaned": 0, "total_candidates": 0},
-            })
-            _log_event(uid, "All email bodies are clean", "success")
-            return
+    if not total:
+        prog.update({
+            "phase": "done", "running": False, "phase_detail": "All bodies clean",
+            "result": {"cleaned": 0, "total_candidates": 0},
+        })
+        _log_event(uid, "All email bodies are clean", "success")
+        return
 
+    # Get credentials once, outside the batch loop
+    async with AsyncSessionLocal() as session:
         try:
             creds = await get_credentials_for_user(session, user_id)
             if not creds:
@@ -240,36 +251,54 @@ async def clean_bodies_job(user_id: str):
             _log_event(uid, f"Auth failed: {exc}", "error")
             return
 
-        service = await asyncio.to_thread(_build_service, creds)
-        cleaned = 0
+    service = await asyncio.to_thread(_build_service, creds)
+    cleaned = 0
+    processed = 0
+    offset = 0
 
-        for i, email in enumerate(candidates):
-            prog["current"] = i + 1
-            prog["current_email"] = {
-                "subject": (email.subject or "")[:72],
-                "sender": (email.sender or email.sender_domain or "")[:48],
-            }
-            prog["phase_detail"] = f"Cleaning {i+1}/{total}: {(email.subject or '(no subject)')[:50]}"
-            try:
-                msg = await asyncio.to_thread(
-                    lambda eid=email.gmail_id: service.users().messages().get(
-                        userId="me", id=eid, format="full"
-                    ).execute()
-                )
-                body = _extract_body_text(msg.get("payload", {}))
-                if body and body != email.body_text:
-                    email.body_text = body
-                    cleaned += 1
-            except Exception as exc:
-                logger.warning("clean-bodies: failed for %s: %s", email.gmail_id, exc)
+    while True:
+        async with AsyncSessionLocal() as batch_session:
+            batch = (await batch_session.execute(
+                select(Email)
+                .where(Email.user_id == user_id if user_id else True)
+                .offset(offset)
+                .limit(batch_size)
+            )).scalars().all()
+            if not batch:
+                break
 
-        await session.commit()
-        prog.update({
-            "phase": "done", "running": False,
-            "phase_detail": f"Cleaned {cleaned} of {total} emails",
-            "result": {"cleaned": cleaned, "total_candidates": total},
-        })
-        _log_event(uid, f"Done: cleaned {cleaned} of {total} emails", "success")
+            for email in batch:
+                if not email.body_text or not _DIRTY_BODY_RE.search(email.body_text):
+                    continue
+                processed += 1
+                prog["current"] = processed
+                prog["current_email"] = {
+                    "subject": (email.subject or "")[:72],
+                    "sender": (email.sender or email.sender_domain or "")[:48],
+                }
+                prog["phase_detail"] = f"Cleaning {processed}/{total}: {(email.subject or '(no subject)')[:50]}"
+                try:
+                    msg = await asyncio.to_thread(
+                        lambda eid=email.gmail_id: service.users().messages().get(
+                            userId="me", id=eid, format="full"
+                        ).execute()
+                    )
+                    body = _extract_body_text(msg.get("payload", {}))
+                    if body and body != email.body_text:
+                        email.body_text = body
+                        cleaned += 1
+                except Exception as exc:
+                    logger.warning("clean-bodies: failed for %s: %s", email.gmail_id, exc)
+
+            await batch_session.commit()
+        offset += batch_size
+
+    prog.update({
+        "phase": "done", "running": False,
+        "phase_detail": f"Cleaned {cleaned} of {total} emails",
+        "result": {"cleaned": cleaned, "total_candidates": total},
+    })
+    _log_event(uid, f"Done: cleaned {cleaned} of {total} emails", "success")
 
 
 def datetime_now_utc():
