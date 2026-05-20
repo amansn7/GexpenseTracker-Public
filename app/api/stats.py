@@ -3,7 +3,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_
+from sqlalchemy import select, func, desc, or_, ColumnElement
+from sqlalchemy.ext.compiler import compiles
 
 from app.auth_deps import get_current_user
 from app.database import get_db
@@ -11,6 +12,24 @@ from app.models import Transaction, Email, User, UserSettings, TransactionStatus
 from app.config import settings
 
 router = APIRouter()
+
+
+class MonthKey(ColumnElement):
+    """Cross-dialect SQL expression: returns 'YYYY-MM' from a date column."""
+    inherit_cache = True
+
+    def __init__(self, col):
+        self.col = col
+
+
+@compiles(MonthKey, "postgresql")
+def _pg_month_key(element, compiler, **kw):
+    return "to_char(date_trunc('month', %s), 'YYYY-MM')" % compiler.process(element.col, **kw)
+
+
+@compiles(MonthKey, "sqlite")
+def _sqlite_month_key(element, compiler, **kw):
+    return "strftime('%%Y-%%m', %s)" % compiler.process(element.col, **kw)
 
 
 # ---------------------------------------------------------------------------
@@ -89,11 +108,11 @@ async def stats_summary(
     if category:
         expense_where.append(Transaction.category == category)
 
-    expense_rows = (await db.execute(
-        select(Transaction.amount)
+    total_expenses = float((await db.execute(
+        select(func.sum(Transaction.amount))
         .join(Email, Transaction.email_id == Email.id)
         .where(*expense_where)
-    )).scalars().all()
+    )).scalar_one() or 0)
 
     # Intentional: income that shifts to next month via effective_month is excluded
     # from the current period (e.g., Axis salary on Apr 28 counts as May income).
@@ -114,10 +133,9 @@ async def stats_summary(
         for r in income_rows
         if start <= _effective_month(r.txn_date, "income", r.sender) <= this_month
     )
-    total_expenses = sum(float(a or 0) for a in expense_rows)
 
-    cc_payment_rows = (await db.execute(
-        select(Transaction.amount)
+    total_cc_payments = float((await db.execute(
+        select(func.sum(Transaction.amount))
         .join(Email, Transaction.email_id == Email.id)
         .where(
             Email.user_id == current_user.id,
@@ -127,11 +145,10 @@ async def stats_summary(
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
         )
-    )).scalars().all()
-    total_cc_payments = sum(float(a or 0) for a in cc_payment_rows)
+    )).scalar_one() or 0)
 
-    investment_rows = (await db.execute(
-        select(Transaction.amount)
+    total_investments = float((await db.execute(
+        select(func.sum(Transaction.amount))
         .join(Email, Transaction.email_id == Email.id)
         .where(
             Email.user_id == current_user.id,
@@ -141,8 +158,7 @@ async def stats_summary(
             Transaction.txn_date.isnot(None),
             Transaction.status != "needs_review",
         )
-    )).scalars().all()
-    total_investments = sum(float(a or 0) for a in investment_rows)
+    )).scalar_one() or 0)
 
     saved = total_income - total_expenses - total_cc_payments - total_investments
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
@@ -267,15 +283,19 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
     income_where.insert(0, Email.user_id == user_id)
 
     expense_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount)
+        select(
+            MonthKey(Transaction.txn_date).label('month_key'),
+            func.sum(Transaction.amount).label('total'),
+        )
         .join(Email, Transaction.email_id == Email.id)
         .where(*expense_where)
+        .group_by(MonthKey(Transaction.txn_date))
     )).all()
 
     for r in expense_rows:
-        key = r.txn_date.strftime("%Y-%m")
+        key = r.month_key
         if key in months:
-            months[key]["expenses"] += float(r.amount or 0)
+            months[key]["expenses"] += float(r.total or 0)
 
     income_rows = (await db.execute(
         select(Transaction.txn_date, Transaction.amount, Email.sender)
