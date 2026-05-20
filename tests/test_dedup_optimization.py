@@ -10,6 +10,7 @@ from app.models import Transaction, Email, DuplicatePair, DomainPairRule
 from app.dedup.service import (
     _score_pair,
     _score_pair_with_rules,
+    _compute_score,
     batch_detect_duplicates,
     detect_and_record_duplicates,
     _sorted_domains,
@@ -394,3 +395,164 @@ async def test_score_pair_with_rules_day_diff_too_large():
     score, source = _score_pair_with_rules(tx_a, email_a, tx_b, email_b, {})
     assert score == 0.0
     assert source == "unknown"
+
+
+# ── Test 5: _compute_score pure function ─────────────────────────────────────
+
+def _make_mock_email(sender_domain: str, received_at: datetime, subject: str = "") -> MagicMock:
+    m = MagicMock(spec=Email)
+    m.sender_domain = sender_domain
+    m.received_at = received_at
+    m.subject = subject
+    return m
+
+
+def _make_mock_tx(amount: float, txn_date: date, merchant: str = "") -> MagicMock:
+    m = MagicMock(spec=Transaction)
+    m.amount = amount
+    m.txn_date = txn_date
+    m.merchant = merchant
+    return m
+
+
+def test_compute_score_same_domain():
+    """_compute_score returns (1.0, 'same_domain_exact') for same domain."""
+    email_a = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert score == 1.0
+    assert source == "same_domain_exact"
+
+
+def test_compute_score_domain_pair_with_rule():
+    """_compute_score returns rule.confidence when a valid rule is provided."""
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="hdfcbank.com",
+        domain_b="swiggy.in",
+        confirmed_count=2,
+        dismissed_count=0,
+        confidence=0.75,
+        auto_resolve=False,
+    )
+    email_a = _make_mock_email("hdfcbank.com", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, rule)
+    assert score == 0.75
+    assert source == "domain_pair"
+
+
+def test_compute_score_domain_pair_rule_below_threshold():
+    """_compute_score ignores rule with confidence < 0.5."""
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="a.com",
+        domain_b="b.com",
+        confirmed_count=1,
+        dismissed_count=1,
+        confidence=0.4,
+        auto_resolve=False,
+    )
+    email_a = _make_mock_email("a.com", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("b.com", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, rule)
+    assert score == 0.5
+    assert source == "amount_date"
+
+
+def test_compute_score_investment_flow():
+    """_compute_score detects investment flow (order + confirmation)."""
+    email_a = _make_mock_email(
+        "fundhouse.com",
+        datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc),
+        subject="Order placed for MF purchase",
+    )
+    tx_a = _make_mock_tx(5000.0, date(2026, 4, 10))
+    email_b = _make_mock_email(
+        "bank.com",
+        datetime(2026, 4, 12, 12, 0, tzinfo=timezone.utc),
+        subject="Units allotted to your folio",
+    )
+    tx_b = _make_mock_tx(5000.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert score == 0.65
+    assert source == "investment_flow"
+
+
+def test_compute_score_amount_date_fallback():
+    """_compute_score returns (0.5, 'amount_date') for same day, different domains."""
+    email_a = _make_mock_email("x.com", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("y.com", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert score == 0.5
+    assert source == "amount_date"
+
+
+def test_compute_score_amount_outside_tolerance():
+    """_compute_score returns (0.0, 'unknown') when amounts differ beyond tolerance."""
+    email_a = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(999.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert score == 0.0
+    assert source == "unknown"
+
+
+def test_compute_score_day_diff_too_large():
+    """_compute_score returns (0.0, 'unknown') when day_diff > 3."""
+    email_a = _make_mock_email("a.com", datetime(2026, 4, 1, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 1))
+    email_b = _make_mock_email("b.com", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert score == 0.0
+    assert source == "unknown"
+
+
+def test_compute_score_merchant_alias():
+    """_compute_score returns merchant_alias score for known domain aliases."""
+    email_a = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10), merchant="Swiggy")
+    email_b = _make_mock_email("bundl.in", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10), merchant="Swiggy")
+
+    score, source = _compute_score(tx_a, email_a, tx_b, email_b, None)
+    assert source == "merchant_alias"
+    assert 0.75 <= score <= 0.95
+
+
+def test_compute_score_is_pure_no_side_effects():
+    """_compute_score is a pure function — calling it twice returns identical results."""
+    email_a = _make_mock_email("hdfcbank.com", datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+    tx_a = _make_mock_tx(500.0, date(2026, 4, 10))
+    email_b = _make_mock_email("swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+    tx_b = _make_mock_tx(500.0, date(2026, 4, 10))
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="hdfcbank.com",
+        domain_b="swiggy.in",
+        confirmed_count=2,
+        dismissed_count=0,
+        confidence=0.75,
+        auto_resolve=False,
+    )
+
+    r1 = _compute_score(tx_a, email_a, tx_b, email_b, rule)
+    r2 = _compute_score(tx_a, email_a, tx_b, email_b, rule)
+    assert r1 == r2

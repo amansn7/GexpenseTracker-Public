@@ -139,6 +139,70 @@ def _is_dedup_candidate(transaction):
     return True
 
 
+def _compute_score(
+    tx_a: Transaction,
+    email_a: Email,
+    tx_b: Transaction,
+    email_b: Email,
+    rule: Optional[DomainPairRule],
+) -> Tuple[float, str]:
+    """
+    Pure scoring function — no DB access, no side effects.
+
+    The caller is responsible for looking up the DomainPairRule (via DB query
+    or dict lookup) and passing it here as ``rule`` (or None).
+
+    Returns (confidence, rule_source). Returns (0.0, "unknown") if no layer
+    fires with score >= 0.5 or the pair is structurally ineligible.
+    """
+    amount_a = float(tx_a.amount)
+    amount_b = float(tx_b.amount)
+    tol = _amount_tolerance(amount_a, bulk=True)
+    if abs(amount_a - amount_b) > tol:
+        return (0.0, "unknown")
+
+    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
+    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    day_diff = abs((eff_a - eff_b).days)
+    if day_diff > 3:
+        return (0.0, "unknown")
+
+    domain_a = email_a.sender_domain.lower()
+    domain_b = email_b.sender_domain.lower()
+    subject_a = (email_a.subject or "").lower()
+    subject_b = (email_b.subject or "").lower()
+    merchant_a = tx_a.merchant or ""
+    merchant_b = tx_b.merchant or ""
+
+    # Layer 1: same domain (highest confidence)
+    if domain_a == domain_b:
+        return (1.0, "same_domain_exact")
+
+    # Layer 2: merchant alias across domains
+    m_score = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
+    if m_score >= 0.7:
+        return (0.75 + m_score * 0.2, "merchant_alias")
+
+    # Layer 3: cross-domain with DomainPairRule (caller supplies the rule)
+    if rule and rule.confidence >= 0.5:
+        return (rule.confidence, "domain_pair")
+
+    # Layer 4: investment flow
+    a_is_order = _subject_has_any(subject_a, _INVEST_ORDER_SIGNALS)
+    a_is_confirm = _subject_has_any(subject_a, _INVEST_CONFIRM_SIGNALS)
+    b_is_order = _subject_has_any(subject_b, _INVEST_ORDER_SIGNALS)
+    b_is_confirm = _subject_has_any(subject_b, _INVEST_CONFIRM_SIGNALS)
+    if (a_is_order and b_is_confirm) or (a_is_confirm and b_is_order):
+        if day_diff <= 3:
+            return (0.65, "investment_flow")
+
+    # Layer 5: amount + date fallback (lowest confidence)
+    if day_diff <= 1:
+        return (0.5, "amount_date")
+
+    return (0.0, "unknown")
+
+
 async def _score_pair(
     tx_a: Transaction,
     email_a: Email,
@@ -147,11 +211,7 @@ async def _score_pair(
     db: AsyncSession,
 ) -> Tuple[float, str]:
     """
-    Run the shared 5-layer scoring pipeline against an arbitrary pair.
-
-    Returns (confidence, rule_source). Returns (0.0, "unknown") if no layer
-    fires with score >= 0.5 or the pair is structurally ineligible (missing
-    effective date, amount diff outside tolerance, or day diff > 3).
+    Async wrapper around _compute_score that looks up the DomainPairRule via DB.
 
     Layer order:
       1. same_domain_exact (1.0)
@@ -176,57 +236,18 @@ async def _score_pair(
     if eff_a is None or eff_b is None:
         return (0.0, "unknown")
 
-    amount_a = float(tx_a.amount)
-    amount_b = float(tx_b.amount)
-    tol = _amount_tolerance(amount_a, bulk=True)
-    if abs(amount_a - amount_b) > tol:
-        return (0.0, "unknown")
-
-    day_diff = abs((eff_a - eff_b).days)
-    if day_diff > 3:
-        return (0.0, "unknown")
-
-    domain_a = email_a.sender_domain.lower()
-    domain_b = email_b.sender_domain.lower()
-    subject_a = (email_a.subject or "").lower()
-    subject_b = (email_b.subject or "").lower()
-    merchant_a = tx_a.merchant or ""
-    merchant_b = tx_b.merchant or ""
-
-    # Layer 1: same domain (highest confidence)
-    if domain_a == domain_b:
-        return (1.0, "same_domain_exact")
-
-    # Layer 2: merchant alias across domains
-    m_score = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
-    if m_score >= 0.7:
-        return (0.75 + m_score * 0.2, "merchant_alias")
-
-    # Layer 3: cross-domain with DomainPairRule
-    da, db_ = _sorted_domains(domain_a, domain_b)
+    da, db_ = _sorted_domains(
+        email_a.sender_domain.lower(),
+        email_b.sender_domain.lower(),
+    )
     rule = (await db.execute(
         select(DomainPairRule).where(
             DomainPairRule.domain_a == da,
             DomainPairRule.domain_b == db_,
         )
     )).scalar_one_or_none()
-    if rule and rule.confidence >= 0.5:
-        return (rule.confidence, "domain_pair")
 
-    # Layer 4: investment flow
-    a_is_order = _subject_has_any(subject_a, _INVEST_ORDER_SIGNALS)
-    a_is_confirm = _subject_has_any(subject_a, _INVEST_CONFIRM_SIGNALS)
-    b_is_order = _subject_has_any(subject_b, _INVEST_ORDER_SIGNALS)
-    b_is_confirm = _subject_has_any(subject_b, _INVEST_CONFIRM_SIGNALS)
-    if (a_is_order and b_is_confirm) or (a_is_confirm and b_is_order):
-        if day_diff <= 3:
-            return (0.65, "investment_flow")
-
-    # Layer 5: amount + date fallback (lowest confidence)
-    if day_diff <= 1:
-        return (0.5, "amount_date")
-
-    return (0.0, "unknown")
+    return _compute_score(tx_a, email_a, tx_b, email_b, rule)
 
 
 def _score_pair_with_rules(
@@ -237,8 +258,8 @@ def _score_pair_with_rules(
     rules: Dict[Tuple[str, str], DomainPairRule],
 ) -> Tuple[float, str]:
     """
-    Synchronous variant of _score_pair that uses a pre-loaded rules dict
-    instead of hitting the database. Returns (confidence, rule_source).
+    Synchronous wrapper around _compute_score that looks up the DomainPairRule
+    via a pre-loaded dict instead of hitting the database.
     """
     if tx_a.amount is None or tx_b.amount is None:
         return (0.0, "unknown")
@@ -252,52 +273,13 @@ def _score_pair_with_rules(
     if eff_a is None or eff_b is None:
         return (0.0, "unknown")
 
-    amount_a = float(tx_a.amount)
-    amount_b = float(tx_b.amount)
-    tol = _amount_tolerance(amount_a, bulk=True)
-    if abs(amount_a - amount_b) > tol:
-        return (0.0, "unknown")
-
-    day_diff = abs((eff_a - eff_b).days)
-    if day_diff > 3:
-        return (0.0, "unknown")
-
-    domain_a = email_a.sender_domain.lower()
-    domain_b = email_b.sender_domain.lower()
-    subject_a = (email_a.subject or "").lower()
-    subject_b = (email_b.subject or "").lower()
-    merchant_a = tx_a.merchant or ""
-    merchant_b = tx_b.merchant or ""
-
-    # Layer 1: same domain (highest confidence)
-    if domain_a == domain_b:
-        return (1.0, "same_domain_exact")
-
-    # Layer 2: merchant alias across domains
-    m_score = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
-    if m_score >= 0.7:
-        return (0.75 + m_score * 0.2, "merchant_alias")
-
-    # Layer 3: cross-domain with DomainPairRule (dict lookup instead of DB query)
-    da, db_ = _sorted_domains(domain_a, domain_b)
+    da, db_ = _sorted_domains(
+        email_a.sender_domain.lower(),
+        email_b.sender_domain.lower(),
+    )
     rule = rules.get((da, db_))
-    if rule and rule.confidence >= 0.5:
-        return (rule.confidence, "domain_pair")
 
-    # Layer 4: investment flow
-    a_is_order = _subject_has_any(subject_a, _INVEST_ORDER_SIGNALS)
-    a_is_confirm = _subject_has_any(subject_a, _INVEST_CONFIRM_SIGNALS)
-    b_is_order = _subject_has_any(subject_b, _INVEST_ORDER_SIGNALS)
-    b_is_confirm = _subject_has_any(subject_b, _INVEST_CONFIRM_SIGNALS)
-    if (a_is_order and b_is_confirm) or (a_is_confirm and b_is_order):
-        if day_diff <= 3:
-            return (0.65, "investment_flow")
-
-    # Layer 5: amount + date fallback (lowest confidence)
-    if day_diff <= 1:
-        return (0.5, "amount_date")
-
-    return (0.0, "unknown")
+    return _compute_score(tx_a, email_a, tx_b, email_b, rule)
 
 
 async def detect_and_record_duplicates(
