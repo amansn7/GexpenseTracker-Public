@@ -140,7 +140,7 @@ async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user
             "hist-001",
         )
 
-    monkeypatch.setattr("app.sync.fetch.asyncio.to_thread", lambda fn, *a, **kw: _fake_fetch())
+    monkeypatch.setattr("app.sync.fetch.fetch_new_messages", _fake_fetch)
 
     # Patch Gmail creds
     async def _fake_creds(*a, **kw):
