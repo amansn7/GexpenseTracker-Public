@@ -258,15 +258,31 @@ def _csv_value(value):
 
 @router.get("/transactions/export")
 async def export_transactions(
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
+    label: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (await db.execute(
+    conditions = [Email.user_id == current_user.id]
+    if date_from: conditions.append(Transaction.txn_date >= date_from)
+    if date_to:   conditions.append(Transaction.txn_date <= date_to)
+    if label:     conditions.append(Transaction.label == label)
+
+    count_q = (
+        select(func.count(Transaction.id))
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*conditions)
+    )
+    total = (await db.execute(count_q)).scalar_one()
+
+    data_q = (
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
-        .where(Email.user_id == current_user.id)
+        .where(*conditions)
         .order_by(desc(Transaction.created_at))
-    )).all()
+    )
+    rows = (await db.execute(data_q)).all()
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=EXPORT_COLUMNS)
@@ -293,10 +309,16 @@ async def export_transactions(
             "created_at": _csv_value(t.created_at),
         })
 
+    headers = {"Content-Disposition": 'attachment; filename="transactions.csv"'}
+    if total > 5000:
+        headers["X-Warning"] = (
+            f"Large export: {total} rows. Consider narrowing your date range or applying filters."
+        )
+
     return Response(
         content=output.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="transactions.csv"'},
+        headers=headers,
     )
 
 
