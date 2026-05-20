@@ -101,16 +101,19 @@ async def classify_test(
     """Run classification pipeline on raw inputs — no DB writes."""
     from app.gmail.client import extract_domain
     from app.classifier.classifier import classify_email
+    from app.classifier.context import ClassificationContext
 
     sender_domain = extract_domain(body.sender)
     result = await classify_email(
-        email_id=body.email_id,
-        sender=body.sender,
-        sender_domain=sender_domain,
-        subject=body.subject,
-        body_text=body.body,
-        session=None,
-        use_llm=body.use_llm,
+        ClassificationContext(
+            email_id=body.email_id,
+            sender=body.sender,
+            sender_domain=sender_domain,
+            subject=body.subject,
+            body_text=body.body,
+            session=None,
+            use_llm=body.use_llm,
+        )
     )
     return {
         "label": result.label.value,

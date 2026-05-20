@@ -478,6 +478,7 @@ async def reclassify_preview(
     """Preview reclassification. method=llm uses AI, method=rules uses deterministic rules."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
+    from app.classifier.context import ClassificationContext
 
     ctx = await get_classifier_context(str(current_user.id), db)
 
@@ -488,16 +489,18 @@ async def reclassify_preview(
     else:
         user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
-            email_id=e.id,
-            sender=e.sender or "",
-            sender_domain=e.sender_domain or "",
-            subject=e.subject or "",
-            body_text=e.body_text or e.body_snippet or "",
-            session=None,
-            rule_engine_enabled=False,
-            user_id=str(current_user.id),
-            llm_client_override=user_llm_client,
-            categories_override=ctx["categories"],
+            ClassificationContext(
+                email_id=e.id,
+                sender=e.sender or "",
+                sender_domain=e.sender_domain or "",
+                subject=e.subject or "",
+                body_text=e.body_text or e.body_snippet or "",
+                session=None,
+                rule_engine_enabled=False,
+                user_id=str(current_user.id),
+                llm_client_override=user_llm_client,
+                categories_override=ctx["categories"],
+            )
         )
     return {
         "label":      cls.label.value,
@@ -521,6 +524,7 @@ async def reclassify_transaction(
     """Commit reclassification to DB. method=llm uses AI, method=rules uses deterministic rules."""
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
+    from app.classifier.context import ClassificationContext
     if method == "rules":
         from app.classifier.classifier import _rules_fallback_result
         ctx = await get_classifier_context(str(current_user.id), db)
@@ -529,15 +533,17 @@ async def reclassify_transaction(
     else:
         user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
-            email_id=e.id,
-            sender=e.sender or "",
-            sender_domain=e.sender_domain or "",
-            subject=e.subject or "",
-            body_text=e.body_text or e.body_snippet or "",
-            session=db,
-            rule_engine_enabled=False,
-            user_id=str(current_user.id),
-            llm_client_override=user_llm_client,
+            ClassificationContext(
+                email_id=e.id,
+                sender=e.sender or "",
+                sender_domain=e.sender_domain or "",
+                subject=e.subject or "",
+                body_text=e.body_text or e.body_snippet or "",
+                session=db,
+                rule_engine_enabled=False,
+                user_id=str(current_user.id),
+                llm_client_override=user_llm_client,
+            )
         )
 
     t.label     = cls.label.value

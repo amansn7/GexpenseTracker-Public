@@ -93,13 +93,16 @@ async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(
 
     logger.info("Reprocessing transaction %s (email %s)", t.id, e.gmail_id)
     try:
+        from app.classifier.context import ClassificationContext
         result = await classify_email(
-            email_id=e.id,
-            sender=e.sender or "",
-            sender_domain=e.sender_domain or "",
-            subject=e.subject or "",
-            body_text=e.body_text or e.body_snippet or "",
-            session=db,
+            ClassificationContext(
+                email_id=e.id,
+                sender=e.sender or "",
+                sender_domain=e.sender_domain or "",
+                subject=e.subject or "",
+                body_text=e.body_text or e.body_snippet or "",
+                session=db,
+            )
         )
     except Exception as exc:
         logger.error("Reprocess failed for %s: %s", t.id, exc)
@@ -192,13 +195,16 @@ async def _bulk_reprocess_task(transaction_ids: list):
 
                     t, e = row
 
+                    from app.classifier.context import ClassificationContext
                     result = await classify_email(
-                        email_id=e.id,
-                        sender=e.sender or "",
-                        sender_domain=e.sender_domain or "",
-                        subject=e.subject or "",
-                        body_text=e.body_text or e.body_snippet or "",
-                        session=session,
+                        ClassificationContext(
+                            email_id=e.id,
+                            sender=e.sender or "",
+                            sender_domain=e.sender_domain or "",
+                            subject=e.subject or "",
+                            body_text=e.body_text or e.body_snippet or "",
+                            session=session,
+                        )
                     )
 
                     t.label = result.label.value

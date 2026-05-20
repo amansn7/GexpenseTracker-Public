@@ -7,6 +7,7 @@ from datetime import date
 from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Label, TransactionStatus, ClassifierMethod, ClassificationLog
+from app.classifier.context import ClassificationContext
 from app.classifier.llm_client import llm_client, MultiLLMClient
 from app.classifier.merchant import extract_raw_merchant
 from app.classifier.merchant_entity import resolve_merchant
@@ -108,36 +109,22 @@ def _parse_date(raw: Optional[str]) -> Optional[date]:
         return None
 
 
-async def classify_email(
-    email_id: Optional[str],
-    sender: str,
-    sender_domain: str,
-    subject: str,
-    body_text: str,
-    session: Optional[AsyncSession] = None,
-    rule_engine_enabled: bool = True,
-    db_rules: Optional[dict] = None,
-    user_id: Optional[str] = None,
-    llm_client_override: Optional[MultiLLMClient] = None,
-    use_llm: bool = True,
-    llm_priority: bool = False,
-    categories_override: Optional[str] = None,
-) -> ClassificationResult:
+async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
     t0 = time.monotonic()
-    body_snippet = (body_text or "")[:3000]
+    body_snippet = (ctx.body_text or "")[:3000]
 
-    if categories_override is not None:
-        user_categories = categories_override
+    if ctx.categories_override is not None:
+        user_categories = ctx.categories_override
     else:
-        user_categories = await CategoryService.load_for_llm(session, user_id)
+        user_categories = await CategoryService.load_for_llm(ctx.session, ctx.user_id)
 
-    default_currency = await load_user_default_currency(session, user_id)
+    default_currency = await load_user_default_currency(ctx.session, ctx.user_id)
 
     # Stage 1 pre-filter: skip LLM for clear non-financial emails
-    if rule_engine_enabled and not llm_priority:
-        rule_pre = apply_rules(sender_domain, subject, body_text, db_rules or {})
+    if ctx.rule_engine_enabled and not ctx.llm_priority:
+        rule_pre = apply_rules(ctx.sender_domain, ctx.subject, ctx.body_text, ctx.db_rules or {})
         if rule_pre.label == Label.ignore and rule_pre.confidence >= 0.82:
-            logger.debug("Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", sender_domain, rule_pre.confidence)
+            logger.debug("Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", ctx.sender_domain, rule_pre.confidence)
             status = (
                 TransactionStatus.auto
                 if rule_pre.confidence >= settings.AUTO_CONFIRM_THRESHOLD
@@ -156,11 +143,11 @@ async def classify_email(
                 status=status,
                 classifier_method=ClassifierMethod.rule,
                 transaction_type=txn_type,
-                payment_mode=_detect_payment_mode(body_text),
+                payment_mode=_detect_payment_mode(ctx.body_text),
             )
 
-    pre_extraction = rule_engine_adapter.extract(subject, body_snippet)
-    logger.debug("Pre-extraction for email %s: %s", email_id, pre_extraction)
+    pre_extraction = rule_engine_adapter.extract(ctx.subject, body_snippet)
+    logger.debug("Pre-extraction for email %s: %s", ctx.email_id, pre_extraction)
 
     provider = "none"
     model_name = "none"
@@ -170,13 +157,13 @@ async def classify_email(
     source_currency: Optional[str] = None
     raw_merchant: Optional[str] = None
 
-    if not use_llm:
-        logger.debug("LLM disabled for email %s, using rules only", email_id)
+    if not ctx.use_llm:
+        logger.debug("LLM disabled for email %s, using rules only", ctx.email_id)
     else:
-        active_client = llm_client_override or llm_client
+        active_client = ctx.llm_client_override or llm_client
         try:
             verbose = await active_client.classify_verbose(
-                sender, subject, body_snippet,
+                ctx.sender, ctx.subject, body_snippet,
                 categories=user_categories,
                 pre_extraction=pre_extraction,
             )
@@ -185,7 +172,7 @@ async def classify_email(
             model_name = verbose["model"]
             raw_response = verbose["raw_response"]
         except Exception as exc:
-            logger.error("LLM classification failed for email %s: %s", email_id, exc, exc_info=True)
+            logger.error("LLM classification failed for email %s: %s", ctx.email_id, exc, exc_info=True)
             result_warnings.append(f"LLM classification failed: {exc}")
 
     latency_ms = round((time.monotonic() - t0) * 1000)
@@ -197,7 +184,7 @@ async def classify_email(
         try:
             label = Label(llm_result.label)
         except ValueError:
-            logger.warning("LLM returned unknown label %r for email %s, defaulting to ignore", llm_result.label, email_id)
+            logger.warning("LLM returned unknown label %r for email %s, defaulting to ignore", llm_result.label, ctx.email_id)
             label = Label.ignore
         amount = llm_result.amount
         category = llm_result.category
@@ -213,11 +200,11 @@ async def classify_email(
                 converted = await convert_amount(amount, source_currency, default_currency)
                 logger.info(
                     "Converted %.2f %s → %.2f %s for email %s",
-                    amount, source_currency, converted, default_currency, email_id,
+                    amount, source_currency, converted, default_currency, ctx.email_id,
                 )
                 amount = converted
             except Exception as exc:
-                logger.warning("Currency conversion failed for email %s: %s", email_id, exc)
+                logger.warning("Currency conversion failed for email %s: %s", ctx.email_id, exc)
                 result_warnings.append(f"Currency conversion from {source_currency} failed: {exc}")
                 source_currency = None
 
@@ -232,13 +219,13 @@ async def classify_email(
         else:
             txn_type = None
     else:
-        rule_result = apply_rules(sender_domain, subject, body_text, db_rules or {})
+        rule_result = apply_rules(ctx.sender_domain, ctx.subject, ctx.body_text, ctx.db_rules or {})
         if rule_result.merchant:
             merchant = rule_result.merchant
             merchant_conf = 1.0
             merchant_category = MERCHANT_MAP.get(rule_result.merchant.lower(), {}).get("category")
         else:
-            raw_merchant = extract_raw_merchant(body_text)
+            raw_merchant = extract_raw_merchant(ctx.body_text)
             merchant_info = resolve_merchant(raw_merchant or "")
             merchant_conf = merchant_info["confidence"]
             merchant_meta = MERCHANT_MAP.get(merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {})
@@ -272,12 +259,12 @@ async def classify_email(
     if llm_result:
         amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
-    if session is not None:
+    if ctx.session is not None:
         try:
-            session.add(ClassificationLog(
-                email_id=email_id,
-                sender_domain=sender_domain,
-                subject=subject,
+            ctx.session.add(ClassificationLog(
+                email_id=ctx.email_id,
+                sender_domain=ctx.sender_domain,
+                subject=ctx.subject,
                 body_snippet=body_snippet,
                 provider=provider,
                 model=model_name,
@@ -303,7 +290,7 @@ async def classify_email(
         status=status,
         classifier_method=classifier_method,
         transaction_type=txn_type,
-        payment_mode=_detect_payment_mode(body_text),
+        payment_mode=_detect_payment_mode(ctx.body_text),
         currency=default_currency,
         source_currency=source_currency if llm_result else None,
         warnings=result_warnings,
@@ -569,11 +556,13 @@ async def batch_classify_emails(
         email_id, sender, sender_domain, subject, body_text = items[i]
         try:
             results[i] = await classify_email(
-                email_id=email_id, sender=sender, sender_domain=sender_domain,
-                subject=subject, body_text=body_text, session=session,
-                rule_engine_enabled=rule_engine_enabled, db_rules=db_rules,
-                user_id=user_id, llm_client_override=llm_client_override,
-                use_llm=use_llm,
+                ClassificationContext(
+                    email_id=email_id, sender=sender, sender_domain=sender_domain,
+                    subject=subject, body_text=body_text, session=session,
+                    rule_engine_enabled=rule_engine_enabled, db_rules=db_rules,
+                    user_id=user_id, llm_client_override=llm_client_override,
+                    use_llm=use_llm,
+                )
             )
         except Exception:
             results[i] = _rules_fallback_result(sender_domain, subject, body_text, db_rules)

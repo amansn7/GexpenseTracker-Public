@@ -122,14 +122,18 @@ async def review_email(
         raise HTTPException(status_code=404, detail="Email not found")
 
     if payload.action == "keep":
+        from app.classifier.context import ClassificationContext
+        from app.classifier.classifier import classify_email
         result = await classify_email(
-            email_id=email.id,
-            sender=email.sender or "",
-            sender_domain=email.sender_domain or "",
-            subject=email.subject or "",
-            body_text=email.body_text or email.body_snippet or "",
-            session=db,
-            user_id=current_user.id,
+            ClassificationContext(
+                email_id=email.id,
+                sender=email.sender or "",
+                sender_domain=email.sender_domain or "",
+                subject=email.subject or "",
+                body_text=email.body_text or email.body_snippet or "",
+                session=db,
+                user_id=current_user.id,
+            )
         )
         txn = Transaction(
             email_id=email.id,
@@ -306,16 +310,20 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     body_text += f"\n\n[User note: {hint}]"
 
                 try:
+                    from app.classifier.context import ClassificationContext
+                    from app.classifier.classifier import classify_email
                     cls = await classify_email(
-                        email_id=email.id,
-                        sender=email.sender or "",
-                        sender_domain=email.sender_domain or "",
-                        subject=email.subject or "",
-                        body_text=body_text,
-                        session=db,
-                        user_id=user_id,
-                        llm_client_override=user_llm_client,
-                        rule_engine_enabled=False,
+                        ClassificationContext(
+                            email_id=email.id,
+                            sender=email.sender or "",
+                            sender_domain=email.sender_domain or "",
+                            subject=email.subject or "",
+                            body_text=body_text,
+                            session=db,
+                            user_id=user_id,
+                            llm_client_override=user_llm_client,
+                            rule_engine_enabled=False,
+                        )
                     )
 
                     txn_q = await db.execute(
