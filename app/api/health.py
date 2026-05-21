@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth_deps import get_current_user, is_owner
 from app.database import get_db, engine
 from app.models import User, ConnectedAccount, Session
 
@@ -20,8 +21,17 @@ def _get_git_sha() -> str:
     return os.getenv("RAILWAY_GIT_COMMIT_SHA", os.getenv("GIT_SHA", "unknown"))[:8]
 
 
+def _require_owner(current_user: User = Depends(get_current_user)) -> User:
+    if not is_owner(current_user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    return current_user
+
+
 @router.get("/health/detailed")
-async def health_detailed(db: AsyncSession = Depends(get_db)):
+async def health_detailed(
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
     """Detailed health check reporting component readiness."""
     components = {}
 
@@ -107,10 +117,10 @@ async def health_detailed(db: AsyncSession = Depends(get_db)):
 
 @router.get("/health/ready")
 async def health_ready(db: AsyncSession = Depends(get_db)):
-    """Readiness probe — returns 503 if database or critical components are down."""
+    """Readiness probe — returns 503 if critical components are down. Public, minimal response."""
     try:
         await db.execute(text("SELECT 1"))
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"database_unavailable: {exc}")
+    except Exception:
+        raise HTTPException(status_code=503, detail="degraded")
 
-    return {"status": "ready"}
+    return {"status": "ok"}

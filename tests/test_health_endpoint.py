@@ -1,42 +1,62 @@
 """Tests for /health/detailed and /health/ready endpoints."""
 import os
 import pytest
+import pytest_asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture
-def mock_db():
-    """Mock the database session for health tests."""
-    mock_session = AsyncMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
-    mock_result = MagicMock()
-    mock_result.scalar_one.return_value = 0
-    mock_session.execute = AsyncMock(return_value=mock_result)
-
-    from app.database import get_db
-    async def override():
-        yield mock_session
-
-    from app.main import app
-    app.dependency_overrides[get_db] = override
-    yield mock_session
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(mock_db):
+@pytest_asyncio.fixture
+async def auth_client(mock_user):
+    """Client with owner-level auth via mock_user fixture."""
     os.environ["TESTING"] = "1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-    os.environ["SECRET_KEY"] = "test-secret-key-for-health-tests"
-    os.environ["FERNET_KEY"] = "test-fernet-key-for-health-tests"
     from app.main import app
     return TestClient(app)
 
 
-def test_health_detailed_returns_components(client):
-    resp = client.get("/api/health/detailed")
+@pytest.fixture
+def unauth_client():
+    """Client with no auth overrides — for testing 401 responses."""
+    os.environ["TESTING"] = "1"
+    os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+    from app.main import app
+    # Ensure no auth overrides are active
+    from app.auth_deps import get_current_user
+    app.dependency_overrides.pop(get_current_user, None)
+    return TestClient(app)
+
+
+# ── /health/ready — public, minimal ──────────────────────────────────────────
+
+def test_health_ready_returns_200(unauth_client):
+    resp = unauth_client.get("/api/health/ready")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+
+
+def test_health_ready_no_internal_details(unauth_client):
+    """Ready probe must not leak internals."""
+    resp = unauth_client.get("/api/health/ready")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "latency_ms" not in data
+    assert "version" not in data
+    assert "components" not in data
+    assert "uptime_seconds" not in data
+
+
+# ── /health/detailed — requires authentication ────────────────────────────────
+
+def test_health_detailed_unauthenticated_returns_401(unauth_client):
+    """Unauthenticated requests must be rejected."""
+    resp = unauth_client.get("/api/health/detailed")
+    assert resp.status_code in (401, 403)
+
+
+def test_health_detailed_returns_components(auth_client):
+    resp = auth_client.get("/api/health/detailed")
     assert resp.status_code == 200
     data = resp.json()
     assert "status" in data
@@ -48,30 +68,24 @@ def test_health_detailed_returns_components(client):
     assert "worker_queue" in data["components"]
 
 
-def test_health_detailed_database_ok(client):
-    resp = client.get("/api/health/detailed")
+def test_health_detailed_database_ok(auth_client):
+    resp = auth_client.get("/api/health/detailed")
     assert resp.status_code == 200
     db_status = resp.json()["components"]["database"]
     assert db_status["status"] == "ok"
     assert "latency_ms" in db_status
 
 
-def test_health_ready_returns_200(client):
-    resp = client.get("/api/health/ready")
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ready"
-
-
-def test_health_detailed_has_llm_providers(client):
-    resp = client.get("/api/health/detailed")
+def test_health_detailed_has_llm_providers(auth_client):
+    resp = auth_client.get("/api/health/detailed")
     assert resp.status_code == 200
     llm = resp.json()["components"]["llm_providers"]
     assert "status" in llm
     assert "available" in llm
 
 
-def test_health_detailed_has_gmail_auth(client):
-    resp = client.get("/api/health/detailed")
+def test_health_detailed_has_gmail_auth(auth_client):
+    resp = auth_client.get("/api/health/detailed")
     assert resp.status_code == 200
     gmail = resp.json()["components"]["gmail_auth"]
     assert "status" in gmail
