@@ -80,13 +80,18 @@ class MerchantAlias(Base):
     __tablename__ = "merchant_aliases"
 
     id: Mapped[str] = _uuid_col()
-    raw: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    raw: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     source: Mapped[str] = mapped_column(String(20), default="fuzzy_learned")  # seed | fuzzy_learned | user
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "raw", name="uq_merchant_alias_user_raw"),
+    )
 
 
 class UserMerchantOverride(Base):
