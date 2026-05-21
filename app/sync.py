@@ -8,12 +8,12 @@ from app.sync import (  # noqa: F401
     _sync_progress,
     _user_progress,
     clean_bodies_job,
+    clear_sync_progress,
     get_sync_progress,
     run_sync,
     run_sync_range,
     scan_all_for_duplicates,
     set_sync_minimized,
-    clear_sync_progress,
     sync_emails,
 )
 

@@ -1,14 +1,16 @@
+import json
+import re
+from collections import defaultdict
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import Optional
-from datetime import date
-from collections import defaultdict
-import re, json
+
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import RecurringExpense, User, Transaction, Email
+from app.models import Email, RecurringExpense, Transaction, User
 from app.services.llm_service import get_user_llm_client
 
 router = APIRouter()
@@ -16,11 +18,11 @@ router = APIRouter()
 
 class RecurringBody(BaseModel):
     name: str
-    amount: Optional[float] = None
-    category: Optional[str] = None
+    amount: float | None = None
+    category: str | None = None
     frequency: str = "monthly"   # monthly | weekly | yearly
-    day_of_month: Optional[int] = None
-    notes: Optional[str] = None
+    day_of_month: int | None = None
+    notes: str | None = None
     active: bool = True
 
 

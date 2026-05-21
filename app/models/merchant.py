@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, ForeignKey, Index
-from sqlalchemy.orm import Mapped, mapped_column
-import sqlalchemy as sa
 
-from .base import Base, _uuid_col, _utcnow
+import sqlalchemy as sa
+from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from .base import Base, _utcnow, _uuid_col
 
 
 class MerchantAlias(Base):
@@ -15,7 +16,7 @@ class MerchantAlias(Base):
     id: Mapped[str] = _uuid_col()
     canonical_name: Mapped[str] = mapped_column(String(255), nullable=False)
     alias_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    user_id: Mapped[Optional[str]] = mapped_column(
+    user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -33,6 +34,6 @@ class MerchantEntity(Base):
 
     id: Mapped[str] = _uuid_col()
     canonical_name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    parent_entity: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    category_hint: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    parent_entity: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    category_hint: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

@@ -2,17 +2,14 @@
 import asyncio
 import logging
 from datetime import datetime as _dt
-from typing import Optional
 
 from sqlalchemy import or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import _build_service, _extract_body_text, fetch_new_messages
-from app.models import Email, Transaction, UserSettings
+from app.models import Email, Transaction
 from app.sync.classify import _apply_pre_filter, _classify_batch
-from app.sync.persist import _persist_transactions
 from app.sync.progress import (
     _add_preview,
     _log_event,
@@ -28,8 +25,8 @@ async def run_sync_range(
     after_date: str,
     before_date: str,
     llm_priority: bool = False,
-    sender: Optional[str] = None,
-    subject: Optional[str] = None,
+    sender: str | None = None,
+    subject: str | None = None,
 ) -> dict:
     """
     Fetch + classify emails in a specific date range, then backfill missing bodies.

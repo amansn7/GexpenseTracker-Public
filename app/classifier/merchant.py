@@ -14,9 +14,8 @@ Pipeline:
 Fuzzy matches above FUZZY_ACCEPT are queued in _pending_aliases and
 persisted to DB by calling learn_pending_aliases(db) from the caller.
 """
-import re
 import logging
-from typing import Optional
+import re
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +105,7 @@ def _regex_clean(raw: str) -> str:
     return _WHITESPACE.sub(" ", text).strip()
 
 
-def extract_raw_merchant(text: str) -> Optional[str]:
+def extract_raw_merchant(text: str) -> str | None:
     """
     Extract a raw merchant candidate string from email/SMS body text.
     Tries structured patterns first (towards / to / at / UPI handle).
@@ -161,7 +160,8 @@ def normalize_merchant(raw: str) -> tuple[str, float]:
 
     # Stage 3: fuzzy match
     try:
-        from rapidfuzz import process, fuzz
+        from rapidfuzz import fuzz, process
+
         from app.classifier.rules import MERCHANT_MAP
 
         known = list(MERCHANT_MAP.keys())
@@ -193,6 +193,7 @@ async def learn_pending_aliases(db) -> list[str]:
         return []
 
     from sqlalchemy import select
+
     from app.models import MerchantAlias
 
     saved: list[str] = []
@@ -229,6 +230,7 @@ async def load_alias_cache_from_db(db) -> int:
     Call once at application startup inside lifespan().
     """
     from sqlalchemy import select
+
     from app.models import MerchantAlias
 
     _alias_cache.clear()

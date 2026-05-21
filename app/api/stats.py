@@ -1,15 +1,14 @@
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import ColumnElement, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, or_, ColumnElement
 from sqlalchemy.ext.compiler import compiles
 
 from app.auth_deps import get_current_user
-from app.database import get_db
-from app.models import Transaction, Email, User, UserSettings, TransactionStatus, ClassifierMethod
 from app.config import settings
+from app.database import get_db
+from app.models import ClassifierMethod, Email, Transaction, TransactionStatus, User, UserSettings
 
 router = APIRouter()
 
@@ -24,12 +23,12 @@ class MonthKey(ColumnElement):
 
 @compiles(MonthKey, "postgresql")
 def _pg_month_key(element, compiler, **kw):
-    return "to_char(date_trunc('month', %s), 'YYYY-MM')" % compiler.process(element.col, **kw)
+    return f"to_char(date_trunc('month', {compiler.process(element.col, **kw)}), 'YYYY-MM')"
 
 
 @compiles(MonthKey, "sqlite")
 def _sqlite_month_key(element, compiler, **kw):
-    return "strftime('%%Y-%%m', %s)" % compiler.process(element.col, **kw)
+    return f"strftime('%Y-%m', {compiler.process(element.col, **kw)})"
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +43,7 @@ def _add_months(d: date, n: int) -> date:
     return d.replace(year=year, month=month, day=1)
 
 
-def _effective_month(txn_date: date, label: str, sender: Optional[str]) -> date:
+def _effective_month(txn_date: date, label: str, sender: str | None) -> date:
     """Return the month this transaction is attributed to.
 
     Axis Bank income on day >= 25 shifts to the 1st of the following month.
@@ -80,9 +79,9 @@ def _period_start(period: str) -> date:
 @router.get("/stats/summary")
 async def stats_summary(
     period: str = "1m",
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    category: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    category: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -172,7 +171,7 @@ async def stats_summary(
     unread_count = (await db.execute(
         select(func.count()).select_from(Transaction)
         .join(Email, Transaction.email_id == Email.id)
-        .where(Email.user_id == current_user.id, Transaction.read == False)
+        .where(Email.user_id == current_user.id, not Transaction.read)
     )).scalar_one()
 
     return {
@@ -190,9 +189,9 @@ async def stats_summary(
 @router.get("/stats/category-breakdown")
 async def stats_category_breakdown(
     period: str = "1m",
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    category: Optional[str] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    category: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -247,7 +246,7 @@ async def stats_category_breakdown(
     return {"categories": categories, "total": round(total, 2)}
 
 
-async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date] = None, date_to: Optional[date] = None, user_id: str = "") -> list:
+async def _monthly_data(period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = "") -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
     if date_from and date_to:
@@ -319,8 +318,8 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: Optional[date]
 @router.get("/stats/monthly-trend")
 async def stats_monthly_trend(
     period: str = "1m",
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -332,8 +331,8 @@ async def stats_monthly_trend(
 @router.get("/stats/top-merchants")
 async def stats_top_merchants(
     period: str = "1m",
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -400,8 +399,8 @@ async def stats_monthly_summary(
 @router.get("/stats/income-vs-expense")
 async def stats_income_vs_expense(
     period: str = "1m",
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

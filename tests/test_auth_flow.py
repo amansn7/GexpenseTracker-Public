@@ -1,11 +1,13 @@
+import secrets
+from datetime import UTC, datetime, timedelta
+
 import pytest
 import pytest_asyncio
-from datetime import datetime, UTC, timedelta
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.database import get_db
-from app.models import User, Session, UserSettings, UserStatus, UserRole
-import secrets
+from app.main import app
+from app.models import Session, User, UserRole, UserSettings, UserStatus
 
 
 @pytest_asyncio.fixture
@@ -79,9 +81,12 @@ async def test_transactions_returns_401_without_session(db_session):
 @pytest.mark.asyncio
 async def test_transactions_scoped_to_user(db_session):
     """User B sees only their own transactions, not user A's."""
-    from app.models import Email as EmailModel, Transaction as TxnModel, Label, TransactionStatus
     import uuid
     from datetime import date as date_type
+
+    from app.models import Email as EmailModel
+    from app.models import Label, TransactionStatus
+    from app.models import Transaction as TxnModel
 
     async def override_db():
         yield db_session

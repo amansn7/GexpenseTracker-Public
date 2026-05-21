@@ -1,5 +1,4 @@
 """Tests for the regex-based transaction extractor."""
-import pytest
 from app.classifier.transaction_extractor import extract
 
 

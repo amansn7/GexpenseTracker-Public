@@ -5,7 +5,7 @@ sync.py depends on this protocol, not on the concrete classifier
 implementation. This breaks the direct coupling between the
 infrastructure/orchestration layer and the domain logic.
 """
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,15 +18,15 @@ class ClassifierProtocol(Protocol):
 
     async def __call__(
         self,
-        email_id: Optional[str],
+        email_id: str | None,
         sender: str,
         sender_domain: str,
         subject: str,
         body_text: str,
-        session: Optional[AsyncSession] = None,
+        session: AsyncSession | None = None,
         rule_engine_enabled: bool = True,
-        db_rules: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        db_rules: dict | None = None,
+        user_id: str | None = None,
     ) -> ClassificationResult:
         ...
 

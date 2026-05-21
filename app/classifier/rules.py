@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from app.models import Label
 
@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 
 @dataclass
 class RuleResult:
-    label: Optional[Label]
+    label: Label | None
     confidence: float
-    category: Optional[str] = None
+    category: str | None = None
     matched_domain: bool = False
-    merchant: Optional[str] = None
+    merchant: str | None = None
 
 
 BUILTIN_DOMAIN_RULES = {
@@ -101,7 +101,7 @@ def apply_rules(
     sender_domain: str,
     subject: str,
     body: str,
-    db_rules: Optional[dict[str, tuple[Label, Optional[str]]]] = None,
+    db_rules: dict[str, tuple[Label, str | None]] | None = None,
 ) -> RuleResult:
     domain = (sender_domain or "").strip().lower()
     text = f"{subject or ''} {body or ''}".lower()
@@ -142,14 +142,15 @@ async def build_domain_rules(
     session: "AsyncSession",
     min_count: int = 3,
     min_confidence: float = 0.75,
-) -> dict[str, tuple[Label, Optional[str]]]:
+) -> dict[str, tuple[Label, str | None]]:
     """
     Learn domain→(label, category) from high-confidence existing transactions
     and user-trained SenderRule entries. SenderRule entries always take priority
     over transaction-based learning.
     """
     from sqlalchemy import func, select
-    from app.models import Transaction, Email
+
+    from app.models import Email, Transaction
 
     rows = (await session.execute(
         select(
@@ -175,7 +176,7 @@ async def build_domain_rules(
             domain_tally[domain].get((row.label, row.category), 0) + row.cnt
         )
 
-    result: dict[str, tuple[Label, Optional[str]]] = {}
+    result: dict[str, tuple[Label, str | None]] = {}
     for domain, tally in domain_tally.items():
         best_key, best_cnt = max(tally.items(), key=lambda x: x[1])
         total = sum(tally.values())

@@ -1,5 +1,4 @@
 """Classification helpers extracted from sync pipeline."""
-from typing import List, Tuple, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.classifier.classifier import batch_classify_emails
 from app.classifier.pre_filter import load_engine_from_db
 from app.config import settings
-from app.models import Label, UserSettings
+from app.models import UserSettings
 from app.services.llm_service import get_user_llm_client
 
 
-async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id: str, prog: dict, uid: str) -> Tuple[List, int]:
+async def _apply_pre_filter(session: AsyncSession, messages: list[dict], user_id: str, prog: dict, uid: str) -> tuple[list, int]:
     """
     Deduplicate + pre-filter incoming messages.
     Returns (new_pairs, skipped_count) where new_pairs is List[(Email, msg_dict)].
@@ -34,7 +33,7 @@ async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id
         if user_settings and user_settings.active_ai_service_id:
             user_llm_client = await get_user_llm_client(user_id, session)
 
-    new_pairs: List[Tuple] = []
+    new_pairs: list[tuple] = []
     skipped = 0
 
     for msg in messages:
@@ -52,7 +51,7 @@ async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id
             user_llm_client=user_llm_client,
         )
 
-        subject_short = (msg.get("subject") or "(no subject)")[:48]
+        (msg.get("subject") or "(no subject)")[:48]
         email = Email(**msg)
         if user_id:
             email.user_id = user_id
@@ -69,12 +68,12 @@ async def _apply_pre_filter(session: AsyncSession, messages: List[dict], user_id
 
 
 async def _classify_batch(
-    new_pairs: List,
+    new_pairs: list,
     session: AsyncSession,
-    user_id: Optional[str],
+    user_id: str | None,
     user_llm_client=None,
     llm_priority: bool = False,
-) -> List:
+) -> list:
     """
     Load settings, rules, and run batch classification on new_pairs.
     Returns list of classification results.

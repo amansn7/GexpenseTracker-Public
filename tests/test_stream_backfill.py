@@ -1,19 +1,21 @@
 """Tests for streaming backfill — batch processing instead of collect-all-then-process."""
 import os
+
 os.environ.setdefault("TESTING", "1")
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from sqlalchemy import select
 
 
 @pytest.mark.asyncio
 async def test_backfill_bodies_processes_in_batches(db_session, mock_user):
     """backfill-bodies should commit after each batch, not once at the end."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import Email
 
     for i in range(200):
@@ -50,10 +52,11 @@ async def test_backfill_bodies_processes_in_batches(db_session, mock_user):
 @pytest.mark.asyncio
 async def test_backfill_bodies_with_email_ids(db_session, mock_user):
     """backfill-bodies with explicit email_ids should only process those."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import Email
 
     emails = []
@@ -174,10 +177,11 @@ async def test_clean_bodies_job_no_single_session_hold():
 @pytest.mark.asyncio
 async def test_fetch_range_backfill_paginates(db_session, mock_user):
     """fetch-range backfill should paginate through missing bodies."""
-    from app.sync.range import run_sync_range
-    from app.models import Email
     from datetime import datetime
+
+    from app.models import Email
     from app.sync.progress import _sync_progress
+    from app.sync.range import run_sync_range
 
     user_id = "test_range_paginate"
     _sync_progress[user_id] = {
@@ -228,10 +232,11 @@ async def test_fetch_range_backfill_paginates(db_session, mock_user):
 @pytest.mark.asyncio
 async def test_backfill_partial_commits_preserve_data_on_error(db_session, mock_user):
     """If an error occurs mid-batch, previously committed batches should be preserved."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import Email
 
     for i in range(15):
@@ -275,10 +280,11 @@ async def test_backfill_partial_commits_preserve_data_on_error(db_session, mock_
 @pytest.mark.asyncio
 async def test_backfill_bodies_empty_result(db_session, mock_user):
     """backfill-bodies should return 0 when all emails already have body text."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import Email
 
     db_session.add(Email(

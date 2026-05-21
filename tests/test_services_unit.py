@@ -3,12 +3,11 @@
 No database, no fixtures, no async — just the deterministic logic in
 ``CategoryService.resolve`` and ``format_transaction``.
 """
+from datetime import date, datetime
 from types import SimpleNamespace
-from datetime import datetime, date
 
 from app.services.category_service import CategoryService
 from app.services.transaction_formatter import format_transaction
-
 
 # ---------------------------------------------------------------------------
 # CategoryService.resolve

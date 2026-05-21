@@ -1,6 +1,7 @@
-import pytest
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -11,11 +12,12 @@ def set_testing(monkeypatch):
 @pytest.fixture(autouse=True)
 def override_auth():
     """Override get_current_user for all pagination tests."""
-    from app.main import app
-    from app.auth_deps import get_current_user
-    from app.models import User
-    from unittest.mock import MagicMock
     import uuid
+    from unittest.mock import MagicMock
+
+    from app.auth_deps import get_current_user
+    from app.main import app
+    from app.models import User
 
     fake_user = MagicMock(spec=User)
     fake_user.id = str(uuid.uuid4())
@@ -30,7 +32,7 @@ def override_auth():
 
 
 def _make_row(txn_id: str):
-    from app.models import Transaction, Email
+    from app.models import Email, Transaction
     t = MagicMock(spec=Transaction)
     t.id = txn_id
     t.label = "expense"
@@ -45,12 +47,12 @@ def _make_row(txn_id: str):
     t.user_notes = None
     t.read = False
     t.flagged = False
-    t.created_at = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    t.created_at = datetime(2026, 4, 1, tzinfo=UTC)
 
     e = MagicMock(spec=Email)
     e.subject = "Debit alert"
     e.sender = "noreply@test.com"
-    e.received_at = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    e.received_at = datetime(2026, 4, 1, tzinfo=UTC)
     e.gmail_link = "https://mail.google.com/mail/u/0/#inbox/abc"
     return t, e
 
@@ -58,9 +60,10 @@ def _make_row(txn_id: str):
 @pytest.mark.asyncio
 async def test_list_transactions_returns_paginated_shape():
     """GET /api/transactions returns {items, total, offset, limit}."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
+    from httpx import ASGITransport, AsyncClient
+
     from app.database import get_db
+    from app.main import app
 
     rows = [_make_row(f"tx-{i}") for i in range(3)]
     execute_call = 0
@@ -103,9 +106,10 @@ async def test_list_transactions_returns_paginated_shape():
 @pytest.mark.asyncio
 async def test_list_transactions_items_include_read_and_flagged():
     """Each item in response includes read and flagged fields."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
+    from httpx import ASGITransport, AsyncClient
+
     from app.database import get_db
+    from app.main import app
 
     rows = [_make_row("tx-1")]
     execute_call = 0

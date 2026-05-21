@@ -5,7 +5,6 @@ Uses httpx (already a project dependency) for HTTP calls.
 """
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Tuple
 
 import httpx
 
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 _FX_API_URL = "https://api.frankfurter.dev/v1/latest"
 _CACHE_TTL = timedelta(hours=1)
 
-_rates_cache: Dict[str, Tuple[float, datetime]] = {}
+_rates_cache: dict[str, tuple[float, datetime]] = {}
 
 SUPPORTED_CURRENCIES = {
     "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY",
@@ -68,11 +67,12 @@ async def convert_amount(
     return round(amount * rate, 2)
 
 
-async def load_user_default_currency(session, user_id: Optional[str]) -> str:
+async def load_user_default_currency(session, user_id: str | None) -> str:
     """Load the user's default currency from UserProfile, falling back to 'INR'."""
     if not user_id or not session:
         return "INR"
     from sqlalchemy import select
+
     from app.models import UserProfile
     try:
         result = await session.execute(

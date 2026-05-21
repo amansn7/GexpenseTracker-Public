@@ -5,7 +5,7 @@ Raises ValueError (not HTTPException) so callers can wrap appropriately.
 """
 import os
 import time
-from enum import Enum
+from enum import StrEnum
 
 import jwt as pyjwt
 
@@ -14,7 +14,7 @@ REFRESH_TTL_SECONDS: int = 30 * 86400   # 30 days
 _ALGORITHM = "HS256"
 
 
-class TokenType(str, Enum):
+class TokenType(StrEnum):
     ACCESS = "access"
     REFRESH = "refresh"
 

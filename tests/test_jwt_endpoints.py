@@ -8,8 +8,6 @@ Tests:
 - GET  /api/auth/callback       — dual-issue: mobile client gets JSON, browser still redirects
 """
 import os
-import secrets
-from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -23,7 +21,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret-key-at-least-32-chars!!")
 from app.database import get_db
 from app.jwt_utils import create_access_token, create_refresh_token
 from app.main import app
-from app.models import Base, DeviceToken, RefreshTokenBlacklist, Session, User, UserRole, UserSettings, UserStatus
+from app.models import Base, DeviceToken, RefreshTokenBlacklist, User, UserRole, UserSettings, UserStatus
 
 TEST_DB = "sqlite+aiosqlite:///:memory:"
 
@@ -109,6 +107,7 @@ async def test_refresh_with_access_token_fails(authed):
 async def test_refresh_with_blacklisted_token(authed):
     """A blacklisted refresh token must be rejected."""
     import time
+
     import jwt as pyjwt
     client, user, _, _, db = authed
 
@@ -223,6 +222,7 @@ async def test_delete_nonexistent_device_token(authed):
 async def test_logout_bearer_blacklists_refresh(authed):
     """Logout with Bearer + refresh_token body blacklists the jti."""
     import time
+
     import jwt as pyjwt
     client, user, _, _, db = authed
 

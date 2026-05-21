@@ -1,8 +1,9 @@
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 from pydantic import BaseModel
-from typing import Optional
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import User
@@ -14,13 +15,13 @@ router = APIRouter()
 class MerchantAliasBody(BaseModel):
     raw: str
     canonical: str
-    category: Optional[str] = None
-    confidence: Optional[float] = 1.0
+    category: str | None = None
+    confidence: float | None = 1.0
 
 
 class MerchantAliasPatch(BaseModel):
-    canonical: Optional[str] = None
-    category: Optional[str] = None
+    canonical: str | None = None
+    category: str | None = None
 
 
 @router.get("/merchant-aliases")

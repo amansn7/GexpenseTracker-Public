@@ -1,9 +1,10 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
-from app.main import app
-from app.database import get_db
+
 from app.auth_deps import get_current_user
+from app.database import get_db
+from app.main import app
 
 
 async def _client(db_session, mock_user):

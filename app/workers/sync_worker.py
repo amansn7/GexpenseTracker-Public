@@ -1,17 +1,17 @@
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from app.database import AsyncSessionLocal
-from app.sync import sync_emails, _user_progress, _log_event, _reset_progress
-from app.workers.queue import Task, TaskStatus
+from app.sync import _log_event, _reset_progress, _user_progress, sync_emails
+from app.workers.queue import Task
 
 logger = logging.getLogger(__name__)
 
 SYNC_TIMEOUT_SECS = 600  # 10 minutes max for a single sync run
 
 
-async def handle_sync_task(task: Task) -> Dict[str, Any]:
+async def handle_sync_task(task: Task) -> dict[str, Any]:
     """
     Execute a Gmail sync operation within the worker queue.
 
@@ -23,7 +23,6 @@ async def handle_sync_task(task: Task) -> Dict[str, Any]:
     - Server-side timeout to prevent indefinite hangs
     """
     user_id = task.user_id
-    payload = task.payload
 
     _log_event(user_id, f"Worker picked up sync task {task.id}", "info")
 
@@ -61,7 +60,7 @@ async def handle_sync_task(task: Task) -> Dict[str, Any]:
             "skipped": result.get("skipped", 0),
         }
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Sync task %s timed out after %ds", task.id, SYNC_TIMEOUT_SECS)
         _log_event(user_id, f"Sync task timed out after {SYNC_TIMEOUT_SECS}s", "error")
         prog = _user_progress(user_id)
@@ -83,7 +82,7 @@ async def handle_sync_task(task: Task) -> Dict[str, Any]:
 FETCH_RANGE_TIMEOUT_SECS = 1800  # 30 minutes
 
 
-async def handle_fetch_range_task(task: Task) -> Dict[str, Any]:
+async def handle_fetch_range_task(task: Task) -> dict[str, Any]:
     """Execute a fetch-range operation with timeout protection."""
     user_id = task.user_id
     payload = task.payload
@@ -104,7 +103,7 @@ async def handle_fetch_range_task(task: Task) -> Dict[str, Any]:
             timeout=FETCH_RANGE_TIMEOUT_SECS,
         )
         return {"status": "completed", "task_id": task.id, "result": result}
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("Fetch-range task %s timed out after %ds", task.id, FETCH_RANGE_TIMEOUT_SECS)
         _log_event(user_id, f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s", "error")
         prog = _user_progress(user_id)

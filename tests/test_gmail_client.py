@@ -1,8 +1,10 @@
-import asyncio
 import base64
 from unittest.mock import MagicMock, patch
+
 from googleapiclient.errors import HttpError
-from app.gmail.client import extract_domain, get_gmail_link, _extract_body_text, _async_retry_with_backoff
+
+from app.gmail.client import _async_retry_with_backoff, _extract_body_text, extract_domain, get_gmail_link
+
 
 def test_extract_domain_standard():
     assert extract_domain("Amazon <no-reply@amazon.in>") == "amazon.in"

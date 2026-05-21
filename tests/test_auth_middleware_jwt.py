@@ -1,7 +1,7 @@
 """Test that AuthMiddleware does not block JWT/Bearer-authenticated requests."""
 import os
+
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 os.environ.setdefault("TESTING", "1")  # TESTING=1 bypasses middleware — so we test manually
 
@@ -12,8 +12,9 @@ async def test_refresh_endpoint_not_blocked_by_middleware():
     import os as _os
     _os.environ.pop("TESTING", None)
     try:
-        from app.main import app
         from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             # Sending garbage token — expect 401 from handler (invalid token), NOT a redirect
             resp = await client.post(

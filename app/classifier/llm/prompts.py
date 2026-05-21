@@ -1,5 +1,4 @@
 """Prompt building functions, system prompts, and user prompts."""
-from typing import Optional
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -320,7 +319,7 @@ EXTRACTION RULES:
 ========================================
 - amount: INR in rupees (number only, no symbols or commas). "Rs.499" → 499, "INR 1200.50" → 1200.5. For foreign currencies, convert to INR and set source_currency.
 - source_currency: 3-letter currency code if amount is in a foreign currency (e.g. "USD", "EUR", "GBP"). null if INR.
-- 
+-
 - merchant: payee / store / service — NOT bank, NOT payment gateway.
   Clean codes: "WWW SWIGGY IN"/"SWIGGY*"/"BUNDL TECHNOLOGIES"/"BUNDL" → "Swiggy",
   "AMZN MKTP IN" → "Amazon", "ZOMATO*ORDER"/"ZOMATO"/"ZOMATO ONLINE" → "Zomato",

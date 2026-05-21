@@ -1,19 +1,19 @@
 """Backward-compatible re-exports for app.classifier.llm package."""
 from app.classifier.llm.client import LLMClient, MultiLLMClient, llm_client
 from app.classifier.llm.parsing import LLMClassification, extract_json, parse_batch_response, parse_response
-from app.classifier.llm.providers import (
-    Provider,
-    _KNOWN_BASE_URLS,
-    build_default_providers,
-    get_groq_limiter,
-    rank_providers,
-)
 from app.classifier.llm.prompts import (
     _BATCH_USER_TEMPLATE,
     _DEFAULT_CATEGORIES,
     _SYSTEM,
     _USER_TEMPLATE,
     build_pre_extraction_block,
+)
+from app.classifier.llm.providers import (
+    _KNOWN_BASE_URLS,
+    Provider,
+    build_default_providers,
+    get_groq_limiter,
+    rank_providers,
 )
 from app.classifier.llm.user_client import build_user_client, get_user_client
 

@@ -1,6 +1,7 @@
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-from app.gmail.auth import get_credentials, is_authenticated, save_credentials
+from unittest.mock import MagicMock
+
+from app.gmail.auth import is_authenticated, save_credentials
+
 
 def test_is_authenticated_false_when_no_token(tmp_path, monkeypatch):
     monkeypatch.setattr("app.gmail.auth.TOKEN_FILE", tmp_path / "token.json")

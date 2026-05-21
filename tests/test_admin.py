@@ -1,11 +1,12 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.main import app
-from app.database import get_db
+import pytest
+from httpx import ASGITransport, AsyncClient
+
 from app.auth_deps import get_current_user
+from app.database import get_db
+from app.main import app
 from app.models import User, UserAIService, UserRole, UserStatus
 
 

@@ -1,7 +1,7 @@
 """CSRF protection using double-submit cookie pattern."""
 import secrets
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
+
+from fastapi import HTTPException, Request
 
 
 def generate_csrf_token() -> str:

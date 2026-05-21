@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth_deps import get_current_user
+from app.classifier.merchant_entity import resolve_merchant
 from app.database import get_db
 from app.models import User
 from app.models.merchant import MerchantAlias, MerchantEntity
-from app.classifier.merchant_entity import resolve_merchant
 
 router = APIRouter()
 

@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -8,8 +8,8 @@ from httpx import ASGITransport, AsyncClient
 
 @pytest.mark.asyncio
 async def test_export_empty_returns_csv_header(mock_user):
-    from app.main import app
     from app.api.transactions import EXPORT_COLUMNS
+    from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/transactions/export")
@@ -31,7 +31,7 @@ async def test_export_returns_only_current_users_transactions(mock_user, db_sess
         subject="Debit alert",
         sender="bank@example.com",
         sender_domain="example.com",
-        received_at=datetime(2026, 5, 1, 10, 30, tzinfo=timezone.utc),
+        received_at=datetime(2026, 5, 1, 10, 30, tzinfo=UTC),
         gmail_link="https://mail.google.com/mail/u/0/#inbox/1",
     )
     db_session.add(email)
@@ -50,7 +50,7 @@ async def test_export_returns_only_current_users_transactions(mock_user, db_sess
         user_notes="Lunch",
         read=True,
         flagged=False,
-        created_at=datetime(2026, 5, 1, 11, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
     ))
 
     other_user = User(

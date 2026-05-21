@@ -1,9 +1,10 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
-from datetime import date
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Debt, User
@@ -15,9 +16,9 @@ class DebtBody(BaseModel):
     name: str
     total_amount: float
     paid_amount: float = 0.0
-    interest_rate: Optional[float] = None
-    target_date: Optional[date] = None
-    notes: Optional[str] = None
+    interest_rate: float | None = None
+    target_date: date | None = None
+    notes: str | None = None
 
 
 def _fmt(d: Debt) -> dict:

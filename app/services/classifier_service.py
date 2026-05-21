@@ -1,5 +1,4 @@
 """Centralized classifier context loading for LLM prompts."""
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

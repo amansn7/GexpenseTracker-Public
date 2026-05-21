@@ -1,18 +1,20 @@
-import pytest
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DuplicatePair, DomainPairRule
+from app.models import DomainPairRule, DuplicatePair
+
 
 def test_models_importable():
     assert DuplicatePair.__tablename__ == "duplicate_pairs"
     assert DomainPairRule.__tablename__ == "domain_pair_rules"
 
 
-from app.dedup.service import detect_and_record_duplicates, _sorted_domains
+from app.dedup.service import _sorted_domains, detect_and_record_duplicates
 
 
 def test_sorted_domains_alphabetical():
@@ -33,7 +35,7 @@ async def test_detect_no_candidates():
     db = AsyncMock(spec=AsyncSession)
     db.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
-    from app.models import Transaction, Email
+    from app.models import Email, Transaction
     tx = MagicMock(spec=Transaction)
     tx.id = str(uuid.uuid4())
     tx.label = "expense"
@@ -50,9 +52,11 @@ async def test_detect_no_candidates():
 @pytest.mark.asyncio
 async def test_duplicates_api_list():
     """GET /api/duplicates returns list (may be empty)."""
-    from httpx import AsyncClient, ASGITransport
-    from app.database import get_db
     import os
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.database import get_db
     os.environ["TESTING"] = "1"
     from app.main import app
 
@@ -63,9 +67,11 @@ async def test_duplicates_api_list():
         db.execute = AsyncMock(return_value=mock_result)
         yield db
 
-    from app.auth_deps import get_current_user
     from unittest.mock import MagicMock as _MagicMock
-    _user = _MagicMock(); _user.id = "test-user-id"
+
+    from app.auth_deps import get_current_user
+    _user = _MagicMock()
+    _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = lambda: _user
     try:
@@ -82,13 +88,14 @@ async def test_duplicates_api_list():
 @pytest.mark.asyncio
 async def test_duplicates_api_resolve_validation():
     """PATCH /api/duplicates/{id} validates action field and returns 404 for missing pairs."""
-    from httpx import AsyncClient, ASGITransport
-    from unittest.mock import AsyncMock, MagicMock
-    from sqlalchemy.ext.asyncio import AsyncSession
     import os
+    from unittest.mock import AsyncMock, MagicMock
+
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy.ext.asyncio import AsyncSession
     os.environ["TESTING"] = "1"
-    from app.main import app
     from app.database import get_db
+    from app.main import app
 
     # Provide a mock DB session so tests never touch Postgres
     async def override_get_db():
@@ -100,9 +107,11 @@ async def test_duplicates_api_resolve_validation():
         db.execute = AsyncMock(return_value=mock_result)
         yield db
 
-    from app.auth_deps import get_current_user
     from unittest.mock import MagicMock as _MagicMock
-    _user = _MagicMock(); _user.id = "test-user-id"
+
+    from app.auth_deps import get_current_user
+    _user = _MagicMock()
+    _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user] = lambda: _user
     try:
@@ -124,16 +133,16 @@ async def test_duplicates_api_resolve_validation():
 @pytest.mark.asyncio
 async def test_detect_same_domain_creates_auto_resolved_pair(db_session, mock_user):
     """Strategy 1: same sender_domain + same amount + within 3 days → auto_resolved pair."""
-    from app.models import Transaction, Email
+    from app.models import Email, Transaction
     uid = str(mock_user.id)
     email1 = Email(id=str(uuid.uuid4()), gmail_id="sd-g1", sender="bills@swiggy.in",
                    sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+                   received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
     email2 = Email(id=str(uuid.uuid4()), gmail_id="sd-g2", sender="bills@swiggy.in",
                    sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 11, 10, 0, tzinfo=timezone.utc))
+                   received_at=datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
     tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
                       label="expense", amount=500.0, txn_date=date(2026, 4, 11), status="auto")
     db_session.add_all([email1, tx1, email2, tx2])
@@ -152,11 +161,11 @@ async def test_detect_same_domain_creates_auto_resolved_pair(db_session, mock_us
 @pytest.mark.asyncio
 async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
     """Regression for a1ea4c7: User B's expense must not match User A's expense."""
-    from app.models import Transaction, Email, User, UserRole, UserStatus
+    from app.models import Email, Transaction, User, UserRole, UserStatus
     uid_a = str(mock_user.id)
     email_a = Email(id=str(uuid.uuid4()), gmail_id="iso-ga", sender="bills@swiggy.in",
                     sender_domain="swiggy.in", user_id=uid_a,
-                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx_a = Transaction(id=str(uuid.uuid4()), email_id=email_a.id,
                        label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
 
@@ -168,7 +177,7 @@ async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
 
     email_b = Email(id=str(uuid.uuid4()), gmail_id="iso-gb", sender="bills@swiggy.in",
                     sender_domain="swiggy.in", user_id=uid_b,
-                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=timezone.utc))
+                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx_b = Transaction(id=str(uuid.uuid4()), email_id=email_b.id,
                        label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
 
@@ -185,18 +194,18 @@ async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
 @pytest.mark.asyncio
 async def test_detect_cross_domain_with_rule_queues_pending(db_session, mock_user):
     """Strategy 2: different sender_domains + DomainPairRule (no auto_resolve) → pending pair."""
-    from app.models import Transaction, Email
+    from app.models import Email, Transaction
     uid = str(mock_user.id)
     rule = DomainPairRule(id=str(uuid.uuid4()), domain_a="hdfcbank.com", domain_b="swiggy.in",
                           confirmed_count=1, dismissed_count=0, confidence=0.5, auto_resolve=False)
     email1 = Email(id=str(uuid.uuid4()), gmail_id="cd-g1", sender="alerts@hdfcbank.com",
                    sender_domain="hdfcbank.com", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 9, 0, tzinfo=timezone.utc))
+                   received_at=datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
     tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
     email2 = Email(id=str(uuid.uuid4()), gmail_id="cd-g2", sender="noreply@swiggy.in",
                    sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc))
+                   received_at=datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
     tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
     db_session.add_all([rule, email1, tx1, email2, tx2])

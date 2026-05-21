@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
@@ -17,6 +17,7 @@ async def test_2fa_setup_returns_secret_and_qr(mock_user, db_session):
 @pytest.mark.asyncio
 async def test_2fa_verify_valid_code_enables_totp(mock_user, db_session):
     import pyotp
+
     from app.main import app
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         setup = await client.post("/api/account/2fa/setup")
@@ -46,6 +47,7 @@ async def test_2fa_verify_wrong_code_returns_ok_false(mock_user, db_session):
 @pytest.mark.asyncio
 async def test_2fa_disable_clears_totp(mock_user, db_session):
     import pyotp
+
     from app.main import app
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         setup = await client.post("/api/account/2fa/setup")

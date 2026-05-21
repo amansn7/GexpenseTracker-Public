@@ -1,8 +1,7 @@
 """Gmail fetch + core sync orchestration."""
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -193,8 +192,8 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
 async def clean_bodies_job(user_id: str):
     """Re-fetch emails with dirty body text and re-extract via _clean_body pipeline."""
     import re
+
     from app.gmail.client import _build_service, _extract_body_text
-    from app.models import Email
 
     _DIRTY_BODY_RE = re.compile(
         r'&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]'
@@ -302,4 +301,4 @@ async def clean_bodies_job(user_id: str):
 
 
 def datetime_now_utc():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

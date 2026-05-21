@@ -1,7 +1,6 @@
 """In-memory alert store — surfaced on the dashboard to notify the user of service issues."""
-from datetime import datetime, timezone
 from collections import deque
-from typing import List, Dict
+from datetime import UTC, datetime
 
 _alerts: deque = deque(maxlen=20)
 
@@ -12,12 +11,12 @@ def add_alert(level: str, message: str, source: str = "") -> None:
         "level": level,
         "message": message,
         "source": source,
-        "ts": datetime.now(timezone.utc).isoformat(),
+        "ts": datetime.now(UTC).isoformat(),
         "read": False,
     })
 
 
-def get_alerts() -> List[Dict]:
+def get_alerts() -> list[dict]:
     return list(_alerts)
 
 

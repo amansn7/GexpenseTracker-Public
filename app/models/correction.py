@@ -1,7 +1,7 @@
-from sqlalchemy import String, Float, DateTime, ForeignKey, Numeric
+from sqlalchemy import DateTime, Float, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, _uuid_col, _utcnow
+from .base import Base, _utcnow, _uuid_col
 
 
 class TransactionCorrection(Base):

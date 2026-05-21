@@ -1,8 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.classifier.classifier import ClassificationResult
-from app.models import Label, ClassifierMethod
+
+import pytest
+
 from app.alerts import clear_alerts, get_alerts
+from app.classifier.classifier import ClassificationResult
+from app.models import ClassifierMethod, Label
 
 
 def _make_result(method=ClassifierMethod.llm):

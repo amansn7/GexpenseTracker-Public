@@ -1,4 +1,3 @@
-import pytest
 from app.classifier.llm_client import _parse_response
 
 

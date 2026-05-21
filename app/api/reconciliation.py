@@ -4,16 +4,15 @@ Validates tracked transactions against expected balances and flags anomalies.
 """
 import re
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Transaction, Email, User, UserSettings
+from app.models import Email, Transaction, User, UserSettings
 
 router = APIRouter()
 
@@ -52,7 +51,7 @@ _CC_NAME_MAP = {
 }
 
 
-def _detect_cc_account(merchant: Optional[str]) -> Optional[str]:
+def _detect_cc_account(merchant: str | None) -> str | None:
     """Return a canonical CC account name from a merchant string, or None."""
     if not merchant:
         return None
@@ -174,7 +173,7 @@ async def reconciliation_health(
 
 @router.get("/reconciliation/monthly")
 async def reconciliation_monthly(
-    month: Optional[str] = None,
+    month: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

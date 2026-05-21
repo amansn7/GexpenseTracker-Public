@@ -1,5 +1,4 @@
 """Tests for inter-batch backoff when LLM providers are rate-limited."""
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 

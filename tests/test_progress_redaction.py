@@ -1,11 +1,11 @@
 """Tests for progress redaction — ensure sensitive fields are stripped from public API."""
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 def test_get_sync_progress_public_excludes_current_email():
     """get_sync_progress_public must not include current_email."""
-    from app.sync.progress import get_sync_progress_public, _sync_progress
+    from app.sync.progress import _sync_progress, get_sync_progress_public
 
     user_id = "test_redact_current_email"
     _sync_progress[user_id] = {
@@ -32,7 +32,7 @@ def test_get_sync_progress_public_excludes_current_email():
 
 def test_get_sync_progress_public_excludes_previews():
     """get_sync_progress_public must not include previews (contains email subjects)."""
-    from app.sync.progress import get_sync_progress_public, _sync_progress
+    from app.sync.progress import _sync_progress, get_sync_progress_public
 
     user_id = "test_redact_previews"
     _sync_progress[user_id] = {
@@ -62,7 +62,7 @@ def test_get_sync_progress_public_excludes_previews():
 
 def test_get_sync_progress_public_retains_safe_fields():
     """get_sync_progress_public must still include phase, running, current, total."""
-    from app.sync.progress import get_sync_progress_public, _sync_progress
+    from app.sync.progress import _sync_progress, get_sync_progress_public
 
     user_id = "test_retain_safe_fields"
     _sync_progress[user_id] = {
@@ -99,10 +99,11 @@ def test_get_sync_progress_public_retains_safe_fields():
 @pytest.mark.asyncio
 async def test_progress_api_endpoint_returns_redacted_data():
     """GET /api/sync/progress must not return current_email or previews."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
 
     fake_user = User(email="api@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)

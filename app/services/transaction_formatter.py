@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from app.models import Email, Transaction
 
 
-def format_transaction(t: "Transaction", e: "Email | None" = None) -> dict:
+def format_transaction(t: Transaction, e: Email | None = None) -> dict:
     """Format a Transaction plus optional Email into a consistent API response dict.
 
     Eager-load contract: the caller is responsible for eager-loading the

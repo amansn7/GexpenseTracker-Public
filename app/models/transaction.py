@@ -1,19 +1,21 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum as PyEnum
+from enum import StrEnum
 from typing import Optional
-from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, Boolean, ForeignKey
+
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, _uuid_col, _utcnow
+from .base import Base, _utcnow, _uuid_col
 
 
-class Label(str, PyEnum):
+class Label(StrEnum):
     expense = "expense"
     income = "income"
     ignore = "ignore"
 
 
-class TransactionType(str, PyEnum):
+class TransactionType(StrEnum):
     purchase = "purchase"
     cc_payment = "cc_payment"
     transfer = "transfer"
@@ -21,14 +23,14 @@ class TransactionType(str, PyEnum):
     income = "income"
 
 
-class TransactionStatus(str, PyEnum):
+class TransactionStatus(StrEnum):
     auto = "auto"
     confirmed = "confirmed"
     corrected = "corrected"
     needs_review = "needs_review"
 
 
-class ClassifierMethod(str, PyEnum):
+class ClassifierMethod(StrEnum):
     rule = "rule"
     llm = "llm"
 
@@ -37,19 +39,19 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[str] = _uuid_col()
-    email_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True, index=True)
+    email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True, index=True)
     label: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    transaction_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    payment_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
+    transaction_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    payment_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
     currency: Mapped[str] = mapped_column(String(3), default="INR")
-    merchant: Mapped[Optional[str]] = mapped_column(String(255))
-    category: Mapped[Optional[str]] = mapped_column(String(100))
-    txn_date: Mapped[Optional[date]] = mapped_column(Date, index=True)
-    confidence: Mapped[Optional[float]] = mapped_column(Float)
+    merchant: Mapped[str | None] = mapped_column(String(255))
+    category: Mapped[str | None] = mapped_column(String(100))
+    txn_date: Mapped[date | None] = mapped_column(Date, index=True)
+    confidence: Mapped[float | None] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(20), default=TransactionStatus.needs_review, index=True)
-    classifier_method: Mapped[Optional[str]] = mapped_column(String(10))
-    user_notes: Mapped[Optional[str]] = mapped_column(Text)
+    classifier_method: Mapped[str | None] = mapped_column(String(10))
+    user_notes: Mapped[str | None] = mapped_column(Text)
     read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     flagged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -62,19 +64,19 @@ class ClassificationLog(Base):
     __tablename__ = "classification_log"
 
     id: Mapped[str] = _uuid_col()
-    email_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True)
-    sender_domain: Mapped[Optional[str]] = mapped_column(String(255))
-    subject: Mapped[Optional[str]] = mapped_column(Text)
-    body_snippet: Mapped[Optional[str]] = mapped_column(Text)
-    provider: Mapped[Optional[str]] = mapped_column(String(50))
-    model: Mapped[Optional[str]] = mapped_column(String(100))
-    latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    llm_label: Mapped[Optional[str]] = mapped_column(String(20))
-    llm_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
-    llm_merchant: Mapped[Optional[str]] = mapped_column(String(255))
-    llm_category: Mapped[Optional[str]] = mapped_column(String(100))
-    llm_confidence: Mapped[Optional[float]] = mapped_column(Float)
-    llm_txn_date: Mapped[Optional[date]] = mapped_column(Date)
-    raw_response: Mapped[Optional[str]] = mapped_column(Text)
+    email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True)
+    sender_domain: Mapped[str | None] = mapped_column(String(255))
+    subject: Mapped[str | None] = mapped_column(Text)
+    body_snippet: Mapped[str | None] = mapped_column(Text)
+    provider: Mapped[str | None] = mapped_column(String(50))
+    model: Mapped[str | None] = mapped_column(String(100))
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    llm_label: Mapped[str | None] = mapped_column(String(20))
+    llm_amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    llm_merchant: Mapped[str | None] = mapped_column(String(255))
+    llm_category: Mapped[str | None] = mapped_column(String(100))
+    llm_confidence: Mapped[float | None] = mapped_column(Float)
+    llm_txn_date: Mapped[date | None] = mapped_column(Date)
+    raw_response: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

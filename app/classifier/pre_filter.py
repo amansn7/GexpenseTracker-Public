@@ -1,8 +1,6 @@
-import re
 import logging
-import signal
+import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,27 +54,27 @@ class RegexTimeoutError(Exception):
 def _safe_match(pattern: re.Pattern, text: str, timeout_ms: int = 100) -> bool:
     """Run regex match with timeout protection."""
     import threading
-    
+
     result = [False]
     exception = [None]
-    
+
     def _match():
         try:
             result[0] = bool(pattern.search(text))
         except Exception as e:
             exception[0] = e
-    
+
     thread = threading.Thread(target=_match)
     thread.daemon = True
     thread.start()
     thread.join(timeout=timeout_ms / 1000.0)
-    
+
     if thread.is_alive():
         raise RegexTimeoutError(f"Regex match timed out after {timeout_ms}ms")
-    
+
     if exception[0]:
         raise exception[0]
-    
+
     return result[0]
 
 
@@ -175,6 +173,7 @@ class PreFilterEngine:
 async def load_engine_from_db(session, user_id: str = None) -> "PreFilterEngine":
     """Load all FilterRule rows and build a PreFilterEngine. Call once per sync run."""
     from sqlalchemy import select
+
     from app.models import FilterRule
 
     stmt = select(FilterRule)

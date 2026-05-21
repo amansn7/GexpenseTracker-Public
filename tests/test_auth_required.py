@@ -5,9 +5,10 @@ resolve the dependency; no session cookie means get_current_user raises
 401 before any DB query runs.
 """
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.database import get_db
+from app.main import app
 
 
 @pytest.fixture(autouse=False)

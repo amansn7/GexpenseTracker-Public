@@ -1,17 +1,17 @@
 import json
 import logging
-from typing import List, Dict, Optional
+
 from fastapi import APIRouter, Depends
 
 log = logging.getLogger(__name__)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+
 from app.auth_deps import get_current_user
-from app.database import get_db, AsyncSessionLocal
-from app.models import Email, Transaction, SenderRule, Label, User
-from app.classifier.classifier import classify_email
+from app.database import AsyncSessionLocal, get_db
+from app.models import Email, SenderRule, Transaction, User
 from app.services.llm_service import get_user_llm_client
 
 
@@ -23,7 +23,7 @@ router = APIRouter()
 
 @router.get("/emails")
 async def list_emails(
-    status: Optional[str] = None,
+    status: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -70,9 +70,11 @@ async def fetch_email_body(
 ):
     """Re-fetch clean body text for an email from Gmail API."""
     import asyncio
+
+    from fastapi import HTTPException
+
     from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
-    from fastapi import HTTPException
 
     email = (await db.execute(
         select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
@@ -112,8 +114,9 @@ async def review_email(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from app.models import FilterRule
     from fastapi import HTTPException
+
+    from app.models import FilterRule
 
     email = (await db.execute(
         select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
@@ -122,8 +125,8 @@ async def review_email(
         raise HTTPException(status_code=404, detail="Email not found")
 
     if payload.action == "keep":
-        from app.classifier.context import ClassificationContext
         from app.classifier.classifier import classify_email
+        from app.classifier.context import ClassificationContext
         result = await classify_email(
             ClassificationContext(
                 email_id=email.id,
@@ -198,7 +201,7 @@ async def review_email(
 
 
 class RetrainPayload(BaseModel):
-    email_ids: List[str]
+    email_ids: list[str]
 
 
 @router.post("/emails/retrain")
@@ -260,9 +263,9 @@ async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_
 
 
 class ReclassifyPayload(BaseModel):
-    email_ids: List[str]
+    email_ids: list[str]
     method: str = "llm"
-    hints: Dict[str, str] = {}
+    hints: dict[str, str] = {}
 
 
 @router.post("/emails/reclassify")
@@ -276,8 +279,9 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
             yield _sse({"type": "divider", "message": "─" * 60})
 
             # Load user's active AI service
-            from app.models import UserSettings
             from sqlalchemy import select as _select
+
+            from app.models import UserSettings
             user_settings = (await db.execute(
                 _select(UserSettings).where(UserSettings.user_id == user_id)
             )).scalar_one_or_none()
@@ -310,8 +314,8 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     body_text += f"\n\n[User note: {hint}]"
 
                 try:
-                    from app.classifier.context import ClassificationContext
                     from app.classifier.classifier import classify_email
+                    from app.classifier.context import ClassificationContext
                     cls = await classify_email(
                         ClassificationContext(
                             email_id=email.id,

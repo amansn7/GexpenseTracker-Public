@@ -1,7 +1,17 @@
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
-from app.models import Email, Transaction, SyncState, SenderRule, Label, TransactionStatus, RuleSource, User, UserSettings, UserStatus, UserRole
+
+from app.models import (
+    Email,
+    Label,
+    RuleSource,
+    SenderRule,
+    Transaction,
+    TransactionStatus,
+    User,
+    UserRole,
+    UserStatus,
+)
 
 
 async def _make_user(db_session):
@@ -53,8 +63,9 @@ async def test_sender_rule_unique(db_session):
 
 @pytest.mark.asyncio
 async def test_budget_model_create_and_query(db_session):
-    from app.models import Budget
     from sqlalchemy import select
+
+    from app.models import Budget
     b = Budget(category="Food", monthly_limit=4000.0)
     db_session.add(b)
     await db_session.commit()

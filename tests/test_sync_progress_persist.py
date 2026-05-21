@@ -1,7 +1,8 @@
-import json
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 import asyncio
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +58,6 @@ async def test_persist_progress_writes_to_db():
 @pytest.mark.asyncio
 async def test_persist_progress_upserts_existing():
     from app.sync.progress import _persist_progress
-    from app.models import SyncProgress
 
     mock_row = MagicMock()
     mock_row.running = True
@@ -98,7 +98,7 @@ async def test_persist_progress_upserts_existing():
 
 @pytest.mark.asyncio
 async def test_user_progress_loads_from_db_on_cache_miss():
-    from app.sync.progress import _user_progress, _sync_progress, set_db_session_factory
+    from app.sync.progress import _sync_progress, _user_progress, set_db_session_factory
 
     mock_row = MagicMock()
     mock_row.running = True
@@ -141,8 +141,7 @@ async def test_user_progress_loads_from_db_on_cache_miss():
 
 @pytest.mark.asyncio
 async def test_recover_stale_progresses_marks_running_as_error():
-    from app.sync.progress import recover_stale_progresses, _sync_progress, set_db_session_factory
-    from app.database import AsyncSessionLocal
+    from app.sync.progress import _sync_progress, recover_stale_progresses, set_db_session_factory
 
     mock_row = MagicMock()
     mock_row.user_id = "stale-user-1"
@@ -177,7 +176,7 @@ async def test_recover_stale_progresses_marks_running_as_error():
 
 @pytest.mark.asyncio
 async def test_recover_stale_progresses_no_op_when_none_stale():
-    from app.sync.progress import recover_stale_progresses, _sync_progress, set_db_session_factory
+    from app.sync.progress import _sync_progress, recover_stale_progresses, set_db_session_factory
 
     mock_session = AsyncMock()
     mock_session.__aenter__ = AsyncMock(return_value=mock_session)
@@ -226,7 +225,7 @@ async def test_db_write_failure_does_not_crash():
 
 
 def test_in_memory_dict_is_fast_path():
-    from app.sync.progress import _sync_progress, _user_progress, get_sync_progress, set_db_session_factory
+    from app.sync.progress import _sync_progress, get_sync_progress, set_db_session_factory
 
     set_db_session_factory(None)
     _sync_progress.clear()

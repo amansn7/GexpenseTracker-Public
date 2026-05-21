@@ -1,9 +1,8 @@
 """User client factory — build_user_client and helpers."""
 import logging
-from typing import Optional
 
 from app.classifier.llm.client import MultiLLMClient
-from app.classifier.llm.providers import Provider, _KNOWN_BASE_URLS, build_default_providers
+from app.classifier.llm.providers import _KNOWN_BASE_URLS, Provider
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 def build_user_client(
     user_id: str,
     provider: str,
-    base_url: Optional[str],
+    base_url: str | None,
     api_key: str,
     model_id: str,
 ) -> MultiLLMClient:
@@ -43,7 +42,7 @@ def build_user_client(
     return client
 
 
-def get_user_client(user_id: str) -> Optional[MultiLLMClient]:
+def get_user_client(user_id: str) -> MultiLLMClient | None:
     """Convenience wrapper — get cached user client or build one from DB."""
     from app.classifier.llm.client import MultiLLMClient
     return MultiLLMClient().get_user_client(user_id) if user_id else None

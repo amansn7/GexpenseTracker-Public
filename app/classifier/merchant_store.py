@@ -3,10 +3,9 @@ DB-backed merchant→category store.
 Lookup priority: user override → global MerchantAlias.category → static MERCHANT_MAP.
 """
 import logging
-from typing import Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.classifier.rules import MERCHANT_MAP
 
@@ -20,8 +19,8 @@ def _normalize(merchant: str) -> str:
 class MerchantStore:
     async def get_category(
         self, session: AsyncSession, user_id: str, merchant: str
-    ) -> Optional[str]:
-        from app.models import UserMerchantOverride, MerchantAlias
+    ) -> str | None:
+        from app.models import MerchantAlias, UserMerchantOverride
 
         key = _normalize(merchant)
 
@@ -51,7 +50,7 @@ class MerchantStore:
     async def correct(
         self, session: AsyncSession, user_id: str, merchant: str, category: str
     ) -> None:
-        from app.models import UserMerchantOverride, MerchantAlias
+        from app.models import MerchantAlias, UserMerchantOverride
 
         key = _normalize(merchant)
 
@@ -104,6 +103,7 @@ class MerchantStore:
         """Load merchant→category mappings from ExpenseRuleEngine's merchant_db.json."""
         import json
         from pathlib import Path
+
         from app.models import MerchantAlias
 
         data = json.loads(Path(json_path).read_text())

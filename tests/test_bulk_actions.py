@@ -1,6 +1,6 @@
-import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -11,10 +11,11 @@ def set_testing(monkeypatch):
 @pytest.fixture(autouse=True)
 def override_auth():
     """Override get_current_user for all bulk action tests."""
-    from app.main import app
-    from app.auth_deps import get_current_user
-    from app.models import User
     import uuid
+
+    from app.auth_deps import get_current_user
+    from app.main import app
+    from app.models import User
 
     fake_user = MagicMock(spec=User)
     fake_user.id = str(uuid.uuid4())
@@ -31,11 +32,13 @@ def override_auth():
 @pytest.mark.asyncio
 async def test_bulk_mark_read_sets_read_true():
     """POST /api/transactions/bulk action=mark_read sets read=True on all matched txns."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
-    from app.models import Transaction
     import uuid
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.database import get_db
+    from app.main import app
+    from app.models import Transaction
 
     txns = []
     for i in range(3):
@@ -70,11 +73,13 @@ async def test_bulk_mark_read_sets_read_true():
 
 @pytest.mark.asyncio
 async def test_bulk_flag_sets_flagged_true():
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
-    from app.models import Transaction
     import uuid
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.database import get_db
+    from app.main import app
+    from app.models import Transaction
 
     t = MagicMock(spec=Transaction)
     t.id = "tx-1"
@@ -106,11 +111,13 @@ async def test_bulk_flag_sets_flagged_true():
 @pytest.mark.asyncio
 async def test_bulk_delete_nulls_email_id_and_removes_email():
     """delete action: Email row deleted, Transaction.email_id set to None."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
-    from app.models import Transaction, Email
     import uuid
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.database import get_db
+    from app.main import app
+    from app.models import Email, Transaction
 
     email_id = str(uuid.uuid4())
     t = MagicMock(spec=Transaction)

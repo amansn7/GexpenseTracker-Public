@@ -1,5 +1,4 @@
 import pytest
-from sqlalchemy import select
 
 
 @pytest.mark.asyncio
@@ -27,8 +26,8 @@ async def test_email_pre_filter_status_defaults_to_passed(db_session, mock_user)
 
 @pytest.mark.asyncio
 async def test_tier1_allowlist_domain_passes(db_session):
-    from app.models import FilterRule
     from app.classifier.pre_filter import PreFilterEngine
+    from app.models import FilterRule
 
     rule = FilterRule(rule_type="allowlist_domain", value="hdfcbank.com", source="system")
     db_session.add(rule)
@@ -43,8 +42,8 @@ async def test_tier1_allowlist_domain_passes(db_session):
 
 @pytest.mark.asyncio
 async def test_tier1_blocklist_domain_reviews(db_session):
-    from app.models import FilterRule
     from app.classifier.pre_filter import PreFilterEngine
+    from app.models import FilterRule
 
     rule = FilterRule(rule_type="blocklist_domain", value="promo.spammy.com", source="user")
     db_session.add(rule)
@@ -119,8 +118,8 @@ async def test_tier3_fallback_to_review_when_no_llm():
 @pytest.mark.asyncio
 async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user, monkeypatch):
     """An email that fails Tier 2 scoring gets stored with pre_filter_status=review_pending."""
-    import asyncio
     from sqlalchemy import select
+
     from app.models import Email
     from app.sync import sync_emails
 

@@ -1,14 +1,13 @@
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Budget, Transaction, Email, User
+from app.models import Budget, Email, Transaction, User
 
 router = APIRouter()
 
@@ -19,7 +18,7 @@ class BudgetBody(BaseModel):
 
 
 class BudgetPatch(BaseModel):
-    monthly_limit: Optional[float] = None
+    monthly_limit: float | None = None
 
 
 @router.get("/budgets")

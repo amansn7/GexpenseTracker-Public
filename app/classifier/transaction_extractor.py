@@ -4,7 +4,6 @@ Produces structured pre-extraction hints fed to the LLM prompt.
 No external ML models required.
 """
 import re
-from typing import Optional
 
 from app.services.currency import SUPPORTED_CURRENCIES
 
@@ -41,7 +40,7 @@ def _resolve_symbol_currency(symbol: str) -> str:
     return "USD"
 
 
-def _extract_foreign_amount(text: str) -> tuple[Optional[float], Optional[str]]:
+def _extract_foreign_amount(text: str) -> tuple[float | None, str | None]:
     m = _FOREIGN_CURRENCY_RE.search(text)
     if not m:
         return None, None
@@ -85,7 +84,7 @@ _MONTH = {
 }
 
 
-def _normalize_date(raw: str) -> Optional[str]:
+def _normalize_date(raw: str) -> str | None:
     raw = raw.strip()
     patterns = [
         (r'^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$', 'ymd'),
@@ -187,7 +186,7 @@ def _clean_merchant(raw: str) -> str:
     return raw
 
 
-def _extract_merchant(text: str) -> Optional[str]:
+def _extract_merchant(text: str) -> str | None:
     for pattern in _MERCHANT_PATTERNS:
         m = pattern.search(text)
         if m:
@@ -253,7 +252,7 @@ _CATEGORY_KEYWORDS: dict[str, list[str]] = {
 }
 
 
-def _classify_category(text: str, merchant: Optional[str]) -> Optional[str]:
+def _classify_category(text: str, merchant: str | None) -> str | None:
     t = text.lower()
     # Exact merchant lookup first
     if merchant:
@@ -280,7 +279,7 @@ def extract(subject: str, body: str) -> dict:
     text = f"{subject or ''}\n{body or ''}"
     text_clean = re.sub(r'\s+', ' ', text)
 
-    amount: Optional[float] = None
+    amount: float | None = None
     foreign_amount, foreign_currency = _extract_foreign_amount(text_clean)
     m = _AMOUNT_RE.search(text_clean)
     if m:
@@ -291,14 +290,14 @@ def extract(subject: str, body: str) -> dict:
             except ValueError:
                 pass
 
-    source_currency: Optional[str] = None
+    source_currency: str | None = None
     if amount is not None:
         source_currency = "INR"
     elif foreign_amount is not None:
         amount = foreign_amount
         source_currency = foreign_currency
 
-    date: Optional[str] = None
+    date: str | None = None
     dm = _DATE_RE.search(text_clean)
     if dm:
         date = _normalize_date(dm.group())

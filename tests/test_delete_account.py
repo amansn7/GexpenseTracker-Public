@@ -1,14 +1,22 @@
+from datetime import UTC
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
 from app.main import app
 from app.models import (
-    Email, Transaction, ClassificationLog, Label, TransactionStatus, ClassifierMethod,
-    ConnectedAccount, UserCategory, Budget, User,
-    MerchantAlias, PatternRule, DomainPairRule,
+    ClassifierMethod,
+    ConnectedAccount,
+    DomainPairRule,
+    Email,
+    Label,
+    MerchantAlias,
+    PatternRule,
+    Transaction,
+    TransactionStatus,
+    User,
 )
-from app.config import settings
 
 
 @pytest.mark.asyncio
@@ -55,8 +63,8 @@ async def test_cancel_deletion_without_schedule_returns_404(db_session, mock_use
 @pytest.mark.asyncio
 async def test_scheduled_and_cancelled_user_can_still_log_in(db_session, mock_user):
     """A user with future scheduled_deletion_at can still log in and cancel."""
-    from datetime import datetime, timedelta, timezone
-    mock_user.scheduled_deletion_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    from datetime import datetime, timedelta
+    mock_user.scheduled_deletion_at = datetime.now(UTC) + timedelta(hours=24)
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

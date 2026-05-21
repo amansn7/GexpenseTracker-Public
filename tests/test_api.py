@@ -1,8 +1,8 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.database import get_db
-from app.models import Label
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -61,7 +61,7 @@ async def test_patch_transaction_not_found(db_session, mock_user):
 
 
 
-import uuid as _uuid_mod
+from datetime import UTC
 from datetime import date as _date_cls
 
 
@@ -220,9 +220,9 @@ async def test_update_budget(db_session, mock_user):
 
 @pytest.mark.asyncio
 async def test_get_transaction_detail_includes_body_text(db_session, mock_user):
+    from datetime import datetime
+
     from app.models import Email, Transaction
-    import uuid
-    from datetime import datetime, timezone
 
     # Insert an Email + Transaction directly (owned by mock_user)
     email = Email(
@@ -230,7 +230,7 @@ async def test_get_transaction_detail_includes_body_text(db_session, mock_user):
         subject="Test Subject",
         sender="test@example.com",
         sender_domain="example.com",
-        received_at=datetime.now(timezone.utc),
+        received_at=datetime.now(UTC),
         body_snippet="short snippet",
         body_text="Full body text here.",
         gmail_link="https://mail.google.com/mail/u/0/#inbox/test_gmail_id_body",

@@ -1,14 +1,15 @@
 import asyncio
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
-from typing import Optional
+
 from app.auth_deps import get_current_user
-from app.database import get_db, AsyncSessionLocal
-from app.models import Transaction, Email, TransactionStatus, SenderRule, Label, RuleSource, User
 from app.classifier.classifier import classify_email
+from app.database import AsyncSessionLocal, get_db
+from app.models import Email, RuleSource, SenderRule, Transaction, TransactionStatus, User
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +238,7 @@ async def _bulk_reprocess_task(transaction_ids: list):
 class BatchActionBody(BaseModel):
     action: str          # "ignore_domain" | "expense_domain" | "income_domain"
     domain: str
-    category: Optional[str] = None
+    category: str | None = None
 
 
 @router.post("/review/batch")

@@ -12,9 +12,8 @@ Pipeline:
     → Parent entity resolution (Swiggy Instamart -> Swiggy)
     → {"canonical", "parent", "confidence", "method"}
 """
-import re
 import logging
-from typing import Optional
+import re
 
 log = logging.getLogger(__name__)
 
@@ -151,9 +150,9 @@ SEED_ALIASES: dict[str, str] = {
 _db_alias_cache: dict[str, str] = {}  # alias_name (lower) -> canonical_name
 
 
-def extract_upi_handle(merchant_str: str) -> Optional[str]:
+def extract_upi_handle(merchant_str: str) -> str | None:
     """Extract UPI handle provider from merchant string.
-    
+
     Returns the provider ID (e.g. 'paytm', 'ybl') or None.
     """
     m = UPI_HANDLE_RE.search(merchant_str)
@@ -166,7 +165,7 @@ def extract_upi_handle(merchant_str: str) -> Optional[str]:
 
 def clean_merchant(raw: str) -> str:
     """Strip prefixes, suffixes, UPI handles, and noise from merchant string.
-    
+
     Returns lowercase cleaned string.
     """
     text = raw.lower().strip()
@@ -195,10 +194,11 @@ def clean_merchant(raw: str) -> str:
 
 async def load_db_aliases(db) -> int:
     """Load user-specific and global aliases from DB into cache.
-    
+
     Call at startup or after alias creation.
     """
     from sqlalchemy import select
+
     from app.models.merchant import MerchantAlias
 
     _db_alias_cache.clear()
@@ -210,7 +210,7 @@ async def load_db_aliases(db) -> int:
     return len(rows)
 
 
-def _exact_lookup(cleaned: str) -> Optional[str]:
+def _exact_lookup(cleaned: str) -> str | None:
     """Exact match against seed dict + DB cache."""
     # Seed aliases (longest key first for substring match)
     for key in sorted(SEED_ALIASES, key=len, reverse=True):
@@ -232,10 +232,11 @@ def _exact_lookup(cleaned: str) -> Optional[str]:
     return None
 
 
-def _fuzzy_lookup(cleaned: str) -> Optional[tuple[str, float]]:
+def _fuzzy_lookup(cleaned: str) -> tuple[str, float] | None:
     """Fuzzy match using rapidfuzz WRatio. Returns (canonical, score) or None."""
     try:
-        from rapidfuzz import process, fuzz
+        from rapidfuzz import fuzz, process
+
         from app.classifier.rules import MERCHANT_MAP
 
         known = list(MERCHANT_MAP.keys())
@@ -252,7 +253,7 @@ def _fuzzy_lookup(cleaned: str) -> Optional[tuple[str, float]]:
     return None
 
 
-def resolve_parent(canonical: str) -> Optional[str]:
+def resolve_parent(canonical: str) -> str | None:
     """Resolve parent entity for a canonical name."""
     key = canonical.lower()
     return PARENT_ENTITY_MAP.get(key)
@@ -260,10 +261,10 @@ def resolve_parent(canonical: str) -> Optional[str]:
 
 def resolve_merchant(merchant_str: str) -> dict:
     """Resolve a raw merchant string to canonical entity info.
-    
+
     Returns:
         {"canonical": str, "parent": str|None, "confidence": float, "method": str}
-    
+
     Methods: "exact_seed", "exact_db", "exact_map", "fuzzy", "cleaned", "empty"
     """
     if not merchant_str or not merchant_str.strip():

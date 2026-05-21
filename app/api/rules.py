@@ -1,13 +1,14 @@
 import re
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 from pydantic import BaseModel
-from typing import Optional
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import SenderRule, RuleSource, User
-from app.models.financial import PatternRule, MerchantAlias
+from app.models import RuleSource, SenderRule, User
+from app.models.financial import PatternRule
 
 router = APIRouter()
 
@@ -15,32 +16,32 @@ router = APIRouter()
 class RuleBody(BaseModel):
     sender_domain: str
     label: str           # expense | income | ignore
-    category: Optional[str] = None
-    enabled: Optional[bool] = True
+    category: str | None = None
+    enabled: bool | None = True
 
 
 class RulePatch(BaseModel):
-    label: Optional[str] = None
-    category: Optional[str] = None
-    enabled: Optional[bool] = None
+    label: str | None = None
+    category: str | None = None
+    enabled: bool | None = None
 
 
 class PatternRuleBody(BaseModel):
     regex_pattern: str
     label: str           # expense | income
-    merchant: Optional[str] = None
-    category: Optional[str] = None
-    confidence: Optional[float] = 0.88
-    enabled: Optional[bool] = True
+    merchant: str | None = None
+    category: str | None = None
+    confidence: float | None = 0.88
+    enabled: bool | None = True
 
 
 class PatternRulePatch(BaseModel):
-    regex_pattern: Optional[str] = None
-    label: Optional[str] = None
-    merchant: Optional[str] = None
-    category: Optional[str] = None
-    confidence: Optional[float] = None
-    enabled: Optional[bool] = None
+    regex_pattern: str | None = None
+    label: str | None = None
+    merchant: str | None = None
+    category: str | None = None
+    confidence: float | None = None
+    enabled: bool | None = None
 
 
 class RuleTestRequest(BaseModel):
@@ -261,7 +262,7 @@ async def delete_pattern_rule(rule_id: str, db: AsyncSession = Depends(get_db), 
 @router.post("/rules/test")
 async def test_rules(req: RuleTestRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Test which rules would fire against a given sender/subject/body."""
-    from app.classifier.rules import apply_rules, BUILTIN_DOMAIN_RULES, build_domain_rules, MERCHANT_MAP
+    from app.classifier.rules import BUILTIN_DOMAIN_RULES, MERCHANT_MAP, apply_rules, build_domain_rules
 
     matches = []
     domain = req.sender_domain.strip().lower()
@@ -301,7 +302,7 @@ async def test_rules(req: RuleTestRequest, db: AsyncSession = Depends(get_db), c
 
     # Check PatternRules (enabled)
     pattern_rules = (await db.execute(
-        select(PatternRule).where(PatternRule.enabled == True)
+        select(PatternRule).where(PatternRule.enabled)
     )).scalars().all()
     for pr in pattern_rules:
         try:

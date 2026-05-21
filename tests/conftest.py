@@ -1,7 +1,7 @@
 import os
-import pytest
+
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 # Prevent APScheduler from starting during tests
 os.environ.setdefault("TESTING", "1")
@@ -26,10 +26,10 @@ async def db_session():
 @pytest_asyncio.fixture
 async def mock_user(db_session):
     """Create and return a test user in the db_session, and override get_current_user."""
-    from app.main import app
     from app.auth_deps import get_current_user
     from app.database import get_db
-    from app.models import User, UserSettings, UserProfile, UserRole, UserStatus
+    from app.main import app
+    from app.models import User, UserProfile, UserRole, UserSettings, UserStatus
 
     user = User(
         email="testuser@example.com",

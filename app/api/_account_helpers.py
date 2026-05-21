@@ -1,5 +1,4 @@
 """Shared helpers for account-related API modules."""
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -41,7 +40,7 @@ def _clean_email(email: str) -> str:
     return cleaned
 
 
-def _api_key_hint(api_key: Optional[str]) -> Optional[str]:
+def _api_key_hint(api_key: str | None) -> str | None:
     if not api_key:
         return None
     suffix = api_key[-4:] if len(api_key) >= 4 else api_key

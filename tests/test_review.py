@@ -1,15 +1,18 @@
-import pytest
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.fixture(autouse=True)
 def override_auth():
     """Override get_current_user for all review tests."""
-    from app.main import app
-    from app.auth_deps import get_current_user
-    from app.models import User
     import uuid
+
+    from app.auth_deps import get_current_user
+    from app.main import app
+    from app.models import User
 
     fake_user = MagicMock(spec=User)
     fake_user.id = str(uuid.uuid4())
@@ -29,15 +32,16 @@ async def test_get_review_queue_domain_count_no_n1():
     3 transactions from the same sender domain → each should report domain_count=2.
     db.execute must be called exactly 2 times (main query + aggregate), not 4.
     """
-    from httpx import AsyncClient, ASGITransport
     import os
-    os.environ["TESTING"] = "1"
-    from app.main import app
-    from app.database import get_db
 
-    from app.models import Transaction, Email, TransactionStatus
-    from datetime import datetime, timezone
+    from httpx import ASGITransport, AsyncClient
+    os.environ["TESTING"] = "1"
     import uuid
+    from datetime import datetime
+
+    from app.database import get_db
+    from app.main import app
+    from app.models import Email, Transaction, TransactionStatus
 
     def _make_pair(domain: str, txn_id: str):
         e = MagicMock(spec=Email)
@@ -45,7 +49,7 @@ async def test_get_review_queue_domain_count_no_n1():
         e.sender = f"noreply@{domain}"
         e.sender_domain = domain
         e.subject = "Debit alert"
-        e.received_at = datetime(2026, 4, 1, tzinfo=timezone.utc)
+        e.received_at = datetime(2026, 4, 1, tzinfo=UTC)
         e.body_snippet = "Rs.100 debited"
         e.gmail_link = f"https://mail.google.com/mail/u/0/#inbox/{e.id}"
 

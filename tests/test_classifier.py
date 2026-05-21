@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.classifier.classifier import classify_email, ClassificationResult
+
+import pytest
+
+from app.classifier.classifier import classify_email
 from app.classifier.context import ClassificationContext
 from app.classifier.llm_client import LLMClassification
-from app.models import Label, TransactionStatus, ClassifierMethod
+from app.models import ClassifierMethod, Label, TransactionStatus
 
 
 def _mock_verbose_result(label="expense", amount=499.0, merchant="Swiggy",

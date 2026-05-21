@@ -1,6 +1,7 @@
 from app.classifier.rules import apply_rules
 from app.models import Label
 
+
 def test_known_domain_expense():
     result = apply_rules("zomato.com", "Your order is confirmed", "₹299 paid")
     assert result.label == Label.expense

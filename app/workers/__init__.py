@@ -1,1 +1,1 @@
-from .queue import TaskQueue, TaskStatus, Task, task_queue
+from .queue import Task, TaskQueue, TaskStatus, task_queue

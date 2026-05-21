@@ -1,6 +1,5 @@
 """Centralized LLM client building for user-specific AI services."""
 import logging
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +12,7 @@ from app.models.user import UserAIService
 logger = logging.getLogger(__name__)
 
 
-async def get_user_llm_client(user_id: str, db: AsyncSession) -> Optional[MultiLLMClient]:
+async def get_user_llm_client(user_id: str, db: AsyncSession) -> MultiLLMClient | None:
     """Build a user-specific LLM client from their active AI service config.
 
     Returns None if the user has no active AI service or if building fails.

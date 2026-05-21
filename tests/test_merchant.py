@@ -1,7 +1,5 @@
 """Unit tests for app/classifier/merchant.py"""
-import pytest
-from app.classifier.merchant import normalize_merchant, extract_raw_merchant, _regex_clean
-
+from app.classifier.merchant import _regex_clean, extract_raw_merchant, normalize_merchant
 
 # ── _regex_clean ──────────────────────────────────────────────────────────────
 

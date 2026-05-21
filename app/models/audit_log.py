@@ -1,7 +1,7 @@
-from sqlalchemy import String, Text, DateTime, Index
+from sqlalchemy import DateTime, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, _uuid_col, _utcnow
+from .base import Base, _utcnow, _uuid_col
 
 
 class AuditLog(Base):

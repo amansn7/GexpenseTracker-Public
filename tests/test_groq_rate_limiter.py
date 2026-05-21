@@ -1,9 +1,10 @@
-import pytest
-import time
 import inspect
-import asyncio
+import time
+
+import pytest
+
 import app.classifier.groq_rate_limiter as _mod
-from app.classifier.groq_rate_limiter import get_groq_limiter, GroqRateLimiter, _user_limiters
+from app.classifier.groq_rate_limiter import GroqRateLimiter, _user_limiters, get_groq_limiter
 
 
 def setup_function():
@@ -67,7 +68,7 @@ async def test_acquire_returns_true_when_quota_available():
 
 @pytest.mark.asyncio
 async def test_acquire_returns_false_when_quota_exhausted():
-    from app.classifier.groq_rate_limiter import GroqRateLimiter, GROQ_LIMITS
+    from app.classifier.groq_rate_limiter import GROQ_LIMITS, GroqRateLimiter
     limiter = GroqRateLimiter("key")
     bucket = limiter._get_bucket("llama-3.3-70b-versatile")
     bucket["rpm_used"] = GROQ_LIMITS["llama-3.3-70b-versatile"].requests_per_minute

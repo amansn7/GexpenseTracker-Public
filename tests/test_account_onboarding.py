@@ -2,11 +2,11 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.auth_deps import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.main import app
 from app.models import User, UserAIService, UserCategory, UserSettings
-from app.auth_deps import get_current_user
 
 
 async def _client(db_session):
@@ -78,7 +78,6 @@ async def test_account_profile_and_settings_update(db_session, mock_user):
 
 @pytest.mark.asyncio
 async def test_account_associated_items_are_user_owned(db_session):
-    from app.models import UserRole, UserStatus
 
     client = await _client(db_session)
     try:

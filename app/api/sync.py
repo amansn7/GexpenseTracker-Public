@@ -1,16 +1,18 @@
 import asyncio
 import logging
 import re
-from datetime import timedelta, date as _date
-from typing import Optional
+from datetime import date as _date
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, model_validator
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.database import get_db
-from app.models import SyncState, User, UserRole
-from app.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth_deps import get_current_user, is_owner
+from app.config import settings
+from app.database import get_db
+from app.models import SyncState, User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -93,10 +95,12 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     import asyncio
+
     from sqlalchemy import or_
-    from app.models import Email
+
     from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
+    from app.models import Email
 
     if payload.email_ids:
         result = await db.execute(
@@ -210,8 +214,8 @@ class FetchRangeBody(BaseModel):
     after_date: _date
     before_date: _date
     llm_priority: bool = False
-    sender: Optional[str] = None
-    subject: Optional[str] = None
+    sender: str | None = None
+    subject: str | None = None
 
     @model_validator(mode="after")
     def _check_range(self):

@@ -1,6 +1,6 @@
 import asyncio
-import pytest
-from app.workers.queue import _payload_hash, TaskQueue, TaskStatus
+
+from app.workers.queue import TaskQueue, _payload_hash
 
 
 def test_trigger_manual_and_scheduled_produce_same_hash():

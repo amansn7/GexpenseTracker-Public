@@ -1,14 +1,15 @@
 import logging
-from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
+
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import DuplicatePair, Transaction, Email, User
 from app.dedup.service import resolve_duplicate
+from app.models import DuplicatePair, Email, Transaction, User
 from app.services.transaction_formatter import format_transaction
 
 log = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _fmt_tx(t: Transaction, e: Optional[Email]) -> dict:
+def _fmt_tx(t: Transaction, e: Email | None) -> dict:
     """Duplicate-specific format with sender_domain field."""
     base = format_transaction(t, e)
     return {
@@ -75,7 +76,7 @@ async def scan_duplicates(db: AsyncSession = Depends(get_db), current_user: User
 
 
 @router.get("/duplicates")
-async def list_duplicates(status: Optional[str] = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def list_duplicates(status: str | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """List duplicate pairs — single joined query, no N+1 (T2)."""
     PrimaryTx = aliased(Transaction)
     PrimaryEmail = aliased(Email)

@@ -1,8 +1,8 @@
 import asyncio
-import pytest
-from unittest.mock import AsyncMock, patch
 
-from app.workers.queue import TaskQueue, Task, TaskStatus
+import pytest
+
+from app.workers.queue import Task, TaskQueue
 
 
 @pytest.mark.asyncio
@@ -22,8 +22,8 @@ async def test_sync_different_users_run_concurrently():
 
     tq.register_handler("sync", slow_handler)
 
-    task_id_1 = await tq.enqueue("sync", "user-a", {"trigger": "manual"})
-    task_id_2 = await tq.enqueue("sync", "user-b", {"trigger": "manual"})
+    await tq.enqueue("sync", "user-a", {"trigger": "manual"})
+    await tq.enqueue("sync", "user-b", {"trigger": "manual"})
 
     worker_task = asyncio.create_task(tq.worker_loop())
     await asyncio.sleep(0.3)
@@ -57,8 +57,8 @@ async def test_sync_same_user_run_sequentially():
     tq.register_handler("sync", handler)
 
     # Use different payloads (not just trigger) so idempotency doesn't reject the second
-    task_id_1 = await tq.enqueue("sync", "user-a", {"label": "first"})
-    task_id_2 = await tq.enqueue("sync", "user-a", {"label": "second"})
+    await tq.enqueue("sync", "user-a", {"label": "first"})
+    await tq.enqueue("sync", "user-a", {"label": "second"})
 
     worker_task = asyncio.create_task(tq.worker_loop())
     await asyncio.sleep(0.6)

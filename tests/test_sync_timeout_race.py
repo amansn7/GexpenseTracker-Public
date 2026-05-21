@@ -6,17 +6,17 @@ Covers:
 3. Frontend polling math: 480 × 1.2s = 576s < 600s backend timeout
 """
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ── 1. sync_emails does NOT set running: False ──────────────────────────────
 
 @pytest.mark.asyncio
 async def test_sync_emails_does_not_set_running_false_on_success():
     """sync_emails leaves running untouched on success — caller sets it."""
-    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
     from app.sync.fetch import sync_emails
+    from app.sync.progress import _reset_progress, _sync_progress, _user_progress
 
     user_id = "test_no_running_false_success"
     _reset_progress(user_id)
@@ -41,8 +41,8 @@ async def test_sync_emails_does_not_set_running_false_on_success():
 @pytest.mark.asyncio
 async def test_sync_emails_does_not_set_running_false_on_exception():
     """sync_emails leaves running untouched on exception — caller sets it."""
-    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
     from app.sync.fetch import sync_emails
+    from app.sync.progress import _reset_progress, _sync_progress, _user_progress
 
     user_id = "test_no_running_false_exc"
     _reset_progress(user_id)

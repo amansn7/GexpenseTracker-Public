@@ -1,9 +1,12 @@
-import pytest
 import os
+
+import pytest
+
 os.environ["TESTING"] = "1"
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.database import get_db
+from app.main import app
 
 
 @pytest.mark.asyncio
@@ -104,9 +107,12 @@ async def test_health_anchored_balance_mode(db_session, mock_user):
 
 @pytest.mark.asyncio
 async def test_health_balance_reflects_transactions(db_session, mock_user):
-    from app.models import Email as EmailModel, Transaction as TxnModel, Label, TransactionStatus
-    from datetime import date as date_type
     import uuid
+    from datetime import date as date_type
+
+    from app.models import Email as EmailModel
+    from app.models import Label, TransactionStatus
+    from app.models import Transaction as TxnModel
 
     async def override_get_db():
         yield db_session

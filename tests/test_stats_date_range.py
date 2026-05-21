@@ -1,9 +1,12 @@
-import pytest
 import os
+
+import pytest
+
 os.environ["TESTING"] = "1"
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.database import get_db
+from app.main import app
 
 
 @pytest.mark.asyncio

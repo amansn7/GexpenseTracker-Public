@@ -1,6 +1,7 @@
 """Tests for the currency conversion service."""
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from app.services.currency import (
     SUPPORTED_CURRENCIES,

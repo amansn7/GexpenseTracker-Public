@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import UserCategory
 
 # Maps DB category values to canonical keys (mirrors frontend _CAT_ALIAS)
-_CANONICAL_MAP: Dict[str, str] = {
+_CANONICAL_MAP: dict[str, str] = {
     "food": "food", "dining": "food", "food & dining": "food",
     "restaurant": "food", "meal": "food", "cafe": "food", "eat": "food",
     "groceries": "groceries", "grocery": "groceries", "kirana": "groceries",
@@ -44,7 +43,7 @@ _CANONICAL_MAP: Dict[str, str] = {
 }
 
 
-def get_canonical_map() -> Dict[str, str]:
+def get_canonical_map() -> dict[str, str]:
     """Return a copy of the canonical category alias map.
 
     Public accessor for `_CANONICAL_MAP` so external callers (e.g. the
@@ -70,7 +69,7 @@ class CategoryService:
     """Centralized category operations for the backend."""
 
     @staticmethod
-    def resolve(raw: Optional[str], is_income: bool = False) -> str:
+    def resolve(raw: str | None, is_income: bool = False) -> str:
         """Map a raw DB category value to a canonical key."""
         if is_income:
             return "income"
@@ -80,8 +79,8 @@ class CategoryService:
 
     @staticmethod
     async def load_for_llm(
-        session: Optional[AsyncSession], user_id: Optional[str]
-    ) -> Optional[str]:
+        session: AsyncSession | None, user_id: str | None
+    ) -> str | None:
         """Return comma-separated active category names for the given user, or None."""
         if not session or not user_id:
             return None
@@ -100,7 +99,7 @@ class CategoryService:
     @staticmethod
     async def get_list(
         session: AsyncSession, user_id: str
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return all user categories for the given user as dicts."""
         rows = (
             await session.execute(
@@ -114,7 +113,7 @@ class CategoryService:
     @staticmethod
     async def get_active_list(
         session: AsyncSession, user_id: str
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Return only active user categories."""
         rows = (
             await session.execute(

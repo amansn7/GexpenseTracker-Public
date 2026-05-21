@@ -1,13 +1,16 @@
 import asyncio
 import logging
-from typing import Optional, Any
+from datetime import UTC
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.audit import log_audit
 from app.auth_deps import get_current_user, is_owner
 from app.database import get_db
-from app.models import User, UserRole
-from app.audit import log_audit
+from app.models import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -38,9 +41,10 @@ async def fetch_preview(
     if not (1 <= body.limit <= 100):
         raise HTTPException(status_code=422, detail="limit must be 1–100")
     try:
-        from app.gmail.client import _build_service, _extract_body_text, extract_domain, get_gmail_link
+        from datetime import datetime
+
         from app.gmail.auth import get_credentials_for_user
-        from datetime import datetime, timezone
+        from app.gmail.client import _build_service, _extract_body_text, extract_domain, get_gmail_link
 
         creds = await get_credentials_for_user(db, current_user.id)
         service = await asyncio.to_thread(lambda: _build_service(creds))
@@ -68,7 +72,7 @@ async def fetch_preview(
                     "sender": sender,
                     "sender_domain": extract_domain(sender),
                     "received_at": datetime.fromtimestamp(
-                        int(msg["internalDate"]) / 1000, tz=timezone.utc
+                        int(msg["internalDate"]) / 1000, tz=UTC
                     ).isoformat(),
                     "snippet": msg.get("snippet", "")[:200],
                     "body_chars": len(body_text),
@@ -89,7 +93,7 @@ class ClassifyTestBody(BaseModel):
     sender: str
     subject: str
     body: str
-    email_id: Optional[str] = None
+    email_id: str | None = None
     use_llm: bool = True
 
 
@@ -99,9 +103,9 @@ async def classify_test(
     current_user: User = Depends(_require_owner),
 ):
     """Run classification pipeline on raw inputs — no DB writes."""
-    from app.gmail.client import extract_domain
     from app.classifier.classifier import classify_email
     from app.classifier.context import ClassificationContext
+    from app.gmail.client import extract_domain
 
     sender_domain = extract_domain(body.sender)
     result = await classify_email(
@@ -136,8 +140,9 @@ async def seed_merchants(
     current_user: User = Depends(_require_owner),
 ):
     """Seed merchant→category mappings from ExpenseRuleEngine merchant_db.json merchants dict."""
-    from app.models import MerchantAlias
     from sqlalchemy import select
+
+    from app.models import MerchantAlias
 
     seeded = 0
     skipped = 0
@@ -179,8 +184,8 @@ async def seed_merchants(
 class TestProviderBody(BaseModel):
     provider: str
     is_user_service: bool = False
-    service_id: Optional[str] = None
-    prompt: Optional[str] = None
+    service_id: str | None = None
+    prompt: str | None = None
 
 
 @router.post("/admin/test-provider")
@@ -195,12 +200,13 @@ async def test_provider(
     client = MultiLLMClient(user_id=current_user.id)
 
     if body.is_user_service:
+        from sqlalchemy import select
+
         from app.crypto import decrypt_ai_secret
         from app.models import UserAIService
-        from sqlalchemy import select
         query = select(UserAIService).where(
             UserAIService.user_id == current_user.id,
-            UserAIService.enabled == True,
+            UserAIService.enabled,
         )
         if body.service_id:
             query = query.where(UserAIService.id == body.service_id)
@@ -318,9 +324,9 @@ async def list_domain_rules(
     """Return current domain rules: built-in + learned from data."""
     from app.classifier.rules import BUILTIN_DOMAIN_RULES, build_domain_rules
 
-    builtin = [{"domain": d, "label": l.value, "category": c} for d, (l, c) in BUILTIN_DOMAIN_RULES.items()]
+    builtin = [{"domain": d, "label": lbl.value, "category": c} for d, (lbl, c) in BUILTIN_DOMAIN_RULES.items()]
     learned = await build_domain_rules(db)
-    learned_list = [{"domain": d, "label": l.value, "category": c} for d, (l, c) in learned.items()]
+    learned_list = [{"domain": d, "label": lbl.value, "category": c} for d, (lbl, c) in learned.items()]
     return {"builtin": builtin, "learned": learned_list}
 
 
@@ -335,7 +341,7 @@ async def generate_domain_rules(
     rules = await build_domain_rules(db)
     return {
         "count": len(rules),
-        "rules": [{"domain": d, "label": l.value, "category": c} for d, (l, c) in rules.items()],
+        "rules": [{"domain": d, "label": lbl.value, "category": c} for d, (lbl, c) in rules.items()],
     }
 
 
@@ -346,6 +352,7 @@ async def list_sender_rules(
 ):
     """Return all SenderRule entries (user-trained corrections)."""
     from sqlalchemy import select
+
     from app.models.financial import SenderRule
 
     rows = (await db.execute(
@@ -372,12 +379,13 @@ async def list_sender_rules(
 async def list_audit_logs(
     skip: int = 0,
     limit: int = 50,
-    action: Optional[str] = None,
+    action: str | None = None,
     current_user: User = Depends(_require_owner),
     db: AsyncSession = Depends(get_db),
 ):
     """Return audit log entries."""
     from sqlalchemy import select
+
     from app.models import AuditLog
 
     query = select(AuditLog).order_by(AuditLog.created_at.desc())

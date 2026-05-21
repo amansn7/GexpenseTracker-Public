@@ -1,13 +1,16 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.classifier.classifier import (
-    _extract_amount, _rules_fallback_result, batch_classify_emails,
-    ClassificationResult,
-)
-from app.classifier.llm_client import _parse_batch_response, LLMClassification
-from app.classifier.transaction_extractor import _extract_foreign_amount, extract
-from app.models import Label, TransactionStatus, ClassifierMethod
 
+import pytest
+
+from app.classifier.classifier import (
+    ClassificationResult,
+    _extract_amount,
+    _rules_fallback_result,
+    batch_classify_emails,
+)
+from app.classifier.llm_client import LLMClassification, _parse_batch_response
+from app.classifier.transaction_extractor import _extract_foreign_amount, extract
+from app.models import ClassifierMethod, Label, TransactionStatus
 
 # ── _extract_amount ──────────────────────────────────────────────────────────
 

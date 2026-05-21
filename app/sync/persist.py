@@ -1,17 +1,16 @@
 """Transaction persistence and sync state updates."""
-from datetime import datetime, timezone
-from typing import List, Tuple
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Email, Label, SyncState, Transaction
+from app.models import Label, SyncState, Transaction
 
 
 async def _persist_transactions(
-    new_pairs: List,
-    classifications: List,
+    new_pairs: list,
+    classifications: list,
     session: AsyncSession,
-) -> Tuple[List[Tuple], int]:
+) -> tuple[list[tuple], int]:
     """
     Create Transaction rows from classification results.
     Returns (new_transactions_list, processed_count).
@@ -54,8 +53,8 @@ async def _update_sync_state(
             id=1,
             user_id=user_id,
             last_history_id=new_history_id,
-            last_synced_at=datetime.now(timezone.utc),
+            last_synced_at=datetime.now(UTC),
         ))
     else:
         sync_state.last_history_id = new_history_id
-        sync_state.last_synced_at = datetime.now(timezone.utc)
+        sync_state.last_synced_at = datetime.now(UTC)

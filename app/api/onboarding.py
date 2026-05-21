@@ -1,4 +1,3 @@
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -6,7 +5,11 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth_deps import get_current_user
+from app.api._account_helpers import (
+    DEFAULT_CATEGORIES,
+    _clean_email,
+    _load_user_bundle,
+)
 from app.config import settings
 from app.database import get_db
 from app.models import (
@@ -18,11 +21,6 @@ from app.models import (
     UserSettings,
     UserStatus,
 )
-from app.api._account_helpers import (
-    DEFAULT_CATEGORIES,
-    _clean_email,
-    _load_user_bundle,
-)
 
 router = APIRouter()
 
@@ -30,10 +28,10 @@ router = APIRouter()
 class OnboardingBody(BaseModel):
     email: str
     full_name: str
-    invite_code: Optional[str] = None
-    display_name: Optional[str] = None
-    phone: Optional[str] = None
-    location: Optional[str] = None
+    invite_code: str | None = None
+    display_name: str | None = None
+    phone: str | None = None
+    location: str | None = None
     default_currency: str = Field(default="INR", min_length=3, max_length=3)
     timezone: str = "Asia/Kolkata"
 

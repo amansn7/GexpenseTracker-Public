@@ -3,7 +3,6 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +10,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMClassification:
     label: str
-    amount: Optional[float]
-    merchant: Optional[str]
-    category: Optional[str]
-    txn_date: Optional[str]
+    amount: float | None
+    merchant: str | None
+    category: str | None
+    txn_date: str | None
     confidence: float
-    email_type: Optional[str] = None
-    source_currency: Optional[str] = None
+    email_type: str | None = None
+    source_currency: str | None = None
 
 
 def extract_json(text: str) -> str:
@@ -89,7 +88,7 @@ def parse_response(raw: str) -> LLMClassification:
     )
 
 
-def parse_batch_response(raw: str, expected_count: int) -> List[LLMClassification]:
+def parse_batch_response(raw: str, expected_count: int) -> list[LLMClassification]:
     """Parse a JSON array response into individual LLMClassification objects."""
     cleaned = extract_json(raw)
     for _, fix in _REPAIRERS:
@@ -104,7 +103,7 @@ def parse_batch_response(raw: str, expected_count: int) -> List[LLMClassificatio
     if not isinstance(data, list):
         data = [data]
 
-    results: List[LLMClassification] = []
+    results: list[LLMClassification] = []
     for item in data:
         if not isinstance(item, dict):
             results.append(LLMClassification(

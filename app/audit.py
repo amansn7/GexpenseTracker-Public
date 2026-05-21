@@ -1,6 +1,7 @@
 import logging
-from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models import AuditLog
 
 logger = logging.getLogger(__name__)
@@ -9,12 +10,12 @@ logger = logging.getLogger(__name__)
 async def log_audit(
     db: AsyncSession,
     action: str,
-    user_id: Optional[str] = None,
-    resource_type: Optional[str] = None,
-    resource_id: Optional[str] = None,
-    details: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    user_agent: Optional[str] = None,
+    user_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    details: str | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> None:
     """Record an audit log entry."""
     entry = AuditLog(

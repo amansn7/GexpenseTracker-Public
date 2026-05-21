@@ -1,19 +1,19 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 import asyncio
+from unittest.mock import MagicMock, patch
 
-from app.workers.queue import Task, TaskQueue, TaskStatus
+import pytest
+
+from app.workers.queue import Task, TaskQueue
 from app.workers.sync_worker import (
     handle_fetch_range_task,
     register_fetch_range,
-    FETCH_RANGE_TIMEOUT_SECS,
 )
 
 
 @pytest.mark.asyncio
 async def test_handle_fetch_range_task_respects_timeout():
     """handle_fetch_range_task should raise TimeoutError when run_sync_range exceeds limit."""
-    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
+    from app.sync.progress import _reset_progress, _sync_progress, _user_progress
 
     user_id = "test_fetch_range_timeout"
     _reset_progress(user_id)
@@ -43,7 +43,7 @@ async def test_handle_fetch_range_task_respects_timeout():
 @pytest.mark.asyncio
 async def test_handle_fetch_range_task_success():
     """handle_fetch_range_task should return completed status on success."""
-    from app.sync.progress import _sync_progress, _reset_progress
+    from app.sync.progress import _reset_progress, _sync_progress
 
     user_id = "test_fetch_range_success"
     _reset_progress(user_id)
@@ -72,7 +72,7 @@ async def test_handle_fetch_range_task_success():
 @pytest.mark.asyncio
 async def test_handle_fetch_range_task_exception():
     """handle_fetch_range_task should propagate non-timeout exceptions."""
-    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
+    from app.sync.progress import _reset_progress, _sync_progress, _user_progress
 
     user_id = "test_fetch_range_exception"
     _reset_progress(user_id)
@@ -105,10 +105,11 @@ def test_register_fetch_range_handler():
 @pytest.mark.asyncio
 async def test_trigger_fetch_range_enqueues_task():
     """trigger_fetch_range should enqueue a task, not use create_task."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
 
     owner = User(email="owner-fetch@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
@@ -137,10 +138,11 @@ async def test_trigger_fetch_range_enqueues_task():
 @pytest.mark.asyncio
 async def test_fetch_range_endpoint_wraps_with_wait_for():
     """The synchronous fetch_range endpoint should wrap run_sync_range with asyncio.wait_for."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
 
     owner = User(email="owner-sync@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
@@ -172,12 +174,13 @@ async def test_fetch_range_endpoint_wraps_with_wait_for():
 @pytest.mark.asyncio
 async def test_fetch_range_task_visible_via_tasks_api():
     """Fetch-range task status should be visible via /api/tasks."""
-    from httpx import AsyncClient, ASGITransport
-    from app.workers.queue import task_queue
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
+    from app.workers.queue import task_queue
 
     owner = User(email="owner-tasks@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
 

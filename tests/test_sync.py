@@ -1,12 +1,14 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @pytest.mark.asyncio
 async def test_fetch_new_messages_date_range_query():
     """fetch_new_messages with after_date builds correct Gmail query and preserves history_id."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
+
     from app.gmail.client import fetch_new_messages
 
     mock_service = MagicMock()
@@ -30,8 +32,8 @@ async def test_fetch_new_messages_date_range_query():
 @pytest.mark.asyncio
 async def test_scheduler_uses_task_queue():
     """Scheduled sync should enqueue through task queue, not call run_sync directly."""
-    from app.workers.queue import TaskQueue
     from app.scheduler import setup_scheduler
+    from app.workers.queue import TaskQueue
 
     tq = TaskQueue()
     tq.register_handler("sync", lambda t: {"status": "completed"})
@@ -76,8 +78,9 @@ async def _make_service_user(db_session):
 
 @pytest.mark.asyncio
 async def test_run_sync_skips_duplicate_gmail_id(db_session):
-    from app.models import Email, Transaction
     from sqlalchemy import select
+
+    from app.models import Email, Transaction
 
     user = await _make_service_user(db_session)
     existing = Email(gmail_id="dup001", sender_domain="amazon.in", user_id=user.id)
@@ -102,7 +105,7 @@ async def test_run_sync_skips_duplicate_gmail_id(db_session):
     with patch("app.sync.fetch.fetch_new_messages", return_value=(fake_messages, "100")):
         with patch("app.sync.fetch.AsyncSessionLocal", return_value=mock_ctx):
             from app.sync import run_sync
-            result = await run_sync()
+            await run_sync()
 
     # No new transaction — duplicate skipped
     txns = await db_session.execute(select(Transaction))
@@ -111,8 +114,9 @@ async def test_run_sync_skips_duplicate_gmail_id(db_session):
 
 @pytest.mark.asyncio
 async def test_run_sync_persists_rule_detected_merchant(db_session):
-    from app.models import Transaction
     from sqlalchemy import select
+
+    from app.models import Transaction
 
     user = await _make_service_user(db_session)
 
@@ -149,10 +153,11 @@ async def test_run_sync_persists_rule_detected_merchant(db_session):
 @pytest.mark.asyncio
 async def test_fetch_range_endpoint_owner_only(db_session):
     """Non-owner gets 403 from /sync/fetch-range."""
-    from httpx import AsyncClient, ASGITransport
-    from app.main import app
-    from app.database import get_db
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
 
     member = User(email="member@test.com", role=UserRole.member, status=UserStatus.active, onboarding_complete=True)
@@ -177,11 +182,13 @@ async def test_fetch_range_endpoint_owner_only(db_session):
 @pytest.mark.asyncio
 async def test_fetch_range_endpoint_owner_succeeds(db_session):
     """Owner gets 200 from /sync/fetch-range with mocked run_sync_range."""
-    from httpx import AsyncClient, ASGITransport
     from unittest.mock import patch
-    from app.main import app
-    from app.database import get_db
+
+    from httpx import ASGITransport, AsyncClient
+
     from app.auth_deps import get_current_user
+    from app.database import get_db
+    from app.main import app
     from app.models import User, UserRole, UserStatus
 
     owner = User(email="owner@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
@@ -252,8 +259,8 @@ def test_task_queue_idempotency_clears_failed():
 @pytest.mark.asyncio
 async def test_sync_emails_does_not_clear_running_flag():
     """sync_emails no longer sets running=False — the caller (handle_sync_task) is responsible."""
-    from app.sync.progress import _sync_progress, _reset_progress, _user_progress
     from app.sync.fetch import sync_emails
+    from app.sync.progress import _reset_progress, _sync_progress, _user_progress
 
     user_id = "test_running_flag_caller_responsibility"
     _reset_progress(user_id)

@@ -1,10 +1,11 @@
 import json
 import urllib.request
 from pathlib import Path
-from typing import Optional
+
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from google.auth.transport.requests import Request
+
 from app.config import settings
 
 TOKEN_FILE = Path("data/gmail_token.json")
@@ -31,7 +32,7 @@ def get_oauth_flow() -> Flow:
     return flow
 
 
-def get_credentials() -> Optional[Credentials]:
+def get_credentials() -> Credentials | None:
     if not TOKEN_FILE.exists():
         return None
     creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
@@ -63,6 +64,7 @@ def get_google_userinfo(creds) -> dict:
 async def get_credentials_for_user(db, user_id: str):
     """Load Gmail credentials from connected_accounts DB row."""
     from sqlalchemy import select
+
     from app.models import ConnectedAccount
 
     account = (await db.execute(
@@ -101,8 +103,9 @@ async def get_credentials_for_user(db, user_id: str):
 
     if creds.expired and creds.refresh_token:
         import asyncio
-        from google.auth.transport.requests import Request as GRequest
+
         from google.auth.exceptions import RefreshError
+        from google.auth.transport.requests import Request as GRequest
 
         try:
             loop = asyncio.get_running_loop()
@@ -110,7 +113,7 @@ async def get_credentials_for_user(db, user_id: str):
                 loop.run_in_executor(None, lambda: creds.refresh(GRequest())),
                 timeout=30,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise RuntimeError("Gmail token refresh timed out — please reconnect Gmail")
         except RefreshError as exc:
             raise RuntimeError(f"Gmail token refresh failed: {exc}. Please reconnect Gmail")

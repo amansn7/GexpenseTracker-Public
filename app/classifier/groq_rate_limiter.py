@@ -7,8 +7,7 @@ import asyncio
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from app.config import settings
 
@@ -46,7 +45,7 @@ GROQ_LIMITS: dict[str, ModelLimits] = {
 class GroqRateLimiter:
     """
     Token bucket rate limiter for Groq API.
-    
+
     Tracks RPM and TPM per-model with daily limits.
     Uses a sliding window approach with a background thread to reset buckets.
     """
@@ -58,7 +57,7 @@ class GroqRateLimiter:
         self._minute_start = time.time()
         self._day_start = time.time()
         self._stop_event = threading.Event()
-        self._reset_thread: Optional[threading.Thread] = None
+        self._reset_thread: threading.Thread | None = None
         if api_key:
             self._start_reset_thread()
 
@@ -193,11 +192,11 @@ class GroqRateLimiter:
             self._reset_thread.join(timeout=2.0)
 
 
-_groq_limiter: Optional[GroqRateLimiter] = None
+_groq_limiter: GroqRateLimiter | None = None
 _user_limiters: dict[str, GroqRateLimiter] = {}
 
 
-def get_groq_limiter(user_id: Optional[str] = None, api_key: Optional[str] = None) -> Optional[GroqRateLimiter]:
+def get_groq_limiter(user_id: str | None = None, api_key: str | None = None) -> GroqRateLimiter | None:
     """
     Get or create a GroqRateLimiter.
 

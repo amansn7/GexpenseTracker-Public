@@ -1,15 +1,15 @@
 # Compatibility shim — all logic moved to app/classifier/llm/ package.
 # This file re-exports everything for backward compatibility.
 from app.classifier.llm import (  # noqa: F401
-    LLMClient,
-    LLMClassification,
-    MultiLLMClient,
-    Provider,
     _BATCH_USER_TEMPLATE,
     _DEFAULT_CATEGORIES,
     _KNOWN_BASE_URLS,
     _SYSTEM,
     _USER_TEMPLATE,
+    LLMClassification,
+    LLMClient,
+    MultiLLMClient,
+    Provider,
     _build_pre_extraction_block,
     _extract_json,
     _parse_batch_response,

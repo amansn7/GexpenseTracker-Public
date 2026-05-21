@@ -1,6 +1,9 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from app.classifier.llm_client import LLMClient, LLMClassification
+
+from app.classifier.llm_client import LLMClassification, LLMClient
+
 
 def test_llm_client_compat_alias():
     from app.classifier.llm_client import MultiLLMClient
@@ -20,7 +23,6 @@ async def test_classify_returns_classification(monkeypatch):
     mock_client.post = AsyncMock(return_value=fake_response)
 
     from app.classifier.llm.providers import Provider
-    from app.classifier.llm.parsing import parse_response
 
     test_provider = Provider(name="test", model="test-model", base_url="http://test", api_key="test-key")
 
