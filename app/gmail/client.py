@@ -3,12 +3,14 @@ import base64
 import html as html_module
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from google.oauth2.credentials import Credentials
-from app.gmail.auth import get_credentials
+
 from app.config import settings
+from app.gmail.auth import get_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -60,15 +62,12 @@ def get_gmail_link(gmail_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#inbox/{gmail_id}"
 
 def _build_service(creds: Credentials | None = None):
-    import socket
     import httplib2
     from google_auth_httplib2 import AuthorizedHttp
 
     creds = creds or get_credentials()
     if not creds:
         raise RuntimeError("Gmail not authenticated. Visit /api/auth/gmail")
-    # Global socket timeout as safety net for any blocking call
-    socket.setdefaulttimeout(30)
     # httplib2 with explicit timeout and NO retries
     http_transport = httplib2.Http(timeout=30)
     http_transport.num_retries = 0
@@ -372,7 +371,6 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
     metadata_fetch_count = 0
 
     if use_two_phase:
-        from googleapiclient.http import BatchHttpRequest
 
         # Phase 1: Fetch metadata in batches — 50x fewer HTTP round-trips
         logger.info("Two-phase fetch: fetching metadata for %d messages", len(message_ids))
@@ -439,7 +437,7 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
                 "sender": sender,
                 "sender_domain": extract_domain(sender),
                 "received_at": datetime.fromtimestamp(
-                    int(response["internalDate"]) / 1000, tz=timezone.utc
+                    int(response["internalDate"]) / 1000, tz=UTC
                 ),
                 "body_snippet": response.get("snippet", "")[:500],
                 "body_text": _extract_body_text(response.get("payload", {})),
@@ -491,7 +489,7 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
                 "sender": sender,
                 "sender_domain": extract_domain(sender),
                 "received_at": datetime.fromtimestamp(
-                    int(msg["internalDate"]) / 1000, tz=timezone.utc
+                    int(msg["internalDate"]) / 1000, tz=UTC
                 ),
                 "body_snippet": msg.get("snippet", "")[:500],
                 "body_text": _extract_body_text(msg.get("payload", {})),
