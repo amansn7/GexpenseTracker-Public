@@ -2,15 +2,19 @@ import asyncio
 import hashlib
 import json
 import logging
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+import time
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
+_IDEMPOTENCY_MAX_SIZE = 10000
+_IDEMPOTENCY_TTL_SECONDS = 3600  # 1 hour
 
-class TaskStatus(str, Enum):
+
+class TaskStatus(StrEnum):
     pending = "pending"
     running = "running"
     completed = "completed"
@@ -36,11 +40,11 @@ class Task:
         self.user_id = user_id
         self.status = TaskStatus.pending
         self.payload = payload
-        self.result: Optional[dict] = None
-        self.created_at = datetime.now(timezone.utc)
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
-        self.error: Optional[str] = None
+        self.result: dict | None = None
+        self.created_at = datetime.now(UTC)
+        self.started_at: datetime | None = None
+        self.completed_at: datetime | None = None
+        self.error: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -66,14 +70,15 @@ def _payload_hash(task_type: str, user_id: str, payload: dict) -> str:
 class TaskQueue:
     def __init__(self, maxsize: int = 0, worker_count: int = 3):
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=maxsize)
-        self._tasks: Dict[str, Task] = {}
-        self._user_tasks: Dict[str, List[str]] = {}
-        self._idempotency: Dict[str, str] = {}
+        self._tasks: dict[str, Task] = {}
+        self._user_tasks: dict[str, list[str]] = {}
+        self._idempotency: dict[str, str] = {}
+        self._idempotency_timestamps: dict[str, float] = {}
         self._lock = asyncio.Lock()
         self._running = False
-        self._handlers: Dict[str, Any] = {}
+        self._handlers: dict[str, Any] = {}
         self._worker_count = worker_count
-        self._running_users: Set[str] = set()
+        self._running_users: set[str] = set()
 
     def register_handler(self, task_type: str, handler):
         self._handlers[task_type] = handler
@@ -92,7 +97,7 @@ class TaskQueue:
         if task.type == "sync":
             self._running_users.discard(task.user_id)
 
-    async def enqueue(self, task_type: str, user_id: str, payload: dict) -> Optional[str]:
+    async def enqueue(self, task_type: str, user_id: str, payload: dict) -> str | None:
         idem_key = _payload_hash(task_type, user_id, payload)
         async with self._lock:
             existing = self._idempotency.get(idem_key)
@@ -110,6 +115,10 @@ class TaskQueue:
             task = Task(task_id, task_type, user_id, payload)
             self._tasks[task_id] = task
             self._idempotency[idem_key] = task_id
+            self._idempotency_timestamps[idem_key] = time.time()
+
+            if len(self._idempotency) > _IDEMPOTENCY_MAX_SIZE:
+                self._prune_idempotency()
 
             user_list = self._user_tasks.setdefault(user_id, [])
             user_list.append(task_id)
@@ -123,11 +132,11 @@ class TaskQueue:
         logger.info("Enqueued task %s (type=%s, user=%s)", task_id, task_type, user_id)
         return task_id
 
-    def get_status(self, task_id: str) -> Optional[dict]:
+    def get_status(self, task_id: str) -> dict | None:
         task = self._tasks.get(task_id)
         return task.to_dict() if task else None
 
-    def get_tasks(self, user_id: str, limit: int = 20) -> List[dict]:
+    def get_tasks(self, user_id: str, limit: int = 20) -> list[dict]:
         task_ids = self._user_tasks.get(user_id, [])
         recent = task_ids[-limit:]
         result = []
@@ -154,7 +163,7 @@ class TaskQueue:
         while self._running:
             try:
                 task_id = await asyncio.wait_for(self._queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
             task = self._tasks.get(task_id)
@@ -172,13 +181,13 @@ class TaskQueue:
             if not handler:
                 task.status = TaskStatus.failed
                 task.error = f"No handler registered for task type: {task.type}"
-                task.completed_at = datetime.now(timezone.utc)
+                task.completed_at = datetime.now(UTC)
                 logger.error("Task %s failed: %s", task_id, task.error)
                 self._queue.task_done()
                 continue
 
             task.status = TaskStatus.running
-            task.started_at = datetime.now(timezone.utc)
+            task.started_at = datetime.now(UTC)
             self._mark_user_running(task)
             logger.info("Worker %d processing task %s (type=%s, user=%s)", worker_id, task_id, task.type, task.user_id)
 
@@ -186,17 +195,52 @@ class TaskQueue:
                 result = await handler(task)
                 task.result = result if isinstance(result, dict) else {"output": result}
                 task.status = TaskStatus.completed
-                task.completed_at = datetime.now(timezone.utc)
+                task.completed_at = datetime.now(UTC)
                 logger.info("Worker %d: task %s completed", worker_id, task_id)
             except Exception as exc:
                 task.status = TaskStatus.failed
                 task.error = str(exc)
-                task.completed_at = datetime.now(timezone.utc)
+                task.completed_at = datetime.now(UTC)
                 logger.error("Worker %d: task %s failed: %s", worker_id, task_id, exc, exc_info=True)
             finally:
                 self._mark_user_done(task)
 
             self._queue.task_done()
+
+    def _prune_idempotency(self):
+        """Prune stale entries, then oldest entries if still over limit."""
+        now = time.time()
+        stale_keys = [
+            k for k, ts in self._idempotency_timestamps.items()
+            if now - ts > _IDEMPOTENCY_TTL_SECONDS
+        ]
+        for k in stale_keys:
+            self._idempotency.pop(k, None)
+            self._idempotency_timestamps.pop(k, None)
+
+        if len(self._idempotency) <= _IDEMPOTENCY_MAX_SIZE:
+            return
+
+        sorted_keys = sorted(
+            self._idempotency_timestamps.keys(),
+            key=lambda k: self._idempotency_timestamps[k],
+        )
+        excess = len(self._idempotency) - _IDEMPOTENCY_MAX_SIZE
+        for k in sorted_keys[:excess]:
+            self._idempotency.pop(k, None)
+            self._idempotency_timestamps.pop(k, None)
+
+    def cleanup_idempotency(self) -> int:
+        """Remove stale idempotency entries older than TTL. Returns count of pruned entries."""
+        now = time.time()
+        stale_keys = [
+            k for k, ts in self._idempotency_timestamps.items()
+            if now - ts > _IDEMPOTENCY_TTL_SECONDS
+        ]
+        for k in stale_keys:
+            self._idempotency.pop(k, None)
+            self._idempotency_timestamps.pop(k, None)
+        return len(stale_keys)
 
     def stop(self):
         self._running = False
