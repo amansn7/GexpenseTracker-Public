@@ -1,63 +1,64 @@
 import base64
 import logging
 import random
-from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api._account_helpers import (
+    _account_dict,
+    _ai_service_dict,
+    _api_key_hint,
+    _category_dict,
+    _clean_email,
+    _get_owned,
+    _load_user_bundle,
+    _profile_dict,
+    _settings_dict,
+)
 from app.auth_deps import get_current_user
+from app.config import settings
+from app.crypto import encrypt_ai_secret
 from app.database import get_db
 from app.models import (
     ConnectedAccount,
     Email,
+    LLMSpendTracker,
     User,
     UserAIService,
     UserCategory,
     UserProfile,
     UserSettings,
 )
-from app.crypto import encrypt_ai_secret
 from app.services.category_service import CategoryService, get_canonical_map
-from app.api._account_helpers import (
-    _clean_email,
-    _api_key_hint,
-    _settings_dict,
-    _account_dict,
-    _category_dict,
-    _ai_service_dict,
-    _get_owned,
-    _profile_dict,
-    _load_user_bundle,
-)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 class SettingsPatch(BaseModel):
-    daily_digest: Optional[bool] = None
-    low_confidence_alerts: Optional[bool] = None
-    auto_categorize: Optional[bool] = None
-    show_confidence: Optional[bool] = None
-    sound_effects: Optional[bool] = None
-    two_factor_enabled: Optional[bool] = None
-    confidence_threshold: Optional[int] = Field(default=None, ge=50, le=95)
-    monthly_ai_budget: Optional[float] = Field(default=None, ge=0)
-    active_ai_service_id: Optional[str] = None
-    digest_hour: Optional[int] = Field(default=None, ge=0, le=23)
-    use_rule_engine: Optional[bool] = None
-    starting_balance: Optional[float] = Field(default=None, ge=0, le=999_999_999)
-    starting_balance_date: Optional[date] = None
+    daily_digest: bool | None = None
+    low_confidence_alerts: bool | None = None
+    auto_categorize: bool | None = None
+    show_confidence: bool | None = None
+    sound_effects: bool | None = None
+    two_factor_enabled: bool | None = None
+    confidence_threshold: int | None = Field(default=None, ge=50, le=95)
+    monthly_ai_budget: float | None = Field(default=None, ge=0)
+    active_ai_service_id: str | None = None
+    digest_hour: int | None = Field(default=None, ge=0, le=23)
+    use_rule_engine: bool | None = None
+    starting_balance: float | None = Field(default=None, ge=0, le=999_999_999)
+    starting_balance_date: date | None = None
 
     @field_validator("starting_balance_date")
     @classmethod
-    def _date_not_future(cls, v: Optional[date]) -> Optional[date]:
+    def _date_not_future(cls, v: date | None) -> date | None:
         if v is not None and v > date.today():
             raise ValueError("starting_balance_date cannot be in the future")
         return v
@@ -67,51 +68,51 @@ class ConnectedAccountBody(BaseModel):
     provider: str
     account_email: str
     status: str = "disconnected"
-    external_id: Optional[str] = None
+    external_id: str | None = None
 
 
 class ConnectedAccountPatch(BaseModel):
-    status: Optional[str] = None
-    external_id: Optional[str] = None
-    last_synced_at: Optional[datetime] = None
+    status: str | None = None
+    external_id: str | None = None
+    last_synced_at: datetime | None = None
 
 
 class CategoryBody(BaseModel):
     name: str
     color: str = "#dcd5c3"
-    icon: Optional[str] = None
+    icon: str | None = None
     kind: str = "expense"
     active: bool = True
     sort_order: int = 0
 
 
 class CategoryPatch(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    icon: Optional[str] = None
-    kind: Optional[str] = None
-    active: Optional[bool] = None
-    sort_order: Optional[int] = None
+    name: str | None = None
+    color: str | None = None
+    icon: str | None = None
+    kind: str | None = None
+    active: bool | None = None
+    sort_order: int | None = None
 
 
 class AIServiceBody(BaseModel):
     provider: str
     display_name: str
     model_id: str
-    base_url: Optional[str] = None
+    base_url: str | None = None
     auth_header: str = "bearer"
-    api_key: Optional[str] = None
+    api_key: str | None = None
     enabled: bool = True
 
 
 class AIServicePatch(BaseModel):
-    provider: Optional[str] = None
-    display_name: Optional[str] = None
-    model_id: Optional[str] = None
-    base_url: Optional[str] = None
-    auth_header: Optional[str] = None
-    api_key: Optional[str] = None
-    enabled: Optional[bool] = None
+    provider: str | None = None
+    display_name: str | None = None
+    model_id: str | None = None
+    base_url: str | None = None
+    auth_header: str | None = None
+    api_key: str | None = None
+    enabled: bool | None = None
 
 
 class AIServiceValidateBody(BaseModel):
@@ -126,13 +127,13 @@ class TotpVerifyBody(BaseModel):
 
 
 class ProfilePatch(BaseModel):
-    full_name: Optional[str] = None
-    display_name: Optional[str] = None
-    phone: Optional[str] = None
-    location: Optional[str] = None
-    avatar_url: Optional[str] = None
-    default_currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
-    timezone: Optional[str] = None
+    full_name: str | None = None
+    display_name: str | None = None
+    phone: str | None = None
+    location: str | None = None
+    avatar_url: str | None = None
+    default_currency: str | None = Field(default=None, min_length=3, max_length=3)
+    timezone: str | None = None
 
 
 @router.patch("/account/settings")
@@ -253,7 +254,8 @@ async def generate_categories(
 ):
     """Analyse distinct category values in existing transactions and upsert user categories."""
     from sqlalchemy import func
-    from app.models import Transaction, Email
+
+    from app.models import Transaction
 
     try:
         rows = (await db.execute(
@@ -285,7 +287,7 @@ async def generate_categories(
         "entertainment": "#dccfe0", "movie": "#dccfe0", "cinema": "#dccfe0",
         "healthcare": "#f0d9d9", "medical": "#f0d9d9", "health": "#f0d9d9",
         "education": "#dde4ef", "edu": "#dde4ef", "tuition": "#dde4ef",
-        "subscriptions": "#c8b8d8", "subscription": "#c8b8d8", "entertainment": "#dccfe0",
+        "subscriptions": "#c8b8d8", "subscription": "#c8b8d8",
         "utilities": "#d9dbc9", "electricity": "#d9dbc9", "internet": "#d9dbc9",
         "cc payment": "#d4c4b7", "cc": "#d4c4b7", "credit card": "#d4c4b7",
         "transfers": "#d4d0b8", "transfer": "#d4d0b8", "upi": "#d4d0b8",
@@ -466,7 +468,7 @@ async def delete_ai_service(
 
 class RotateKeyBody(BaseModel):
     new_api_key: str
-    expires_in_days: Optional[int] = 90
+    expires_in_days: int | None = 90
 
 
 @router.post("/account/ai-services/{service_id}/rotate-key")
@@ -477,7 +479,8 @@ async def rotate_api_key(
     db: AsyncSession = Depends(get_db),
 ):
     """Rotate the API key for an AI service."""
-    from datetime import datetime, UTC, timedelta
+    from datetime import UTC, datetime, timedelta
+
     from app.audit import log_audit
 
     service = await _get_owned(db, UserAIService, user.id, service_id)
@@ -509,7 +512,8 @@ async def list_expiring_ai_keys(
     db: AsyncSession = Depends(get_db),
 ):
     """List AI services with keys expiring within N days."""
-    from datetime import datetime, UTC, timedelta
+    from datetime import UTC, datetime, timedelta
+
     from sqlalchemy import select
 
     threshold = datetime.now(UTC) + timedelta(days=days)
@@ -538,7 +542,10 @@ async def setup_2fa(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    import io, qrcode, pyotp
+    import io
+
+    import pyotp
+    import qrcode
     secret = pyotp.random_base32()
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
     user_row.totp_secret_pending = secret
@@ -622,7 +629,7 @@ async def schedule_account_deletion(
 ):
     """Schedule account deletion in 24-48 hours. Signs user out immediately."""
     delay_hours = random.uniform(24, 48)
-    deletion_at = datetime.now(timezone.utc) + timedelta(hours=delay_hours)
+    deletion_at = datetime.now(UTC) + timedelta(hours=delay_hours)
 
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
     user_row.scheduled_deletion_at = deletion_at
@@ -690,3 +697,54 @@ async def update_profile(
     await db.commit()
     await db.refresh(profile)
     return {"profile": _profile_dict(profile)}
+
+
+@router.get("/account/settings/llm-usage")
+async def get_llm_usage(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    today_result = await db.execute(
+        select(
+            func.coalesce(func.sum(LLMSpendTracker.calls), 0),
+            func.coalesce(func.sum(LLMSpendTracker.tokens_in), 0),
+            func.coalesce(func.sum(LLMSpendTracker.tokens_out), 0),
+            func.coalesce(func.sum(LLMSpendTracker.estimated_cost), 0),
+        ).where(
+            LLMSpendTracker.user_id == user.id,
+            LLMSpendTracker.date == today,
+        )
+    )
+    today_calls, today_tokens_in, today_tokens_out, today_cost = today_result.one()
+
+    month_result = await db.execute(
+        select(
+            func.coalesce(func.sum(LLMSpendTracker.calls), 0),
+            func.coalesce(func.sum(LLMSpendTracker.estimated_cost), 0),
+        ).where(
+            LLMSpendTracker.user_id == user.id,
+            LLMSpendTracker.date >= month_start,
+        )
+    )
+    month_calls, month_cost = month_result.one()
+
+    return {
+        "today": {
+            "calls": int(today_calls),
+            "tokens_in": int(today_tokens_in),
+            "tokens_out": int(today_tokens_out),
+            "estimated_cost_usd": round(float(today_cost), 4),
+        },
+        "month": {
+            "calls": int(month_calls),
+            "estimated_cost_usd": round(float(month_cost), 4),
+        },
+        "budget": {
+            "daily_limit_usd": settings.DAILY_LLM_BUDGET,
+            "remaining_usd": round(max(0.0, settings.DAILY_LLM_BUDGET - float(today_cost)), 4),
+            "exceeded": float(today_cost) >= settings.DAILY_LLM_BUDGET,
+        },
+    }

@@ -1,14 +1,16 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum as PyEnum
+from enum import StrEnum
 from typing import Optional
-from sqlalchemy import String, Text, Numeric, Float, DateTime, Date, Integer, Boolean, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+
 import sqlalchemy as sa
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base, _uuid_col, _utcnow
+from .base import Base, _utcnow, _uuid_col
 
 
-class RuleSource(str, PyEnum):
+class RuleSource(StrEnum):
     builtin = "builtin"
     user_trained = "user_trained"
 
@@ -17,7 +19,7 @@ class Budget(Base):
     __tablename__ = "budgets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -31,13 +33,13 @@ class Debt(Base):
     __tablename__ = "debts"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     paid_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0.0, nullable=False)
-    interest_rate: Mapped[Optional[float]] = mapped_column(Float)
-    target_date: Mapped[Optional[date]] = mapped_column(Date)
-    notes: Mapped[Optional[str]] = mapped_column(Text)
+    interest_rate: Mapped[float | None] = mapped_column(Float)
+    target_date: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -45,14 +47,14 @@ class RecurringExpense(Base):
     __tablename__ = "recurring_expenses"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2))
-    category: Mapped[Optional[str]] = mapped_column(String(100))
+    amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    category: Mapped[str | None] = mapped_column(String(100))
     # monthly | weekly | yearly
     frequency: Mapped[str] = mapped_column(String(20), default="monthly")
-    day_of_month: Mapped[Optional[int]] = mapped_column(Integer)   # 1-31, for monthly
-    notes: Mapped[Optional[str]] = mapped_column(Text)
+    day_of_month: Mapped[int | None] = mapped_column(Integer)   # 1-31, for monthly
+    notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -61,10 +63,10 @@ class SenderRule(Base):
     __tablename__ = "sender_rules"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     sender_domain: Mapped[str] = mapped_column(String(255), nullable=False)
     label: Mapped[str] = mapped_column(String(20), nullable=False)
-    category: Mapped[Optional[str]] = mapped_column(String(100))
+    category: Mapped[str | None] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(20), default=RuleSource.builtin)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -80,7 +82,7 @@ class MerchantAlias(Base):
     id: Mapped[str] = _uuid_col()
     raw: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     canonical: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     source: Mapped[str] = mapped_column(String(20), default="fuzzy_learned")  # seed | fuzzy_learned | user
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
@@ -107,8 +109,8 @@ class PatternRule(Base):
     id: Mapped[str] = _uuid_col()
     regex_pattern: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     label: Mapped[str] = mapped_column(String(20), nullable=False)      # expense | income
-    merchant: Mapped[Optional[str]] = mapped_column(String(255))
-    category: Mapped[Optional[str]] = mapped_column(String(100))
+    merchant: Mapped[str | None] = mapped_column(String(255))
+    category: Mapped[str | None] = mapped_column(String(100))
     confidence: Mapped[float] = mapped_column(Float, default=0.88)
     hit_count: Mapped[int] = mapped_column(Integer, default=0)
     source: Mapped[str] = mapped_column(String(20), default="llm_generated")
@@ -143,8 +145,51 @@ class DuplicatePair(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     rule_source: Mapped[str] = mapped_column(String(20), nullable=False, default="amount_date")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),
     )
+
+
+class LLMSpendTracker(Base):
+    __tablename__ = "llm_spend_tracker"
+
+    id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(60), nullable=False)
+    model: Mapped[str] = mapped_column(String(160), nullable=False)
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_cost: Mapped[float] = mapped_column(Numeric(12, 4), default=0.0)
+
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "date", "provider", "model", name="uq_llm_spend_user_date_provider_model"),
+    )
+
+
+class Goal(Base):
+    __tablename__ = "goals"
+
+    id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class GoalContribution(Base):
+    __tablename__ = "goal_contributions"
+
+    id: Mapped[str] = _uuid_col()
+    goal_id: Mapped[str] = mapped_column(String(36), ForeignKey("goals.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    contributed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

@@ -9,6 +9,10 @@ from .base import Base, _utcnow, _uuid_col
 from .correction import (
     TransactionCorrection,
 )
+from .device_token import (
+    DeviceToken,
+    RefreshTokenBlacklist,
+)
 from .email import (
     Email,
     SyncState,
@@ -21,6 +25,8 @@ from .financial import (
     Debt,
     DomainPairRule,
     DuplicatePair,
+    Goal,
+    GoalContribution,
     LLMSpendTracker,
     MerchantAlias,
     PatternRule,
@@ -57,10 +63,6 @@ from .user import (
     UserRole,
     UserSettings,
     UserStatus,
-)
-from .device_token import (
-    DeviceToken,
-    RefreshTokenBlacklist,
 )
 
 __all__ = [
@@ -105,6 +107,8 @@ __all__ = [
     "DomainPairRule",
     "DuplicatePair",
     "LLMSpendTracker",
+    "Goal",
+    "GoalContribution",
     # merchant entity resolution
     "MerchantEntityAlias",
     "MerchantEntity",
