@@ -23,7 +23,7 @@ from app.api._account_helpers import (
 )
 from app.auth_deps import get_current_user
 from app.config import settings
-from app.crypto import encrypt_ai_secret
+from app.crypto import decrypt_secret, encrypt_ai_secret, encrypt_secret
 from app.database import get_db
 from app.models import (
     ConnectedAccount,
@@ -451,6 +451,8 @@ async def update_ai_service(
         setattr(service, key, value)
     await db.commit()
     await db.refresh(service)
+    from app.classifier.llm.client import MultiLLMClient
+    MultiLLMClient.invalidate_user_client(str(user.id))
     return {"ai_service": _ai_service_dict(service)}
 
 
@@ -502,6 +504,8 @@ async def rotate_api_key(
         details=f"provider={service.provider} model={service.model_id}",
     )
 
+    from app.classifier.llm.client import MultiLLMClient
+    MultiLLMClient.invalidate_user_client(str(user.id))
     return {"ai_service": _ai_service_dict(service)}
 
 
@@ -548,7 +552,7 @@ async def setup_2fa(
     import qrcode
     secret = pyotp.random_base32()
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
-    user_row.totp_secret_pending = secret
+    user_row.totp_secret_pending = encrypt_secret(secret)
     await db.commit()
     uri = pyotp.TOTP(secret).provisioning_uri(user.email, issuer_name="GexpenseTracker")
     img = qrcode.make(uri)
@@ -568,7 +572,8 @@ async def verify_2fa(
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
     if not user_row.totp_secret_pending:
         raise HTTPException(status_code=400, detail="No pending 2FA setup")
-    valid = pyotp.TOTP(user_row.totp_secret_pending).verify(body.code, valid_window=1)
+    pending_plain = decrypt_secret(user_row.totp_secret_pending)
+    valid = pyotp.TOTP(pending_plain).verify(body.code, valid_window=1)
     if not valid:
         return {"ok": False, "error": "Invalid code"}
     user_row.totp_secret = user_row.totp_secret_pending

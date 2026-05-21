@@ -24,6 +24,11 @@ from app.classifier.llm.providers import (
 logger = logging.getLogger(__name__)
 
 
+def _escape(s: str) -> str:
+    """Escape curly braces in user-controlled strings before str.format() calls."""
+    return s.replace("{", "{{").replace("}", "}}")
+
+
 class MultiLLMClient:
     _user_clients: dict[str, "MultiLLMClient"] = {}
 
@@ -50,6 +55,11 @@ class MultiLLMClient:
             provider_status_dict(p, now)
             for p in all_providers
         ]
+
+    @classmethod
+    def invalidate_user_client(cls, user_id: str) -> None:
+        """Remove a cached user client so it is rebuilt on next access (e.g. after key rotation)."""
+        cls._user_clients.pop(user_id, None)
 
     async def get_user_client(self, user_id: str) -> Optional["MultiLLMClient"]:
         """Return user-specific LLM client from their DB config, or None if not configured."""
@@ -104,7 +114,7 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=sender, subject=subject, body_snippet=body_snippet,
+            sender=_escape(sender), subject=_escape(subject), body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if pre_extraction:
@@ -255,7 +265,7 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=sender, subject=subject, body_snippet=body_snippet,
+            sender=_escape(sender), subject=_escape(subject), body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if pre_extraction:

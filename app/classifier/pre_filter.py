@@ -162,7 +162,8 @@ class PreFilterEngine:
                 subject=subject,
                 body_snippet=f"{subject} {snippet[:200]}",
             )
-            label = verbose.get("label", "ignore")
+            result = verbose.get("result")
+            label = result.label if result else "ignore"
             decision = "pass" if label != "ignore" else "review"
             return PreFilterResult(decision=decision, confidence=0.5, tier=3)
         except Exception as exc:
