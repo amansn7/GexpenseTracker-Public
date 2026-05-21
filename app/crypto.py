@@ -1,7 +1,6 @@
 """Symmetric encryption helpers for secrets stored in the DB."""
 import base64
 import hashlib
-from typing import Optional
 
 from app.config import settings
 
@@ -35,19 +34,23 @@ def decrypt_secret(value: str) -> str:
 
 def _ai_key_fernet():
     from cryptography.fernet import Fernet
+    if not settings.FERNET_KEY:
+        raise RuntimeError("FERNET_KEY is required for AI key encryption")
+    try:
+        return Fernet(settings.FERNET_KEY.encode())
+    except ValueError:
+        key = base64.urlsafe_b64encode(hashlib.sha256(settings.FERNET_KEY.encode("utf-8")).digest())
+        return Fernet(key)
 
-    key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode("utf-8")).digest())
-    return Fernet(key)
 
-
-def encrypt_ai_secret(secret: Optional[str]) -> Optional[str]:
-    """Encrypt user AI-service API key using SECRET_KEY-derived Fernet key."""
+def encrypt_ai_secret(secret: str | None) -> str | None:
+    """Encrypt user AI-service API key using FERNET_KEY-derived Fernet key."""
     if not secret:
         return None
     return _ai_key_fernet().encrypt(secret.encode("utf-8")).decode("utf-8")
 
 
-def decrypt_ai_secret(encrypted: Optional[str]) -> Optional[str]:
+def decrypt_ai_secret(encrypted: str | None) -> str | None:
     """Decrypt user AI-service API key encrypted with encrypt_ai_secret."""
     if not encrypted:
         return None
