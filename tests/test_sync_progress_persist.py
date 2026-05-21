@@ -17,7 +17,13 @@ def _clean_progress():
 @pytest.mark.asyncio
 async def test_persist_progress_enqueues():
     """_persist_progress should enqueue to the bounded queue."""
-    from app.sync.progress import _persist_progress, _progress_write_queue
+    from app.sync.progress import _persist_progress, _progress_write_queue, _progress_writer_running
+
+    # Ensure writer is not running (it would drain the queue)
+    was_running = _progress_writer_running
+    from app.sync.progress import _progress_writer_running as running_flag
+    import app.sync.progress as progress_mod
+    progress_mod._progress_writer_running = False
 
     # Drain any leftover items first
     while not _progress_write_queue.empty():
@@ -28,8 +34,10 @@ async def test_persist_progress_enqueues():
 
     prog = {"running": True, "phase": "fetching", "phase_detail": "", "current": 5, "total": 100}
     _persist_progress("test-user-1", prog)
-    await asyncio.sleep(0.01)
     assert _progress_write_queue.qsize() >= 1
+
+    # Restore writer state
+    progress_mod._progress_writer_running = was_running
 
 
 @pytest.mark.asyncio
