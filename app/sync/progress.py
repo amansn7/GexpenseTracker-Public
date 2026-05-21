@@ -1,16 +1,23 @@
 """Sync progress tracking — per-user state for the sync overlay."""
 import asyncio
 import json
-import logging
 import re
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from collections import OrderedDict
+from datetime import UTC, datetime
+from typing import Any
 
-logger = logging.getLogger(__name__)
+import structlog
 
-_db_session_factory: Optional[Any] = None
+logger = structlog.get_logger()
 
-_sync_progress: Dict[str, Dict[str, Any]] = {}
+_db_session_factory: Any | None = None
+
+_sync_progress: dict[str, dict[str, Any]] = {}
+
+# Bounded queue + background writer for progress persists
+_progress_write_queue: "asyncio.Queue[tuple[str, dict]]" = asyncio.Queue(maxsize=100)
+_progress_writer_task: asyncio.Task | None = None
+_progress_writer_running: bool = False
 
 
 def set_db_session_factory(factory):
@@ -18,7 +25,7 @@ def set_db_session_factory(factory):
     _db_session_factory = factory
 
 
-def _default_progress() -> Dict[str, Any]:
+def _default_progress() -> dict[str, Any]:
     return {
         "running": False,
         "phase": "idle",
@@ -35,14 +42,24 @@ def _default_progress() -> Dict[str, Any]:
     }
 
 
-def _user_progress(user_id: str) -> Dict[str, Any]:
+def _user_progress(user_id: str) -> dict[str, Any]:
     key = user_id or "default"
     if key not in _sync_progress:
-        _sync_progress[key] = _load_from_db(key) or _default_progress()
+        _sync_progress[key] = _load_from_db_sync(key) or _default_progress()
     return _sync_progress[key]
 
 
-def _load_from_db(user_id: str) -> Optional[Dict[str, Any]]:
+def _load_from_db_sync(user_id: str) -> dict[str, Any] | None:
+    """Synchronous wrapper that safely loads from DB without nested event loop crash."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None:
+        loop.create_task(_load_from_db_async(user_id))
+        return None
+
     if not _db_session_factory:
         return None
     try:
@@ -59,75 +76,188 @@ def _load_from_db(user_id: str) -> Optional[Dict[str, Any]]:
         row = asyncio.get_event_loop().run_until_complete(_read())
         if row is None:
             return None
-        return {
-            "running": row.running,
-            "phase": row.phase,
-            "phase_detail": row.phase_detail or "",
-            "current": row.current,
-            "total": row.total,
-            "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
-            "previews": [],
-            "current_email": None,
-            "log": json.loads(row.log_json) if row.log_json else [],
-            "result": json.loads(row.result_json) if row.result_json else None,
-            "error": row.error,
-            "minimized": False,
-        }
+        return _row_to_dict(row)
     except Exception:
         return None
 
 
-def _persist_progress(user_id: str, prog: Dict[str, Any]):
+async def _load_from_db_async(user_id: str) -> dict[str, Any] | None:
+    """Async version of _load_from_db for use when called from async context."""
+    if not _db_session_factory:
+        return None
+    try:
+        from sqlalchemy import select
+
+        from app.models import SyncProgress
+
+        async with _db_session_factory() as session:
+            row = await session.execute(
+                select(SyncProgress).where(SyncProgress.user_id == user_id)
+            )
+            row_obj = row.scalar_one_or_none()
+        if row_obj is None:
+            return None
+        result = _row_to_dict(row_obj)
+        key = user_id or "default"
+        if key not in _sync_progress:
+            _sync_progress[key] = result
+        return result
+    except Exception:
+        return None
+
+
+def _row_to_dict(row) -> dict[str, Any]:
+    return {
+        "running": row.running,
+        "phase": row.phase,
+        "phase_detail": row.phase_detail or "",
+        "current": row.current,
+        "total": row.total,
+        "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
+        "previews": [],
+        "current_email": None,
+        "log": json.loads(row.log_json) if row.log_json else [],
+        "result": json.loads(row.result_json) if row.result_json else None,
+        "error": row.error,
+        "minimized": False,
+    }
+
+
+async def _do_write_progress(user_id: str, prog: dict[str, Any]):
+    """Actual DB write for a single user's progress."""
+    if not _db_session_factory:
+        return
+    try:
+        from sqlalchemy import select
+
+        from app.models import SyncProgress
+
+        async with _db_session_factory() as session:
+            row = await session.execute(
+                select(SyncProgress).where(SyncProgress.user_id == user_id)
+            )
+            existing = row.scalar_one_or_none()
+            if existing:
+                existing.running = prog.get("running", False)
+                existing.phase = prog.get("phase", "idle")
+                existing.phase_detail = prog.get("phase_detail", "")
+                existing.current = prog.get("current", 0)
+                existing.total = prog.get("total", 0)
+                existing.result_json = json.dumps(prog["result"]) if prog.get("result") is not None else None
+                existing.error = prog.get("error")
+                existing.log_json = json.dumps(prog.get("log", [])[-50:])
+                from datetime import UTC, datetime
+                existing.updated_at = datetime.now(UTC)
+            else:
+                from datetime import UTC, datetime
+                session.add(SyncProgress(
+                    user_id=user_id,
+                    running=prog.get("running", False),
+                    phase=prog.get("phase", "idle"),
+                    phase_detail=prog.get("phase_detail", ""),
+                    current=prog.get("current", 0),
+                    total=prog.get("total", 0),
+                    result_json=json.dumps(prog["result"]) if prog.get("result") is not None else None,
+                    error=prog.get("error"),
+                    log_json=json.dumps(prog.get("log", [])[-50:]),
+                    updated_at=datetime.now(UTC),
+                ))
+            await session.commit()
+    except Exception as exc:
+        logger.error("progress_write_failed", user_id=user_id, error=str(exc))
+
+
+async def _do_delete_progress(user_id: str):
+    """Actual DB delete for a user's progress."""
+    if not _db_session_factory:
+        return
+    try:
+        from sqlalchemy import delete
+
+        from app.models import SyncProgress
+
+        async with _db_session_factory() as session:
+            await session.execute(
+                delete(SyncProgress).where(SyncProgress.user_id == user_id)
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.error("progress_delete_failed", user_id=user_id, error=str(exc))
+
+
+async def _progress_writer_loop():
+    """Background writer that drains the queue in batches every 2 seconds."""
+    global _progress_writer_running
+    _progress_writer_running = True
+    pending: OrderedDict[str, dict] = OrderedDict()
+    delete_pending: set = set()
+
+    try:
+        while _progress_writer_running:
+            try:
+                item = await asyncio.wait_for(
+                    _progress_write_queue.get(), timeout=2.0
+                )
+                user_id, data = item
+                if data is None:
+                    delete_pending.add(user_id)
+                else:
+                    pending[user_id] = data
+                _progress_write_queue.task_done()
+                continue
+            except TimeoutError:
+                pass
+
+            if pending or delete_pending:
+                writes = list(pending.items())
+                pending.clear()
+                deletes = list(delete_pending)
+                delete_pending.clear()
+
+                for uid, data in writes:
+                    try:
+                        await _do_write_progress(uid, data)
+                    except Exception as exc:
+                        logger.error("batch_writer_failed", user_id=uid, error=str(exc))
+
+                for uid in deletes:
+                    try:
+                        await _do_delete_progress(uid)
+                    except Exception as exc:
+                        logger.error("batch_delete_failed", user_id=uid, error=str(exc))
+    except asyncio.CancelledError:
+        pass
+    finally:
+        _progress_writer_running = False
+
+        for uid, data in pending.items():
+            try:
+                await _do_write_progress(uid, data)
+            except Exception as exc:
+                logger.error("shutdown_write_failed", user_id=uid, error=str(exc))
+
+        for uid in delete_pending:
+            try:
+                await _do_delete_progress(uid)
+            except Exception as exc:
+                logger.error("shutdown_delete_failed", user_id=uid, error=str(exc))
+
+
+def _persist_progress(user_id: str, prog: dict[str, Any]):
     if not _db_session_factory:
         return
 
-    async def _write():
-        try:
-            from app.models import SyncProgress
-            from sqlalchemy import select
-
-            async with _db_session_factory() as session:
-                row = await session.execute(
-                    select(SyncProgress).where(SyncProgress.user_id == user_id)
-                )
-                existing = row.scalar_one_or_none()
-                if existing:
-                    existing.running = prog.get("running", False)
-                    existing.phase = prog.get("phase", "idle")
-                    existing.phase_detail = prog.get("phase_detail", "")
-                    existing.current = prog.get("current", 0)
-                    existing.total = prog.get("total", 0)
-                    existing.result_json = json.dumps(prog["result"]) if prog.get("result") is not None else None
-                    existing.error = prog.get("error")
-                    existing.log_json = json.dumps(prog.get("log", [])[-50:])
-                    from datetime import UTC, datetime
-                    existing.updated_at = datetime.now(UTC)
-                else:
-                    from datetime import UTC, datetime
-                    session.add(SyncProgress(
-                        user_id=user_id,
-                        running=prog.get("running", False),
-                        phase=prog.get("phase", "idle"),
-                        phase_detail=prog.get("phase_detail", ""),
-                        current=prog.get("current", 0),
-                        total=prog.get("total", 0),
-                        result_json=json.dumps(prog["result"]) if prog.get("result") is not None else None,
-                        error=prog.get("error"),
-                        log_json=json.dumps(prog.get("log", [])[-50:]),
-                        updated_at=datetime.now(UTC),
-                    ))
-                await session.commit()
-        except Exception:
-            pass
-
-    asyncio.create_task(_write())
+    try:
+        _progress_write_queue.put_nowait((user_id, prog))
+    except asyncio.QueueFull:
+        logger.warning("progress_queue_full", user_id=user_id)
 
 
 def _log_event(user_id: str, message: str, event_type: str = "info"):
     prog = _user_progress(user_id)
     log = prog.setdefault("log", [])
     log.append({
-        "time": datetime.now(timezone.utc).isoformat(),
+        "time": datetime.now(UTC).isoformat(),
         "message": message,
         "type": event_type,
     })
@@ -186,24 +316,14 @@ def set_sync_minimized(user_id: str, minimized: bool):
 
 
 def _delete_from_db(user_id: str):
-    """Delete sync progress for a user from the database (fire-and-forget)."""
+    """Enqueue a delete for the background writer."""
     if not _db_session_factory:
         return
 
-    async def _delete():
-        try:
-            from app.models import SyncProgress
-            from sqlalchemy import delete
-
-            async with _db_session_factory() as session:
-                await session.execute(
-                    delete(SyncProgress).where(SyncProgress.user_id == user_id)
-                )
-                await session.commit()
-        except Exception:
-            pass
-
-    asyncio.create_task(_delete())
+    try:
+        _progress_write_queue.put_nowait((user_id, None))
+    except asyncio.QueueFull:
+        logger.warning("progress_queue_full", user_id=user_id, operation="delete")
 
 
 def clear_sync_progress(user_id: str = None):
@@ -216,9 +336,11 @@ async def recover_stale_progresses():
     if not _db_session_factory:
         return
     try:
-        from app.models import SyncProgress
-        from sqlalchemy import select
         from datetime import UTC, datetime
+
+        from sqlalchemy import select
+
+        from app.models import SyncProgress
 
         async with _db_session_factory() as session:
             result = await session.execute(
@@ -247,6 +369,31 @@ async def recover_stale_progresses():
                 }
             if stale:
                 await session.commit()
-                logger.info("Recovered %d stale sync progress entries", len(stale))
+                logger.info("stale_progress_recovered", count=len(stale))
     except Exception as exc:
-        logger.warning("recover_stale_progresses failed: %s", exc)
+        logger.warning("recover_stale_progresses_failed", error=str(exc))
+
+
+def start_progress_writer():
+    """Start the background progress writer task. Call from lifespan startup."""
+    global _progress_writer_task, _progress_writer_running
+    if _progress_writer_task is not None and not _progress_writer_task.done():
+        return
+    _progress_writer_running = True
+    _progress_writer_task = asyncio.create_task(_progress_writer_loop())
+    logger.info("progress_writer_started")
+
+
+async def stop_progress_writer():
+    """Stop the background progress writer and drain remaining items. Call from lifespan shutdown."""
+    global _progress_writer_task, _progress_writer_running
+    if _progress_writer_task is None:
+        return
+    _progress_writer_running = False
+    _progress_writer_task.cancel()
+    try:
+        await _progress_writer_task
+    except asyncio.CancelledError:
+        pass
+    _progress_writer_task = None
+    logger.info("progress_writer_stopped")

@@ -11,8 +11,11 @@ from app.sync.progress import (
     get_sync_progress,
     get_sync_progress_public,
     set_sync_minimized,
+    start_progress_writer,
+    stop_progress_writer,
 )
 from app.sync.range import run_sync_range
+
 
 # Additional function from the original sync.py
 async def scan_all_for_duplicates(user_id: str) -> dict:
@@ -26,6 +29,7 @@ async def scan_all_for_duplicates(user_id: str) -> dict:
     created DuplicatePair rows (beyond what the dedup service already found).
     """
     import logging
+
     from sqlalchemy import func, select
     from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -81,6 +85,8 @@ __all__ = [
     "_add_preview",
     "set_sync_minimized",
     "clear_sync_progress",
+    "start_progress_writer",
+    "stop_progress_writer",
     "run_sync",
     "sync_emails",
     "run_sync_range",
