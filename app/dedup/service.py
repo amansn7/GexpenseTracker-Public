@@ -310,9 +310,8 @@ async def detect_and_record_duplicates(
     user_id = email.user_id
 
     # Pre-load all DomainPairRule rows once (eliminates per-pair DB queries)
-    rules_rows = (await db.execute(
-        select(DomainPairRule).where(DomainPairRule.user_id == user_id)
-    )).scalars().all()
+    # DomainPairRule is a global table (not user-scoped)
+    rules_rows = (await db.execute(select(DomainPairRule))).scalars().all()
     rules_map: dict[tuple[str, str], DomainPairRule] = {
         (r.domain_a, r.domain_b): r for r in rules_rows
     }

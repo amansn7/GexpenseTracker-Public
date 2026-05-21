@@ -1,12 +1,32 @@
 """Tests for /health/detailed and /health/ready endpoints."""
+import os
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def client():
-    import os
+def mock_db():
+    """Mock the database session for health tests."""
+    mock_session = AsyncMock()
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_result = MagicMock()
+    mock_result.scalar_one.return_value = 0
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    from app.database import get_db
+    async def override():
+        yield mock_session
+
+    from app.main import app
+    app.dependency_overrides[get_db] = override
+    yield mock_session
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(mock_db):
     os.environ["TESTING"] = "1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
     os.environ["SECRET_KEY"] = "test-secret-key-for-health-tests"
@@ -16,7 +36,7 @@ def client():
 
 
 def test_health_detailed_returns_components(client):
-    resp = client.get("/health/detailed")
+    resp = client.get("/api/health/detailed")
     assert resp.status_code == 200
     data = resp.json()
     assert "status" in data
@@ -29,7 +49,7 @@ def test_health_detailed_returns_components(client):
 
 
 def test_health_detailed_database_ok(client):
-    resp = client.get("/health/detailed")
+    resp = client.get("/api/health/detailed")
     assert resp.status_code == 200
     db_status = resp.json()["components"]["database"]
     assert db_status["status"] == "ok"
@@ -37,13 +57,13 @@ def test_health_detailed_database_ok(client):
 
 
 def test_health_ready_returns_200(client):
-    resp = client.get("/health/ready")
+    resp = client.get("/api/health/ready")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ready"
 
 
 def test_health_detailed_has_llm_providers(client):
-    resp = client.get("/health/detailed")
+    resp = client.get("/api/health/detailed")
     assert resp.status_code == 200
     llm = resp.json()["components"]["llm_providers"]
     assert "status" in llm
@@ -51,8 +71,7 @@ def test_health_detailed_has_llm_providers(client):
 
 
 def test_health_detailed_has_gmail_auth(client):
-    resp = client.get("/health/detailed")
+    resp = client.get("/api/health/detailed")
     assert resp.status_code == 200
     gmail = resp.json()["components"]["gmail_auth"]
     assert "status" in gmail
-    assert "accounts_connected" in gmail

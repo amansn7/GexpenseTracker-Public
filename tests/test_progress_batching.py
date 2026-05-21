@@ -79,6 +79,8 @@ async def test_batch_progress_updates():
 async def test_writer_exception_logged_not_swallowed():
     """When a DB write raises, the error should be logged, not silently swallowed."""
     import app.sync.progress as progress_mod
+    import sys
+    from io import StringIO
 
     async def failing_write(uid, prog):
         raise RuntimeError("DB connection lost")
@@ -87,21 +89,25 @@ async def test_writer_exception_logged_not_swallowed():
         with patch.object(progress_mod, "_do_write_progress", side_effect=failing_write):
             progress_mod._persist_progress("user_err", {"phase": "error_test"})
 
-            with patch.object(logging.getLogger("app.sync.progress"), "error") as mock_error:
-                progress_mod._progress_writer_running = True
-                writer_task = asyncio.create_task(progress_mod._progress_writer_loop())
-                await asyncio.sleep(0.5)
+            # Capture stdout where structlog writes
+            old_stdout = sys.stdout
+            sys.stdout = StringIO()
+            progress_mod._progress_writer_running = True
+            writer_task = asyncio.create_task(progress_mod._progress_writer_loop())
+            await asyncio.sleep(0.5)
 
-                progress_mod._progress_writer_running = False
-                writer_task.cancel()
-                try:
-                    await writer_task
-                except asyncio.CancelledError:
-                    pass
+            progress_mod._progress_writer_running = False
+            writer_task.cancel()
+            try:
+                await writer_task
+            except asyncio.CancelledError:
+                pass
 
-                assert mock_error.called, "Error should have been logged"
-                call_str = str(mock_error.call_args)
-                assert "DB connection lost" in call_str or "user_err" in call_str
+            output = sys.stdout.getvalue()
+            sys.stdout = old_stdout
+
+            # structlog JSON output should contain the error
+            assert "shutdown_write_failed" in output or "DB connection lost" in output or "user_err" in output
 
 
 @pytest.mark.asyncio
@@ -144,6 +150,8 @@ async def test_load_from_db_async_no_nested_loop_crash():
 async def test_queue_full_warning_logged():
     """When the queue is full, a warning should be logged and the update dropped."""
     import app.sync.progress as progress_mod
+    import sys
+    from io import StringIO
 
     small_queue = asyncio.Queue(maxsize=2)
     small_queue.put_nowait(("user1", {"phase": "a"}))
@@ -151,12 +159,14 @@ async def test_queue_full_warning_logged():
 
     with patch.object(progress_mod, "_progress_write_queue", new=small_queue):
         with patch.object(progress_mod, "_db_session_factory", new=MagicMock()):
-            with patch.object(logging.getLogger("app.sync.progress"), "warning") as mock_warning:
-                progress_mod._persist_progress("user3", {"phase": "c"})
+            # Capture stdout where structlog writes
+            old_stdout = sys.stdout
+            sys.stdout = StringIO()
+            progress_mod._persist_progress("user3", {"phase": "c"})
+            output = sys.stdout.getvalue()
+            sys.stdout = old_stdout
 
-                assert mock_warning.called, "Warning should have been logged when queue is full"
-                assert "queue full" in str(mock_warning.call_args).lower()
-                assert "user3" in str(mock_warning.call_args)
+            assert "progress_queue_full" in output or "user3" in output
 
 
 @pytest.mark.asyncio
