@@ -68,7 +68,7 @@ async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depend
         select(SyncState).where(SyncState.user_id == current_user.id)
     )).scalar_one_or_none()
     if state is None:
-        state = SyncState(id=1, user_id=current_user.id, email_filter=body.email_filter)
+        state = SyncState(user_id=current_user.id, email_filter=body.email_filter)
         db.add(state)
     else:
         state.email_filter = body.email_filter

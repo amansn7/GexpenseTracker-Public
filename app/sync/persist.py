@@ -50,7 +50,6 @@ async def _update_sync_state(
     """Update or create SyncState row with new history_id and timestamp."""
     if sync_state is None:
         session.add(SyncState(
-            id=1,
             user_id=user_id,
             last_history_id=new_history_id,
             last_synced_at=datetime.now(UTC),

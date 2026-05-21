@@ -29,7 +29,7 @@ class Email(Base):
 class SyncState(Base):
     __tablename__ = "sync_state"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_history_id: Mapped[str | None] = mapped_column(String(255))

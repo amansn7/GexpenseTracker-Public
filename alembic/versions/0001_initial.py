@@ -58,7 +58,7 @@ def upgrade() -> None:
     # ### sync_state table ###
     op.create_table(
         'sync_state',
-        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('id', sa.Integer(), nullable=False, autoincrement=True),
         sa.Column('last_synced_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('last_history_id', sa.String(length=255), nullable=True),
         sa.PrimaryKeyConstraint('id'),
