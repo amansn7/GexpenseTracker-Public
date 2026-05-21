@@ -1,11 +1,11 @@
 """LLMClient class with _call_provider, batch_classify, and chat."""
 import asyncio
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import httpx
 
-from app.classifier.llm.parsing import LLMClassification, parse_response, parse_batch_response
+from app.classifier.llm.parsing import LLMClassification, parse_batch_response, parse_response
 from app.classifier.llm.prompts import (
     _BATCH_USER_TEMPLATE,
     _DEFAULT_CATEGORIES,
@@ -25,20 +25,20 @@ logger = logging.getLogger(__name__)
 
 
 class MultiLLMClient:
-    _user_clients: Dict[str, "MultiLLMClient"] = {}
+    _user_clients: dict[str, "MultiLLMClient"] = {}
 
-    def __init__(self, user_id: Optional[str] = None):
-        self._providers: List[Provider] = []
+    def __init__(self, user_id: str | None = None):
+        self._providers: list[Provider] = []
         self._user_id = user_id
         self._build_providers()
 
     def _build_providers(self) -> None:
         self._providers = build_default_providers()
 
-    def _ranked_providers(self) -> List[Provider]:
+    def _ranked_providers(self) -> list[Provider]:
         return rank_providers(self._providers)
 
-    def get_status(self) -> List[dict]:
+    def get_status(self) -> list[dict]:
         import time
         now = time.time()
         ranked_names = [p.name for p in self._ranked_providers()]
@@ -60,6 +60,7 @@ class MultiLLMClient:
             return cached
 
         from sqlalchemy import select
+
         from app.crypto import decrypt_ai_secret
         from app.database import AsyncSessionLocal
         from app.models import UserAIService
@@ -88,8 +89,8 @@ class MultiLLMClient:
 
     async def classify(
         self, sender: str, subject: str, body_snippet: str,
-        categories: Optional[str] = None,
-        pre_extraction: Optional[dict] = None,
+        categories: str | None = None,
+        pre_extraction: dict | None = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
         if not ranked:
@@ -108,11 +109,12 @@ class MultiLLMClient:
         )
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for provider in ranked:
             try:
                 result = await self._call_provider_raw(provider, prompt)
                 provider.success_count += 1
+                provider.decrement_rate_limit_count()
                 return result
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
@@ -123,6 +125,7 @@ class MultiLLMClient:
                     try:
                         result = await self._call_provider_raw(provider, prompt)
                         provider.success_count += 1
+                        provider.decrement_rate_limit_count()
                         return result
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:
@@ -160,7 +163,7 @@ class MultiLLMClient:
     async def _provider_http_call(
         self, provider: Provider, user_prompt: str,
         timeout: float = 30.0, max_tokens: int = 500,
-        system_override: Optional[str] = None,
+        system_override: str | None = None,
     ) -> str:
         """Execute HTTP call to a provider and return raw response text."""
         system = system_override or _SYSTEM
@@ -242,8 +245,8 @@ class MultiLLMClient:
 
     async def classify_verbose(
         self, sender: str, subject: str, body_snippet: str,
-        categories: Optional[str] = None,
-        pre_extraction: Optional[dict] = None,
+        categories: str | None = None,
+        pre_extraction: dict | None = None,
     ) -> dict:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
@@ -257,13 +260,14 @@ class MultiLLMClient:
         )
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         logger.debug("classify_verbose: trying %d providers: %s", len(ranked), [p.name for p in ranked])
         for provider in ranked:
             logger.debug("  Trying provider: %s", provider.name)
             try:
                 result, raw = await self._call_provider_verbose(provider, prompt)
                 provider.success_count += 1
+                provider.decrement_rate_limit_count()
                 return {"result": result, "provider": provider.name, "model": provider.model,
                         "prompt": prompt, "raw_response": raw}
             except httpx.HTTPStatusError as exc:
@@ -275,6 +279,7 @@ class MultiLLMClient:
                     try:
                         result, raw = await self._call_provider_verbose(provider, prompt)
                         provider.success_count += 1
+                        provider.decrement_rate_limit_count()
                         return {"result": result, "provider": provider.name, "model": provider.model, "prompt": prompt, "raw_response": raw}
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:
@@ -300,8 +305,8 @@ class MultiLLMClient:
 
     async def batch_classify_verbose(
         self,
-        email_list: List[Tuple[str, str, str, Optional[dict]]],
-        categories: Optional[str] = None,
+        email_list: list[tuple[str, str, str, dict | None]],
+        categories: str | None = None,
     ) -> dict:
         """Classify multiple emails in one LLM call."""
         ranked = self._ranked_providers()
@@ -309,7 +314,7 @@ class MultiLLMClient:
         if not ranked:
             raise RuntimeError("No LLM providers available")
 
-        email_blocks: List[str] = []
+        email_blocks: list[str] = []
         for i, (sender, subject, body, pre) in enumerate(email_list, 1):
             body = (body or "")[:600]
             block = f"Email {i}:\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
@@ -327,7 +332,7 @@ class MultiLLMClient:
             categories=categories or _DEFAULT_CATEGORIES,
         )
 
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for provider in ranked:
             logger.debug("  Trying batch provider: %s", provider.name)
             try:
@@ -337,6 +342,7 @@ class MultiLLMClient:
                     max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
                 )
                 provider.success_count += 1
+                provider.decrement_rate_limit_count()
                 results = parse_batch_response(raw, len(email_list))
                 return {
                     "results": results,
@@ -354,6 +360,7 @@ class MultiLLMClient:
                     try:
                         raw = await self._provider_http_call(provider, prompt, timeout=60.0, max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS))
                         provider.success_count += 1
+                        provider.decrement_rate_limit_count()
                         results = parse_batch_response(raw, len(email_list))
                         return {"results": results, "provider": provider.name, "model": provider.model, "raw_response": raw, "prompt": prompt}
                     except httpx.HTTPStatusError as exc2:
@@ -378,9 +385,9 @@ class MultiLLMClient:
 
     async def batch_classify(
         self,
-        email_list: List[Tuple[str, str, str, Optional[dict]]],
-        categories: Optional[str] = None,
-    ) -> List[Optional[LLMClassification]]:
+        email_list: list[tuple[str, str, str, dict | None]],
+        categories: str | None = None,
+    ) -> list[LLMClassification | None]:
         result = await self.batch_classify_verbose(email_list, categories=categories)
         return result["results"]
 
@@ -392,11 +399,12 @@ class MultiLLMClient:
         ranked = self._ranked_providers()
         if not ranked:
             raise RuntimeError("No LLM providers available")
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for provider in ranked:
             try:
                 raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
                 provider.success_count += 1
+                provider.decrement_rate_limit_count()
                 return raw
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
@@ -407,6 +415,7 @@ class MultiLLMClient:
                     try:
                         raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
                         provider.success_count += 1
+                        provider.decrement_rate_limit_count()
                         return raw
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:

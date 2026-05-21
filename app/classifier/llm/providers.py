@@ -2,7 +2,6 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from app.config import settings
 
@@ -18,6 +17,8 @@ class Provider:
     extra_headers: dict = field(default_factory=dict)
     rate_limited_until: float = field(default=0.0)
     rate_limit_count: int = field(default=0)
+    rate_limit_reset_after: int = field(default=3600)  # 1 hour
+    last_rate_limit_at: float | None = field(default=None)
     success_count: int = field(default=0)
     fail_count: int = field(default=0)
 
@@ -30,6 +31,7 @@ class Provider:
 
     def mark_rate_limited(self, retry_after: int = 60) -> None:
         self.rate_limit_count += 1
+        self.last_rate_limit_at = time.time()
         self.rate_limited_until = time.time() + retry_after
         logger.warning(
             "LLM provider '%s' rate limited (hit #%d) - backing off %ds",
@@ -43,12 +45,32 @@ class Provider:
             source="llm",
         )
 
+    def should_reset_rate_limit(self) -> bool:
+        if self.rate_limit_count <= 0:
+            return False
+        if self.last_rate_limit_at is None:
+            return False
+        return (time.time() - self.last_rate_limit_at) > self.rate_limit_reset_after
+
+    def reset_rate_limits(self) -> None:
+        self.rate_limit_count = 0
+        self.last_rate_limit_at = None
+        self.rate_limited_until = 0.0
+
+    def decrement_rate_limit_count(self) -> None:
+        if self.rate_limit_count > 0:
+            self.rate_limit_count -= 1
+
     @property
     def priority_score(self) -> float:
         """Lower score = higher priority.
         Each rate-limit hit adds 0.25 to the score, persistently demoting the provider.
         Ties broken by error rate.
+        Rate limit count resets after rate_limit_reset_after seconds of inactivity.
         """
+        if self.should_reset_rate_limit():
+            self.rate_limit_count = 0
+            self.last_rate_limit_at = None
         return self.rate_limit_count * 0.25 + self.error_rate
 
     @property
@@ -57,9 +79,9 @@ class Provider:
         return self.fail_count / total if total > 0 else 0.0
 
 
-def build_default_providers() -> List[Provider]:
+def build_default_providers() -> list[Provider]:
     """Register providers in default priority order (lowest score = tried first)."""
-    providers: List[Provider] = []
+    providers: list[Provider] = []
     if settings.GOOGLE_AI_API_KEY:
         providers.append(Provider(
             name="google",
@@ -111,7 +133,7 @@ def build_default_providers() -> List[Provider]:
     return providers
 
 
-def rank_providers(providers: List[Provider]) -> List[Provider]:
+def rank_providers(providers: list[Provider]) -> list[Provider]:
     """Available providers sorted by priority_score ascending (best first)."""
     return sorted(
         [p for p in providers if p.available],
@@ -133,10 +155,10 @@ def provider_status_dict(p: Provider, now: float) -> dict:
 
 
 # Rate limiter registry for Groq
-_groq_limiters: Dict[str, object] = {}
+_groq_limiters: dict[str, object] = {}
 
 
-def get_groq_limiter(user_id: Optional[str], api_key: str):
+def get_groq_limiter(user_id: str | None, api_key: str):
     """Get or create a Groq rate limiter for the given user/api_key."""
     key = f"{user_id or 'default'}:{api_key[:8]}"
     if key not in _groq_limiters:
@@ -148,7 +170,7 @@ def get_groq_limiter(user_id: Optional[str], api_key: str):
     return _groq_limiters[key]
 
 
-_KNOWN_BASE_URLS: Dict[str, str] = {
+_KNOWN_BASE_URLS: dict[str, str] = {
     "google": "https://generativelanguage.googleapis.com/v1beta/openai",
     "grok": "https://api.x.ai/v1",
     "groq": "https://api.groq.com/openai/v1",
