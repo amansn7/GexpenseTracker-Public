@@ -1,14 +1,12 @@
 """Rate limiting middleware using in-memory token bucket."""
 import time
-from collections import defaultdict
-from typing import Dict, Tuple
 
 
 class RateLimiter:
     """Simple in-memory rate limiter using token bucket algorithm."""
 
     def __init__(self):
-        self._buckets: Dict[str, Tuple[int, float]] = {}
+        self._buckets: dict[str, tuple[int, float]] = {}
 
     def _get_key(self, identifier: str, endpoint: str) -> str:
         return f"{identifier}:{endpoint}"
@@ -52,4 +50,13 @@ RATE_LIMITS = {
     "/api/sync/backfill-bodies": (5, 300),
     "/api/admin/reset-my-data": (3, 3600),
     "/api/account/schedule-deletion": (3, 3600),
+    "/api/review/reprocess-all": (5, 300),
+    "/api/account/ai-services": (10, 60),
+    "/api/auth/verify-2fa": (5, 60),
+    "/api/emails/retrain": (10, 60),
+}
+
+RATE_LIMIT_PREFIXES = {
+    "/api/transactions/": (30, 60),
+    "/api/review/": (20, 60),
 }

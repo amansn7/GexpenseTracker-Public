@@ -37,6 +37,8 @@ from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
 from app.api import emails as emails_api
 from app.api import filter as filter_api
+from app.api import goals as goals_api
+from app.api import insights as insights_api
 from app.api import merchant_aliases as merchant_aliases_api
 from app.api import merchants as merchants_api
 from app.api import onboarding as onboarding_api
@@ -46,7 +48,6 @@ from app.api import rules as rules_api
 from app.api import settings as settings_api
 from app.api import stats as stats_api
 from app.api import sync as sync_api
-from app.api import insights as insights_api
 from app.config import settings
 from app.csrf import validate_csrf
 from app.rate_limiter import RATE_LIMIT_PREFIXES, RATE_LIMITS, rate_limiter
@@ -71,7 +72,7 @@ async def lifespan(app: FastAPI):
         from app.workers.sync_worker import register_fetch_range
         register_sync_worker(task_queue)
         register_fetch_range(task_queue)
-        worker_task = asyncio.create_task(task_queue.worker_loop())
+        asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
         async def _startup_init():
             try:
@@ -212,6 +213,7 @@ app.include_router(emails_api.router, prefix="/api")
 app.include_router(admin_api.router, prefix="/api")
 app.include_router(duplicates_api.router, prefix="/api")
 app.include_router(debt_api.router, prefix="/api")
+app.include_router(goals_api.router, prefix="/api")
 app.include_router(filter_api.router, prefix="/api")
 app.include_router(merchant_aliases_api.router, prefix="/api")
 app.include_router(reconciliation_api.router, prefix="/api")
