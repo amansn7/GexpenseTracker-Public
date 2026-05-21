@@ -134,20 +134,16 @@ async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(
     }
 
 
-# ── Bulk reprocess progress (in-memory, single-user) ─────────────────────────
+# ── Bulk reprocess progress (in-memory, keyed by user_id) ────────────────────
 
-_bulk_progress = {
-    "running": False,
-    "total": 0,
-    "done": 0,
-    "errors": 0,
-    "moved_out": 0,   # items that got high confidence and left the queue
-}
+_bulk_progress: dict[int, dict] = {}
 
 
 @router.get("/review/reprocess-all/progress")
 async def reprocess_all_progress(current_user: User = Depends(get_current_user)):
-    return dict(_bulk_progress)
+    return dict(_bulk_progress.get(current_user.id, {
+        "running": False, "total": 0, "done": 0, "errors": 0, "moved_out": 0,
+    }))
 
 
 @router.post("/review/reprocess-all")
@@ -156,8 +152,8 @@ async def reprocess_all(db: AsyncSession = Depends(get_db), current_user: User =
     Kick off background bulk reprocessing of every needs_review transaction.
     Returns immediately; poll /api/review/reprocess-all/progress for status.
     """
-    if _bulk_progress["running"]:
-        return {"message": "Already running", "progress": dict(_bulk_progress)}
+    if _bulk_progress.get(current_user.id, {}).get("running", False):
+        return {"message": "Already running", "progress": dict(_bulk_progress[current_user.id])}
 
     # Fetch IDs now; processing happens in background
     rows = (await db.execute(
@@ -170,16 +166,21 @@ async def reprocess_all(db: AsyncSession = Depends(get_db), current_user: User =
     )).scalars().all()
 
     if not rows:
-        return {"message": "Nothing to reprocess", "progress": dict(_bulk_progress)}
+        return {"message": "Nothing to reprocess", "progress": dict(_bulk_progress.get(current_user.id, {}))}
 
     ids = list(rows)
-    asyncio.create_task(_bulk_reprocess_task(ids))
+    asyncio.create_task(_bulk_reprocess_task(ids, user_id=current_user.id))
     return {"message": f"Started reprocessing {len(ids)} items", "total": len(ids)}
 
 
-async def _bulk_reprocess_task(transaction_ids: list):
-    _bulk_progress.update({"running": True, "total": len(transaction_ids),
-                            "done": 0, "errors": 0, "moved_out": 0})
+async def _bulk_reprocess_task(transaction_ids: list, user_id: int):
+    _bulk_progress[user_id] = {
+        "running": True,
+        "total": len(transaction_ids),
+        "done": 0,
+        "errors": 0,
+        "moved_out": 0,
+    }
     sem = asyncio.Semaphore(_REPROCESS_CONCURRENCY)
 
     async def _one(txn_id: str):
@@ -189,7 +190,7 @@ async def _bulk_reprocess_task(transaction_ids: list):
                     row = (await session.execute(
                         select(Transaction, Email)
                         .join(Email, Transaction.email_id == Email.id)
-                        .where(Transaction.id == txn_id)
+                        .where(Transaction.id == txn_id, Email.user_id == user_id)
                     )).one_or_none()
                     if not row:
                         return
@@ -220,19 +221,19 @@ async def _bulk_reprocess_task(transaction_ids: list):
                     await session.commit()
 
                     if result.status.value != TransactionStatus.needs_review.value:
-                        _bulk_progress["moved_out"] += 1
+                        _bulk_progress[user_id]["moved_out"] += 1
 
-                _bulk_progress["done"] += 1
+                _bulk_progress[user_id]["done"] += 1
                 logger.info("Bulk reprocess %s/%s: %s",
-                            _bulk_progress["done"], _bulk_progress["total"], txn_id)
+                            _bulk_progress[user_id]["done"], _bulk_progress[user_id]["total"], txn_id)
             except Exception as exc:
-                _bulk_progress["errors"] += 1
-                _bulk_progress["done"] += 1
+                _bulk_progress[user_id]["errors"] += 1
+                _bulk_progress[user_id]["done"] += 1
                 logger.error("Bulk reprocess error for %s: %s", txn_id, exc)
 
     await asyncio.gather(*[_one(tid) for tid in transaction_ids])
-    _bulk_progress["running"] = False
-    logger.info("Bulk reprocess complete: %s", _bulk_progress)
+    _bulk_progress[user_id]["running"] = False
+    logger.info("Bulk reprocess complete for user %s: %s", user_id, _bulk_progress[user_id])
 
 
 class BatchActionBody(BaseModel):
