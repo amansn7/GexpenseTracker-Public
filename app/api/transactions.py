@@ -1,33 +1,46 @@
 import csv
 import io
+from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, extract, or_, delete
-from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
-from typing import Optional, List, Literal
-from datetime import date
+from sqlalchemy import delete, desc, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.auth_deps import get_current_user
+from app.classifier.merchant_store import merchant_store
+from app.config import settings
 from app.database import get_db
 from app.dedup.service import batch_detect_duplicates
-from app.models import Transaction, Email, SenderRule, Label, TransactionStatus, RuleSource, ClassificationLog, User, TransactionCorrection
-from app.classifier.merchant_store import merchant_store
+from app.models import (
+    ClassificationLog,
+    Email,
+    RuleSource,
+    SenderRule,
+    Transaction,
+    TransactionCorrection,
+    TransactionStatus,
+    User,
+)
 from app.services.classifier_service import get_classifier_context
 from app.services.llm_service import get_user_llm_client
 from app.services.transaction_formatter import format_transaction
-from app.config import settings
+
 router = APIRouter()
 
+BULK_SELECT_ALL_MAX = 5000
+
 class TransactionPatch(BaseModel):
-    label: Optional[str] = None
-    category: Optional[str] = None
-    merchant: Optional[str] = None
-    amount: Optional[float] = None
-    user_notes: Optional[str] = None
-    read: Optional[bool] = None
-    flagged: Optional[bool] = None
-    status: Optional[str] = None
+    label: str | None = None
+    category: str | None = None
+    merchant: str | None = None
+    amount: float | None = None
+    user_notes: str | None = None
+    read: bool | None = None
+    flagged: bool | None = None
+    status: str | None = None
 
     def validate(self) -> None:
         if self.merchant and len(self.merchant) > 255:
@@ -45,11 +58,11 @@ class TransactionPatch(BaseModel):
 
 
 class BulkAction(BaseModel):
-    ids: List[str] = []
+    ids: list[str] = []
     action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates", "set_category", "set_label"]
     select_all: bool = False
-    category: Optional[str] = None
-    label: Optional[str] = None
+    category: str | None = None
+    label: str | None = None
 
 
 @router.post("/transactions/bulk")
@@ -59,12 +72,86 @@ async def bulk_transactions(
     db: AsyncSession = Depends(get_db),
 ):
     if payload.select_all:
-        rows = (await db.execute(
-            select(Transaction)
+        count_q = (
+            select(func.count(Transaction.id))
             .join(Email, Transaction.email_id == Email.id)
             .where(Email.user_id == current_user.id)
-            .options(selectinload(Transaction.email))
-        )).scalars().all()
+        )
+        total = (await db.execute(count_q)).scalar_one()
+        if total > BULK_SELECT_ALL_MAX:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Too many transactions ({total}) for bulk action. Maximum is {BULK_SELECT_ALL_MAX}. Use date range filter to narrow your selection."
+            )
+
+        BATCH_SIZE = 500
+        offset = 0
+        total_updated = 0
+        all_stats = None
+        while True:
+            rows = (await db.execute(
+                select(Transaction)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Email.user_id == current_user.id)
+                .options(selectinload(Transaction.email))
+                .offset(offset)
+                .limit(BATCH_SIZE)
+            )).scalars().all()
+
+            if not rows:
+                break
+
+            if payload.action == "mark_read":
+                for t in rows:
+                    t.read = True
+            elif payload.action == "mark_unread":
+                for t in rows:
+                    t.read = False
+            elif payload.action == "flag":
+                for t in rows:
+                    t.flagged = True
+            elif payload.action == "unflag":
+                for t in rows:
+                    t.flagged = False
+            elif payload.action == "delete":
+                for t in rows:
+                    if t.email_id:
+                        email = (await db.execute(
+                            select(Email).where(Email.id == t.email_id)
+                        )).scalar_one_or_none()
+                        if email:
+                            await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
+                            await db.delete(email)
+                        t.email_id = None
+            elif payload.action == "detect_duplicates":
+                tx_email_pairs = [(t, t.email) for t in rows if t.email]
+                user_id = str(current_user.id)
+                stats = await batch_detect_duplicates(tx_email_pairs, db, user_id)
+                if all_stats is None:
+                    all_stats = stats
+                else:
+                    for k, v in stats.items():
+                        all_stats[k] = all_stats.get(k, 0) + v
+            elif payload.action == "set_category":
+                if not payload.category:
+                    raise HTTPException(status_code=422, detail="category is required for set_category action")
+                for t in rows:
+                    t.category = payload.category
+                    t.status = TransactionStatus.corrected.value
+            elif payload.action == "set_label":
+                if not payload.label:
+                    raise HTTPException(status_code=422, detail="label is required for set_label action")
+                for t in rows:
+                    t.label = payload.label
+                    t.status = TransactionStatus.corrected.value
+
+            await db.commit()
+            total_updated += len(rows)
+            offset += BATCH_SIZE
+
+        if payload.action == "detect_duplicates":
+            return {"updated": total_updated, "duplicates": all_stats or {}}
+        return {"updated": total_updated}
     else:
         rows = (await db.execute(
             select(Transaction)
@@ -73,68 +160,73 @@ async def bulk_transactions(
             .options(selectinload(Transaction.email))
         )).scalars().all()
 
-    if payload.action == "mark_read":
-        for t in rows:
-            t.read = True
-    elif payload.action == "mark_unread":
-        for t in rows:
-            t.read = False
-    elif payload.action == "flag":
-        for t in rows:
-            t.flagged = True
-    elif payload.action == "unflag":
-        for t in rows:
-            t.flagged = False
-    elif payload.action == "delete":
-        for t in rows:
-            if t.email_id:
-                email = (await db.execute(
-                    select(Email).where(Email.id == t.email_id)
-                )).scalar_one_or_none()
-                if email:
-                    await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
-                    await db.delete(email)
-                t.email_id = None
-    elif payload.action == "detect_duplicates":
-        tx_email_pairs = [(t, t.email) for t in rows if t.email]
-        user_id = str(current_user.id)
-        stats = await batch_detect_duplicates(tx_email_pairs, db, user_id)
-        await db.commit()
-        return {"updated": len(rows), "duplicates": stats}
-    elif payload.action == "set_category":
-        if not payload.category:
-            raise HTTPException(status_code=422, detail="category is required for set_category action")
-        for t in rows:
-            t.category = payload.category
-            t.status = TransactionStatus.corrected.value
-    elif payload.action == "set_label":
-        if not payload.label:
-            raise HTTPException(status_code=422, detail="label is required for set_label action")
-        for t in rows:
-            t.label = payload.label
-            t.status = TransactionStatus.corrected.value
+        if payload.action == "mark_read":
+            for t in rows:
+                t.read = True
+        elif payload.action == "mark_unread":
+            for t in rows:
+                t.read = False
+        elif payload.action == "flag":
+            for t in rows:
+                t.flagged = True
+        elif payload.action == "unflag":
+            for t in rows:
+                t.flagged = False
+        elif payload.action == "delete":
+            for t in rows:
+                if t.email_id:
+                    email = (await db.execute(
+                        select(Email).where(Email.id == t.email_id)
+                    )).scalar_one_or_none()
+                    if email:
+                        await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
+                        await db.delete(email)
+                    t.email_id = None
+        elif payload.action == "detect_duplicates":
+            tx_email_pairs = [(t, t.email) for t in rows if t.email]
+            user_id = str(current_user.id)
+            stats = await batch_detect_duplicates(tx_email_pairs, db, user_id)
+            await db.commit()
+            return {"updated": len(rows), "duplicates": stats}
+        elif payload.action == "set_category":
+            if not payload.category:
+                raise HTTPException(status_code=422, detail="category is required for set_category action")
+            for t in rows:
+                t.category = payload.category
+                t.status = TransactionStatus.corrected.value
+        elif payload.action == "set_label":
+            if not payload.label:
+                raise HTTPException(status_code=422, detail="label is required for set_label action")
+            for t in rows:
+                t.label = payload.label
+                t.status = TransactionStatus.corrected.value
 
-    await db.commit()
-    return {"updated": len(rows)}
+        await db.commit()
+        return {"updated": len(rows)}
 
 @router.get("/transactions")
 async def list_transactions(
-    label: Optional[str] = None,
-    status: Optional[str] = None,
-    date_from: Optional[date] = None,
-    date_to: Optional[date] = None,
-    category: Optional[str] = None,
+    label: str | None = None,
+    status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    category: str | None = None,
     offset: int = 0,
     limit: int = 50,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     conditions = [Email.user_id == current_user.id]
-    if label:     conditions.append(Transaction.label == label)
-    if status:    conditions.append(Transaction.status == status)
-    if date_from: conditions.append(Transaction.txn_date >= date_from)
-    if date_to:   conditions.append(Transaction.txn_date <= date_to)
-    if category:  conditions.append(Transaction.category == category)
+    if label:
+        conditions.append(Transaction.label == label)
+    if status:
+        conditions.append(Transaction.status == status)
+    if date_from:
+        conditions.append(Transaction.txn_date >= date_from)
+    if date_to:
+        conditions.append(Transaction.txn_date <= date_to)
+    if category:
+        conditions.append(Transaction.category == category)
 
     count_q = (
         select(func.count(Transaction.id))
@@ -161,8 +253,8 @@ async def list_transactions(
 @router.get("/search")
 async def search_transactions(
     q: str = "",
-    amount_min: Optional[float] = None,
-    amount_max: Optional[float] = None,
+    amount_min: float | None = None,
+    amount_max: float | None = None,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -256,18 +348,24 @@ def _csv_value(value):
     return value
 
 
+EXPORT_MAX_ROWS = 10000
+
+
 @router.get("/transactions/export")
 async def export_transactions(
-    date_from: Optional[date] = Query(None),
-    date_to: Optional[date] = Query(None),
-    label: Optional[str] = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    label: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     conditions = [Email.user_id == current_user.id]
-    if date_from: conditions.append(Transaction.txn_date >= date_from)
-    if date_to:   conditions.append(Transaction.txn_date <= date_to)
-    if label:     conditions.append(Transaction.label == label)
+    if date_from:
+        conditions.append(Transaction.txn_date >= date_from)
+    if date_to:
+        conditions.append(Transaction.txn_date <= date_to)
+    if label:
+        conditions.append(Transaction.label == label)
 
     count_q = (
         select(func.count(Transaction.id))
@@ -275,6 +373,13 @@ async def export_transactions(
         .where(*conditions)
     )
     total = (await db.execute(count_q)).scalar_one()
+
+    has_date_filter = date_from is not None or date_to is not None
+    if total > EXPORT_MAX_ROWS and not has_date_filter:
+        raise HTTPException(
+            status_code=422,
+            detail="Export limited to 10,000 rows. Please specify a date range (date_from and/or date_to) to narrow your export.",
+        )
 
     data_q = (
         select(Transaction, Email)
@@ -309,7 +414,10 @@ async def export_transactions(
             "created_at": _csv_value(t.created_at),
         })
 
-    headers = {"Content-Disposition": 'attachment; filename="transactions.csv"'}
+    headers = {
+        "Content-Disposition": 'attachment; filename="transactions.csv"',
+        "X-Row-Count": str(total),
+    }
     if total > 5000:
         headers["X-Warning"] = (
             f"Large export: {total} rows. Consider narrowing your date range or applying filters."
