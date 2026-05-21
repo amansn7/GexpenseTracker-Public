@@ -377,16 +377,20 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
         metadata_map = {}
         meta_batch_size = settings.FETCH_CONCURRENCY * 2  # 10 metadata calls per batch (avoids concurrent request limit)
 
+        meta_errors: list[tuple[str, Exception]] = []
+
         def _meta_cb(request_id, response, exception):
             nonlocal skipped
             if exception is not None:
                 if isinstance(exception, HttpError) and exception.resp.status == 404:
                     skipped += 1
                     return
-                raise exception
+                meta_errors.append((request_id, exception))
+                return
             metadata_map[request_id] = response
 
         for i in range(0, len(message_ids), meta_batch_size):
+            meta_errors.clear()
             batch = service.new_batch_http_request(callback=_meta_cb)
             chunk = message_ids[i:i + meta_batch_size]
             for msg_id in chunk:
@@ -402,6 +406,17 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
                 )
             if batch._requests:
                 await _async_retry_with_backoff(lambda b=batch: b.execute())
+                if meta_errors:
+                    # Check for errors that should propagate (429 triggers retry, 401 triggers reconnect)
+                    for _mid, exc in meta_errors:
+                        if isinstance(exc, HttpError) and exc.resp.status in (429, 401):
+                            raise exc
+                    # For 5xx and other errors, log and continue with partial results
+                    for _mid, exc in meta_errors:
+                        logger.warning("Batch metadata fetch failed for message %s: %s", _mid, exc)
+                    if len(meta_errors) == len(batch._requests):
+                        # All messages in this batch failed — raise the first error
+                        raise meta_errors[0][1]
             if i + meta_batch_size < len(message_ids):
                 await asyncio.sleep(1)
 
@@ -416,13 +431,16 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
         # Phase 2: Fetch full bodies in batches for new messages
         full_batch_size = settings.FETCH_CONCURRENCY  # 5 full calls per batch (avoids concurrent request limit)
 
+        full_errors: list[tuple[str, Exception]] = []
+
         def _full_cb(request_id, response, exception):
             nonlocal skipped, full_fetch_count
             if exception is not None:
                 if isinstance(exception, HttpError) and exception.resp.status == 404:
                     skipped += 1
                     return
-                raise exception
+                full_errors.append((request_id, exception))
+                return
             full_fetch_count += 1
 
             if not _passes_filter(response, email_filter):
@@ -445,6 +463,7 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
             })
 
         for i in range(0, len(new_msg_ids), full_batch_size):
+            full_errors.clear()
             batch = service.new_batch_http_request(callback=_full_cb)
             chunk = new_msg_ids[i:i + full_batch_size]
             for msg_id in chunk:
@@ -455,6 +474,17 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
                     request_id=msg_id,
                 )
             await _async_retry_with_backoff(lambda b=batch: b.execute())
+            if full_errors:
+                # Check for errors that should propagate (429 triggers retry, 401 triggers reconnect)
+                for _mid, exc in full_errors:
+                    if isinstance(exc, HttpError) and exc.resp.status in (429, 401):
+                        raise exc
+                # For 5xx and other errors, log and continue with partial results
+                for _mid, exc in full_errors:
+                    logger.warning("Batch full-body fetch failed for message %s: %s", _mid, exc)
+                if len(full_errors) == len(batch._requests):
+                    # All messages in this batch failed — raise the first error
+                    raise full_errors[0][1]
             if i + full_batch_size < len(new_msg_ids):
                 await asyncio.sleep(1)
     else:

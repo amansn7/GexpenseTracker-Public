@@ -116,7 +116,9 @@ async def get_credentials_for_user(db, user_id: str):
         except TimeoutError:
             raise RuntimeError("Gmail token refresh timed out — please reconnect Gmail")
         except RefreshError as exc:
-            raise RuntimeError(f"Gmail token refresh failed: {exc}. Please reconnect Gmail")
+            account.status = "disconnected"
+            await db.commit()
+            raise RuntimeError(f"Gmail token revoked for user {user_id}, reconnection required")
 
         account.access_token = encrypt_secret(creds.token)
         account.token_expiry = creds.expiry
