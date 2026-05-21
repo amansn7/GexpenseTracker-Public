@@ -31,7 +31,7 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 
 from app.api import admin as admin_api
-from app.api import auth, review, transactions
+from app.api import auth, review, transactions, health as health_api
 from app.api import budgets as budgets_api
 from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
@@ -199,6 +199,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+app.include_router(health_api.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(onboarding_api.router, prefix="/api")
 app.include_router(settings_api.router, prefix="/api")
