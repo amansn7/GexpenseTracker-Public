@@ -473,6 +473,10 @@ aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) t
 @keyframes backdropIn {
   from { opacity: 0; } to { opacity: 1; }
 }
+@keyframes backdropOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 
 @keyframes barGrow {
   from { transform: scaleX(0); }
@@ -481,6 +485,28 @@ aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) t
 
 @keyframes toastIn  { from { opacity:0; transform:translateX(120%); } to { opacity:1; transform:translateX(0); } }
 @keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(120%); } }
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(20px); }
+}
+@keyframes viewEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(1.3); }
+}
+@keyframes checkPop {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* ── Toasts ──────────────────────────────────────────────────── */
 #toast-container {
@@ -687,11 +713,18 @@ a.link:hover { text-decoration: underline; }
 
 /* ── Enhanced Motion ─────────────────────────── */
 :root {
-  --ease-spring: cubic-bezier(.34,1.56,.64,1);
-  --ease-out-expo: cubic-bezier(.19,1,.22,1);
-  --dur-fast: 120ms;
-  --dur-normal: 200ms;
-  --dur-slow: 350ms;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in:        cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out:    cubic-bezier(0.65, 0, 0.35, 1);
+
+  --dur-instant:  80ms;
+  --dur-fast:     120ms;
+  --dur-normal:   200ms;
+  --dur-slow:     350ms;
+  --dur-reveal:   500ms;
 }
 .hover-lift { transition: transform var(--dur-normal) var(--ease-spring), box-shadow var(--dur-normal) var(--ease-out-expo); }
 .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--shadow-sm); }
@@ -762,6 +795,13 @@ a.link:hover { text-decoration: underline; }
 }
 
 .fade-in { animation: fadeSlideUp 200ms ease both; }
+
+.slide-in-right { animation: slideInRight 250ms var(--ease-out-quint) both; }
+.slide-out-right { animation: slideOutRight 180ms var(--ease-in) both; }
+.view-enter { animation: viewEnter 200ms var(--ease-out-quart) both; }
+.pulse-dot { animation: pulse 2s var(--ease-out-quart) infinite; }
+.check-pop { animation: checkPop 300ms var(--ease-out-quint) both; }
+.backdrop-out { animation: backdropOut 150ms var(--ease-in) both; }
 
 /* ── Print ──────────────────────────────────────────────────── */
 @media print {

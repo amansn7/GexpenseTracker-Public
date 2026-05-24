@@ -142,7 +142,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
           <span style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid var(--ink-4)", display: "inline-block", boxSizing: "border-box" }}/>
         ) : (
           <>
-            {!tx.read && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
+            {!tx.read && <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
             {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
           </>
         )}
@@ -188,7 +188,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
         <div key={g.key}>
           <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
           {g.categories.map(item => (
-            <button key={item.key} onClick={()=>onPick(item.key)} className="hover-lift" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
+            <button key={item.key} onClick={()=>onPick(item.key)} className="fade-in hover-lift" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
               <span style={{ width: 14, height: 14, borderRadius: 4, background: item.bg, border: `1px solid ${item.ink}22`, flexShrink: 0 }} />
               <span style={{ fontWeight: 500 }}>{item.label}</span>
               {current===item.key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
@@ -293,8 +293,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   };
 
   return (
-    <aside style={{ ...inboxStyles.panel, ...(isMobile ? { position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none" } : {}) }} className="slide-in" key={tx.id}>
-      <div style={inboxStyles.panelBody}>
+    <aside style={{ ...inboxStyles.panel, ...(isMobile ? { position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none" } : {}) }} className="slide-in-right" key={tx.id}>
+      <div style={inboxStyles.panelBody} className="view-enter">
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <MerchantLogo merchant={tx.merchant} size={36}/>
@@ -501,7 +501,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           style={{ position: "relative", display: "flex", background: "var(--paper-2)", borderRadius: 6, padding: 2, cursor: "pointer", marginBottom: 8 }}>
           <div style={{
             position: "absolute", top: 2, left: 2, width: "50%", height: "calc(100% - 4px)",
-            background: "var(--ink)", borderRadius: 4, transition: "transform 200ms ease",
+            background: "var(--ink)", borderRadius: 4, transition: "transform 200ms var(--ease-out-smooth)",
             transform: `translateX(${reclassMethod === "llm" ? "0%" : "100%"})`,
           }} />
           <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "llm" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>LLM</div>
@@ -619,7 +619,7 @@ const DuplicatePairCard = ({ pair, onResolve, isNew }) => {
     : "Same amount, same date window";
   const wrap = async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); };
   return (
-    <div style={{ padding: isMobile ? "16px 14px" : "18px 24px", borderBottom: "1px solid var(--line)" }}>
+    <div className="fade-in" style={{ padding: isMobile ? "16px 14px" : "18px 24px", borderBottom: "1px solid var(--line)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>{reasonLabel}{isNew && <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", background: "var(--accent)", color: "white", borderRadius: 3, padding: "1px 5px 1px 5px", lineHeight: "14px" }}>New</span>}</span>
         {confidence > 0 && (
@@ -770,7 +770,7 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFoc
         borderBottom: "1px solid var(--line)", cursor: "pointer",
         background: isSelected ? "var(--paper-2)" : hovered ? "var(--paper-2)" : "transparent",
         borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
-        transition: "background 80ms ease",
+        transition: "background 80ms ease, border-left-color 120ms ease",
       }}>
       <input type="checkbox" checked={isSelected} onChange={e => { e.stopPropagation(); onToggleSelect(); }} onClick={e => e.stopPropagation()}
         style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />

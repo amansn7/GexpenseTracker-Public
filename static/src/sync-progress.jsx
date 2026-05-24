@@ -69,16 +69,16 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       background: "var(--card)", border: "1px solid var(--line)",
       borderRadius: 12, boxShadow: "0 8px 32px var(--shadow-lg)",
       display: "flex", flexDirection: "column",
-      animation: "slideUp 200ms ease-out",
+      animation: "slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1)",
     }}>
-      <style>{`@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      <style>{`@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap: 8, padding:"14px 16px 0" }}>
         {!isComplete && (
           <span style={{ width:8, height:8, borderRadius:"50%", background: isError ? "var(--neg)" : "var(--accent)", animation: isError ? "none" : "pulse 1.2s ease-in-out infinite" }}/>
         )}
-        {isDone && <Icon name="check" size={16} stroke="var(--pos)"/>}
+        {isDone && <span className="check-pop" style={{display:"inline-flex"}}><Icon name="check" size={16} stroke="var(--pos)"/></span>}
         {isError && <Icon name="x" size={16} stroke="var(--neg)"/>}
         <span style={{ fontFamily:"'Fraunces',serif", fontSize:14, fontWeight:500, flex:1 }}>
           {isDone ? "Sync Complete" : isError ? "Sync Failed" : "Syncing Gmail"}

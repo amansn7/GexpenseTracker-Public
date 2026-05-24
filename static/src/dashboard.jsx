@@ -159,7 +159,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         {statsLoading && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Loading…</span>}
       </div>
 
-      <div style={{ ...dashStyles.hero, ...(isMobile ? { padding: 18, gridTemplateColumns: "1fr", gap: 22, borderRadius: 8 } : isTablet ? { gridTemplateColumns: "1fr", gap: 28 } : {}) }}>
+      <div className="view-enter" style={{ ...dashStyles.hero, ...(isMobile ? { padding: 18, gridTemplateColumns: "1fr", gap: 22, borderRadius: 8 } : isTablet ? { gridTemplateColumns: "1fr", gap: 28 } : {}) }}>
         <div>
           <div style={dashStyles.heroLabel}>Net position · selected range</div>
           <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>

@@ -216,7 +216,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
 
     <div onClick={() => { const n = !viewsOpen; setViewsOpen(n); localStorage.setItem("_nav_views", n ? "1" : "0"); }}
       style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
-      <Icon name={viewsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Views
+      <Icon name={viewsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)" style={{ transition: "transform 120ms var(--ease-out-quart)" }}/> Views
     </div>
     {viewsOpen && <>
     <NavItem icon="inbox"   label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>navigate(()=>setView("inbox"))} />
@@ -230,7 +230,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
 
     <div onClick={() => { const n = !filtersOpen; setFiltersOpen(n); localStorage.setItem("_nav_filters", n ? "1" : "0"); }}
       style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
-      <Icon name={filtersOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Filters
+      <Icon name={filtersOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)" style={{ transition: "transform 120ms var(--ease-out-quart)" }}/> Filters
     </div>
     {filtersOpen && <>
     <NavItem icon="dot"  label="Expenses"      count={counts.expense} active={view==="inbox"&&filter==="expenses"}      onClick={()=>navigate(()=>{ setView("inbox"); onFilter("expenses"); })} />
@@ -242,7 +242,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
 
     <div onClick={() => { const n = !catsOpen; setCatsOpen(n); localStorage.setItem("_nav_cats", n ? "1" : "0"); }}
       style={{ ...shellStyles.sectionLabel, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
-      <Icon name={catsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)"/> Categories
+      <Icon name={catsOpen ? "chevron-d" : "chevron-r"} size={10} stroke="var(--ink-4)" style={{ transition: "transform 120ms var(--ease-out-quart)" }}/> Categories
     </div>
     {catsOpen && CategoryService.grouped().map(g => (
       <div key={g.key}>
@@ -277,7 +277,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
               minHeight: 48, borderRadius: 6, cursor: "pointer", padding: "6px 2px",
               background: swatch,
               border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)",
-              transition: "border-color 120ms ease",
+              transition: "border-color 120ms ease, transform 80ms",
             }}
           >
             <span style={{
@@ -388,9 +388,9 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
       {open && results.length > 0 && (
         <div className="fade-in" role="listbox" aria-live="polite" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, boxShadow: "0 16px 40px -16px var(--shadow-lg)", zIndex: 999, maxHeight: 380, overflowY: "auto" }}>
           <div style={{ padding: "6px 12px 4px", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>Results</div>
-          {results.map((tx, i) => (
-            <button key={tx.id} className="hover-row" onClick={() => handleSelect(tx)}
-              style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 14px", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)", textAlign: "left", cursor: "pointer" }}>
+            {results.map((tx, i) => (
+            <button key={tx.id} className="hover-row fade-in" onClick={() => handleSelect(tx)}
+              style={{ "--i": i, display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 14px", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)", textAlign: "left", cursor: "pointer" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {tx.merchant || tx.email?.subject || "(no merchant)"}
