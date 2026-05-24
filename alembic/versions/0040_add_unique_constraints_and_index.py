@@ -41,7 +41,7 @@ def upgrade() -> None:
         "emails",
         ["user_id", "pre_filter_status"],
         if_not_exists=True,
-        postgresql_concurrently=True,
+
     )
 
 

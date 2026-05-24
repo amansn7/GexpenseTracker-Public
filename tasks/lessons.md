@@ -64,3 +64,11 @@
    - Any `depends_on` tuples
 
 4. **`alembic_version.version_num` width is set when the first migration creates the table.** It cannot be changed without a migration that `ALTER TABLE`s it. The safest fix is to keep all revision IDs ≤ 32 characters rather than widening the column, since widening would require a migration that itself needs to fit in the existing column.
+
+## 2026-05-24 — Railway Deployment: CREATE INDEX CONCURRENTLY in Alembic Transaction
+
+1. **`CREATE INDEX CONCURRENTLY` cannot run inside a PostgreSQL transaction block.** Alembic wraps each migration's `upgrade()` function in a transaction by default. Any `create_index(..., postgresql_concurrently=True)` call crashes with `psycopg2.errors.ActiveSqlTransaction`.
+
+2. **The simplest fix is to remove `postgresql_concurrently=True`.** Use a regular `CREATE INDEX` instead. The concurrent variant is an optimization to avoid table locking — removing it is safe for single-deploy migrations on non-production-critical tables.
+
+3. **To properly use `CONCURRENTLY` with Alembic**, wrap the `create_index` call in `with op.get_context().autocommit_block():`. This emits a `COMMIT` before the statement and prevents Alembic from issuing another `COMMIT` after it, satisfying PostgreSQL's "no active transaction" requirement.

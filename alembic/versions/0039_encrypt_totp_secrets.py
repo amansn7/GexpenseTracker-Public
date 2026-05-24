@@ -1,6 +1,6 @@
 """widen totp_secret columns to String(256) for encrypted values
 
-Revision ID: 0039
+Revision ID: 0039_encrypt_totp_secrets
 Revises: 0038
 Create Date: 2026-05-21
 """
