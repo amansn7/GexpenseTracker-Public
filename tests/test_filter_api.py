@@ -42,20 +42,28 @@ async def test_list_emails_status_filter(db_session, mock_user):
 
 @pytest.mark.asyncio
 async def test_review_keep_action_classifies_and_updates_status(db_session, mock_user, monkeypatch):
-    from app.models import Email, FilterRule
+    from datetime import date
+
+    from app.models import Email, FilterRule, Transaction
 
     email = Email(gmail_id="g-keep-001", subject="HDFC debit Rs 500", user_id=mock_user.id, pre_filter_status="review_pending", sender_domain="hdfcbank.com", sender="alerts@hdfcbank.com", body_text="Rs 500 debited")
     db_session.add(email)
     await db_session.commit()
     await db_session.refresh(email)
 
-    # Stub classify_email to avoid LLM calls
-    async def _fake_classify(**kwargs):
+    # Stub classify_email to avoid LLM calls — high confidence returns status="auto" but should override to "needs_review"
+    async def _fake_classify(*args, **kwargs):
         from app.classifier.protocol import ClassificationResult
         from app.models import Label
-        return ClassificationResult(label=Label.expense, amount=500.0, merchant="HDFC", category="banking", confidence=0.95, classifier_method="stub", warnings=[])
+        from app.models.transaction import TransactionStatus
+        return ClassificationResult(
+            label=Label.expense, amount=500.0, merchant="HDFC",
+            category="banking", confidence=0.95, classifier_method="stub",
+            status=TransactionStatus.auto, txn_date=date(2026, 5, 15),
+            warnings=[]
+        )
 
-    monkeypatch.setattr("app.api.emails.classify_email", _fake_classify)
+    monkeypatch.setattr("app.classifier.classifier.classify_email", _fake_classify)
 
     client = await _client(db_session, mock_user)
     try:
@@ -66,6 +74,16 @@ async def test_review_keep_action_classifies_and_updates_status(db_session, mock
         await db_session.refresh(email)
         assert email.pre_filter_status == "passed"
 
+        # Transaction should be created with status=needs_review (overridden, not auto)
+        txn = (await db_session.execute(
+            select(Transaction).where(Transaction.email_id == email.id)
+        )).scalar_one_or_none()
+        assert txn is not None
+        assert txn.status == "needs_review"
+        assert txn.txn_date == date(2026, 5, 15)
+        assert txn.confidence == 0.95
+        assert txn.label == "expense"
+
         rule = (await db_session.execute(
             select(FilterRule).where(
                 FilterRule.rule_type == "allowlist_domain",
@@ -74,6 +92,40 @@ async def test_review_keep_action_classifies_and_updates_status(db_session, mock
             )
         )).scalar_one_or_none()
         assert rule is not None
+        assert rule.hit_count == 1
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_review_keep_always_needs_review_even_low_confidence(db_session, mock_user, monkeypatch):
+    from app.models import Email, Transaction
+
+    email = Email(gmail_id="g-keep-002", subject="Some debit", user_id=mock_user.id, pre_filter_status="review_pending", sender_domain="somebank.com", sender="alert@somebank.com", body_text="Rs 200")
+    db_session.add(email)
+    await db_session.commit()
+    await db_session.refresh(email)
+
+    async def _fake_classify(*args, **kwargs):
+        from app.classifier.protocol import ClassificationResult
+        from app.models import Label
+        return ClassificationResult(label=Label.expense, amount=200.0, merchant="SomeBank", category="banking", confidence=0.3, classifier_method="stub", warnings=[])
+
+    monkeypatch.setattr("app.classifier.classifier.classify_email", _fake_classify)
+
+    client = await _client(db_session, mock_user)
+    try:
+        async with client:
+            resp = await client.post(f"/api/emails/{email.id}/review", json={"action": "keep"})
+            assert resp.status_code == 200
+
+        txn = (await db_session.execute(
+            select(Transaction).where(Transaction.email_id == email.id)
+        )).scalar_one_or_none()
+        assert txn is not None
+        # Even low confidence should get needs_review (user chose to manually review)
+        assert txn.status == "needs_review"
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)

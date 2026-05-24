@@ -3,7 +3,7 @@ from enum import Enum as PyEnum
 from enum import StrEnum
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid_col
@@ -37,6 +37,9 @@ class ClassifierMethod(StrEnum):
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint("email_id", name="uq_transactions_email_id"),
+    )
 
     id: Mapped[str] = _uuid_col()
     email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True, index=True)

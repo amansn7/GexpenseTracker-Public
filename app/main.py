@@ -31,7 +31,7 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 
 from app.api import admin as admin_api
-from app.api import auth, review, transactions, health as health_api
+from app.api import auth, cleanup as cleanup_api, review, transactions, health as health_api
 from app.api import budgets as budgets_api
 from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
@@ -220,6 +220,7 @@ app.include_router(merchant_aliases_api.router, prefix="/api")
 app.include_router(reconciliation_api.router, prefix="/api")
 app.include_router(merchants_api.router, prefix="/api")
 app.include_router(insights_api.router, prefix="/api")
+app.include_router(cleanup_api.router, prefix="/api")
 
 
 @app.get("/health")

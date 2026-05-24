@@ -2,6 +2,8 @@
 import base64
 import hashlib
 
+from cryptography.fernet import InvalidToken
+
 from app.config import settings
 
 
@@ -28,8 +30,8 @@ def decrypt_secret(value: str) -> str:
         raise RuntimeError("FERNET_KEY is not configured. Cannot decrypt secrets.")
     try:
         return _fernet().decrypt(value.encode()).decode()
-    except Exception:
-        return value
+    except InvalidToken:
+        return value  # legacy unencrypted value
 
 
 def _ai_key_fernet():

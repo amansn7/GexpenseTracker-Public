@@ -673,8 +673,11 @@ const StepDone = ({ stepData }) => {
   const txCount = stepData.txCount || 0;
   const aiProvider = stepData.aiProvider || "AI";
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
     localStorage.removeItem("mf_onboarding_step");
+    try {
+      await API.patch("/api/account/onboarding/complete", {});
+    } catch (_) {}
     window.location.reload();
   };
 

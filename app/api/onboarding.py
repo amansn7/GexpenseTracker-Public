@@ -10,6 +10,7 @@ from app.api._account_helpers import (
     _clean_email,
     _load_user_bundle,
 )
+from app.auth_deps import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models import (
@@ -71,3 +72,15 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     await db.commit()
     await db.refresh(user)
     return await _load_user_bundle(db, user)
+
+
+@router.patch("/account/onboarding/complete", status_code=200)
+async def mark_onboarding_complete(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark the current user's onboarding as complete. Safe to call multiple times."""
+    if not current_user.onboarding_complete:
+        current_user.onboarding_complete = True
+        await db.commit()
+    return {"ok": True}

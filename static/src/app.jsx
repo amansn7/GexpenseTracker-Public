@@ -250,6 +250,9 @@ const App = () => {
     settings:  { title: "Settings",       sub: "preferences & integrations" },
     admin:     { title: "Admin",          sub: "service testing & diagnostics" },
     search:    { title: "Search",         sub: searchQuery ? `"${searchQuery}"` : "search your transactions" },
+    today:     { title: "Dashboard",      sub: "one page, quick read" },
+    picture:   { title: "Money Flow",     sub: "how the month really unfolded" },
+    review:    { title: "Review Queue",   sub: "transactions needing attention" },
   };
 
   return (
@@ -375,6 +378,26 @@ const App = () => {
           {view === "debt"      && <DebtView />}
           {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
           {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100vh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
+          {/* "new" mode nav aliases — route to nearest functional equivalent */}
+          {view === "today"   && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "picture" && <FlowView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "review"  && <InboxView
+              transactions={transactions}
+              setTransactions={setTransactions}
+              selectedId={selectedId}
+              setSelectedId={setSelectedId}
+              filter="review"
+              setFilter={setInboxFilter}
+              categoryFilter={categoryFilter}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              loadMore={loadMore}
+              loadData={loadData}
+              totalTransactions={totalTransactions}
+              loadingMore={loadingMore}
+              reviewEmails={reviewEmails}
+              setReviewEmails={setReviewEmails}
+            />}
           </>
         )}
       </main>

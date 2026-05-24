@@ -5,6 +5,7 @@ Raises ValueError (not HTTPException) so callers can wrap appropriately.
 """
 import os
 import time
+import uuid
 from enum import StrEnum
 
 import jwt as pyjwt
@@ -36,6 +37,7 @@ def _make_token(user_id: str, email: str, token_type: TokenType, ttl: int) -> st
         "type": token_type.value,
         "iat": now,
         "exp": now + ttl,
+        "jti": str(uuid.uuid4()),
     }
     return pyjwt.encode(payload, _secret(), algorithm=_ALGORITHM)
 

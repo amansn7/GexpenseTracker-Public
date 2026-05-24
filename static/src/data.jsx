@@ -261,6 +261,7 @@ const API = {
     }));
     if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    if (r.status === 204) return null;
     return r.json();
   },
 };

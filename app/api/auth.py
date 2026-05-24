@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import TOTP_COOKIE_NAME, _sign_totp_token, get_current_user, is_owner
 from app.config import settings
-from app.crypto import encrypt_secret
+from app.crypto import decrypt_secret, encrypt_secret
 from app.csrf import generate_csrf_token
 from app.database import get_db
 from app.gmail.auth import get_google_userinfo, get_oauth_flow
@@ -471,7 +471,7 @@ async def verify_2fa(
         raise HTTPException(status_code=422, detail="Code required")
 
     try:
-        valid = pyotp.TOTP(user.totp_secret).verify(code)
+        valid = pyotp.TOTP(decrypt_secret(user.totp_secret)).verify(code)
     except Exception:
         valid = False
 

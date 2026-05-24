@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid_col
@@ -8,6 +8,9 @@ from .base import Base, _utcnow, _uuid_col
 
 class FilterRule(Base):
     __tablename__ = "filter_rules"
+    __table_args__ = (
+        UniqueConstraint("rule_type", "value", "source", "user_id", name="uq_filter_rules_type_value_source_user"),
+    )
 
     id: Mapped[str] = _uuid_col()
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)

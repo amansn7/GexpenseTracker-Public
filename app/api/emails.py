@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
 from app.database import AsyncSessionLocal, get_db
 from app.models import Email, SenderRule, Transaction, User
+from app.models.transaction import TransactionStatus
 from app.services.llm_service import get_user_llm_client
 
 
@@ -149,7 +150,11 @@ async def review_email(
             category=result.category,
             confidence=result.confidence,
             classifier_method=result.classifier_method,
+            txn_date=result.txn_date,
+            status=TransactionStatus.needs_review,
         )
+        log.info("review_email keep: email=%s status=%s txn_date=%s confidence=%s",
+                 email.id, TransactionStatus.needs_review, result.txn_date, result.confidence)
         db.add(txn)
         email.pre_filter_status = "passed"
 
@@ -170,6 +175,7 @@ async def review_email(
                     value=email.sender_domain,
                     source="user",
                     user_id=current_user.id,
+                    hit_count=1,
                 ))
 
     elif payload.action == "discard":
@@ -192,12 +198,221 @@ async def review_email(
                     value=email.sender_domain,
                     source="user",
                     user_id=current_user.id,
+                    hit_count=1,
                 ))
     else:
         raise HTTPException(status_code=400, detail="action must be 'keep' or 'discard'")
 
     await db.commit()
     return {"ok": True, "status": email.pre_filter_status}
+
+
+@router.post("/emails/{email_id}/undo-review")
+async def undo_review_email(
+    email_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Undo the last review action on an email.
+
+    If email was kept: delete Transaction, decrement/delete allowlist FilterRule,
+    set pre_filter_status back to review_pending.
+    If email was discarded: decrement/delete blocklist FilterRule,
+    set pre_filter_status back to review_pending.
+    Idempotent: calling undo on an email that hasn't been reviewed is a no-op (200).
+    """
+    from fastapi import HTTPException
+
+    from app.models import FilterRule, Transaction
+
+    email = (await db.execute(
+        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
+    )).scalar_one_or_none()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    current_status = email.pre_filter_status
+    if current_status == "review_pending":
+        log.info("undo_review_email no-op: email=%s already review_pending", email_id)
+        return {"ok": True, "status": "review_pending"}
+
+    if current_status == "passed":
+        # Undo a "keep" — delete Transaction, handle allowlist rule
+        txn = (await db.execute(
+            select(Transaction).where(Transaction.email_id == email.id)
+        )).scalar_one_or_none()
+        if txn:
+            log.info("undo_review_email deleting Transaction: id=%s email=%s", txn.id, email.id)
+            await db.delete(txn)
+
+        if email.sender_domain:
+            existing_rule = (await db.execute(
+                select(FilterRule).where(
+                    FilterRule.rule_type == "allowlist_domain",
+                    FilterRule.value == email.sender_domain,
+                    FilterRule.source == "user",
+                    FilterRule.user_id == current_user.id,
+                )
+            )).scalar_one_or_none()
+            if existing_rule:
+                if existing_rule.hit_count <= 1:
+                    log.info("undo_review_email deleting allowlist rule: id=%s value=%s hit_count=%s",
+                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    await db.delete(existing_rule)
+                else:
+                    existing_rule.hit_count -= 1
+                    log.info("undo_review_email decremented allowlist rule: id=%s value=%s hit_count=%s",
+                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+
+        email.pre_filter_status = "review_pending"
+
+    elif current_status == "discarded":
+        # Undo a "discard" — handle blocklist rule
+        if email.sender_domain:
+            existing_rule = (await db.execute(
+                select(FilterRule).where(
+                    FilterRule.rule_type == "blocklist_domain",
+                    FilterRule.value == email.sender_domain,
+                    FilterRule.source == "user",
+                    FilterRule.user_id == current_user.id,
+                )
+            )).scalar_one_or_none()
+            if existing_rule:
+                if existing_rule.hit_count <= 1:
+                    log.info("undo_review_email deleting blocklist rule: id=%s value=%s hit_count=%s",
+                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    await db.delete(existing_rule)
+                else:
+                    existing_rule.hit_count -= 1
+                    log.info("undo_review_email decremented blocklist rule: id=%s value=%s hit_count=%s",
+                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+
+        email.pre_filter_status = "review_pending"
+
+    await db.commit()
+    return {"ok": True, "status": email.pre_filter_status}
+
+
+class BulkReviewPayload(BaseModel):
+    email_ids: list[str]
+    action: str  # "keep" | "discard"
+
+
+@router.post("/emails/bulk-review")
+async def bulk_review_emails(
+    payload: BulkReviewPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Keep or discard multiple emails in a single transaction.
+
+    Returns { ok: count of successes, errors: [{ id, error }] }.
+    On any error, the entire batch is rolled back (no partial state).
+    """
+    from fastapi import HTTPException
+
+    from app.classifier.classifier import classify_email
+    from app.classifier.context import ClassificationContext
+    from app.models import FilterRule, Transaction
+
+    errors: list[dict] = []
+    ok = 0
+
+    try:
+        for email_id in payload.email_ids:
+            email = (await db.execute(
+                select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
+            )).scalar_one_or_none()
+            if not email:
+                errors.append({"id": email_id, "error": "not found"})
+                continue
+
+            if payload.action == "keep":
+                result = await classify_email(
+                    ClassificationContext(
+                        email_id=email.id,
+                        sender=email.sender or "",
+                        sender_domain=email.sender_domain or "",
+                        subject=email.subject or "",
+                        body_text=email.body_text or email.body_snippet or "",
+                        session=db,
+                        user_id=current_user.id,
+                    )
+                )
+                txn = Transaction(
+                    email_id=email.id,
+                    label=result.label,
+                    transaction_type=result.transaction_type,
+                    payment_mode=result.payment_mode,
+                    amount=result.amount,
+                    currency=result.currency,
+                    merchant=result.merchant,
+                    category=result.category,
+                    confidence=result.confidence,
+                    classifier_method=result.classifier_method,
+                    txn_date=result.txn_date,
+                    status=TransactionStatus.needs_review,
+                )
+                db.add(txn)
+                email.pre_filter_status = "passed"
+
+                if email.sender_domain:
+                    existing_rule = (await db.execute(
+                        select(FilterRule).where(
+                            FilterRule.rule_type == "allowlist_domain",
+                            FilterRule.value == email.sender_domain,
+                            FilterRule.source == "user",
+                            FilterRule.user_id == current_user.id,
+                        )
+                    )).scalar_one_or_none()
+                    if existing_rule:
+                        existing_rule.hit_count += 1
+                    else:
+                        db.add(FilterRule(
+                            rule_type="allowlist_domain",
+                            value=email.sender_domain,
+                            source="user",
+                            user_id=current_user.id,
+                            hit_count=1,
+                        ))
+
+            elif payload.action == "discard":
+                email.pre_filter_status = "discarded"
+
+                if email.sender_domain:
+                    existing_rule = (await db.execute(
+                        select(FilterRule).where(
+                            FilterRule.rule_type == "blocklist_domain",
+                            FilterRule.value == email.sender_domain,
+                            FilterRule.source == "user",
+                            FilterRule.user_id == current_user.id,
+                        )
+                    )).scalar_one_or_none()
+                    if existing_rule:
+                        existing_rule.hit_count += 1
+                    else:
+                        db.add(FilterRule(
+                            rule_type="blocklist_domain",
+                            value=email.sender_domain,
+                            source="user",
+                            user_id=current_user.id,
+                            hit_count=1,
+                        ))
+
+            else:
+                errors.append({"id": email_id, "error": "action must be 'keep' or 'discard'"})
+                continue
+
+            ok += 1
+
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        log.error("bulk_review_emails failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Bulk review failed: {exc}")
+
+    log.info("bulk_review_emails: ok=%s errors=%s action=%s", ok, len(errors), payload.action)
+    return {"ok": ok, "errors": errors}
 
 
 class RetrainPayload(BaseModel):
@@ -296,7 +511,7 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
             changed = 0
 
             for i, email_id in enumerate(payload.email_ids):
-                email_q = await db.execute(select(Email).where(Email.id == email_id))
+                email_q = await db.execute(select(Email).where(Email.id == email_id, Email.user_id == user_id))
                 email = email_q.scalar_one_or_none()
                 if not email:
                     yield _sse({"type": "error", "message": f"[{i+1}/{total}] NOT FOUND: {email_id}"})
@@ -331,7 +546,7 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     )
 
                     txn_q = await db.execute(
-                        select(Transaction).where(Transaction.email_id == email.id)
+                        select(Transaction).where(Transaction.email_id == email.id, Email.user_id == user_id).join(Email, Transaction.email_id == Email.id)
                     )
                     txn = txn_q.scalar_one_or_none()
 

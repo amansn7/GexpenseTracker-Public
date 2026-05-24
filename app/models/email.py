@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid_col
@@ -9,6 +9,9 @@ from .base import Base, _utcnow, _uuid_col
 
 class Email(Base):
     __tablename__ = "emails"
+    __table_args__ = (
+        Index("ix_emails_user_id_pre_filter_status", "user_id", "pre_filter_status"),
+    )
 
     id: Mapped[str] = _uuid_col()
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

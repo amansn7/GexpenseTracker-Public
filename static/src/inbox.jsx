@@ -224,9 +224,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   }, [tx.id]);
 
   const handleFetchBody = async () => {
-    const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
-    if (r?.body_text) setFetchedBody(r.body_text);
-    return r;
+    try {
+      const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
+      if (r?.body_text) setFetchedBody(r.body_text);
+      return r;
+    } catch (e) {
+      console.warn("fetch body failed, proceeding without body", e);
+      return null;
+    }
   };
 
   const switchMethod = (m) => {
@@ -947,6 +952,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [reviewSort, setReviewSort] = React.useState("domain"); // domain | date | sender
   const [reviewAutoRefresh, setReviewAutoRefresh] = React.useState(true);
   const [reviewSessionStats, setReviewSessionStats] = React.useState({ kept: 0, discarded: 0, startedAt: Date.now() });
+  const [needsReviewCount, setNeedsReviewCount] = React.useState(null);
   const listRef = React.useRef(null);
 
   const handleReviewAction = async (id, action) => {
@@ -977,14 +983,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (!reviewUndo) return;
     const { ids, action, emails } = reviewUndo;
     try {
-      // Reverse the action: keep→discard, discard→keep
-      const reverseAction = action === "keep" ? "discard" : "keep";
       for (const id of ids) {
-        await API.post(`/api/emails/${id}/review`, { action: reverseAction });
+        await API.post(`/api/emails/${id}/undo-review`);
       }
-      // Restore emails to the list
       setReviewEmails(es => [...emails, ...es]);
       setReviewUndo(null);
+      setReviewSessionStats(prev => ({
+        ...prev,
+        kept: prev.kept - (action === "keep" ? ids.length : 0),
+        discarded: prev.discarded - (action === "discard" ? ids.length : 0),
+      }));
       showToast("Undone");
     } catch (e) {
       console.error("Review undo failed", e);
@@ -1115,6 +1123,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     }, 30000);
     return () => clearInterval(interval);
   }, [filter, reviewAutoRefresh]);
+
+  // Fetch needs_review count from legacy review queue
+  React.useEffect(() => {
+    API.get("/api/review?count=true")
+      .then(data => setNeedsReviewCount(data?.count ?? null))
+      .catch(() => {});
+  }, []);
 
   // Reset selection when switching filter tabs
   React.useEffect(() => {
@@ -1626,6 +1641,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                     <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "'Geist Mono', monospace" }}>{reviewEmails.length}</span>
                     <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500 }}>pending</span>
                   </div>
+                  {needsReviewCount !== null && needsReviewCount > 0 && (
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 4, padding: "2px 8px", borderRadius: 6, background: "var(--accent-soft)", border: "1px solid var(--accent-soft)" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "'Geist Mono', monospace" }}>{needsReviewCount}</span>
+                      <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500 }}>needs review</span>
+                    </div>
+                  )}
                   {reviewSessionStats.kept + reviewSessionStats.discarded > 0 && (
                     <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--ink-4)" }}>
                       <span>Session: <strong style={{ color: "var(--pos)" }}>{reviewSessionStats.kept}</strong> kept · <strong style={{ color: "var(--neg)" }}>{reviewSessionStats.discarded}</strong> discarded</span>
@@ -1659,8 +1680,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                         const ids = [...reviewSelected];
                         const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
                         setReviewUndo({ ids, action: "keep", emails });
-                        for (const id of ids) {
-                          try { await API.post(`/api/emails/${id}/review`, { action: "keep" }); } catch (_) {}
+                        try {
+                          await API.post("/api/emails/bulk-review", { email_ids: ids, action: "keep" });
+                        } catch (_) {
+                          // Fallback to individual calls
+                          for (const id of ids) {
+                            try { await API.post(`/api/emails/${id}/review`, { action: "keep" }); } catch (_) {}
+                          }
                         }
                         setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
                         setReviewSelected(new Set());
@@ -1673,8 +1699,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                         const ids = [...reviewSelected];
                         const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
                         setReviewUndo({ ids, action: "discard", emails });
-                        for (const id of ids) {
-                          try { await API.post(`/api/emails/${id}/review`, { action: "discard" }); } catch (_) {}
+                        try {
+                          await API.post("/api/emails/bulk-review", { email_ids: ids, action: "discard" });
+                        } catch (_) {
+                          for (const id of ids) {
+                            try { await API.post(`/api/emails/${id}/review`, { action: "discard" }); } catch (_) {}
+                          }
                         }
                         setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
                         setReviewSelected(new Set());

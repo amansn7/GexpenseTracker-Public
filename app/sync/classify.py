@@ -19,7 +19,7 @@ async def _apply_pre_filter(session: AsyncSession, messages: list[dict], user_id
 
     incoming_ids = [m["gmail_id"] for m in messages]
     existing_result = await session.execute(
-        select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids))
+        select(Email.gmail_id).where(Email.gmail_id.in_(incoming_ids), Email.user_id == user_id)
     )
     already_stored = {row[0] for row in existing_result.all()}
 

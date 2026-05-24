@@ -16,8 +16,10 @@ TOTP_COOKIE_NAME = "totp_verified"
 
 
 def _sign_totp_token(session_hex: str) -> str:
-    key = os.getenv("SECRET_KEY", "fallback-dev-key").encode()
-    return hmac.new(key, session_hex.encode(), hashlib.sha256).hexdigest()
+    key = os.getenv("SECRET_KEY", "")
+    if not key:
+        raise RuntimeError("SECRET_KEY not configured")
+    return hmac.new(key.encode(), session_hex.encode(), hashlib.sha256).hexdigest()
 
 
 def _verify_totp_token(session_hex: str, token: str) -> bool:
