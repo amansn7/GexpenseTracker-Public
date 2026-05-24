@@ -155,6 +155,16 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
     .map(([label, amount]) => ({ label, amount: Math.round(amount) }))
     .sort((a, b) => b.amount - a.amount);
 
+  // If no merchant-level income in loaded transactions but catBreakdown has income,
+  // use the aggregated total (common when income is paginated out of the 50-item batch)
+  const catBreakdownIncome = (catBreakdown?.categories || []).reduce((a, c) => {
+    const key = _normCat(c.category, false);
+    return key === "income" ? a + c.amount : a;
+  }, 0);
+  if (income.length === 0 && catBreakdownIncome > 0) {
+    income.push({ label: "Income", amount: Math.round(catBreakdownIncome) });
+  }
+
   // Expenses per category from DB breakdown
   const catMap = {};
   for (const c of (catBreakdown?.categories || [])) {
