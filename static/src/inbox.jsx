@@ -734,111 +734,54 @@ const _looksLikeTx = (email) => {
 };
 
 const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFocus, onToggleSelect, previewId, onTogglePreview }) => {
-  const [loading, setLoading] = React.useState(false);
-  const [learned, setLearned] = React.useState(null);
-  const [fullBody, setFullBody] = React.useState(null);
-  const [fetchingBody, setFetchingBody] = React.useState(false);
   const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
-  const isExpanded = previewId === email.id;
   const rowRef = React.useRef(null);
+  const [hovered, setHovered] = React.useState(false);
 
   React.useEffect(() => {
     if (isFocused && rowRef.current) rowRef.current.focus();
   }, [isFocused]);
 
-  const handleAction = async (action) => {
-    setLoading(true);
-    setLearned(null);
-    try {
-      await API.post(`/api/emails/${email.id}/review`, { action });
-      if (action === "keep") { onKeep(email.id); setLearned("allowlisted"); }
-      else { onDiscard(email.id); setLearned("blocklisted"); }
-    } catch(e) {
-      console.error("Review action failed", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFetchBody = async () => {
-    if (fetchingBody || fullBody) return;
-    setFetchingBody(true);
-    try {
-      const r = await API.post(`/api/emails/${email.id}/fetch-body`);
-      if (r?.body_text) setFullBody(r.body_text);
-    } catch (_) {}
-    setFetchingBody(false);
-  };
-
-  if (isExpanded) {
+  const confidenceDots = React.useMemo(() => {
+    if (email.confidence == null) return null;
+    const dots = email.confidence >= 0.8 ? 3 : email.confidence >= 0.5 ? 2 : 1;
     return (
-      <div ref={rowRef} tabIndex={-1} style={{ borderBottom: "1px solid var(--line)", outline: "none" }}>
-        <div style={{ padding: "12px 14px", background: isSelected ? "var(--accent-soft)" : "var(--paper-2)", display: "flex", alignItems: "center", gap: 8 }}>
-          <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()}
-            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: looksLikeTx ? "var(--amber)" : "var(--ink-4)", background: looksLikeTx ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "color-mix(in srgb, var(--amber) 40%, transparent)" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
-            {looksLikeTx ? "Tx" : "Noise"}
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
-          <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{email.sender_domain || ""}</span>
-          <button onClick={onTogglePreview} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}><Icon name="x" size={14} stroke="currentColor"/></button>
-        </div>
-        <div style={{ padding: "14px 14px 16px 42px", background: "var(--card)" }}>
-          <div style={{ display: "flex", gap: 12, marginBottom: 10, fontSize: 11, color: "var(--ink-3)" }}>
-            <span><strong style={{ color: "var(--ink-2)" }}>From:</strong> {email.sender || email.sender_domain || "—"}</span>
-            {email.received_at && <span><strong style={{ color: "var(--ink-2)" }}>Date:</strong> {new Date(email.received_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>}
-          </div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
-            <strong style={{ color: "var(--ink-2)" }}>Why pending:</strong> AI classifier confidence below threshold. This email did not match known transaction patterns strongly enough to auto-classify.
-          </div>
-          {fullBody ? (
-            <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 300, overflowY: "auto" }}>
-              {fullBody.slice(0, 3000)}{fullBody.length > 3000 ? "…" : ""}
-            </div>
-          ) : (
-            <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-4)", lineHeight: 1.5 }}>
-              {email.body_snippet || "No preview available"}
-              {!fullBody && (
-                <button onClick={handleFetchBody} disabled={fetchingBody} style={{ marginLeft: 8, fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetchingBody ? "default" : "pointer" }}>
-                  {fetchingBody ? "Loading…" : "Load full body"}
-                </button>
-              )}
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-            <button disabled={loading} onClick={() => handleAction("keep")} style={{ fontSize: 12, padding: "6px 16px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: loading ? "wait" : "pointer", fontWeight: 600, opacity: loading ? 0.6 : 1 }}>Keep as transaction</button>
-            <button disabled={loading} onClick={() => handleAction("discard")} style={{ fontSize: 12, padding: "6px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>Discard as noise</button>
-          </div>
-          {learned && <div style={{ fontSize: 11, color: "var(--pos)", marginTop: 6 }}>✓ {email.sender_domain} {learned}</div>}
-        </div>
-      </div>
+      <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }} title={`${Math.round(email.confidence * 100)}% confidence`}>
+        {[1, 2, 3].map(i => (
+          <span key={i} style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: i <= dots ? "var(--accent)" : "var(--line)",
+            display: "inline-block",
+          }}/>
+        ))}
+      </span>
     );
-  }
+  }, [email.confidence]);
 
   return (
     <div ref={rowRef} tabIndex={0}
       onClick={() => { onFocus(); onTogglePreview(); }}
       onKeyDown={e => { if (e.key === "Enter") { onFocus(); onTogglePreview(); } }}
-      style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", display: "flex", flexDirection: "column", gap: 4, cursor: "pointer",
-        background: isSelected ? "var(--accent-soft)" : isFocused ? "var(--paper-2)" : "transparent",
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px",
+        borderBottom: "1px solid var(--line)", cursor: "pointer",
+        background: isSelected ? "var(--paper-2)" : hovered ? "var(--paper-2)" : "transparent",
+        borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
         transition: "background 80ms ease",
       }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <input type="checkbox" checked={isSelected} onChange={e => { e.stopPropagation(); onToggleSelect(); }} onClick={e => e.stopPropagation()}
-          style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
-        {looksLikeTx && <span style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)", flexShrink: 0 }} title="Looks like a transaction"/>}
-        <span style={{ fontSize: 11, fontWeight: 600, color: looksLikeTx ? "var(--amber)" : "var(--ink-4)", background: looksLikeTx ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "color-mix(in srgb, var(--amber) 40%, transparent)" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0 }}>
-          {looksLikeTx ? "Tx" : "Noise"}
-        </span>
-        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
-        <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", flexShrink: 0 }}>{email.sender_domain || ""}</span>
-      </div>
-      <div style={{ fontSize: 11, color: "var(--ink-4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingLeft: 20 }}>{email.body_snippet ? email.body_snippet.slice(0, 120) : ""}</div>
-      <div style={{ display: "flex", alignItems: "center", gap: 4, paddingLeft: 20 }}>
-        <Icon name="alert-circle" size={9} stroke="var(--ink-4)"/>
-        <span style={{ fontSize: 9, color: "var(--ink-4)" }}>AI confidence below threshold — needs human review</span>
-      </div>
-      {learned && <div style={{ fontSize: 10, color: "var(--pos)", fontStyle: "italic", paddingLeft: 20 }}>✓ {email.sender_domain} {learned}</div>}
+      <input type="checkbox" checked={isSelected} onChange={e => { e.stopPropagation(); onToggleSelect(); }} onClick={e => e.stopPropagation()}
+        style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
+      <span style={{ fontSize: 10, fontWeight: 600, color: looksLikeTx ? "var(--amber)" : "var(--ink-4)", background: looksLikeTx ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "color-mix(in srgb, var(--amber) 40%, transparent)" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.03em", flexShrink: 0 }}>
+        {looksLikeTx ? "Tx" : "Noise"}
+      </span>
+      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
+      <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", flexShrink: 0, marginRight: 4 }}>{email.sender_domain || ""}</span>
+      {confidenceDots}
+      <span style={{ color: "var(--ink-4)", display: "flex", marginLeft: 2 }}>
+        <Icon name="arrow-r" size={12} stroke="currentColor" />
+      </span>
     </div>
   );
 };
@@ -880,6 +823,7 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
           style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", flex: 1, fontFamily: "'Geist Mono', monospace" }}>{domain}</span>
         <span style={{ fontSize: 10, color: "var(--ink-4)", padding: "1px 6px", borderRadius: 6, background: "var(--card)" }}>{emails.length}</span>
+        {(() => { const c = [...selectedIds].filter(id => emails.some(e => e.id === id)).length; if (c === 0) return null; return <span style={{ fontSize: 10, color: "var(--accent)", fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>({c})</span>; })()}
         <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 6, background: hasTxs ? "var(--accent-soft)" : "var(--paper-2)", color: hasTxs ? "var(--accent)" : "var(--ink-4)" }}>{hasTxs ? `${emails.filter(e => _looksLikeTx(e)).length} tx` : "noise"}</span>
         <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
           <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--accent)", color: "var(--paper)", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
@@ -936,6 +880,99 @@ const FilterChip = ({ label, icon, count, active, onClick }) => {
   );
 };
 
+const ReviewDetailPanel = ({ email, onKeep, onDiscard, onClose }) => {
+  const [loading, setLoading] = React.useState(false);
+  const [fullBody, setFullBody] = React.useState(null);
+  const [fetchingBody, setFetchingBody] = React.useState(false);
+  const [learned, setLearned] = React.useState(null);
+
+  const handleAction = async (action) => {
+    setLoading(true);
+    setLearned(null);
+    try {
+      await API.post(`/api/emails/${email.id}/review`, { action });
+      if (action === "keep") { onKeep(email.id); setLearned("allowlisted"); }
+      else { onDiscard(email.id); setLearned("blocklisted"); }
+    } catch(e) {
+      console.error("Review action failed", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFetchBody = async () => {
+    if (fetchingBody || fullBody) return;
+    setFetchingBody(true);
+    try {
+      const r = await API.post(`/api/emails/${email.id}/fetch-body`);
+      if (r?.body_text) setFullBody(r.body_text);
+    } catch (_) {}
+    setFetchingBody(false);
+  };
+
+  const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}>
+          <Icon name="x" size={16} stroke="currentColor"/>
+        </button>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>{email.sender || email.sender_domain || "—"}</div>
+        {email.received_at && (
+          <div style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+            {new Date(email.received_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 15, fontWeight: 500, color: "var(--ink)", marginBottom: 16, fontFamily: "'Fraunces', serif", lineHeight: 1.3 }}>
+        {email.subject || "(no subject)"}
+      </div>
+
+      <div style={{ padding: "10px 14px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <Icon name="alert-circle" size={12} stroke="var(--ink-3)" style={{ flexShrink: 0, marginTop: 1 }}/>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-2)", marginBottom: 2 }}>Why pending</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.5 }}>
+            AI classifier confidence below threshold. This email did not match known transaction patterns strongly enough to auto-classify.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        {fullBody ? (
+          <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 300, overflowY: "auto" }}>
+            {fullBody.slice(0, 3000)}{fullBody.length > 3000 ? "…" : ""}
+          </div>
+        ) : (
+          <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-4)", lineHeight: 1.5 }}>
+            {email.body_snippet || "No preview available"}
+            {!fullBody && (
+              <button onClick={handleFetchBody} disabled={fetchingBody} style={{ marginLeft: 8, fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetchingBody ? "default" : "pointer" }}>
+                {fetchingBody ? "Loading…" : "Load full body"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", gap: 6 }}>
+        <button disabled={loading} onClick={() => handleAction("keep")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: loading ? "wait" : "pointer", fontWeight: 600, opacity: loading ? 0.6 : 1 }}>
+          Keep as transaction
+        </button>
+        <button disabled={loading} onClick={() => handleAction("discard")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>
+          Discard as noise
+        </button>
+      </div>
+      {learned && <div style={{ fontSize: 11, color: "var(--pos)", marginTop: 8 }}>✓ {email.sender_domain} {learned}</div>}
+    </div>
+  );
+};
+
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, loadData = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
@@ -951,7 +988,25 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [reviewUndo, setReviewUndo] = React.useState(null); // { ids, action, emails } for undo
   const [reviewSort, setReviewSort] = React.useState("domain"); // domain | date | sender
   const [reviewAutoRefresh, setReviewAutoRefresh] = React.useState(true);
-  const [reviewSessionStats, setReviewSessionStats] = React.useState({ kept: 0, discarded: 0, startedAt: Date.now() });
+  const [reviewShowShortcuts, setReviewShowShortcuts] = React.useState(true);
+  const [reviewBulkBusy, setReviewBulkBusy] = React.useState(false);
+  const [reviewBulkErrors, setReviewBulkErrors] = React.useState([]);
+  const [reviewSessionStats, setReviewSessionStats] = React.useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("mf_review_session"));
+      if (saved && saved.startedAt) {
+        const savedDate = new Date(saved.startedAt);
+        const today = new Date();
+        if (savedDate.toDateString() === today.toDateString()) {
+          return saved;
+        }
+      }
+    } catch (_) {}
+    return { kept: 0, discarded: 0, startedAt: Date.now() };
+  });
+  const [lastSessionStats, setLastSessionStats] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("mf_review_last_session")); } catch (_) { return null; }
+  });
   const [needsReviewCount, setNeedsReviewCount] = React.useState(null);
   const listRef = React.useRef(null);
 
@@ -974,8 +1029,30 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         if (remaining === 0) return -1;
         return Math.min(prev, remaining - 1);
       });
+      if (reviewPreviewId === id) {
+        const currentIdx = reviewEmails.findIndex(e => e.id === id);
+        const nextIdx = currentIdx < reviewEmails.length - 1 ? currentIdx + 1 : (currentIdx > 0 ? currentIdx - 1 : -1);
+        if (nextIdx >= 0 && nextIdx < reviewEmails.length) {
+          const nextEmail = reviewEmails[nextIdx];
+          setTimeout(() => setReviewPreviewId(nextEmail.id), 50);
+        } else {
+          setReviewPreviewId(null);
+        }
+      }
     } catch (e) {
       console.error("Review action failed", e);
+    }
+  };
+
+  const handleDetailPanelAdvance = (id) => {
+    if (reviewPreviewId === id) {
+      const currentIdx = reviewEmails.findIndex(e => e.id === id);
+      const nextIdx = currentIdx < reviewEmails.length - 1 ? currentIdx + 1 : (currentIdx > 0 ? currentIdx - 1 : -1);
+      if (nextIdx >= 0 && nextIdx < reviewEmails.length) {
+        setTimeout(() => setReviewPreviewId(reviewEmails[nextIdx].id), 50);
+      } else {
+        setReviewPreviewId(null);
+      }
     }
   };
 
@@ -997,6 +1074,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     } catch (e) {
       console.error("Review undo failed", e);
     }
+  };
+
+  const handleClearSessionStats = () => {
+    const stats = { ...reviewSessionStats };
+    setLastSessionStats(stats);
+    localStorage.setItem("mf_review_last_session", JSON.stringify(stats));
+    setReviewSessionStats({ kept: 0, discarded: 0, startedAt: Date.now() });
+    showToast("Session complete — nice work!");
   };
 
   // Date range presets
@@ -1095,6 +1180,20 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       } else if (e.key === "z" || e.key === "Z") {
         e.preventDefault();
         handleReviewUndo();
+      } else if (e.key === "a" || e.key === "A") {
+        e.preventDefault();
+        if (reviewSelected.size === reviewEmails.length) {
+          setReviewSelected(new Set());
+        } else {
+          setReviewSelected(new Set(reviewEmails.map(e => e.id)));
+        }
+      } else if (e.key === "g" || e.key === "G") {
+        e.preventDefault();
+        setReviewPreviewId(null);
+        setReviewFocusIdx(prev => prev === 0 ? reviewEmails.length - 1 : 0);
+      } else if (e.key === "?" || e.key === "/") {
+        e.preventDefault();
+        setReviewShowShortcuts(prev => !prev);
       } else if (e.key === "Escape") {
         e.preventDefault();
         setReviewPreviewId(null);
@@ -1103,7 +1202,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filter, reviewEmails, reviewFocusIdx]);
+  }, [filter, reviewEmails, reviewFocusIdx, reviewShowShortcuts]);
 
   // Auto-refresh polling for review tab (30s interval)
   React.useEffect(() => {
@@ -1130,6 +1229,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       .then(data => setNeedsReviewCount(data?.count ?? null))
       .catch(() => {});
   }, []);
+
+  // Persist review session stats to localStorage
+  React.useEffect(() => {
+    localStorage.setItem("mf_review_session", JSON.stringify(reviewSessionStats));
+  }, [reviewSessionStats]);
 
   // Reset selection when switching filter tabs
   React.useEffect(() => {
@@ -1616,7 +1720,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>All caught up</div>
                   <div style={{ fontSize: 13, color: "var(--ink-3)", maxWidth: 380, margin: "0 auto 8px", lineHeight: 1.6 }}>
-                    Emails that the AI can't confidently classify appear here for your review. Each decision trains the classifier to get smarter.
+                    {reviewSessionStats.kept + reviewSessionStats.discarded > 0
+                      ? `You kept ${reviewSessionStats.kept} and discarded ${reviewSessionStats.discarded} in ${Math.round((Date.now() - reviewSessionStats.startedAt) / 60000)} min.`
+                      : "No emails to review yet. Run a sync to find and classify your expenses."}
                   </div>
                   {reviewSessionStats.kept + reviewSessionStats.discarded > 0 && (
                     <div style={{ fontSize: 12, color: "var(--ink-4)", marginBottom: 16 }}>
@@ -1624,164 +1730,226 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       <span style={{ marginLeft: 8, opacity: 0.6 }}>· {Math.round((Date.now() - reviewSessionStats.startedAt) / 60000)} min</span>
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                  {lastSessionStats && reviewSessionStats.kept + reviewSessionStats.discarded === 0 && (
+                    <div style={{ fontSize: 12, color: "var(--ink-4)", marginBottom: 16 }}>
+                      Last session: <strong style={{ color: "var(--pos)" }}>{lastSessionStats.kept} kept</strong> · <strong style={{ color: "var(--neg)" }}>{lastSessionStats.discarded} discarded</strong>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     <button onClick={() => { if (window._goSync) window._goSync(); }} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, background: "var(--accent)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>
                       Run sync
                     </button>
                     <button onClick={() => setFilter("all")} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
                       View transactions
                     </button>
+                    {needsReviewCount > 0 && (
+                      <button onClick={() => window._openLegacyReview?.()} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
+                        Legacy review ({needsReviewCount})
+                      </button>
+                    )}
                   </div>
+                  {reviewSessionStats.kept + reviewSessionStats.discarded > 0 && (
+                    <div style={{ marginTop: 20 }}>
+                      <button onClick={handleClearSessionStats} style={{ fontSize: 11, color: "var(--ink-4)", background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <Icon name="check" size={12} stroke="var(--ink-4)"/> Done reviewing
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <>
-                {/* Progress/scale header */}
-                <div style={{ display: "flex", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--paper-2)" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "'Geist Mono', monospace" }}>{reviewEmails.length}</span>
-                    <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500 }}>pending</span>
-                  </div>
-                  {needsReviewCount !== null && needsReviewCount > 0 && (
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 4, padding: "2px 8px", borderRadius: 6, background: "var(--accent-soft)", border: "1px solid var(--accent-soft)" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "'Geist Mono', monospace" }}>{needsReviewCount}</span>
-                      <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500 }}>needs review</span>
-                    </div>
-                  )}
-                  {reviewSessionStats.kept + reviewSessionStats.discarded > 0 && (
-                    <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--ink-4)" }}>
-                      <span>Session: <strong style={{ color: "var(--pos)" }}>{reviewSessionStats.kept}</strong> kept · <strong style={{ color: "var(--neg)" }}>{reviewSessionStats.discarded}</strong> discarded</span>
-                    </div>
-                  )}
-                  <div style={{ flex: 1 }}/>
-                  {/* Classifier context badge */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)" }}>
-                    <Icon name="alert-circle" size={11} stroke="var(--ink-3)"/>
-                    <span style={{ fontSize: 10, color: "var(--ink-3)", fontWeight: 500 }}>AI confidence below threshold</span>
-                  </div>
-                  {/* Sort controls */}
-                  <select value={reviewSort} onChange={e => setReviewSort(e.target.value)} style={{ fontSize: 11, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", cursor: "pointer", minHeight: 44 }}>
-                    <option value="domain">Sort: Domain</option>
-                    <option value="date">Sort: Date</option>
-                    <option value="sender">Sort: Sender</option>
-                  </select>
-                  {/* Auto-refresh toggle */}
-                  <button onClick={() => setReviewAutoRefresh(r => !r)} style={{ fontSize: 10, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: reviewAutoRefresh ? "var(--paper-2)" : "var(--card)", color: reviewAutoRefresh ? "var(--ink-2)" : "var(--ink-3)", cursor: "pointer", fontWeight: 500, minHeight: 44 }}>
-                    {reviewAutoRefresh ? "Auto ON" : "Auto OFF"}
-                  </button>
-                </div>
-                {/* Global action bar */}
-                <div style={{ display: "flex", gap: 8, padding: "8px 14px", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
-                  {reviewSelected.size > 0 && (
-                    <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 600, background: "var(--accent-soft)", padding: "1px 6px", borderRadius: 6 }}>{reviewSelected.size} selected</span>
-                  )}
-                  {reviewSelected.size > 0 && (
-                    <>
-                      <button onClick={async () => {
-                        const ids = [...reviewSelected];
-                        const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
-                        setReviewUndo({ ids, action: "keep", emails });
-                        try {
-                          await API.post("/api/emails/bulk-review", { email_ids: ids, action: "keep" });
-                        } catch (_) {
-                          // Fallback to individual calls
-                          for (const id of ids) {
-                            try { await API.post(`/api/emails/${id}/review`, { action: "keep" }); } catch (_) {}
-                          }
-                        }
-                        setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
-                        setReviewSelected(new Set());
-                        setReviewSessionStats(prev => ({ ...prev, kept: prev.kept + ids.length }));
-                        showToast(`Kept ${ids.length} email${ids.length > 1 ? "s" : ""}`, { label: "Undo", onClick: handleReviewUndo });
-                      }} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>
-                        Keep {reviewSelected.size}
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(0, 420px)", height: "calc(100vh - 164px)", overflow: "hidden" }}>
+                  <div style={{ overflowY: "auto", borderRight: "1px solid var(--line)" }}>
+                    {/* Progress/scale header */}
+                    <div style={{ display: "flex", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--paper-2)" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "'Geist Mono', monospace" }}>{reviewEmails.length}</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 500 }}>pending</span>
+                      </div>
+                      {needsReviewCount !== null && needsReviewCount > 0 && (
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 4, padding: "2px 8px", borderRadius: 6, background: "var(--accent-soft)", border: "1px solid var(--accent-soft)" }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "'Geist Mono', monospace" }}>{needsReviewCount}</span>
+                          <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 500 }}>needs review</span>
+                        </div>
+                      )}
+                      {reviewSessionStats.kept + reviewSessionStats.discarded > 0 && (
+                        <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--ink-4)" }}>
+                          <span>Session: <strong style={{ color: "var(--pos)" }}>{reviewSessionStats.kept}</strong> kept · <strong style={{ color: "var(--neg)" }}>{reviewSessionStats.discarded}</strong> discarded</span>
+                        </div>
+                      )}
+                      <div style={{ flex: 1 }}/>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 6, background: "var(--paper-2)", border: "1px solid var(--line)" }}>
+                        <Icon name="alert-circle" size={11} stroke="var(--ink-3)"/>
+                        <span style={{ fontSize: 10, color: "var(--ink-3)", fontWeight: 500 }}>AI confidence below threshold</span>
+                      </div>
+                      <select value={reviewSort} onChange={e => setReviewSort(e.target.value)} style={{ fontSize: 11, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", cursor: "pointer", minHeight: 44 }}>
+                        <option value="domain">Sort: Domain</option>
+                        <option value="date">Sort: Date</option>
+                        <option value="sender">Sort: Sender</option>
+                      </select>
+                      <button onClick={() => setReviewAutoRefresh(r => !r)} style={{ fontSize: 10, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--line)", background: reviewAutoRefresh ? "var(--paper-2)" : "var(--card)", color: reviewAutoRefresh ? "var(--ink-2)" : "var(--ink-3)", cursor: "pointer", fontWeight: 500, minHeight: 44 }}>
+                        {reviewAutoRefresh ? "Auto ON" : "Auto OFF"}
                       </button>
-                      <button onClick={async () => {
-                        const ids = [...reviewSelected];
-                        const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
-                        setReviewUndo({ ids, action: "discard", emails });
-                        try {
-                          await API.post("/api/emails/bulk-review", { email_ids: ids, action: "discard" });
-                        } catch (_) {
-                          for (const id of ids) {
-                            try { await API.post(`/api/emails/${id}/review`, { action: "discard" }); } catch (_) {}
-                          }
-                        }
-                        setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
-                        setReviewSelected(new Set());
-                        setReviewSessionStats(prev => ({ ...prev, discarded: prev.discarded + ids.length }));
-                        showToast(`Discarded ${ids.length} email${ids.length > 1 ? "s" : ""}`, { label: "Undo", onClick: handleReviewUndo });
-                      }} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
-                        Discard {reviewSelected.size}
-                      </button>
-                    </>
-                  )}
-                  <div style={{ flex: 1 }}/>
-                  <button onClick={() => setCollapsedAll(c => c === true ? null : true)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === true ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Collapse all</button>
-                  <button onClick={() => setCollapsedAll(c => c === false ? null : false)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === false ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Expand all</button>
-                </div>
-                {(() => {
-                  const groups = {};
-                  reviewEmails.forEach(e => {
-                    const domain = e.sender_domain || e.sender || "unknown";
-                    if (!groups[domain]) groups[domain] = [];
-                    groups[domain].push(e);
-                  });
-                  let sorted = Object.entries(groups);
-                  if (reviewSort === "domain") {
-                    sorted.sort((a, b) => b[1].length - a[1].length);
-                  } else if (reviewSort === "date") {
-                    sorted.sort((a, b) => {
-                      const aDate = Math.max(...a[1].map(e => new Date(e.received_at || 0).getTime()));
-                      const bDate = Math.max(...b[1].map(e => new Date(e.received_at || 0).getTime()));
-                      return bDate - aDate;
-                    });
-                  } else if (reviewSort === "sender") {
-                    sorted.sort((a, b) => a[0].localeCompare(b[0]));
-                  }
-                  const flatEmails = sorted.flatMap(([, emails]) => emails);
-                  const idxMap = {}; flatEmails.forEach((e, i) => { idxMap[e.id] = i; });
-                  return sorted.map(([domain, emails]) => {
-                    const hasTxs = emails.some(_looksLikeTx);
+                    </div>
+                    {/* Global action bar */}
+                    <div style={{ display: "flex", gap: 8, padding: "8px 14px", borderBottom: "1px solid var(--line)", alignItems: "center", position: "sticky", top: 0, background: "var(--paper)", zIndex: 5 }}>
+                      {reviewSelected.size > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--accent)", fontWeight: 600, background: "var(--accent-soft)", padding: "1px 6px", borderRadius: 6 }}>{reviewSelected.size} selected</span>
+                      )}
+                      {reviewSelected.size > 0 && (
+                        <>
+                          <button disabled={reviewBulkBusy} onClick={async () => {
+                            setReviewBulkBusy(true);
+                            setReviewBulkErrors([]);
+                            const ids = [...reviewSelected];
+                            const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
+                            setReviewUndo({ ids, action: "keep", emails });
+                            const errors = [];
+                            try {
+                              await API.post("/api/emails/bulk-review", { email_ids: ids, action: "keep" });
+                            } catch (_) {
+                              for (const id of ids) {
+                                try { await API.post(`/api/emails/${id}/review`, { action: "keep" }); } catch (e2) { const e2email = reviewEmails.find(e => e.id === id); if (e2email) errors.push(e2email.sender_domain || id); }
+                              }
+                            }
+                            setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
+                            setReviewSelected(new Set());
+                            setReviewSessionStats(prev => ({ ...prev, kept: prev.kept + (ids.length - errors.length) }));
+                            setReviewBulkErrors(errors);
+                            if (errors.length === 0) showToast(`Kept ${ids.length} email${ids.length > 1 ? "s" : ""}`, { label: "Undo", onClick: handleReviewUndo });
+                            setReviewBulkBusy(false);
+                          }} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 6, border: "none", background: reviewBulkBusy ? "var(--ink-4)" : "var(--accent)", color: "var(--paper)", cursor: reviewBulkBusy ? "wait" : "pointer", fontWeight: 600, opacity: reviewBulkBusy ? 0.6 : 1 }}>
+                            {reviewBulkBusy ? "Processing…" : `Keep ${reviewSelected.size}`}
+                          </button>
+                          <button disabled={reviewBulkBusy} onClick={async () => {
+                            setReviewBulkBusy(true);
+                            setReviewBulkErrors([]);
+                            const ids = [...reviewSelected];
+                            const emails = ids.map(id => reviewEmails.find(e => e.id === id)).filter(Boolean);
+                            setReviewUndo({ ids, action: "discard", emails });
+                            const errors = [];
+                            try {
+                              await API.post("/api/emails/bulk-review", { email_ids: ids, action: "discard" });
+                            } catch (_) {
+                              for (const id of ids) {
+                                try { await API.post(`/api/emails/${id}/review`, { action: "discard" }); } catch (e2) { const e2email = reviewEmails.find(e => e.id === id); if (e2email) errors.push(e2email.sender_domain || id); }
+                              }
+                            }
+                            setReviewEmails(es => es.filter(e => !ids.includes(e.id)));
+                            setReviewSelected(new Set());
+                            setReviewSessionStats(prev => ({ ...prev, discarded: prev.discarded + (ids.length - errors.length) }));
+                            setReviewBulkErrors(errors);
+                            if (errors.length === 0) showToast(`Discarded ${ids.length} email${ids.length > 1 ? "s" : ""}`, { label: "Undo", onClick: handleReviewUndo });
+                            setReviewBulkBusy(false);
+                          }} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--line)", background: reviewBulkBusy ? "var(--ink-4)" : "var(--paper)", color: reviewBulkBusy ? "var(--paper)" : "var(--ink-2)", cursor: reviewBulkBusy ? "wait" : "pointer", fontWeight: 500, opacity: reviewBulkBusy ? 0.6 : 1 }}>
+                            {reviewBulkBusy ? "Processing…" : `Discard ${reviewSelected.size}`}
+                          </button>
+                        </>
+                      )}
+                      <div style={{ flex: 1 }}/>
+                      <button onClick={() => setCollapsedAll(c => c === true ? null : true)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === true ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Collapse all</button>
+                      <button onClick={() => setCollapsedAll(c => c === false ? null : false)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === false ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Expand all</button>
+                    </div>
+                    {reviewBulkErrors.length > 0 && (
+                      <div style={{ padding: "6px 14px", fontSize: 10, color: "var(--neg)", background: "var(--neg-soft)", borderBottom: "1px solid var(--line)" }}>
+                        Failed: {reviewBulkErrors.join(", ")}
+                      </div>
+                    )}
+                    {(() => {
+                      const groups = {};
+                      reviewEmails.forEach(e => {
+                        const domain = e.sender_domain || e.sender || "unknown";
+                        if (!groups[domain]) groups[domain] = [];
+                        groups[domain].push(e);
+                      });
+                      let sorted = Object.entries(groups);
+                      if (reviewSort === "domain") {
+                        sorted.sort((a, b) => b[1].length - a[1].length);
+                      } else if (reviewSort === "date") {
+                        sorted.sort((a, b) => {
+                          const aDate = Math.max(...a[1].map(e => new Date(e.received_at || 0).getTime()));
+                          const bDate = Math.max(...b[1].map(e => new Date(e.received_at || 0).getTime()));
+                          return bDate - aDate;
+                        });
+                      } else if (reviewSort === "sender") {
+                        sorted.sort((a, b) => a[0].localeCompare(b[0]));
+                      }
+                      const flatEmails = sorted.flatMap(([, emails]) => emails);
+                      const idxMap = {}; flatEmails.forEach((e, i) => { idxMap[e.id] = i; });
+                      return sorted.map(([domain, emails]) => {
+                        const hasTxs = emails.some(_looksLikeTx);
+                        return (
+                          <GroupSection key={domain} domain={domain} emails={emails} hasTxs={hasTxs}
+                            collapsed={collapsedAll}
+                            selectedIds={reviewSelected}
+                            onToggleSelect={id => setReviewSelected(prev => {
+                              const next = new Set(prev);
+                              next.has(id) ? next.delete(id) : next.add(id);
+                              return next;
+                            })}
+                            onSelectAll={ids => setReviewSelected(prev => {
+                              const next = new Set(prev);
+                              ids.forEach(id => next.add(id));
+                              return next;
+                            })}
+                            onClearSelect={ids => setReviewSelected(prev => {
+                              const next = new Set(prev);
+                              ids.forEach(id => next.delete(id));
+                              return next;
+                            })}
+                            previewId={reviewPreviewId}
+                            onTogglePreview={id => setReviewPreviewId(id)}
+                            focusIdx={reviewFocusIdx}
+                            idxMap={idxMap}
+                            onKeep={id => {
+                              setReviewUndo({ ids: [id], action: "keep", emails: [reviewEmails.find(e => e.id === id)] });
+                              setReviewEmails(es => es.filter(e => e.id !== id));
+                              setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+                              showToast("Kept", { label: "Undo", onClick: handleReviewUndo });
+                            }}
+                            onDiscard={id => {
+                              setReviewUndo({ ids: [id], action: "discard", emails: [reviewEmails.find(e => e.id === id)] });
+                              setReviewEmails(es => es.filter(e => e.id !== id));
+                              setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+                              showToast("Discarded", { label: "Undo", onClick: handleReviewUndo });
+                            }}
+                          />
+                        );
+                      });
+                    })()}
+                  </div>
+                  {(() => {
+                    const selectedReviewEmail = reviewPreviewId ? reviewEmails.find(e => e.id === reviewPreviewId) : null;
+                    if (!selectedReviewEmail) {
+                      return (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "var(--paper)", color: "var(--ink-4)", fontSize: 13 }}>
+                          Select an email to review
+                        </div>
+                      );
+                    }
                     return (
-                      <GroupSection key={domain} domain={domain} emails={emails} hasTxs={hasTxs}
-                        collapsed={collapsedAll}
-                        selectedIds={reviewSelected}
-                        onToggleSelect={id => setReviewSelected(prev => {
-                          const next = new Set(prev);
-                          next.has(id) ? next.delete(id) : next.add(id);
-                          return next;
-                        })}
-                        onSelectAll={ids => setReviewSelected(prev => {
-                          const next = new Set(prev);
-                          ids.forEach(id => next.add(id));
-                          return next;
-                        })}
-                        onClearSelect={ids => setReviewSelected(prev => {
-                          const next = new Set(prev);
-                          ids.forEach(id => next.delete(id));
-                          return next;
-                        })}
-                        previewId={reviewPreviewId}
-                        onTogglePreview={id => setReviewPreviewId(prev => prev === id ? null : id)}
-                        focusIdx={reviewFocusIdx}
-                        idxMap={idxMap}
-                        onKeep={id => {
-                          setReviewUndo({ ids: [id], action: "keep", emails: [reviewEmails.find(e => e.id === id)] });
-                          setReviewEmails(es => es.filter(e => e.id !== id));
-                          setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
-                          showToast("Kept", { label: "Undo", onClick: handleReviewUndo });
-                        }}
-                        onDiscard={id => {
-                          setReviewUndo({ ids: [id], action: "discard", emails: [reviewEmails.find(e => e.id === id)] });
-                          setReviewEmails(es => es.filter(e => e.id !== id));
-                          setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
-                          showToast("Discarded", { label: "Undo", onClick: handleReviewUndo });
-                        }}
-                      />
+                      <div style={{ overflowY: "auto", background: "var(--card)", padding: "24px" }}>
+                        <ReviewDetailPanel
+                          email={selectedReviewEmail}
+                          onKeep={id => {
+                            setReviewUndo({ ids: [id], action: "keep", emails: [reviewEmails.find(e => e.id === id)] });
+                            setReviewEmails(es => es.filter(e => e.id !== id));
+                            setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+                            showToast("Kept", { label: "Undo", onClick: handleReviewUndo });
+                            handleDetailPanelAdvance(id);
+                          }}
+                          onDiscard={id => {
+                            setReviewUndo({ ids: [id], action: "discard", emails: [reviewEmails.find(e => e.id === id)] });
+                            setReviewEmails(es => es.filter(e => e.id !== id));
+                            setReviewSelected(prev => { const n = new Set(prev); n.delete(id); return n; });
+                            showToast("Discarded", { label: "Undo", onClick: handleReviewUndo });
+                            handleDetailPanelAdvance(id);
+                          }}
+                          onClose={() => setReviewPreviewId(null)}
+                        />
+                      </div>
                     );
-                  });
-                })()}
-                </>
+                  })()}
+                </div>
               )}
             </div>
           ) : filter === "duplicates" ? (<>
@@ -2333,16 +2501,19 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
 
       {/* Floating keyboard shortcut hint for review tab */}
-      {filter === "review" && reviewEmails.length > 0 && (
+      {filter === "review" && reviewEmails.length > 0 && reviewShowShortcuts && (
         <KeyboardHint
           shortcuts={[
             ["j / k", "Next / previous email"],
-            ["Enter", "Expand / preview email"],
+            ["Enter", "Preview email"],
             ["Space", "Select email"],
-            ["↵ Keep", "Keep focused email"],
-            ["D", "Discard focused email"],
-            ["Z", "Undo last action"],
-            ["Esc", "Close preview / clear selection"],
+            ["e", "Keep as transaction"],
+            ["d", "Discard as noise"],
+            ["a", "Select all / none"],
+            ["g", "Jump to first / last"],
+            ["z", "Undo last action"],
+            ["?", "Toggle this hint"],
+            ["Esc", "Close / clear"],
           ]}
           storageKey="mf_review_shortcuts_dismissed"
           position="bottom-left"
