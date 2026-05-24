@@ -50,3 +50,17 @@
 3. **Tests use ORM `metadata.create_all()`, NOT Alembic migrations.** Boolean default bugs in Alembic migration files are invisible to the test suite. Always validate migrations against a real PostgreSQL instance (or at minimum run `alembic upgrade head` with a PG connection string) before deploying.
 
 4. **A multi-head migration chain masks pre-existing migration bugs.** The previous 0039 KeyError blocked all migrations from running, silently concealing the 0038 boolean default issue. When fixing a migration-load crash, always inspect all pending migrations in the chain — the first error hides subsequent ones.
+
+## 2026-05-24 — Railway Deployment: VARCHAR(32) Limit on alembic_version.version_num
+
+1. **Alembic's `alembic_version.version_num` column defaults to `VARCHAR(32)`.** Revision IDs longer than 32 characters cause `StringDataRightTruncation` when Alembic tries to `INSERT` the version row after running a migration. This applies even though the migration itself succeeds — the crash happens during the post-migration version stamp.
+
+2. **Descriptive revision IDs must fit in 32 characters.** If the descriptive name pushes the revision ID past 32 chars, shorten it (e.g., `0039_add_user_id_to_merchant_aliases` → `0039_merchant_aliases_user_id`). Always check total length — including the numeric prefix — against VARCHAR(32).
+
+3. **When renaming a revision ID, update all downstream references.** This includes:
+   - The `revision` string in the migration file itself
+   - The `Revises:` header comment docstring
+   - Any merge migration's `down_revision` tuple that references the old ID
+   - Any `depends_on` tuples
+
+4. **`alembic_version.version_num` width is set when the first migration creates the table.** It cannot be changed without a migration that `ALTER TABLE`s it. The safest fix is to keep all revision IDs ≤ 32 characters rather than widening the column, since widening would require a migration that itself needs to fit in the existing column.

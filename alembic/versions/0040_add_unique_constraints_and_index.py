@@ -6,7 +6,7 @@ Adds:
   - Composite index (user_id, pre_filter_status) on Email for pending tab perf
 
 Revision ID: 0040
-Revises: 0039_add_user_id_to_merchant_aliases, 0039_encrypt_totp_secrets
+Revises: 0039_merchant_aliases_user_id, 0039_encrypt_totp_secrets
 Create Date: 2026-05-24 00:00:00.000000
 """
 
@@ -17,7 +17,7 @@ from alembic import op
 
 revision: str = "0040"
 down_revision: Union[str, Sequence[str], None] = (
-    "0039_add_user_id_to_merchant_aliases",
+    "0039_merchant_aliases_user_id",
     "0039_encrypt_totp_secrets",
 )
 branch_labels: Union[str, Sequence[str], None] = None

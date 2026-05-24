@@ -1,13 +1,13 @@
 """add user_id to merchant_aliases for IDOR fix
 
-Revision ID: 0039
+Revision ID: 0039_merchant_aliases_user_id
 Revises: 0038
 Create Date: 2026-05-21
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0039_add_user_id_to_merchant_aliases"
+revision = "0039_merchant_aliases_user_id"
 down_revision = "0038"
 branch_labels = None
 depends_on = None
