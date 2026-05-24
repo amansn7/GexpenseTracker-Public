@@ -72,3 +72,13 @@
 2. **The simplest fix is to remove `postgresql_concurrently=True`.** Use a regular `CREATE INDEX` instead. The concurrent variant is an optimization to avoid table locking — removing it is safe for single-deploy migrations on non-production-critical tables.
 
 3. **To properly use `CONCURRENTLY` with Alembic**, wrap the `create_index` call in `with op.get_context().autocommit_block():`. This emits a `COMMIT` before the statement and prevents Alembic from issuing another `COMMIT` after it, satisfying PostgreSQL's "no active transaction" requirement.
+
+## 2026-05-24 — MoneyFlow Income Missing After Pagination
+
+1. **Always cross-reference which data sources feed which chart elements**: The Sankey's income nodes are built solely from the `transactions` prop (merchant-level data), while expense nodes come from the aggregate `catBreakdown` API response. These are two different data pipelines with different pagination characteristics. A fix that appears correct in one view (expenses show up) can silently break another (income disappears).
+
+2. **A `limit: 50` on the parent's `loadData` is invisible to child components**: `FlowView` assumes `transactions` contains all relevant data for the period, but the parent fetches only the 50 most recent items. When total transactions exceed 50, older income transactions get paginated out. Child components should not assume completeness of a paginated data source — always provide a fallback from aggregate APIs.
+
+3. **`buildFlowSummary` should merge data from all available sources**: Income can come from merchant-level transactions (when available) or from the `catBreakdown` aggregate API. The function now checks both: if `transactions` has income entries, use merchant names; if not but `catBreakdown` reports income, synthesize a single "Income" entry from the total. Don't let one incomplete data source create a false negative.
+
+4. **Use Playwright to isolate the bug to data vs rendering**: When diagnosing a disappearing UI element, first unit-test the data-processing function (`buildFlowSummary`) with mock data, then render-test the component (`FlowView`) with mock data. If both pass, the issue is upstream in the data pipeline — not in the frontend code you changed.
