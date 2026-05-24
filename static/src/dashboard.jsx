@@ -1,7 +1,7 @@
 // Dashboard — minimal monthly summary
 
 const dashStyles = {
-  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100vh - 72px)", maxWidth: 1300, margin: "0 auto" },
+  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 1300, margin: "0 auto" },
   hero: { padding: "36px 40px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 24, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 40, alignItems: "center" },
   heroLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 6 },
   heroAmount: { fontFamily: "'Fraunces', serif", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },
@@ -225,7 +225,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
 
       {/* Net worth section */}
       {health && (
-        <div style={{ marginBottom: 24 }}>
+        <div className="anim-row-spring" style={{"--i": 3, marginBottom: 24 }}>
           <div style={dashStyles.secHead}>
             <span style={dashStyles.secTitle}>Net worth</span>
             <span style={dashStyles.secSub}>{health.balance_mode === "anchored" ? "anchored" : "computed"}</span>
@@ -249,8 +249,8 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         </div>
       )}
 
-      <div style={{ ...dashStyles.grid3, gridTemplateColumns: isMobile ? "1fr" : isTablet ? "repeat(2, 1fr)" : dashStyles.grid3.gridTemplateColumns }}>
-        <div style={dashStyles.card}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "2fr 1fr", gap: 14, marginBottom: 24 }}>
+        <div className="anim-row-spring" style={{"--i": 0, ...dashStyles.card, ...(isMobile ? {} : { gridRow: "span 2" }) }}>
           <div style={dashStyles.cardH}><span>Daily burn</span><Icon name="bolt" size={12} stroke="var(--accent)"/></div>
           <div style={dashStyles.cardBig}>₹{daily.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
@@ -278,14 +278,14 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             </svg>
           )}
         </div>
-        <div style={dashStyles.card}>
+        <div className="anim-row-spring" style={{"--i": 1, ...dashStyles.card}}>
           <div style={dashStyles.cardH}><span>Subscriptions</span><span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{subsCount}</span></div>
           <div style={dashStyles.cardBig}>₹{subsTotal.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             Netflix, Spotify, iCloud+ … <span onClick={() => window._goRecurring && window._goRecurring()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>review recurring</span>
           </div>
         </div>
-        <div style={dashStyles.card}>
+        <div className="anim-row-spring" style={{"--i": 2, ...dashStyles.card}}>
           <div style={dashStyles.cardH}><span>Needs attention</span><Icon name="sparkle" size={12} stroke="var(--accent)"/></div>
           <div style={dashStyles.cardBig}>{unread + flagged}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
@@ -297,7 +297,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
 
       <div style={{ ...dashStyles.grid2, gridTemplateColumns: isTablet ? "1fr" : dashStyles.grid2.gridTemplateColumns }}>
         {/* Category breakdown — banded section + card grid */}
-        <div>
+        <div className="anim-row-spring" style={{"--i": 4}}>
           <div style={dashStyles.secHead}>
             <span style={dashStyles.secTitle}>Where money went</span>
             <span style={dashStyles.secSub}>₹{totalExpense.toLocaleString("en-IN")} total</span>
@@ -380,7 +380,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         </div>
 
         {/* Top merchants — banded section */}
-        <div>
+        <div className="anim-row-spring" style={{"--i": 5}}>
           <div style={dashStyles.secHead}>
             <span style={dashStyles.secTitle}>Top merchants</span>
           </div>
@@ -392,7 +392,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             : (() => {
               const maxAmt = topMerchants[0].amount;
               return topMerchants.map((m, i) => (
-                <div key={m.merchant || i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < topMerchants.length - 1 ? "1px dashed var(--line)" : "none" }}>
+                <div key={m.merchant || i} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: i < topMerchants.length - 1 ? "1px dashed var(--line)" : "none"}}>
                   <MerchantLogo merchant={m.merchant} size={24}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{m.merchant}</div>
@@ -410,7 +410,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       </div>
 
       {/* Budget section */}
-      <div style={{ marginTop: 16 }}>
+      <div className="anim-row-spring" style={{"--i": 6, marginTop: 16 }}>
         <div style={dashStyles.secHead}>
           <span style={dashStyles.secTitle}>Budgets · this month</span>
           <span style={dashStyles.secSub}>{budgets.length} tracked</span>

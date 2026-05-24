@@ -1,7 +1,7 @@
 // Money Flow view — Sankey + weekly timeline
 
 const flowStyles = {
-  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100vh - 72px)" },
+  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
   kpis: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 28 },
   kpi: { padding: "18px 20px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, minWidth: 0, overflow: "hidden" },
   kpiLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 },
@@ -187,7 +187,7 @@ const WeeklyBurn = ({ data }) => {
         {data.weeklyBurn.map((w, idx) => {
           const pct = max > 0 ? (w.spent / max) * 100 : 0;
           return (
-            <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", borderLeft: idx === 0 ? "none" : "1px dashed var(--line)", height: "100%", padding: isMobile ? "0 6px" : "0 20px", position: "relative" }}>
+            <div key={idx} className="anim-row" style={{"--i": idx, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", borderLeft: idx === 0 ? "none" : "1px dashed var(--line)", height: "100%", padding: isMobile ? "0 6px" : "0 20px", position: "relative" }}>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
                 ₹{w.spent.toLocaleString("en-IN")}
               </div>
@@ -198,7 +198,7 @@ const WeeklyBurn = ({ data }) => {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", marginTop: 10 }}>
         {data.weeklyBurn.map((w, idx) => (
-          <div key={idx} style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", padding: "0 10px" }}>
+          <div key={idx} className="anim-row" style={{"--i": idx, textAlign: "center", fontSize: 11, color: "var(--ink-3)", padding: "0 10px" }}>
             <div style={{ fontWeight: 500, color: w.projected ? "var(--ink-4)" : "var(--ink-2)" }}>{w.week}</div>
             {w.projected && <div style={{ fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 12, color: "var(--ink-4)" }}>projected</div>}
           </div>
@@ -261,35 +261,52 @@ const FlowView = ({ transactions, categoryFilter }) => {
 
   return (
     <div style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
-      <div style={{ ...flowStyles.kpis, gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(2, minmax(0, 1fr))" : flowStyles.kpis.gridTemplateColumns, gap: isMobile ? 10 : 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "3fr 2fr", gap: 14, marginBottom: 28 }}>
         {flowLoading
-          ? [["Income", "var(--pos)"], ["Spent", "var(--ink)"], ["Remaining", "var(--pos)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
-              <div key={i} style={flowStyles.kpi}>
-                <div style={flowStyles.kpiLabel}>{label}</div>
-                <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
-                <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
+          ? <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {[["Income", "var(--pos)"], ["Spent", "var(--ink)"]].map(([label, _], i) => (
+                  <div key={i} style={flowStyles.kpi}>
+                    <div style={flowStyles.kpiLabel}>{label}</div>
+                    <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
+                    <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
+                  </div>
+                ))}
               </div>
-            ))
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {[["Remaining", "var(--pos)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
+                  <div key={i} style={flowStyles.kpi}>
+                    <div style={flowStyles.kpiLabel}>{label}</div>
+                    <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
+                    <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
+                  </div>
+                ))}
+              </div>
+            </>
           : <>
-              <div style={flowStyles.kpi}>
-                <div style={flowStyles.kpiLabel}>Income</div>
-                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-                <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Income</div>
+                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
+                </div>
+                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Spent</div>
+                  <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
+                </div>
               </div>
-              <div style={flowStyles.kpi}>
-                <div style={flowStyles.kpiLabel}>Spent</div>
-                <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-                <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
-              </div>
-              <div style={flowStyles.kpi}>
-                <div style={flowStyles.kpiLabel}>Remaining</div>
-                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(totalIncome - totalExpense - totalCCPayments - totalInvestments).toLocaleString("en-IN")}`}>{fmtK(totalIncome - totalExpense - totalCCPayments - totalInvestments)}</div>
-                <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
-              </div>
-              <div style={flowStyles.kpi}>
-                <div style={flowStyles.kpiLabel}>Daily burn</div>
-                <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
-                <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div className="anim-row-spring" style={{"--i": 2, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Remaining</div>
+                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(totalIncome - totalExpense - totalCCPayments - totalInvestments).toLocaleString("en-IN")}`}>{fmtK(totalIncome - totalExpense - totalCCPayments - totalInvestments)}</div>
+                  <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
+                </div>
+                <div className="anim-row-spring" style={{"--i": 3, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Daily burn</div>
+                  <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
+                  <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
+                </div>
               </div>
             </>
         }

@@ -31,7 +31,7 @@ const HealthView = () => {
   );
 
   return (
-    <div style={{ padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100vh - 72px)", maxWidth: 900, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 900, margin: "0 auto" }}>
 
       {/* Stat cards row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>

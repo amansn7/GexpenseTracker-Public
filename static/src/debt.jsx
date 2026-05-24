@@ -152,7 +152,7 @@ const DebtView = () => {
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200 }}>
-      <div style={{ width: 24, height: 24, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }} />
+      <span className="spinner-lg" />
     </div>
   );
 
@@ -213,7 +213,7 @@ const DebtView = () => {
                 <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>{fmt(debt.paid_amount)} of {fmt(debt.total_amount)}</div>
               </div>
               <ProgressBar pct={debt.pct_paid} />
-              <div style={{ fontSize: 12, color: debt.pct_paid >= 100 ? "var(--pos)" : "var(--ink-4)", fontWeight: debt.pct_paid >= 100 ? 600 : 400 }}>{debt.pct_paid >= 100 ? "Paid off! 🎉" : `${debt.pct_paid}% paid`}</div>
+              <div style={{ fontSize: 12, color: debt.pct_paid >= 100 ? "var(--pos)" : "var(--ink-4)", fontWeight: debt.pct_paid >= 100 ? 600 : 400 }}>{debt.pct_paid >= 100 ? "Paid off!" : `${debt.pct_paid}% paid`}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {debt.interest_rate != null && (
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "var(--cat-sub)", color: "var(--cat-sub-ink)", fontWeight: 500 }}>

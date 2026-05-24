@@ -29,12 +29,7 @@ const S = {
   divider: { height: 1, background: "var(--line)", margin: "20px 0" },
 };
 
-const Spinner = () => (
-  <>
-    <style>{`@keyframes sp{to{transform:rotate(360deg)}}`}</style>
-    <div style={{ width: 14, height: 14, border: "2px solid var(--line)", borderTopColor: "var(--ink-2)", borderRadius: "50%", animation: "sp 600ms linear infinite", flexShrink: 0 }} />
-  </>
-);
+const Spinner = () => <span className="spinner" />;
 
 const labelColor = (l) => ({
   expense: { background: "var(--neg-soft)", color: "var(--neg)" },
@@ -145,11 +140,11 @@ const SyncSection = () => {
           )}
           {phase === "done" && progress.result && (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--pos)", fontWeight: 500 }}>
-              ✓ Done — {progress.result.processed} classified, {progress.result.skipped} skipped, {progress.result.total_fetched} fetched
+              <Icon name="check" size={12} stroke="var(--pos)"/> Done — {progress.result.processed} classified, {progress.result.skipped} skipped, {progress.result.total_fetched} fetched
             </div>
           )}
           {phase === "error" && (
-            <div style={{ marginTop: 10, fontSize: 12, color: "var(--neg)" }}>✗ Error: {progress.error}</div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--neg)" }}><Icon name="x" size={12} stroke="var(--neg)"/> Error: {progress.error}</div>
           )}
         </div>
       )}
@@ -196,7 +191,7 @@ const FetchPreviewSection = () => {
         </button>
       </div>
 
-      {error && <div style={{ color: "var(--neg)", fontSize: 12 }}>✗ {error}</div>}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12 }}><Icon name="x" size={12} stroke="var(--neg)"/> {error}</div>}
 
       {result && (
         <>
@@ -300,7 +295,7 @@ const ClassifyTestSection = () => {
         {loading ? <><Spinner /> Classifying…</> : "Run Classifier"}
       </button>
 
-      {error && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}>✗ {error}</div>}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}><Icon name="x" size={12} stroke="var(--neg)"/> {error}</div>}
 
       {result && (
         <div style={{ marginTop: 16 }}>
@@ -359,7 +354,7 @@ const LLMStatusSection = ({ account, settings }) => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>LLM Providers</h3>
         <button style={{ ...S.btn, ...S.btnPrimary, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
-          <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+          <Icon name="repeat" size={14}/> Refresh
         </button>
       </div>
       <div style={S.sectionSub}>— priority-ordered dispatch list, rate-limit hits persistently demote providers</div>
@@ -585,7 +580,7 @@ const AlertsSection = () => {
         <h3 style={S.sectionTitle}>System Alerts</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
-            <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+            <Icon name="repeat" size={14}/> Refresh
           </button>
           {alerts.length > 0 && (
             <button style={{ ...S.btn, ...S.btnDanger }} onClick={clear}>Clear All ({alerts.length})</button>
@@ -599,7 +594,7 @@ const AlertsSection = () => {
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
       {!loading && alerts.length === 0 && (
         <div style={{ fontSize: 13, color: "var(--pos)", fontWeight: 500, padding: "14px 16px", background: "var(--pos-soft)", borderRadius: 6, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 16 }}>✓</span> No alerts — all clear
+          <Icon name="check" size={14} stroke="var(--pos)"/> No alerts — all clear
         </div>
       )}
       {alerts.map((a, i) => (
@@ -673,10 +668,10 @@ const FetchRangeSection = () => {
       </div>
       {result && (
         <div style={{ fontSize: 12, color: "var(--pos)" }}>
-          ✓ fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}
+          <Icon name="check" size={12} stroke="var(--pos)"/> fetched: {result.fetched} · inserted: {result.inserted} · backfilled: {result.backfilled} · errors: {result.errors}
         </div>
       )}
-      {error && <div style={{ color: "var(--neg)", fontSize: 12 }}>✗ {error}</div>}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12 }}><Icon name="x" size={12} stroke="var(--neg)"/> {error}</div>}
     </>
   );
 };
@@ -721,7 +716,7 @@ const FilterRulesSection = () => {
         <h3 style={S.sectionTitle}>Filter Rules</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load} disabled={loading}>
-            <span style={{ fontSize: 16, lineHeight: 1 }}>↻</span> Refresh
+            <Icon name="repeat" size={14}/> Refresh
           </button>
           <button style={{ ...S.btn, ...(refining ? {} : S.btnPrimary), display: "flex", alignItems: "center", gap: 6 }} onClick={refine} disabled={refining}>
             {refining ? <><Spinner /> Refining…</> : "✦ Refine Filter Rules"}
@@ -733,10 +728,10 @@ const FilterRulesSection = () => {
       </div>
       {result && (
         <div style={{ fontSize: 12, color: "var(--pos)", marginBottom: 12 }}>
-          ✓ {result.generated ?? 0} new rule{result.generated !== 1 ? "s" : ""} generated
+          <Icon name="check" size={12} stroke="var(--pos)"/> {result.generated ?? 0} new rule{result.generated !== 1 ? "s" : ""} generated
         </div>
       )}
-      {error && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>✗ {error}</div>}
+      {error && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}><Icon name="x" size={12} stroke="var(--neg)"/> {error}</div>}
       {loading && <div style={{ fontSize: 13, color: "var(--ink-3)", padding: "12px 0" }}>Loading…</div>}
       {!loading && rules.length > 0 && (
         <table style={S.table}>
@@ -814,7 +809,7 @@ const RuleEngineSection = () => {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
         <h3 style={S.sectionTitle}>Domain Rules</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={S.btn} onClick={load} disabled={loading}>↻ Refresh</button>
+          <button style={S.btn} onClick={load} disabled={loading}><Icon name="repeat" size={14}/> Refresh</button>
           <button style={{ ...S.btn, ...S.btnPrimary }} onClick={generate} disabled={generating}>
             {generating ? "Generating…" : "✦ Generate from data"}
           </button>
@@ -930,7 +925,7 @@ const CleanBodiesSection = () => {
         </button>
       </div>
       <div style={S.sectionSub}>— re-fetch emails with undecoded HTML entities / invisible Unicode and re-extract clean text</div>
-      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>✓ Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
+      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}><Icon name="check" size={12} stroke="var(--pos)"/> Cleaned {result.cleaned} of {result.total_candidates} candidate emails</div>}
       {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
     </>
   );

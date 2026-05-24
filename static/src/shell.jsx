@@ -31,7 +31,7 @@ const LiveBrand = ({ onNav, mobile, onClose }) => {
         <span className={"brand-accent" + (split ? " brand-quirk-split-right" : "")} style={{ ...shellStyles.brandMark, color: "var(--accent)", fontStyle: "italic" }}>flow</span>
       </div>
       {mobile && (
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="focus-ring" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
+        <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="focus-ring btn-press" aria-label="Close navigation" style={{ marginLeft: "auto", border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 6, padding: 8, display: "grid", placeItems: "center" }}>
           <Icon name="x" size={15} />
         </button>
       )}
@@ -55,13 +55,13 @@ const useViewport = () => {
 };
 
 const shellStyles = {
-  app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100vh", position: "relative", zIndex: 2 },
-  side: { borderRight: "1px solid var(--line)", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 1, position: "sticky", top: 0, height: "100vh", background: "var(--paper)", overflowY: "auto" },
+  app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100dvh", position: "relative", zIndex: 2 },
+  side: { borderRight: "1px solid var(--line)", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 1, position: "sticky", top: 0, height: "100dvh", background: "var(--paper)", overflowY: "auto" },
   brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 4px 24px" },
   brandMark: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
   brandSlash: { color: "var(--accent)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 20 },
   navItem: { display: "flex", alignItems: "center", gap: 8, padding: "5px 10px 5px 8px", borderRadius: 6, color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", textAlign: "left", width: "100%" },
-  navItemActive: { boxShadow: "inset 2px 0 0 0 var(--accent)", background: "var(--paper-2)", color: "var(--ink)" },
+  navItemActive: { background: "var(--paper-2)", color: "var(--ink)" },
   navCount: { marginLeft: "auto", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
   sectionLabel: { fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)", padding: "14px 8px 4px", fontWeight: 600 },
   sideFooter: { borderTop: "1px solid var(--line)", padding: "10px 8px 4px", display: "flex", alignItems: "center", gap: 10 },
@@ -91,7 +91,7 @@ const _navHints = {
 };
 
 const NavItem = React.memo(({ icon, label, count, active, onClick }) => (
-  <button title={_navHints[icon] || label} className={"focus-ring nav-btn" + (active ? " active" : "")} style={{ ...shellStyles.navItem, ...(active ? shellStyles.navItemActive : {}) }} onClick={onClick}>
+  <button title={_navHints[icon] || label} className={"focus-ring nav-btn btn-press" + (active ? " active" : "")} style={{ ...shellStyles.navItem, ...(active ? shellStyles.navItemActive : {}) }} onClick={onClick}>
     <Icon name={icon} size={14} />
     <span>{label}</span>
     {count != null && <span style={shellStyles.navCount}>{count}</span>}
@@ -124,15 +124,11 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
 
   const AccountMenu = ({ settingsView }) => (
     <div className="fade-in" style={{ position: "fixed", bottom: menuPos ? menuPos.bottom : 0, left: menuPos ? menuPos.left : 0, width: menuPos ? menuPos.width : 220, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: 4, boxShadow: "0 16px 30px -16px var(--shadow-md)", zIndex: 120 }}>
-      <button onClick={()=>{ setView("profile"); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-        onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      <button onClick={()=>{ setView("profile"); setMenu(false); }} className="hover-bg" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
       >
         <Icon name="user" size={14}/> Profile
       </button>
-      <button onClick={()=>{ setView(settingsView); setMenu(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
-        onMouseEnter={e => e.currentTarget.style.background = "var(--paper-2)"}
-        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      <button onClick={()=>{ setView(settingsView); setMenu(false); }} className="hover-bg" style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink)", textAlign: "left" }}
       >
         <Icon name="gear" size={14}/> Settings
       </button>
@@ -142,9 +138,8 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
           await API.post("/api/auth/logout");
           window.location.href = "/login";
         }}
-        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
-        onMouseEnter={e => { e.currentTarget.style.background = "var(--paper-2)"; e.currentTarget.style.color = "var(--neg)"; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}
+        className="hover-bg"
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "var(--ink-3)", textAlign: "left" }}
       >
         <Icon name="arrow-u-r" size={14}/> Sign out
       </button>
@@ -155,13 +150,11 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     <button
       ref={triggerRef}
       onClick={openMenu}
-      className="focus-ring"
+      className="focus-ring hover-bg"
       aria-expanded={menu}
       aria-haspopup="menu"
       aria-label="Account menu"
       style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 8px", border: "none", background: menu ? "var(--paper-2)" : "transparent", borderRadius: 8, cursor: "pointer", textAlign: "left", transition: "background 120ms ease" }}
-      onMouseEnter={e => { if (!menu) e.currentTarget.style.background = "var(--paper-2)"; }}
-      onMouseLeave={e => { if (!menu) e.currentTarget.style.background = "transparent"; }}
     >
       {account?.avatar_url
         ? <img src={account.avatar_url} alt={`${account?.name || account?.email}'s avatar`} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} referrerPolicy="no-referrer" />
@@ -278,7 +271,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
           ["observatory","var(--theme-observatory-swatch)","Observatory","#e8e4df"],
         ].map(([k,swatch,label,ink]) => (
           <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => setTheme && setTheme(k)}
-            className="theme-btn"
+            className="theme-btn btn-press"
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
               minHeight: 48, borderRadius: 6, cursor: "pointer", padding: "6px 2px",

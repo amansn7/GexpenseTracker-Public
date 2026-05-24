@@ -1,8 +1,8 @@
 // Inbox view — Gmail-style transaction list + detail panel
 
 const inboxStyles = {
-  wrap: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 0, height: "calc(100vh - 72px)", minHeight: 0 },
-  wrapNoPanel: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "calc(100vh - 72px)" },
+  wrap: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 0, height: "calc(100dvh - 72px)", minHeight: 0 },
+  wrapNoPanel: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "calc(100dvh - 72px)" },
   list: { overflowY: "auto", borderRight: "1px solid var(--line)" },
   toolbar: { display: "flex", alignItems: "center", gap: 4, padding: "10px 32px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--paper)", zIndex: 5, fontSize: 12, color: "var(--ink-3)" },
   chip: { padding: "5px 12px", borderRadius: 20, border: "1px solid transparent", background: "transparent", fontSize: 12, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 500, cursor: "pointer", transition: "all 120ms ease", lineHeight: 1.2 },
@@ -120,6 +120,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   return (
     <div
       onClick={onRowClick}
+      className="anim-row-spring"
       style={{ ...rowStyle, ...((selected || hovered) ? inboxStyles.rowSelected : {}), ...(!selected && !hovered && !tx.read ? inboxStyles.rowUnread : {}) }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -187,7 +188,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
         <div key={g.key}>
           <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
           {g.categories.map(item => (
-            <button key={item.key} onClick={()=>onPick(item.key)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
+            <button key={item.key} onClick={()=>onPick(item.key)} className="hover-lift" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
               <span style={{ width: 14, height: 14, borderRadius: 4, background: item.bg, border: `1px solid ${item.ink}22`, flexShrink: 0 }} />
               <span style={{ fontWeight: 500 }}>{item.label}</span>
               {current===item.key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
@@ -274,7 +275,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         merchant: result.merchant || tx.merchant,
       });
       if (result.learned_rule) {
-        showToast(`✓ Learned: ${result.learned_rule.domain} → ${result.learned_rule.label} / ${result.learned_rule.category}`);
+        showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {result.learned_rule.domain} → {result.learned_rule.label} / {result.learned_rule.category}</span>);
       }
     } catch (e) {
       setReclass("error");
@@ -333,7 +334,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           {dateLabel(tx.date)} · {tx.time}
           {saving && (
             <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
-              <div style={{ width: 8, height: 8, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              <span className="spinner-xs" />
               Saving…
             </span>
           )}
@@ -393,7 +394,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               textTransform: "uppercase",
             }}>
               {tx.method === "llm" && <Icon name="sparkle" size={10} stroke="var(--accent)"/>}
-              {tx.method === "rule" && "📋"}
+              {tx.method === "rule" && <Icon name="check" size={10} stroke="var(--ink-3)"/>}
               {tx.method}
             </span>
           </div>
@@ -431,7 +432,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Note</div>
           {saving && (
             <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
-              <div style={{ width: 8, height: 8, border: "1.5px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              <span className="spinner-xs" />
               Saving…
             </span>
           )}
@@ -478,7 +479,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
         {reclass === "saving" && (
           <div style={{ marginBottom: 10, padding: 10, background: "var(--paper-2)", borderRadius: 8, fontSize: 12, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", flexShrink: 0 }}/>
+            <span className="spinner-sm" />
             Saving…
           </div>
         )}
@@ -704,7 +705,7 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
   return (
     <div style={{ padding: isMobile ? "0 14px 24px" : "0 32px 32px" }}>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, padding: "12px 0 8px", borderBottom: "2px solid var(--line)", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, position: "sticky", top: 41, background: "var(--paper)", zIndex: 4 }}>
-        <span title="Received">✓</span>
+        <span title="Received"><Icon name="check" size={10} stroke="var(--ink-4)"/></span>
         <span>Source</span>
         <span style={{ textAlign: "right" }}>Amount</span>
         {!isMobile && <span>Date</span>}
@@ -968,7 +969,7 @@ const ReviewDetailPanel = ({ email, onKeep, onDiscard, onClose }) => {
           Discard as noise
         </button>
       </div>
-      {learned && <div style={{ fontSize: 11, color: "var(--pos)", marginTop: 8 }}>✓ {email.sender_domain} {learned}</div>}
+      {learned && <div style={{ fontSize: 11, color: "var(--pos)", marginTop: 8 }}><Icon name="check" size={10} stroke="var(--pos)"/> {email.sender_domain} {learned}</div>}
     </div>
   );
 };
@@ -1611,7 +1612,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       API.patch(`/api/transactions/${id}`, apiPatch)
         .then(data => {
           if (data && data.learned_rule) {
-            showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+            showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {data.learned_rule.domain} → {data.learned_rule.label} / {data.learned_rule.category}</span>);
           }
         })
         .catch(err => {
@@ -1759,7 +1760,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   )}
                 </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(0, 420px)", height: "calc(100vh - 164px)", overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(0, 420px)", height: "calc(100dvh - 164px)", overflow: "hidden" }}>
                   <div style={{ overflowY: "auto", borderRight: "1px solid var(--line)" }}>
                     {/* Progress/scale header */}
                     <div style={{ display: "flex", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--paper-2)" }}>
@@ -2036,11 +2037,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
               {dupLoading && !dupScanning ? (
                 <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
-                  <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                  <span className="spinner-md" />
                 </div>
               ) : dupScanning ? (
                 <div style={{ padding: "56px 32px", textAlign: "center" }}>
-                  <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 12px" }}/>
+                  <span className="spinner-md" style={{ margin: "0 auto 12px" }} />
                   <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
                 </div>
               ) : dupPairs.length === 0 ? (
@@ -2065,7 +2066,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
             </>) : dupResolvedLoading ? (
               <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
-                <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                <span className="spinner-md" />
               </div>
             ) : dupResolved.length === 0 ? (
               <div style={{ padding: "64px 32px", textAlign: "center" }}>
@@ -2190,7 +2191,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           )}
           {loadingMore && (
             <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
-              <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+              <span className="spinner-md" />
             </div>
           )}
           {!loadingMore && transactions.length < totalTransactions && transactions.length > 0 && (
@@ -2345,7 +2346,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                     return (
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                          <div style={{ width: 12, height: 12, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+                          <span className="spinner-sm" />
                           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Processing {bulkReclassIdx + 1} of {bulkReclassItems.length}&hellip;</span>
                         </div>
                         <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -2648,7 +2649,7 @@ const SearchView = ({ query, categoryFilter }) => {
       API.patch(`/api/transactions/${id}`, api)
         .then(data => {
           if (data && data.learned_rule) {
-            showToast(`✓ Learned: ${data.learned_rule.domain} → ${data.learned_rule.label} / ${data.learned_rule.category}`);
+            showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {data.learned_rule.domain} → {data.learned_rule.label} / {data.learned_rule.category}</span>);
           }
         })
         .catch(e => {
@@ -2665,7 +2666,7 @@ const SearchView = ({ query, categoryFilter }) => {
   const wrapStyle = selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel;
 
   return (
-    <div style={{ ...wrapStyle, height: "calc(100vh - 72px)" }}>
+    <div style={{ ...wrapStyle, height: "calc(100dvh - 72px)" }}>
       <div style={inboxStyles.list}>
         <div style={{ ...inboxStyles.toolbar }}>
           {selectMode ? (
@@ -2694,7 +2695,7 @@ const SearchView = ({ query, categoryFilter }) => {
 
         {loading && (
           <div style={{ display: "flex", justifyContent: "center", padding: 56 }}>
-            <div style={{ width: 24, height: 24, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/>
+            <span className="spinner-lg" />
           </div>
         )}
 

@@ -472,7 +472,7 @@ const StepAI = ({ advance }) => {
 
   return (
     <div>
-      {showGmailBanner && <div style={S.success}>Gmail connected ✓</div>}
+      {showGmailBanner && <div style={S.success}>Gmail connected <Icon name="check" size={12} stroke="var(--pos)"/></div>}
 
       <h2 style={S.h2}>Set up AI</h2>
       <p style={S.sub}>MoneyFlow uses an AI model to parse your emails. Bring your own API key — you control the model and budget.</p>
@@ -592,21 +592,10 @@ const StepPreview = ({ advance }) => {
     advance(5, { txCount: 0 });
   };
 
-  const spinnerStyle = {
-    display: "inline-block",
-    width: 14,
-    height: 14,
-    border: "2px solid var(--line)",
-    borderTopColor: "var(--accent)",
-    borderRadius: "50%",
-    animation: "spin 700ms linear infinite",
-    flexShrink: 0,
-  };
-
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        {running && <span style={spinnerStyle} />}
+        {running && <span className="spinner" />}
         <h2 style={{ ...S.h2, margin: 0 }}>
           {running ? `Scanning inbox… ${emailCount > 0 ? emailCount + " emails found" : ""}` : "Inbox scan complete"}
         </h2>
@@ -684,8 +673,8 @@ const StepDone = ({ stepData }) => {
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ width: 56, height: 56, borderRadius: 999, background: "var(--pos-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 26 }}>
-          ✓
+        <div style={{ width: 56, height: 56, borderRadius: 999, background: "var(--pos-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+          <Icon name="check" size={26} stroke="var(--pos)"/>
         </div>
         <h2 style={{ ...S.h2, fontSize: 32, textAlign: "center" }}>You're set up.</h2>
         <p style={{ ...S.sub, textAlign: "center", marginBottom: 0 }}>MoneyFlow is ready to track your finances.</p>
