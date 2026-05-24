@@ -226,10 +226,9 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const [retryKey, setRetryKey] = React.useState(0);
 
   React.useEffect(() => {
-    setFlowLoading(true);
-    setFlowError(null);
     let cancelled = false;
     const timer = setTimeout(async () => {
+      setFlowLoading(true);
       try {
         const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
@@ -246,16 +245,10 @@ const FlowView = ({ transactions, categoryFilter }) => {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [rangeFrom, rangeTo, categoryFilter, retryKey]);
 
-  const rangeTxs = React.useMemo(
-    () => !rangeFrom
-      ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
-      : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter)),
-    [transactions, rangeFrom, rangeTo, categoryFilter]
-  );
-  const flow = React.useMemo(
-    () => stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null,
-    [rangeTxs, stats, catBreakdown, rangeFrom, rangeTo]
-  );
+  const rangeTxs = !rangeFrom
+    ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
+    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
+  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
