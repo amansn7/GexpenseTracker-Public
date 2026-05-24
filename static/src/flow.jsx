@@ -15,7 +15,7 @@ const flowStyles = {
   secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r) var(--r)", padding: "20px 16px" },
 };
 
-const SankeyDiagram = ({ data }) => {
+const SankeyDiagram = ({ data, viewMode = "remaining" }) => {
   const { isMobile } = useViewport();
   const W = 1120, H = 520;
   const LEFT_X = 30, LEFT_W = 160;
@@ -69,14 +69,18 @@ const SankeyDiagram = ({ data }) => {
     }].map(n => { yo += n.h + 10; return n; }) : []),
     (() => {
       const h = Math.max(6, Math.abs(savings) * scale);
-      const node = { label: "Remaining", amount: savings, y: yo, h, kind: "sav" };
+      const isOverspend = savings < 0 && viewMode === "overspend";
+      const node = { label: isOverspend ? "Overspend" : "Remaining", amount: savings, y: yo, h, kind: "sav" };
       yo += h + 10;
       return node;
     })(),
   ];
 
-  // Track offset into hub for incoming / outgoing
-  let hubInOff = 0, hubOutOff = 0;
+  // Track offset into hub for incoming
+  let hubInOff = 0;
+
+  const totalRightHeight = rightNodes.reduce((sum, n) => sum + n.h, 0) + (rightNodes.length - 1) * 10;
+  const flowY = hubY + Math.max(0, hubH - totalRightHeight);
 
   const buildPath = (x1, y1, h1, x2, y2, h2) => {
     const cx1 = x1 + (x2 - x1) * 0.5;
@@ -130,13 +134,18 @@ const SankeyDiagram = ({ data }) => {
         {(() => {
           let off = 0;
           return rightNodes.map((n, idx) => {
-            const color = n.kind === "sav" ? "var(--pos)" : n.kind === "cc" ? "var(--cat-card-ink)" : n.kind === "inv" ? "var(--cat-investment-ink)" : CategoryService.colorVar(n.cat);
-            const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
+            const flowColor = n.kind === "sav"
+              ? (savings < 0 && viewMode === "overspend" ? "var(--neg)" : "var(--pos)")
+              : n.kind === "cc" ? "var(--cat-card-ink)"
+              : n.kind === "inv" ? "var(--cat-investment-ink)"
+              : CategoryService.colorVar(n.cat);
+            const flowOpacity = n.kind === "sav" ? (savings < 0 && viewMode === "overspend" ? 0.4 : 0.35) : 0.55;
+            const p = buildPath(MID_X + MID_W, flowY + off, n.h, RIGHT_X, n.y, n.h);
             off += n.h + 10;
             return (
               <g key={`out-${idx}`} style={{ animation: "fadeSlideUp 300ms var(--ease-out-expo) both", animationDelay: `${idx * 40}ms` }}>
                 <title>{n.label} · ₹{n.amount.toLocaleString("en-IN")}</title>
-                <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" className="sankey-flow" data-kind={n.kind === "sav" ? "sav" : "exp"}/>
+                <path d={p} fill={flowColor} fillOpacity={flowOpacity} stroke="none" className="sankey-flow" data-kind={n.kind === "sav" ? "sav" : "exp"}/>
               </g>
             );
           });
@@ -148,16 +157,25 @@ const SankeyDiagram = ({ data }) => {
           const isCC = n.kind === "cc";
           const isInv = n.kind === "inv";
           const catInfo = (!isSav && !isCC && !isInv) ? CategoryService.display(n.cat) : null;
-          const fill = isSav ? "var(--pos)" : isCC ? "var(--cat-card-ink)" : isInv ? "var(--cat-investment-ink)" : CategoryService.colorInk(n.cat);
-          const label = isSav ? "Remaining" : isCC ? "CC Payments" : isInv ? "Investments" : catInfo.label;
+          const fill = isSav
+            ? (n.amount < 0 && viewMode === "overspend" ? "var(--neg)" : "var(--pos)")
+            : isCC ? "var(--cat-card-ink)"
+            : isInv ? "var(--cat-investment-ink)"
+            : CategoryService.colorInk(n.cat);
+          const label = isSav
+            ? (n.amount < 0 && viewMode === "overspend" ? "Overspend" : "Remaining")
+            : isCC ? "CC Payments"
+            : isInv ? "Investments"
+            : catInfo.label;
+          const textFill = isSav ? "white" : "var(--ink)";
           return (
             <g key={`nr-${idx}`}>
               <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"/>
-              <text x={RIGHT_X + 12} y={n.y + Math.min(16, n.h/2 + 4)} fontSize="11" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">
+              <text x={RIGHT_X + 12} y={n.y + Math.min(16, n.h/2 + 4)} fontSize="11" fill={textFill} fontWeight="600" fontFamily="'Geist', sans-serif">
                 {label}
               </text>
-              {n.h > 26 && (
-                <text x={RIGHT_X + 12} y={n.y + n.h/2 + 16} fontSize="11" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">
+              {n.h > 16 && (
+                <text x={RIGHT_X + 12} y={n.y + n.h/2 + 16} fontSize="11" fill={textFill} fontFamily="'Geist Mono', monospace" opacity="0.9">
                   ₹{n.amount.toLocaleString("en-IN")}
                 </text>
               )}
@@ -224,6 +242,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const [flowLoading, setFlowLoading] = React.useState(false);
   const [flowError, setFlowError] = React.useState(null);
   const [retryKey, setRetryKey] = React.useState(0);
+  const [viewMode, setViewMode] = React.useState("remaining");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -254,7 +273,8 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
   const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
   const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense - totalCCPayments - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
+  const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
+  const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
   const incomeSources = flow ? flow.income.length : 0;
@@ -293,9 +313,9 @@ const FlowView = ({ transactions, categoryFilter }) => {
           : <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Remaining</div>
-                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(totalIncome - totalExpense - totalCCPayments - totalInvestments).toLocaleString("en-IN")}`}>{fmtK(totalIncome - totalExpense - totalCCPayments - totalInvestments)}</div>
-                  <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
+                  <div style={flowStyles.kpiLabel}>{viewMode === "overspend" && savings < 0 ? "Overspend" : "Remaining"}</div>
+                  <div style={{ ...flowStyles.kpiValue, color: viewMode === "overspend" && savings < 0 ? "var(--neg)" : "var(--pos)" }} title={`₹${savings.toLocaleString("en-IN")}`}>{fmtK(savings)}</div>
+                  <div style={flowStyles.kpiSub}>{viewMode === "overspend" && savings < 0 ? `${Math.abs(parseFloat(savingsRate))}% overspend` : `${savingsRate}% savings rate`}</div>
                 </div>
                 <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Income</div>
@@ -321,7 +341,32 @@ const FlowView = ({ transactions, categoryFilter }) => {
 
       <div style={flowStyles.secWrap}>
         <div style={flowStyles.secHead}>
-          <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
+            {savings < 0 && (
+              <div style={{ display: "flex", gap: 0, background: "rgba(255,255,255,0.1)", borderRadius: 4, padding: 2 }}>
+                <button onClick={() => setViewMode("remaining")} style={{
+                  padding: "3px 8px", fontSize: 10, fontWeight: 500, lineHeight: 1, fontFamily: "'Geist', sans-serif",
+                  background: viewMode === "remaining" ? "var(--paper)" : "transparent",
+                  color: viewMode === "remaining" ? "var(--ink)" : "var(--paper)",
+                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms"
+                }}>Remaining</button>
+                <button onClick={() => setViewMode("overspend")} style={{
+                  padding: "3px 8px", fontSize: 10, fontWeight: 500, lineHeight: 1, fontFamily: "'Geist', sans-serif",
+                  background: viewMode === "overspend" ? "var(--paper)" : "transparent",
+                  color: viewMode === "overspend" ? "var(--ink)" : "var(--paper)",
+                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms"
+                }}>Overspend</button>
+              </div>
+            )}
+          </div>
+          {!isMobile && (
+            <a href="/money-movie/" target="_blank" style={{ fontSize: 11, color: "var(--paper)", opacity: 0.5, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", transition: "opacity 150ms" }}
+               onMouseEnter={e => e.target.style.opacity = "1"}
+               onMouseLeave={e => e.target.style.opacity = "0.5"}>
+              Export movie
+            </a>
+          )}
         </div>
         <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: isMobile ? "10px 12px" : "8px 20px", display: "flex", justifyContent: "flex-end", overflowX: "auto" }}>
           <DateRangeControl
@@ -335,7 +380,43 @@ const FlowView = ({ transactions, categoryFilter }) => {
           {flowLoading
             ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow
-              ? <SankeyDiagram data={flow}/>
+              ? <>
+                  <SankeyDiagram data={flow} viewMode={viewMode}/>
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+                      <span style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Timeline</span>
+                      {flow.weeklyBurn.map((w, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: w.projected ? "var(--ink-4)" : "var(--accent)", opacity: w.projected ? 0.3 : 1 }}/>
+                          {i < flow.weeklyBurn.length - 1 && <div style={{ width: 12, height: 1, background: "var(--line)" }}/>}
+                        </div>
+                      ))}
+                      <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 4 }}>
+                        {(() => {
+                          const now = new Date();
+                          const activeIdx = flow.weeklyBurn.findIndex(w => !w.projected && new Date(w.week.match(/W\d · (.+)/)?.[1]?.split("–")[0] || "") <= now);
+                          return activeIdx >= 0 ? `${flow.weeklyBurn.filter(w => !w.projected).length} of ${flow.weeklyBurn.length} weeks` : "";
+                        })()}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {(() => {
+                        const sr = totalIncome > 0 ? ((totalIncome - totalExpense - totalCCPayments - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
+                        const topCat = flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").sort((a, b) => b.amount - a.amount)[0];
+                        return [
+                          { label: "Saved", value: `${sr}%`, color: "var(--pos)" },
+                          { label: "Daily", value: fmtK(daily), color: "var(--ink)" },
+                          { label: "Top", value: topCat ? (CategoryService.display(topCat.cat).label || topCat.cat) : "—", color: "var(--accent)" },
+                        ].map((pill, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "var(--paper-2)", borderRadius: 6, fontSize: 11, whiteSpace: "nowrap" }}>
+                            <span style={{ color: "var(--ink-4)", fontWeight: 500 }}>{pill.label}</span>
+                            <span style={{ color: pill.color, fontWeight: 600, fontFamily: "'Geist Mono', monospace" }}>{pill.value}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                </>
               : <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 13 }}>No data for range</div>
           }
         </div>

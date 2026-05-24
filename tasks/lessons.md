@@ -1,5 +1,17 @@
 # Lessons
 
+## 2026-05-24 — Sankey Diagram Visual Audit & Toggle Feature
+
+1. **SVG text contrast must account for both themes**: Category fill colors (`--cat-food-ink`, `--cat-rent-ink`, etc.) in light theme are light pastels (`#e8d5b7`, `#cdd8d1`). Hardcoded `fill="white"` on these bars fails WCAG contrast (~1.4:1). Use `var(--ink)` for text on light category fills, keep `white` only on semantically dark fills (`var(--pos)`, `var(--neg)`, `var(--cat-card-ink)` in dark theme).
+
+2. **A toggle between two framings of the same metric is cleaner than picking one**: The "Remaining" vs "Overspend" view lets the user decide whether to see a surplus or deficit framing of the same negative savings number. Both views show exactly the same data (₹-59K deficit) — only the label, color, and emotional framing change. This avoids opinionated UX that hides the truth.
+
+3. **`CategoryService.colorInk()` returns category identity colors, not text-on-bg colors**: Despite the "ink" suffix, these values (e.g., `#e8d5b7` for food) are used as bar fills in the sankey. They're background colors, not text colors. Never assume semantic naming matches actual usage — always check the CSS variable values and where they're applied.
+
+4. **Precompute totals before SVG render maps**: Packing flows at the bottom of the hub requires knowing all right-node heights before the `rightNodes.map()` render. Compute `totalRightHeight` as `sum of heights + (n-1) * gap` BEFORE the map that generates flow paths.
+
+5. **Reuse computed values in FlowView for consistency**: The KPI card and the Sankey both need `savings`. Compute it once in `FlowView` and pass it down rather than recalculating in `SankeyDiagram`. The `savings` calculation is repeated across both components — extract to a shared helper or pass as prop.
+
 ## 2026-05-18 — Dedup `_is_dedup_candidate` silently drops selected items
 
 1. **`_is_dedup_candidate` was too restrictive**: It only accepted `label == "expense"` or `label == "ignore"` with `transaction_type in ("cc_payment", "investment")`. This silently dropped:
