@@ -30,3 +30,13 @@
 4. **Shared-domain side effects break naive undo**: When two emails from the same domain are kept, undoing one can't blindly delete the allowlist rule — the other email depends on it. FilterRule's `hit_count` isn't a proper refcount. Any undo system must handle shared-domain cases by decrementing instead of deleting.
 
 5. **Missing user_id filters in endpoints are authorization vulnerabilities**: The `reclassify_emails` SSE endpoint didn't scope queries to `current_user`. Always grep for new query patterns that use `select(Model).where(Model.id == ...)` without user scoping — these are latent security bugs.
+
+## 2026-05-24 — Railway Deployment: Alembic Duplicate Revision IDs
+
+1. **Every Alembic migration must have a unique `revision` string — never reuse revision IDs**. Two files with `revision = "0039"` cause Alembic to silently overwrite one in its internal index at boot time. When a downstream merge migration (0040) references them by their full descriptive names, Alembic fails with a `KeyError` because no revision with that exact string exists.
+
+2. **Always match a migration's `revision` string to its filename's descriptive suffix.** This project's convention is `"{number}_{descriptive_name}"` (e.g., `"0039_encrypt_totp_secrets"`, `"0034_reencrypt_ai_keys"`). Never use a bare number like `"0039"` — it creates ambiguity when two heads branch from the same parent.
+
+3. **Alembic crash at startup is not a DB migration failure — it's a script-load failure.** The app never starts because Python crashes while importing migrations. This happens before any database connection. Always run `uv run alembic heads` as a pre-deploy check to verify the migration tree is loadable without errors.
+
+4. **Always check revision IDs are unique when creating sibling migrations off the same parent.** When two migrations branch from the same `down_revision`, assign them unique `revision` IDs that match their filenames — otherwise the merge migration that depends on both will fail to resolve its parent chain.

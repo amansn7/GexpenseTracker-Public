@@ -7,7 +7,7 @@ Create Date: 2026-05-21
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0039"
+revision = "0039_add_user_id_to_merchant_aliases"
 down_revision = "0038"
 branch_labels = None
 depends_on = None
