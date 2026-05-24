@@ -1546,6 +1546,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     if (filter === "sub") return t.tag === "subscription";
     if (filter === "flagged") return t.flag;
     if (filter === "low") return t.conf < 0.7;
+    if (filter === "needs_review") return t.status === "needs_review";
     if (filter === "payments") return t.amount < 0 && ["rent","util","sub"].includes(t.cat);
     if (filter.startsWith("cat:")) return t.cat === filter.slice(4);
     return true;
@@ -1690,6 +1691,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["sub","Subscriptions", "repeat"],
                   ["flagged","Flagged", "star"],
                   ["low","Low confidence", "sparkle"],
+                  ["needs_review","Needs review", "alert-circle", needsReviewCount],
                   ["duplicates","Duplicates", "arrow-swap"],
                   ["review","Pending", "inbox", reviewEmails.length],
                 ].map(([k,label,icon,count]) => (
@@ -1743,7 +1745,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       View transactions
                     </button>
                     {needsReviewCount > 0 && (
-                      <button onClick={() => setFilter("all")} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
+                      <button onClick={() => setFilter("needs_review")} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
                         Legacy review ({needsReviewCount})
                       </button>
                     )}
