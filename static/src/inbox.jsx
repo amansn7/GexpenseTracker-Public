@@ -1691,7 +1691,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["sub","Subscriptions", "repeat"],
                   ["flagged","Flagged", "star"],
                   ["low","Low confidence", "sparkle"],
-                  ["needs_review","Needs review", "alert-circle", needsReviewCount],
+                  ["needs_review","Needs review", "alert-circle", transactions.filter(t => t.status === "needs_review" && t.tag !== "ignore").length],
                   ["duplicates","Duplicates", "arrow-swap"],
                   ["review","Pending", "inbox", reviewEmails.length],
                 ].map(([k,label,icon,count]) => (
