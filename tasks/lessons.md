@@ -83,4 +83,8 @@
 
 4. **Verify the data source actually contains what you think it contains**: The `category-breakdown` API filters to `Transaction.label == "expense"` — it explicitly excludes income. The first fix attempted to read income from `catBreakdown.categories`, which can never contain an income entry. When writing a fallback, check the backend endpoint's query filter to confirm the data exists in that response. The `summary` endpoint (`/api/stats/summary`) is the correct source for aggregate income numbers.
 
-4. **Use Playwright to isolate the bug to data vs rendering**: When diagnosing a disappearing UI element, first unit-test the data-processing function (`buildFlowSummary`) with mock data, then render-test the component (`FlowView`) with mock data. If both pass, the issue is upstream in the data pipeline — not in the frontend code you changed.
+5. **Use `esbuild` with `write: false` to inspect compiled output without hitting disk**: When debugging whether a fix survived minification, use `node -e` with the esbuild API and `write: false` to stream the output to stdout. This is faster than rebuilding to disk and avoids polluting the dist directory during investigation.
+
+6. **Use Playwright to isolate the bug to data vs rendering**: When diagnosing a disappearing UI element, first unit-test the data-processing function (`buildFlowSummary`) with mock data, then render-test the component (`FlowView`) with mock data. If both pass, the issue is upstream in the data pipeline — not in the frontend code you changed.
+
+7. **Don't trust that a committed dist file contains the source changes**: The first fix was committed with `git add static/dist/data.js` but the dist file hadn't been rebuilt after the source change. Always rebuild before committing dist files, or use a CI step that fails if dist is stale.
