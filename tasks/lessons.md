@@ -40,3 +40,13 @@
 3. **Alembic crash at startup is not a DB migration failure — it's a script-load failure.** The app never starts because Python crashes while importing migrations. This happens before any database connection. Always run `uv run alembic heads` as a pre-deploy check to verify the migration tree is loadable without errors.
 
 4. **Always check revision IDs are unique when creating sibling migrations off the same parent.** When two migrations branch from the same `down_revision`, assign them unique `revision` IDs that match their filenames — otherwise the merge migration that depends on both will fail to resolve its parent chain.
+
+## 2026-05-24 — Railway Deployment: Boolean Default in Alembic Migration
+
+1. **PostgreSQL rejects `DEFAULT 1` for `BOOLEAN` columns.** Use `DEFAULT TRUE` instead. SQLAlchemy ORM `server_default="1"` goes through type-aware compilation and generates the correct dialect-specific literal, but raw `sa.text("1")` in an `op.create_table()` produces invalid SQL for PostgreSQL.
+
+2. **Alembic `op.create_table()` DDL does not benefit from ORM type-aware default compilation.** When you pass `sa.text("1")` as `server_default` on a `sa.Boolean` column, it generates `DEFAULT 1` verbatim — no dialect adaptation. Use `sa.text("TRUE")` for PostgreSQL-compatible boolean defaults in raw DDL migrations.
+
+3. **Tests use ORM `metadata.create_all()`, NOT Alembic migrations.** Boolean default bugs in Alembic migration files are invisible to the test suite. Always validate migrations against a real PostgreSQL instance (or at minimum run `alembic upgrade head` with a PG connection string) before deploying.
+
+4. **A multi-head migration chain masks pre-existing migration bugs.** The previous 0039 KeyError blocked all migrations from running, silently concealing the 0038 boolean default issue. When fixing a migration-load crash, always inspect all pending migrations in the chain — the first error hides subsequent ones.

@@ -23,7 +23,7 @@ def upgrade() -> None:
         sa.Column("target_date", sa.Date, nullable=True),
         sa.Column("category", sa.String(100), nullable=True),
         sa.Column("notes", sa.Text, nullable=True),
-        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("1")),
+        sa.Column("active", sa.Boolean, nullable=False, server_default=sa.text("TRUE")),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
                   server_default=sa.text("CURRENT_TIMESTAMP")),
     )
