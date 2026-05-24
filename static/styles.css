@@ -725,6 +725,7 @@ a.link:hover { text-decoration: underline; }
   --dur-normal:   200ms;
   --dur-slow:     350ms;
   --dur-reveal:   500ms;
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .hover-lift { transition: transform var(--dur-normal) var(--ease-spring), box-shadow var(--dur-normal) var(--ease-out-expo); }
 .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--shadow-sm); }
@@ -736,8 +737,14 @@ a.link:hover { text-decoration: underline; }
   animation: fadeSlideUpSpring 300ms var(--ease-out-expo) both;
   animation-delay: calc(var(--i, 0) * 40ms);
 }
+.sankey-flow { transition: fill-opacity 200ms var(--ease-out-quart); }
+.sankey-flow:hover { fill-opacity: 0.8 !important; }
+.sankey-flow[data-kind="sav"]:hover { fill-opacity: 0.55 !important; }
+
 .btn-press { transition: transform var(--dur-fast) var(--ease-spring); }
 .btn-press:active { transform: scale(0.97); }
+
+.flow-error { animation: fadeSlideUp 200ms var(--ease-out-quart) both; }
 
 /* ── Common Utilities (extracted from inline styles) ── */
 .flex-row { display: flex; align-items: center; }

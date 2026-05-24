@@ -3,16 +3,16 @@
 const flowStyles = {
   wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
   kpis: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 28 },
-  kpi: { padding: "18px 20px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, minWidth: 0, overflow: "hidden" },
+  kpi: { padding: "18px 20px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)", minWidth: 0, overflow: "hidden" },
   kpiLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 },
   kpiValue: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 6, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   kpiSub: { fontSize: 12, color: "var(--ink-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 },
   // Section band system
   secWrap: { marginTop: 28 },
-  secHead: { borderRadius: "8px 8px 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
+  secHead: { borderRadius: "var(--r) var(--r) 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   secTitle: { fontSize: 11, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.1em" },
   secSub: { fontSize: 11, fontFamily: "'Instrument Serif', serif", fontStyle: "italic", color: "var(--paper)", opacity: 0.45 },
-  secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "20px 16px" },
+  secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r) var(--r)", padding: "20px 16px" },
 };
 
 const SankeyDiagram = ({ data }) => {
@@ -134,12 +134,9 @@ const SankeyDiagram = ({ data }) => {
             const p = buildPath(MID_X + MID_W, hubY + off, n.h, RIGHT_X, n.y, n.h);
             off += n.h + 10;
             return (
-              <g key={`out-${idx}`}>
+              <g key={`out-${idx}`} style={{ animation: "fadeSlideUp 300ms var(--ease-out-expo) both", animationDelay: `${idx * 40}ms` }}>
                 <title>{n.label} · ₹{n.amount.toLocaleString("en-IN")}</title>
-                <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" style={{ transition: "fill-opacity 200ms" }}
-                  onMouseEnter={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.55:0.8)}
-                  onMouseLeave={e=>e.currentTarget.setAttribute("fill-opacity", n.kind==="sav"?0.35:0.55)}
-                />
+                <path d={p} fill={color} fillOpacity={n.kind === "sav" ? 0.35 : 0.55} stroke="none" className="sankey-flow" data-kind={n.kind === "sav" ? "sav" : "exp"}/>
               </g>
             );
           });
@@ -191,7 +188,7 @@ const WeeklyBurn = ({ data }) => {
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, color: "var(--ink-3)", marginBottom: 6 }}>
                 ₹{w.spent.toLocaleString("en-IN")}
               </div>
-              <div style={{ width: "100%", maxWidth: 120, background: w.projected ? "url(#diag) var(--paper-2)" : "var(--accent)", opacity: w.projected ? 0.4 : 0.85, height: "100%", borderRadius: "3px 3px 0 0", border: w.projected ? "1px dashed var(--ink-4)" : "none", transform: `scaleY(${Math.max(pct, 2) / 100})`, transformOrigin: "bottom", transition: "transform 400ms cubic-bezier(.2,.8,.2,1)" }}/>
+              <div style={{ width: "100%", maxWidth: 120, background: w.projected ? "url(#diag) var(--paper-2)" : "var(--accent)", opacity: w.projected ? 0.4 : 0.85, height: "100%", borderRadius: "3px 3px 0 0", border: w.projected ? "1px dashed var(--ink-4)" : "none", transform: `scaleY(${Math.max(pct, 2) / 100})`, transformOrigin: "bottom", transition: `transform 400ms cubic-bezier(.2,.8,.2,1) ${idx * 60}ms` }}/>
             </div>
           );
         })}
@@ -217,7 +214,7 @@ const skeleton = (h, w) => (
 const FlowView = ({ transactions, categoryFilter }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
-  var thirtyDaysAgo = DateUtils.getLastNDays(29).from;
+  const thirtyDaysAgo = DateUtils.getLastNDays(29).from;
 
   const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
   const [rangeTo, setRangeTo] = React.useState(todayStr);
@@ -225,11 +222,14 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [flowLoading, setFlowLoading] = React.useState(false);
+  const [flowError, setFlowError] = React.useState(null);
+  const [retryKey, setRetryKey] = React.useState(0);
 
   React.useEffect(() => {
+    setFlowLoading(true);
+    setFlowError(null);
     let cancelled = false;
     const timer = setTimeout(async () => {
-      setFlowLoading(true);
       try {
         const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
@@ -238,16 +238,24 @@ const FlowView = ({ transactions, categoryFilter }) => {
           API.get(`/api/stats/category-breakdown?${dateQP}${catQP}`),
         ]);
         if (!cancelled) { setStats(s); setCatBreakdown(c); }
-      } catch (_) {}
+      } catch (e) {
+        if (!cancelled) setFlowError(e.message || "Failed to load");
+      }
       if (!cancelled) setFlowLoading(false);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [rangeFrom, rangeTo]);
+  }, [rangeFrom, rangeTo, categoryFilter, retryKey]);
 
-  const rangeTxs = !rangeFrom
-    ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
-    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
-  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
+  const rangeTxs = React.useMemo(
+    () => !rangeFrom
+      ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
+      : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter)),
+    [transactions, rangeFrom, rangeTo, categoryFilter]
+  );
+  const flow = React.useMemo(
+    () => stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null,
+    [rangeTxs, stats, catBreakdown, rangeFrom, rangeTo]
+  );
 
   const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
@@ -260,12 +268,18 @@ const FlowView = ({ transactions, categoryFilter }) => {
   const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;
 
   return (
-    <div style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
+    <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
+      {flowError && (
+        <div className="flow-error" style={{ padding: "10px 16px", background: "var(--neg-soft)", border: "1px solid var(--neg)", borderRadius: "var(--r)", marginBottom: 16, fontSize: 13, color: "var(--neg)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span>Couldn't load flow data. <span style={{ cursor: "pointer", textDecoration: "underline", fontWeight: 600 }} onClick={() => setRetryKey(k => k + 1)}>Retry</span></span>
+          <button onClick={() => setFlowError(null)} style={{ background: "none", border: "none", color: "var(--neg)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>Dismiss</button>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "3fr 2fr", gap: 14, marginBottom: 28 }}>
         {flowLoading
           ? <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {[["Income", "var(--pos)"], ["Spent", "var(--ink)"]].map(([label, _], i) => (
+                {[["Remaining", "var(--pos)"], ["Income", "var(--pos)"]].map(([label, _], i) => (
                   <div key={i} style={flowStyles.kpi}>
                     <div style={flowStyles.kpiLabel}>{label}</div>
                     <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
@@ -274,7 +288,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
                 ))}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {[["Remaining", "var(--pos)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
+                {[["Spent", "var(--ink)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
                   <div key={i} style={flowStyles.kpi}>
                     <div style={flowStyles.kpiLabel}>{label}</div>
                     <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
@@ -286,23 +300,23 @@ const FlowView = ({ transactions, categoryFilter }) => {
           : <>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Income</div>
-                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
-                </div>
-                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Spent</div>
-                  <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div className="anim-row-spring" style={{"--i": 2, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Remaining</div>
                   <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${(totalIncome - totalExpense - totalCCPayments - totalInvestments).toLocaleString("en-IN")}`}>{fmtK(totalIncome - totalExpense - totalCCPayments - totalInvestments)}</div>
                   <div style={flowStyles.kpiSub}>{savingsRate}% savings rate</div>
                 </div>
-                <div className="anim-row-spring" style={{"--i": 3, ...flowStyles.kpi}}>
+                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Income</div>
+                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
+                  <div style={flowStyles.kpiLabel}>Spent</div>
+                  <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
+                </div>
+                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Daily burn</div>
                   <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
                   <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
@@ -324,7 +338,7 @@ const FlowView = ({ transactions, categoryFilter }) => {
             onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
           />
         </div>
-        <div style={{ ...flowStyles.secBody, borderRadius: "0 0 8px 8px" }}>
+        <div style={{ ...flowStyles.secBody }}>
           {flowLoading
             ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow

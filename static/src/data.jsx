@@ -138,12 +138,17 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
   const totalDays = Math.max(1, Math.round((rangeEnd - rangeStart) / 86400000) + 1);
   const segSize = Math.max(1, Math.ceil(totalDays / 4));
 
-  // Income sources grouped by merchant
+  // Income sources grouped by merchant + weekly burn buckets (single pass)
   const incomeMap = {};
+  const weeklyBuckets = [0, 0, 0, 0];
   for (const t of transactions) {
     if (t.amount > 0) {
       const key = t.merchant || "Other";
       incomeMap[key] = (incomeMap[key] || 0) + t.amount;
+    } else if (t.amount < 0 && t.date) {
+      const dayOffset = Math.floor((new Date(t.date) - rangeStart) / 86400000);
+      const bucketIdx = Math.min(3, Math.max(0, Math.floor(dayOffset / segSize)));
+      weeklyBuckets[bucketIdx] += Math.abs(t.amount);
     }
   }
   const income = Object.entries(incomeMap)
@@ -180,12 +185,11 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
       projected: segStart > today,
     });
   }
-  const weeklyBurn = weekDefs.map(w => {
-    const spent = transactions
-      .filter(t => t.date && t.date >= w.start && t.date <= w.end && t.amount < 0)
-      .reduce((a, t) => a + Math.abs(t.amount), 0);
-    return { week: w.label, spent: Math.round(spent), projected: w.projected || w.start > todayStr };
-  });
+  const weeklyBurn = weekDefs.map((w, i) => ({
+    week: w.label,
+    spent: Math.round(weeklyBuckets[i]),
+    projected: w.projected || w.start > todayStr,
+  }));
 
   const monthLabel = rangeStart.toLocaleString("en-US", { month: "long", year: "numeric" })
     + (rangeStart.getMonth() !== rangeEnd.getMonth() || rangeStart.getFullYear() !== rangeEnd.getFullYear()
