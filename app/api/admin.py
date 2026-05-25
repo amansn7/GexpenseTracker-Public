@@ -49,9 +49,7 @@ async def fetch_preview(
         creds = await get_credentials_for_user(db, current_user.id)
         service = await asyncio.to_thread(lambda: _build_service(creds))
         results = await asyncio.to_thread(
-            lambda: service.users().messages().list(
-                userId="me", q=body.query, maxResults=body.limit
-            ).execute()
+            lambda: service.users().messages().list(userId="me", q=body.query, maxResults=body.limit).execute()
         )
         message_ids = [m["id"] for m in results.get("messages", [])]
 
@@ -59,25 +57,23 @@ async def fetch_preview(
         for msg_id in message_ids:
             try:
                 msg = await asyncio.to_thread(
-                    lambda mid=msg_id: service.users().messages().get(
-                        userId="me", id=mid, format="full"
-                    ).execute()
+                    lambda mid=msg_id: service.users().messages().get(userId="me", id=mid, format="full").execute()
                 )
                 headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
                 sender = headers.get("From", "")
                 body_text = _extract_body_text(msg.get("payload", {}))
-                emails.append({
-                    "gmail_id": msg_id,
-                    "subject": headers.get("Subject", ""),
-                    "sender": sender,
-                    "sender_domain": extract_domain(sender),
-                    "received_at": datetime.fromtimestamp(
-                        int(msg["internalDate"]) / 1000, tz=UTC
-                    ).isoformat(),
-                    "snippet": msg.get("snippet", "")[:200],
-                    "body_chars": len(body_text),
-                    "gmail_link": get_gmail_link(msg_id),
-                })
+                emails.append(
+                    {
+                        "gmail_id": msg_id,
+                        "subject": headers.get("Subject", ""),
+                        "sender": sender,
+                        "sender_domain": extract_domain(sender),
+                        "received_at": datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=UTC).isoformat(),
+                        "snippet": msg.get("snippet", "")[:200],
+                        "body_chars": len(body_text),
+                        "gmail_link": get_gmail_link(msg_id),
+                    }
+                )
             except Exception as exc:
                 logger.warning("fetch-preview: skipping %s: %s", msg_id, exc)
 
@@ -152,19 +148,22 @@ async def seed_merchants(
         if not key or not category:
             skipped += 1
             continue
-        existing = (await db.execute(
-            select(MerchantAlias).where(MerchantAlias.canonical == key)
-        )).scalar_one_or_none()
+        existing = (await db.execute(select(MerchantAlias).where(MerchantAlias.canonical == key))).scalar_one_or_none()
         if existing:
             existing.hit_count += info.get("count", 0)
             if not existing.category:
                 existing.category = category
             skipped += 1
         else:
-            db.add(MerchantAlias(
-                raw=key, canonical=key, category=category,
-                source="seeded", hit_count=info.get("count", 1),
-            ))
+            db.add(
+                MerchantAlias(
+                    raw=key,
+                    canonical=key,
+                    category=category,
+                    source="seeded",
+                    hit_count=info.get("count", 1),
+                )
+            )
             seeded += 1
     await db.commit()
     logger.info("seed-merchants: seeded=%d skipped=%d", seeded, skipped)
@@ -204,6 +203,7 @@ async def test_provider(
 
         from app.crypto import decrypt_ai_secret
         from app.models import UserAIService
+
         query = select(UserAIService).where(
             UserAIService.user_id == current_user.id,
             UserAIService.enabled,
@@ -259,6 +259,7 @@ async def reset_my_data(
     Clears: transactions, emails, connected accounts, AI services, settings, sessions.
     """
     from sqlalchemy import text
+
     uid = str(current_user.id)
 
     wipe = [
@@ -284,7 +285,8 @@ async def reset_my_data(
         if r.rowcount:
             deleted[table] = r.rowcount
 
-    await db.execute(text("""
+    await db.execute(
+        text("""
         UPDATE user_settings SET
             active_ai_service_id  = NULL,
             monthly_ai_budget     = NULL,
@@ -294,7 +296,9 @@ async def reset_my_data(
             daily_digest          = FALSE,
             low_confidence_alerts = FALSE
         WHERE user_id = :uid
-    """), {"uid": uid})
+    """),
+        {"uid": uid},
+    )
 
     await db.execute(
         text("UPDATE users SET onboarding_complete = FALSE WHERE id = :uid"),
@@ -355,9 +359,7 @@ async def list_sender_rules(
 
     from app.models.financial import SenderRule
 
-    rows = (await db.execute(
-        select(SenderRule).order_by(SenderRule.created_at.desc()).limit(100)
-    )).scalars().all()
+    rows = (await db.execute(select(SenderRule).order_by(SenderRule.created_at.desc()).limit(100))).scalars().all()
     return {
         "count": len(rows),
         "rules": [

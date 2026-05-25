@@ -42,9 +42,7 @@ async def test_admin_test_provider_uses_service_id_for_user_services(db_session)
     app.dependency_overrides[get_current_user] = lambda: owner
 
     completion = AsyncMock(
-        return_value=SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="OK"))]
-        )
+        return_value=SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="OK"))])
     )
     provider = SimpleNamespace(
         name="openai",
@@ -58,7 +56,14 @@ async def test_admin_test_provider_uses_service_id_for_user_services(db_session)
     )
 
     try:
-        with patch("app.classifier.llm_client.MultiLLMClient", return_value=MagicMock(_providers=[provider], _ranked_providers=lambda: [provider])), patch("app.crypto.decrypt_ai_secret", return_value="secret"), patch("app.classifier.llm_client.build_user_client", return_value=user_client) as build_user_client:
+        with (
+            patch(
+                "app.classifier.llm_client.MultiLLMClient",
+                return_value=MagicMock(_providers=[provider], _ranked_providers=lambda: [provider]),
+            ),
+            patch("app.crypto.decrypt_ai_secret", return_value="secret"),
+            patch("app.classifier.llm_client.build_user_client", return_value=user_client) as build_user_client,
+        ):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/admin/test-provider",
