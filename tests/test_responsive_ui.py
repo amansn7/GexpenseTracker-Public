@@ -11,8 +11,8 @@ def test_base_template_has_mobile_navigation_controls():
     html = read("templates/index.html")
     shell = read("static/src/shell.jsx")
 
-    assert 'viewport' in html
-    assert 'menu' in shell.lower() or 'navigation' in shell.lower()
+    assert "viewport" in html
+    assert "menu" in shell.lower() or "navigation" in shell.lower()
 
 
 def test_legacy_css_keeps_sidebar_off_canvas_on_small_screens():

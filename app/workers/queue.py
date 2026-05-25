@@ -24,8 +24,16 @@ class TaskStatus(StrEnum):
 
 class Task:
     __slots__ = (
-        "id", "type", "user_id", "status", "payload", "result",
-        "created_at", "started_at", "completed_at", "error",
+        "id",
+        "type",
+        "user_id",
+        "status",
+        "payload",
+        "result",
+        "created_at",
+        "started_at",
+        "completed_at",
+        "error",
     )
 
     def __init__(
@@ -149,10 +157,7 @@ class TaskQueue:
     async def worker_loop(self):
         self._running = True
         logger.info("Task queue worker started (%d workers)", self._worker_count)
-        workers = [
-            asyncio.create_task(self._worker(i))
-            for i in range(self._worker_count)
-        ]
+        workers = [asyncio.create_task(self._worker(i)) for i in range(self._worker_count)]
         try:
             await asyncio.gather(*workers, return_exceptions=True)
         finally:
@@ -210,10 +215,7 @@ class TaskQueue:
     def _prune_idempotency(self):
         """Prune stale entries, then oldest entries if still over limit."""
         now = time.time()
-        stale_keys = [
-            k for k, ts in self._idempotency_timestamps.items()
-            if now - ts > _IDEMPOTENCY_TTL_SECONDS
-        ]
+        stale_keys = [k for k, ts in self._idempotency_timestamps.items() if now - ts > _IDEMPOTENCY_TTL_SECONDS]
         for k in stale_keys:
             self._idempotency.pop(k, None)
             self._idempotency_timestamps.pop(k, None)
@@ -233,10 +235,7 @@ class TaskQueue:
     def cleanup_idempotency(self) -> int:
         """Remove stale idempotency entries older than TTL. Returns count of pruned entries."""
         now = time.time()
-        stale_keys = [
-            k for k, ts in self._idempotency_timestamps.items()
-            if now - ts > _IDEMPOTENCY_TTL_SECONDS
-        ]
+        stale_keys = [k for k, ts in self._idempotency_timestamps.items() if now - ts > _IDEMPOTENCY_TTL_SECONDS]
         for k in stale_keys:
             self._idempotency.pop(k, None)
             self._idempotency_timestamps.pop(k, None)

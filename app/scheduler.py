@@ -25,12 +25,18 @@ async def _delete_expired_accounts():
     try:
         async with AsyncSessionLocal() as db:
             now = datetime.now(UTC)
-            users = (await db.execute(
-                select(User).where(
-                    User.scheduled_deletion_at.isnot(None),
-                    User.scheduled_deletion_at <= now,
+            users = (
+                (
+                    await db.execute(
+                        select(User).where(
+                            User.scheduled_deletion_at.isnot(None),
+                            User.scheduled_deletion_at <= now,
+                        )
+                    )
                 )
-            )).scalars().all()
+                .scalars()
+                .all()
+            )
 
             for user in users:
                 try:
@@ -65,22 +71,31 @@ def setup_scheduler() -> None:
                 from sqlalchemy import select
 
                 from app.models import ConnectedAccount, User, UserStatus
-                active_users = (await db.execute(
-                    select(User).where(
-                        User.status == UserStatus.active,
-                        User.onboarding_complete,
+
+                active_users = (
+                    (
+                        await db.execute(
+                            select(User).where(
+                                User.status == UserStatus.active,
+                                User.onboarding_complete,
+                            )
+                        )
                     )
-                )).scalars().all()
+                    .scalars()
+                    .all()
+                )
 
                 eligible_user_ids = []
                 for user in active_users:
-                    account = (await db.execute(
-                        select(ConnectedAccount).where(
-                            ConnectedAccount.user_id == user.id,
-                            ConnectedAccount.provider == "gmail",
-                            ConnectedAccount.status == "connected",
+                    account = (
+                        await db.execute(
+                            select(ConnectedAccount).where(
+                                ConnectedAccount.user_id == user.id,
+                                ConnectedAccount.provider == "gmail",
+                                ConnectedAccount.status == "connected",
+                            )
                         )
-                    )).scalar_one_or_none()
+                    ).scalar_one_or_none()
                     if account:
                         eligible_user_ids.append(user.id)
 
@@ -118,22 +133,31 @@ def setup_scheduler() -> None:
                 from sqlalchemy import select
 
                 from app.models import ConnectedAccount, User, UserStatus
-                active_users = (await db.execute(
-                    select(User).where(
-                        User.status == UserStatus.active,
-                        User.onboarding_complete,
+
+                active_users = (
+                    (
+                        await db.execute(
+                            select(User).where(
+                                User.status == UserStatus.active,
+                                User.onboarding_complete,
+                            )
+                        )
                     )
-                )).scalars().all()
+                    .scalars()
+                    .all()
+                )
 
                 eligible_user_ids = []
                 for user in active_users:
-                    account = (await db.execute(
-                        select(ConnectedAccount).where(
-                            ConnectedAccount.user_id == user.id,
-                            ConnectedAccount.provider == "gmail",
-                            ConnectedAccount.status == "connected",
+                    account = (
+                        await db.execute(
+                            select(ConnectedAccount).where(
+                                ConnectedAccount.user_id == user.id,
+                                ConnectedAccount.provider == "gmail",
+                                ConnectedAccount.status == "connected",
+                            )
                         )
-                    )).scalar_one_or_none()
+                    ).scalar_one_or_none()
                     if account:
                         eligible_user_ids.append(user.id)
 
@@ -142,6 +166,7 @@ def setup_scheduler() -> None:
                 return
 
             from app.sync import scan_all_for_duplicates
+
             for user_id in eligible_user_ids:
                 result = await scan_all_for_duplicates(user_id)
                 logger.info("dedup_scan_result", user_id=user_id, result=result)

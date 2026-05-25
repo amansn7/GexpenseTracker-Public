@@ -31,13 +31,15 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 
 from app.api import admin as admin_api
-from app.api import auth, cleanup as cleanup_api, review, transactions, health as health_api
+from app.api import auth, review, transactions
 from app.api import budgets as budgets_api
+from app.api import cleanup as cleanup_api
 from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
 from app.api import emails as emails_api
 from app.api import filter as filter_api
 from app.api import goals as goals_api
+from app.api import health as health_api
 from app.api import insights as insights_api
 from app.api import merchant_aliases as merchant_aliases_api
 from app.api import merchants as merchants_api
@@ -58,43 +60,48 @@ from app.scheduler import scheduler, setup_scheduler
 async def lifespan(app: FastAPI):
     if settings.SECRET_KEY == "change-me-in-production" and not os.getenv("TESTING"):
         raise RuntimeError(
-            "SECRET_KEY is still the default value. "
-            "Set a secure random key in .env before starting the server."
+            "SECRET_KEY is still the default value. Set a secure random key in .env before starting the server."
         )
     if not settings.FERNET_KEY and not os.getenv("TESTING"):
         raise RuntimeError(
-            "FERNET_KEY is not configured. "
-            "Generate a Fernet key and set it in .env before starting the server."
+            "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
         )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
         from app.workers.sync_worker import register as register_sync_worker
         from app.workers.sync_worker import register_fetch_range
+
         register_sync_worker(task_queue)
         register_fetch_range(task_queue)
         asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
+
         async def _startup_init():
             try:
                 from app.classifier.merchant import load_alias_cache_from_db
                 from app.classifier.merchant_entity import load_db_aliases
                 from app.database import AsyncSessionLocal
+
                 async with AsyncSessionLocal() as db:
                     await load_alias_cache_from_db(db)
                     await load_db_aliases(db)
                 from app.database import AsyncSessionLocal
                 from app.sync.progress import recover_stale_progresses, set_db_session_factory, start_progress_writer
+
                 set_db_session_factory(AsyncSessionLocal)
                 start_progress_writer()
                 await recover_stale_progresses()
             except Exception as exc:
                 logging.getLogger(__name__).warning("startup cache load failed: %s", exc)
+
         asyncio.create_task(_startup_init())
     yield
     if not os.getenv("TESTING"):
         from app.sync.progress import stop_progress_writer
+
         await stop_progress_writer()
         from app.workers.queue import task_queue
+
         task_queue.stop()
         if scheduler.running:
             scheduler.shutdown(wait=False)

@@ -19,6 +19,7 @@ def _build_engine_kwargs() -> dict:
 engine = create_async_engine(settings.DATABASE_URL, **_build_engine_kwargs())
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
+
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session

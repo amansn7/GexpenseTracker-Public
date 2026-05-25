@@ -1,4 +1,5 @@
 """Rate limiting middleware using in-memory token bucket."""
+
 import time
 
 
@@ -31,10 +32,7 @@ class RateLimiter:
     def cleanup(self, max_age_seconds: int = 3600):
         """Remove stale buckets older than max_age_seconds."""
         now = time.time()
-        stale_keys = [
-            key for key, (_, window_start) in self._buckets.items()
-            if now - window_start > max_age_seconds
-        ]
+        stale_keys = [key for key, (_, window_start) in self._buckets.items() if now - window_start > max_age_seconds]
         for key in stale_keys:
             del self._buckets[key]
 

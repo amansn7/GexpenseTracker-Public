@@ -64,11 +64,13 @@ async def handle_sync_task(task: Task) -> dict[str, Any]:
         logger.error("Sync task %s timed out after %ds", task.id, SYNC_TIMEOUT_SECS)
         _log_event(user_id, f"Sync task timed out after {SYNC_TIMEOUT_SECS}s", "error")
         prog = _user_progress(user_id)
-        prog.update({
-            "running": False,
-            "phase": "error",
-            "error": f"Sync timed out after {SYNC_TIMEOUT_SECS}s",
-        })
+        prog.update(
+            {
+                "running": False,
+                "phase": "error",
+                "error": f"Sync timed out after {SYNC_TIMEOUT_SECS}s",
+            }
+        )
         raise
 
     except Exception as exc:
@@ -91,6 +93,7 @@ async def handle_fetch_range_task(task: Task) -> dict[str, Any]:
 
     try:
         from app.sync.range import run_sync_range
+
         result = await asyncio.wait_for(
             run_sync_range(
                 user_id=user_id,
@@ -107,11 +110,13 @@ async def handle_fetch_range_task(task: Task) -> dict[str, Any]:
         logger.error("Fetch-range task %s timed out after %ds", task.id, FETCH_RANGE_TIMEOUT_SECS)
         _log_event(user_id, f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s", "error")
         prog = _user_progress(user_id)
-        prog.update({
-            "running": False,
-            "phase": "error",
-            "error": f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s",
-        })
+        prog.update(
+            {
+                "running": False,
+                "phase": "error",
+                "error": f"Fetch-range timed out after {FETCH_RANGE_TIMEOUT_SECS}s",
+            }
+        )
         raise
     except Exception as exc:
         logger.error("Fetch-range task %s failed: %s", task.id, exc, exc_info=True)

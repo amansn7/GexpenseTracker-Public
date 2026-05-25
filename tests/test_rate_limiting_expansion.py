@@ -1,4 +1,5 @@
 """Tests for rate limiting expansion: new endpoints, prefix matching, and per-user limits."""
+
 import time
 from unittest.mock import patch
 
@@ -55,6 +56,7 @@ class TestMatchRateLimit:
 
     def _match(self, path):
         from app.main import _match_rate_limit
+
         return _match_rate_limit(path)
 
     def test_exact_match_bulk(self):

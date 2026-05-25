@@ -24,6 +24,7 @@ async def db_session():
 
 def _create_user(session, email, status="active", onboarding_complete=True, role="member"):
     from app.models import User
+
     user = User(
         email=email,
         status=status if isinstance(status, str) else status.value,
@@ -36,6 +37,7 @@ def _create_user(session, email, status="active", onboarding_complete=True, role
 
 def _create_connected_account(session, user_id, provider="gmail", status="connected"):
     from app.models import ConnectedAccount
+
     account = ConnectedAccount(
         user_id=user_id,
         provider=provider,
@@ -65,8 +67,10 @@ async def test_three_active_users_with_gmail_all_synced(db_session):
         enqueued_ids.append(user_id)
         return f"task-{user_id}"
 
-    with patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session):
+    with (
+        patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()
@@ -112,8 +116,10 @@ async def test_user_without_gmail_skipped(db_session):
         enqueued_ids.append(user_id)
         return f"task-{user_id}"
 
-    with patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session):
+    with (
+        patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()
@@ -160,8 +166,10 @@ async def test_disabled_user_skipped(db_session):
         enqueued_ids.append(user_id)
         return f"task-{user_id}"
 
-    with patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session):
+    with (
+        patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()
@@ -208,8 +216,10 @@ async def test_user_with_incomplete_onboarding_skipped(db_session):
         enqueued_ids.append(user_id)
         return f"task-{user_id}"
 
-    with patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session):
+    with (
+        patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()
@@ -283,8 +293,7 @@ async def test_max_concurrent_syncs_semaphore():
 
             mock_user_result = AsyncMock()
             mock_user_result.scalars.return_value.all.return_value = [
-                MagicMock(id=f"user-{i}", status="active", onboarding_complete=True)
-                for i in range(num_users)
+                MagicMock(id=f"user-{i}", status="active", onboarding_complete=True) for i in range(num_users)
             ]
 
             mock_account_result = AsyncMock()
@@ -324,9 +333,11 @@ async def test_no_eligible_users_logs_warning(db_session):
         enqueued_ids.append(user_id)
         return f"task-{user_id}"
 
-    with patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session), \
-         patch("app.scheduler.logger") as mock_logger:
+    with (
+        patch("app.workers.queue.task_queue.enqueue", new=fake_enqueue),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+        patch("app.scheduler.logger") as mock_logger,
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()
@@ -371,8 +382,10 @@ async def test_dedup_job_runs_for_all_eligible_users(db_session):
         scanned_ids.append(user_id)
         return {"duplicates_found": 0}
 
-    with patch("app.sync.scan_all_for_duplicates", new=fake_scan), \
-         patch("app.scheduler.AsyncSessionLocal", return_value=db_session):
+    with (
+        patch("app.sync.scan_all_for_duplicates", new=fake_scan),
+        patch("app.scheduler.AsyncSessionLocal", return_value=db_session),
+    ):
         from app.scheduler import setup_scheduler
 
         scheduler_mock = MagicMock()

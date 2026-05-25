@@ -1,6 +1,6 @@
 """Tests for batched progress writes — queue, writer lifecycle, and async safety."""
+
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,6 +10,7 @@ import pytest
 def _reset_progress_state():
     """Reset module-level state before and after each test."""
     import app.sync.progress as progress_mod
+
     progress_mod._sync_progress.clear()
     progress_mod._progress_writer_running = False
 
@@ -78,9 +79,10 @@ async def test_batch_progress_updates():
 @pytest.mark.asyncio
 async def test_writer_exception_logged_not_swallowed():
     """When a DB write raises, the error should be logged, not silently swallowed."""
-    import app.sync.progress as progress_mod
     import sys
     from io import StringIO
+
+    import app.sync.progress as progress_mod
 
     async def failing_write(uid, prog):
         raise RuntimeError("DB connection lost")
@@ -149,9 +151,10 @@ async def test_load_from_db_async_no_nested_loop_crash():
 @pytest.mark.asyncio
 async def test_queue_full_warning_logged():
     """When the queue is full, a warning should be logged and the update dropped."""
-    import app.sync.progress as progress_mod
     import sys
     from io import StringIO
+
+    import app.sync.progress as progress_mod
 
     small_queue = asyncio.Queue(maxsize=2)
     small_queue.put_nowait(("user1", {"phase": "a"}))

@@ -1,4 +1,5 @@
 """Tests for streaming backfill — batch processing instead of collect-all-then-process."""
+
 import os
 
 os.environ.setdefault("TESTING", "1")
@@ -19,12 +20,14 @@ async def test_backfill_bodies_processes_in_batches(db_session, mock_user):
     from app.models import Email
 
     for i in range(200):
-        db_session.add(Email(
-            gmail_id=f"gid_{i}",
-            sender_domain="test.com",
-            user_id=mock_user.id,
-            body_text=None,
-        ))
+        db_session.add(
+            Email(
+                gmail_id=f"gid_{i}",
+                sender_domain="test.com",
+                user_id=mock_user.id,
+                body_text=None,
+            )
+        )
     await db_session.commit()
 
     mock_service = MagicMock()
@@ -97,10 +100,18 @@ async def test_clean_bodies_job_batches_commits():
 
     user_id = "test_clean_bodies_batch"
     _sync_progress[user_id] = {
-        "running": True, "phase": "fetching", "phase_detail": "",
-        "current": 0, "total": 0, "tally": {}, "previews": [],
-        "current_email": None, "log": [], "result": None,
-        "error": None, "minimized": False,
+        "running": True,
+        "phase": "fetching",
+        "phase_detail": "",
+        "current": 0,
+        "total": 0,
+        "tally": {},
+        "previews": [],
+        "current_email": None,
+        "log": [],
+        "result": None,
+        "error": None,
+        "minimized": False,
     }
 
     session_call_count = 0
@@ -140,10 +151,18 @@ async def test_clean_bodies_job_no_single_session_hold():
 
     user_id = "test_clean_no_hold"
     _sync_progress[user_id] = {
-        "running": True, "phase": "fetching", "phase_detail": "",
-        "current": 0, "total": 0, "tally": {}, "previews": [],
-        "current_email": None, "log": [], "result": None,
-        "error": None, "minimized": False,
+        "running": True,
+        "phase": "fetching",
+        "phase_detail": "",
+        "current": 0,
+        "total": 0,
+        "tally": {},
+        "previews": [],
+        "current_email": None,
+        "log": [],
+        "result": None,
+        "error": None,
+        "minimized": False,
     }
 
     session_enter_count = 0
@@ -185,22 +204,32 @@ async def test_fetch_range_backfill_paginates(db_session, mock_user):
 
     user_id = "test_range_paginate"
     _sync_progress[user_id] = {
-        "running": True, "phase": "fetching", "phase_detail": "",
-        "current": 0, "total": 0, "tally": {}, "previews": [],
-        "current_email": None, "log": [], "result": None,
-        "error": None, "minimized": False,
+        "running": True,
+        "phase": "fetching",
+        "phase_detail": "",
+        "current": 0,
+        "total": 0,
+        "tally": {},
+        "previews": [],
+        "current_email": None,
+        "log": [],
+        "result": None,
+        "error": None,
+        "minimized": False,
     }
 
     base_dt = datetime(2024, 1, 15)
     for i in range(100):
-        db_session.add(Email(
-            gmail_id=f"range_gid_{i}",
-            sender_domain="test.com",
-            user_id=user_id,
-            body_text=None,
-            received_at=base_dt,
-            subject=f"Test {i}",
-        ))
+        db_session.add(
+            Email(
+                gmail_id=f"range_gid_{i}",
+                sender_domain="test.com",
+                user_id=user_id,
+                body_text=None,
+                received_at=base_dt,
+                subject=f"Test {i}",
+            )
+        )
     await db_session.commit()
 
     mock_service = MagicMock()
@@ -240,12 +269,14 @@ async def test_backfill_partial_commits_preserve_data_on_error(db_session, mock_
     from app.models import Email
 
     for i in range(15):
-        db_session.add(Email(
-            gmail_id=f"err_gid_{i}",
-            sender_domain="test.com",
-            user_id=mock_user.id,
-            body_text=None,
-        ))
+        db_session.add(
+            Email(
+                gmail_id=f"err_gid_{i}",
+                sender_domain="test.com",
+                user_id=mock_user.id,
+                body_text=None,
+            )
+        )
     await db_session.commit()
 
     call_counter = 0
@@ -287,12 +318,14 @@ async def test_backfill_bodies_empty_result(db_session, mock_user):
     from app.main import app
     from app.models import Email
 
-    db_session.add(Email(
-        gmail_id="gid_complete",
-        sender_domain="test.com",
-        user_id=mock_user.id,
-        body_text="Already has body",
-    ))
+    db_session.add(
+        Email(
+            gmail_id="gid_complete",
+            sender_domain="test.com",
+            user_id=mock_user.id,
+            body_text="Already has body",
+        )
+    )
     await db_session.commit()
 
     app.dependency_overrides[get_db] = lambda: db_session
