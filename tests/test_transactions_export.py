@@ -36,22 +36,24 @@ async def test_export_returns_only_current_users_transactions(mock_user, db_sess
     )
     db_session.add(email)
     await db_session.flush()
-    db_session.add(Transaction(
-        email_id=email.id,
-        label="expense",
-        amount=123.45,
-        currency="INR",
-        merchant="Cafe",
-        category="Food",
-        txn_date=date(2026, 5, 1),
-        confidence=0.91,
-        status="auto",
-        classifier_method="llm",
-        user_notes="Lunch",
-        read=True,
-        flagged=False,
-        created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-    ))
+    db_session.add(
+        Transaction(
+            email_id=email.id,
+            label="expense",
+            amount=123.45,
+            currency="INR",
+            merchant="Cafe",
+            category="Food",
+            txn_date=date(2026, 5, 1),
+            confidence=0.91,
+            status="auto",
+            classifier_method="llm",
+            user_notes="Lunch",
+            read=True,
+            flagged=False,
+            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+        )
+    )
 
     other_user = User(
         email="other@example.com",

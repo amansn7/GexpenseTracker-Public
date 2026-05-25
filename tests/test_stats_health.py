@@ -13,13 +13,17 @@ from app.main import app
 async def test_settings_patch_accepts_starting_balance(db_session, mock_user):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            r = await client.patch("/api/account/settings", json={
-                "starting_balance": 100000,
-                "starting_balance_date": "2026-01-01",
-            })
+            r = await client.patch(
+                "/api/account/settings",
+                json={
+                    "starting_balance": 100000,
+                    "starting_balance_date": "2026-01-01",
+                },
+            )
         assert r.status_code == 200
         data = r.json()
         assert data["settings"]["starting_balance"] == 100000.0
@@ -32,6 +36,7 @@ async def test_settings_patch_accepts_starting_balance(db_session, mock_user):
 async def test_health_returns_expected_fields(db_session, mock_user):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -53,6 +58,7 @@ async def test_health_returns_expected_fields(db_session, mock_user):
 async def test_health_rejects_invalid_months(db_session, mock_user):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -66,6 +72,7 @@ async def test_health_rejects_invalid_months(db_session, mock_user):
 async def test_health_accepts_months_3_and_12(db_session, mock_user):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -89,13 +96,17 @@ async def test_health_accepts_months_3_and_12(db_session, mock_user):
 async def test_health_anchored_balance_mode(db_session, mock_user):
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.patch("/api/account/settings", json={
-                "starting_balance": 50000,
-                "starting_balance_date": "2026-01-01",
-            })
+            await client.patch(
+                "/api/account/settings",
+                json={
+                    "starting_balance": 50000,
+                    "starting_balance_date": "2026-01-01",
+                },
+            )
             r = await client.get("/api/stats/health?months=6")
         assert r.status_code == 200
         data = r.json()
@@ -116,6 +127,7 @@ async def test_health_balance_reflects_transactions(db_session, mock_user):
 
     async def override_get_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_get_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

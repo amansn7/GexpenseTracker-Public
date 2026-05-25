@@ -53,14 +53,16 @@ async def _load_pair_with_txs(pair_id: str, db: AsyncSession, user_id: str):
     DupTx = aliased(Transaction)
     DupEmail = aliased(Email)
 
-    row = (await db.execute(
-        select(DuplicatePair, PrimaryTx, PrimaryEmail, DupTx, DupEmail)
-        .join(PrimaryTx, PrimaryTx.id == DuplicatePair.primary_tx_id)
-        .join(PrimaryEmail, PrimaryEmail.id == PrimaryTx.email_id)
-        .join(DupTx, DupTx.id == DuplicatePair.duplicate_tx_id)
-        .outerjoin(DupEmail, DupEmail.id == DupTx.email_id)
-        .where(DuplicatePair.id == pair_id, PrimaryEmail.user_id == user_id)
-    )).one_or_none()
+    row = (
+        await db.execute(
+            select(DuplicatePair, PrimaryTx, PrimaryEmail, DupTx, DupEmail)
+            .join(PrimaryTx, PrimaryTx.id == DuplicatePair.primary_tx_id)
+            .join(PrimaryEmail, PrimaryEmail.id == PrimaryTx.email_id)
+            .join(DupTx, DupTx.id == DuplicatePair.duplicate_tx_id)
+            .outerjoin(DupEmail, DupEmail.id == DupTx.email_id)
+            .where(DuplicatePair.id == pair_id, PrimaryEmail.user_id == user_id)
+        )
+    ).one_or_none()
 
     if not row:
         raise HTTPException(status_code=404, detail="Duplicate pair not found")
@@ -71,12 +73,15 @@ async def _load_pair_with_txs(pair_id: str, db: AsyncSession, user_id: str):
 async def scan_duplicates(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Run duplicate detection on all expense transactions for the current user."""
     from app.sync import scan_all_for_duplicates
+
     result = await scan_all_for_duplicates(str(current_user.id))
     return {"checked": result.get("checked", 0), "new_pairs": result.get("new_pairs", 0)}
 
 
 @router.get("/duplicates")
-async def list_duplicates(status: str | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def list_duplicates(
+    status: str | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     """List duplicate pairs — single joined query, no N+1 (T2)."""
     PrimaryTx = aliased(Transaction)
     PrimaryEmail = aliased(Email)
@@ -117,7 +122,9 @@ async def reopen_pair(pair_id: str, db: AsyncSession = Depends(get_db), current_
 
 
 @router.patch("/duplicates/{pair_id}")
-async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def resolve_pair(
+    pair_id: str, body: ResolvePatch, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     if body.action not in ("confirmed", "dismissed"):
         raise HTTPException(status_code=422, detail="action must be 'confirmed' or 'dismissed'")
     pair, primary_tx, primary_email, dup_tx, dup_email = await _load_pair_with_txs(pair_id, db, current_user.id)
@@ -134,7 +141,9 @@ async def resolve_pair(pair_id: str, body: ResolvePatch, db: AsyncSession = Depe
 
     pair.primary_tx_id = body.primary_tx_id
     await resolve_duplicate(
-        pair, body.action, db,
+        pair,
+        body.action,
+        db,
         primary_email=kept_email,
         duplicate_email=discard_email,
         discard_tx_id=discard_tx_id,

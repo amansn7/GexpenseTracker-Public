@@ -82,7 +82,7 @@ def test_large_insert_with_mixed_ages_stays_under_limit():
     with patch("time.time", return_value=now):
         for i in range(15000):
             key = f"hash_{i}"
-            age = (i % 7200)
+            age = i % 7200
             tq._idempotency[key] = f"task_{i}"
             tq._idempotency_timestamps[key] = now - age
 

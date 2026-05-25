@@ -40,14 +40,17 @@ async def list_merchant_aliases(
     current_user: User = Depends(get_current_user),
 ):
     """List all aliases for current user + global aliases."""
-    rows = (await db.execute(
-        select(MerchantAlias)
-        .where(
-            (MerchantAlias.user_id == current_user.id)
-            | (MerchantAlias.user_id.is_(None))
+    rows = (
+        (
+            await db.execute(
+                select(MerchantAlias)
+                .where((MerchantAlias.user_id == current_user.id) | (MerchantAlias.user_id.is_(None)))
+                .order_by(MerchantAlias.canonical_name, MerchantAlias.alias_name)
+            )
         )
-        .order_by(MerchantAlias.canonical_name, MerchantAlias.alias_name)
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return [
         {
@@ -75,12 +78,14 @@ async def create_merchant_alias(
     if not canonical_name or not alias_name:
         raise HTTPException(status_code=400, detail="canonical_name and alias_name are required")
 
-    existing = (await db.execute(
-        select(MerchantAlias).where(
-            MerchantAlias.alias_name == alias_name,
-            MerchantAlias.user_id == current_user.id,
+    existing = (
+        await db.execute(
+            select(MerchantAlias).where(
+                MerchantAlias.alias_name == alias_name,
+                MerchantAlias.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if existing:
         raise HTTPException(status_code=409, detail="Alias already exists for this user")
@@ -97,6 +102,7 @@ async def create_merchant_alias(
     # Refresh the merchant entity cache so new alias is immediately available
     try:
         from app.classifier.merchant_entity import load_db_aliases
+
         await load_db_aliases(db)
     except Exception:
         pass  # Non-critical — cache will refresh on next startup
@@ -115,9 +121,7 @@ async def list_merchant_entities(
     current_user: User = Depends(get_current_user),
 ):
     """List all known merchant entities."""
-    rows = (await db.execute(
-        select(MerchantEntity).order_by(MerchantEntity.canonical_name)
-    )).scalars().all()
+    rows = (await db.execute(select(MerchantEntity).order_by(MerchantEntity.canonical_name))).scalars().all()
 
     return [
         {

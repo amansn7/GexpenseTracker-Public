@@ -64,6 +64,7 @@ async def test_cancel_deletion_without_schedule_returns_404(db_session, mock_use
 async def test_scheduled_and_cancelled_user_can_still_log_in(db_session, mock_user):
     """A user with future scheduled_deletion_at can still log in and cancel."""
     from datetime import datetime, timedelta
+
     mock_user.scheduled_deletion_at = datetime.now(UTC) + timedelta(hours=24)
     await db_session.commit()
 
@@ -76,15 +77,21 @@ async def test_scheduled_and_cancelled_user_can_still_log_in(db_session, mock_us
 async def test_delete_account_removes_all_user_data(db_session, mock_user):
     """DELETE /api/account (admin/compat) removes all user data."""
     email = Email(
-        gmail_id="g-del-1", subject="Test", sender="s@test.com",
-        sender_domain="test.com", user_id=mock_user.id,
+        gmail_id="g-del-1",
+        subject="Test",
+        sender="s@test.com",
+        sender_domain="test.com",
+        user_id=mock_user.id,
     )
     db_session.add(email)
     await db_session.flush()
 
     txn = Transaction(
-        email_id=email.id, label=Label.expense.value, amount=500.0,
-        merchant="Test", category="Food",
+        email_id=email.id,
+        label=Label.expense.value,
+        amount=500.0,
+        merchant="Test",
+        category="Food",
         status=TransactionStatus.auto.value,
         classifier_method=ClassifierMethod.llm.value,
     )
@@ -98,9 +105,13 @@ async def test_delete_account_removes_all_user_data(db_session, mock_user):
     assert resp.json() == {"deleted": True}
 
     assert (await db_session.execute(select(Email).where(Email.gmail_id == "g-del-1"))).scalar_one_or_none() is None
-    assert (await db_session.execute(select(Transaction).where(Transaction.merchant == "Test"))).scalar_one_or_none() is None
+    assert (
+        await db_session.execute(select(Transaction).where(Transaction.merchant == "Test"))
+    ).scalar_one_or_none() is None
     assert (await db_session.execute(select(User).where(User.id == mock_user.id))).scalar_one_or_none() is None
-    assert (await db_session.execute(select(ConnectedAccount).where(ConnectedAccount.user_id == mock_user.id))).scalar_one_or_none() is None
+    assert (
+        await db_session.execute(select(ConnectedAccount).where(ConnectedAccount.user_id == mock_user.id))
+    ).scalar_one_or_none() is None
 
 
 @pytest.mark.asyncio
@@ -116,9 +127,15 @@ async def test_delete_account_preserves_system_tables(db_session, mock_user):
         resp = await client.delete("/api/account")
     assert resp.status_code == 200
 
-    assert (await db_session.execute(select(MerchantAlias).where(MerchantAlias.raw == "TEST RAW"))).scalar_one_or_none() is not None
-    assert (await db_session.execute(select(PatternRule).where(PatternRule.regex_pattern == "test.*"))).scalar_one_or_none() is not None
-    assert (await db_session.execute(select(DomainPairRule).where(DomainPairRule.domain_a == "a.com"))).scalar_one_or_none() is not None
+    assert (
+        await db_session.execute(select(MerchantAlias).where(MerchantAlias.raw == "TEST RAW"))
+    ).scalar_one_or_none() is not None
+    assert (
+        await db_session.execute(select(PatternRule).where(PatternRule.regex_pattern == "test.*"))
+    ).scalar_one_or_none() is not None
+    assert (
+        await db_session.execute(select(DomainPairRule).where(DomainPairRule.domain_a == "a.com"))
+    ).scalar_one_or_none() is not None
 
 
 @pytest.mark.asyncio

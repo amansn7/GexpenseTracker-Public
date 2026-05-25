@@ -20,7 +20,7 @@ class RecurringBody(BaseModel):
     name: str
     amount: float | None = None
     category: str | None = None
-    frequency: str = "monthly"   # monthly | weekly | yearly
+    frequency: str = "monthly"  # monthly | weekly | yearly
     day_of_month: int | None = None
     notes: str | None = None
     active: bool = True
@@ -42,9 +42,17 @@ def _fmt(r: RecurringExpense) -> dict:
 
 @router.get("/recurring")
 async def list_recurring(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.user_id == current_user.id).order_by(RecurringExpense.name)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(RecurringExpense)
+                .where(RecurringExpense.user_id == current_user.id)
+                .order_by(RecurringExpense.name)
+            )
+        )
+        .scalars()
+        .all()
+    )
     items = [_fmt(r) for r in rows]
 
     # Monthly total = sum of all active monthly items + weekly*4.33 + yearly/12
@@ -63,7 +71,9 @@ async def list_recurring(db: AsyncSession = Depends(get_db), current_user: User 
 
 
 @router.post("/recurring", status_code=201)
-async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_recurring(
+    body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     if body.frequency not in ("monthly", "weekly", "yearly"):
@@ -85,10 +95,14 @@ async def create_recurring(body: RecurringBody, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/recurring/{id}")
-async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
-    )).scalar_one_or_none()
+async def update_recurring(
+    id: str, body: RecurringBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    r = (
+        await db.execute(
+            select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
+        )
+    ).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
     r.name = body.name.strip()
@@ -105,9 +119,11 @@ async def update_recurring(id: str, body: RecurringBody, db: AsyncSession = Depe
 
 @router.delete("/recurring/{id}")
 async def delete_recurring(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    r = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
-    )).scalar_one_or_none()
+    r = (
+        await db.execute(
+            select(RecurringExpense).where(RecurringExpense.id == id, RecurringExpense.user_id == current_user.id)
+        )
+    ).scalar_one_or_none()
     if not r:
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(r)
@@ -150,16 +166,18 @@ async def find_recurring_from_transactions(
     current_user: User = Depends(get_current_user),
 ):
     # Fetch all expense transactions
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "expense",
-            Transaction.merchant.isnot(None),
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.label == "expense",
+                Transaction.merchant.isnot(None),
+            )
+            .order_by(Transaction.txn_date)
         )
-        .order_by(Transaction.txn_date)
-    )).all()
+    ).all()
 
     if not rows:
         return {"suggestions": []}
@@ -169,17 +187,19 @@ async def find_recurring_from_transactions(
     for t, e in rows:
         m = (t.merchant or "").strip().lower()
         if m:
-            by_merchant[m].append({
-                "merchant": t.merchant,
-                "amount": float(t.amount) if t.amount else 0,
-                "txn_date": str(t.txn_date) if t.txn_date else "",
-                "category": t.category,
-            })
+            by_merchant[m].append(
+                {
+                    "merchant": t.merchant,
+                    "amount": float(t.amount) if t.amount else 0,
+                    "txn_date": str(t.txn_date) if t.txn_date else "",
+                    "category": t.category,
+                }
+            )
 
     # Skip merchants already tracked as recurring
-    existing = (await db.execute(
-        select(RecurringExpense).where(RecurringExpense.user_id == current_user.id)
-    )).scalars().all()
+    existing = (
+        (await db.execute(select(RecurringExpense).where(RecurringExpense.user_id == current_user.id))).scalars().all()
+    )
     existing_names = {r.name.lower().strip() for r in existing}
 
     # Build summary for LLM
@@ -216,12 +236,14 @@ async def find_recurring_from_transactions(
 
         line = f"Merchant: {display}"
         line += f"\n  Count: {len(txns)} transactions"
-        line += f"\n  Amounts: {', '.join(f'₹{a:.0f}' for a in amounts[:10])}" + (f" ... and {len(amounts)-10} more" if len(amounts) > 10 else "")
+        line += f"\n  Amounts: {', '.join(f'₹{a:.0f}' for a in amounts[:10])}" + (
+            f" ... and {len(amounts) - 10} more" if len(amounts) > 10 else ""
+        )
         line += f"\n  Amount range: ₹{min_amt:.0f} - ₹{max_amt:.0f}" + (" (stable)" if amt_stable else " (varies)")
         if intervals:
             avg_interval = sum(intervals) / len(intervals)
             line += f"\n  Avg interval: {avg_interval:.0f} days"
-            line += f"\n  Dates: {', '.join(dates[:8])}" + (f" ... and {len(dates)-8} more" if len(dates) > 8 else "")
+            line += f"\n  Dates: {', '.join(dates[:8])}" + (f" ... and {len(dates) - 8} more" if len(dates) > 8 else "")
         else:
             line += f"\n  Dates: {', '.join(dates[:8])}"
         lines.append(line)
@@ -236,6 +258,7 @@ async def find_recurring_from_transactions(
     client = await get_user_llm_client(current_user.id, db)
     if not client:
         from app.classifier.llm_client import llm_client
+
         client = llm_client
 
     try:
@@ -244,7 +267,7 @@ async def find_recurring_from_transactions(
         raise HTTPException(status_code=502, detail=f"LLM analysis failed: {str(e)[:200]}")
 
     # Parse JSON from response
-    json_match = re.search(r'\{.*\}|\[.*\]', raw, re.DOTALL)
+    json_match = re.search(r"\{.*\}|\[.*\]", raw, re.DOTALL)
     if not json_match:
         return {"suggestions": []}
     parsed = json_match.group(0)
@@ -262,14 +285,16 @@ async def find_recurring_from_transactions(
             continue
         name = (s.get("name") or s.get("merchant") or "").strip().lower()
         if name and name not in existing_names:
-            filtered.append({
-                "name": s.get("name") or s.get("merchant") or "Unknown",
-                "merchant": s.get("merchant") or "",
-                "amount": s.get("amount"),
-                "frequency": s.get("frequency", "monthly"),
-                "category": s.get("category", ""),
-                "confidence": s.get("confidence", 0.5),
-                "reasoning": s.get("reasoning", ""),
-            })
+            filtered.append(
+                {
+                    "name": s.get("name") or s.get("merchant") or "Unknown",
+                    "merchant": s.get("merchant") or "",
+                    "amount": s.get("amount"),
+                    "frequency": s.get("frequency", "monthly"),
+                    "category": s.get("category", ""),
+                    "confidence": s.get("confidence", 0.5),
+                    "reasoning": s.get("reasoning", ""),
+                }
+            )
 
     return {"suggestions": filtered}

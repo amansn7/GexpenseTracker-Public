@@ -42,16 +42,24 @@ def _fmt(d: Debt) -> dict:
 
 @router.get("/debts")
 async def list_debts(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = (await db.execute(
-        select(Debt).where(Debt.user_id == current_user.id).order_by(
-            (Debt.total_amount - Debt.paid_amount).desc()
+    rows = (
+        (
+            await db.execute(
+                select(Debt)
+                .where(Debt.user_id == current_user.id)
+                .order_by((Debt.total_amount - Debt.paid_amount).desc())
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     return {"items": [_fmt(d) for d in rows]}
 
 
 @router.post("/debts", status_code=201)
-async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_debt(
+    body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     if body.total_amount <= 0:
@@ -76,10 +84,10 @@ async def create_debt(body: DebtBody, db: AsyncSession = Depends(get_db), curren
 
 
 @router.patch("/debts/{id}")
-async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    d = (await db.execute(
-        select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
-    )).scalar_one_or_none()
+async def update_debt(
+    id: str, body: DebtBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    d = (await db.execute(select(Debt).where(Debt.id == id, Debt.user_id == current_user.id))).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")
     if body.total_amount <= 0:
@@ -101,9 +109,7 @@ async def update_debt(id: str, body: DebtBody, db: AsyncSession = Depends(get_db
 
 @router.delete("/debts/{id}")
 async def delete_debt(id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    d = (await db.execute(
-        select(Debt).where(Debt.id == id, Debt.user_id == current_user.id)
-    )).scalar_one_or_none()
+    d = (await db.execute(select(Debt).where(Debt.id == id, Debt.user_id == current_user.id))).scalar_one_or_none()
     if not d:
         raise HTTPException(status_code=404, detail="Not found")
     await db.delete(d)

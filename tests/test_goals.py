@@ -1,4 +1,5 @@
 """TDD tests for Goals service — run BEFORE implementation to confirm red."""
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -9,6 +10,7 @@ from app.main import app
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
 
 async def _client(db_session, mock_user) -> AsyncClient:
     async def _db():
@@ -21,23 +23,29 @@ async def _client(db_session, mock_user) -> AsyncClient:
     app.dependency_overrides[get_current_user] = _user
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
+
 def _cleanup():
     app.dependency_overrides.pop(get_db, None)
     app.dependency_overrides.pop(get_current_user, None)
 
+
 # ---------------------------------------------------------------------------
 # POST /api/goals — create
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_create_goal_minimal(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.post("/api/goals", json={
-                "name": "Emergency Fund",
-                "target_amount": 100000.00,
-            })
+            resp = await client.post(
+                "/api/goals",
+                json={
+                    "name": "Emergency Fund",
+                    "target_amount": 100000.00,
+                },
+            )
             assert resp.status_code == 201
             data = resp.json()
             assert data["name"] == "Emergency Fund"
@@ -52,18 +60,22 @@ async def test_create_goal_minimal(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_create_goal_full(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.post("/api/goals", json={
-                "name": "New Car",
-                "target_amount": 500000.00,
-                "target_date": "2027-01-01",
-                "category": "Transport",
-                "notes": "Save for Honda City",
-            })
+            resp = await client.post(
+                "/api/goals",
+                json={
+                    "name": "New Car",
+                    "target_amount": 500000.00,
+                    "target_date": "2027-01-01",
+                    "category": "Transport",
+                    "notes": "Save for Honda City",
+                },
+            )
             assert resp.status_code == 201
             data = resp.json()
             assert data["name"] == "New Car"
@@ -73,48 +85,62 @@ async def test_create_goal_full(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_create_goal_zero_amount_rejected(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.post("/api/goals", json={
-                "name": "Bad Goal",
-                "target_amount": 0,
-            })
+            resp = await client.post(
+                "/api/goals",
+                json={
+                    "name": "Bad Goal",
+                    "target_amount": 0,
+                },
+            )
             assert resp.status_code == 422
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_create_goal_negative_amount_rejected(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.post("/api/goals", json={
-                "name": "Negative",
-                "target_amount": -500,
-            })
+            resp = await client.post(
+                "/api/goals",
+                json={
+                    "name": "Negative",
+                    "target_amount": -500,
+                },
+            )
             assert resp.status_code == 422
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_create_goal_empty_name_rejected(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.post("/api/goals", json={
-                "name": "   ",
-                "target_amount": 10000,
-            })
+            resp = await client.post(
+                "/api/goals",
+                json={
+                    "name": "   ",
+                    "target_amount": 10000,
+                },
+            )
             assert resp.status_code == 422
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # GET /api/goals — list
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_list_goals_empty(db_session, mock_user):
@@ -126,6 +152,7 @@ async def test_list_goals_empty(db_session, mock_user):
             assert resp.json() == {"goals": []}
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_list_goals_returns_own_goals_only(db_session, mock_user):
@@ -149,6 +176,7 @@ async def test_list_goals_returns_own_goals_only(db_session, mock_user):
             assert goals[0]["name"] == "My Goal"
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_list_goals_computed_fields(db_session, mock_user):
@@ -175,9 +203,11 @@ async def test_list_goals_computed_fields(db_session, mock_user):
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # GET /api/goals/{id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_goal_by_id(db_session, mock_user):
@@ -197,9 +227,11 @@ async def test_get_goal_by_id(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_get_goal_not_found(db_session, mock_user):
     import uuid
+
     client = await _client(db_session, mock_user)
     try:
         async with client:
@@ -207,6 +239,7 @@ async def test_get_goal_not_found(db_session, mock_user):
             assert resp.status_code == 404
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_get_goal_other_user_returns_404(db_session, mock_user):
@@ -227,9 +260,11 @@ async def test_get_goal_other_user_returns_404(db_session, mock_user):
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # PATCH /api/goals/{id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_patch_goal_name(db_session, mock_user):
@@ -249,6 +284,7 @@ async def test_patch_goal_name(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_patch_goal_target_amount(db_session, mock_user):
     from app.models import Goal
@@ -267,6 +303,7 @@ async def test_patch_goal_target_amount(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_patch_goal_target_date_and_notes(db_session, mock_user):
     from app.models import Goal
@@ -279,10 +316,13 @@ async def test_patch_goal_target_date_and_notes(db_session, mock_user):
     client = await _client(db_session, mock_user)
     try:
         async with client:
-            resp = await client.patch(f"/api/goals/{g.id}", json={
-                "target_date": "2026-12-31",
-                "notes": "Goa trip savings",
-            })
+            resp = await client.patch(
+                f"/api/goals/{g.id}",
+                json={
+                    "target_date": "2026-12-31",
+                    "notes": "Goa trip savings",
+                },
+            )
             assert resp.status_code == 200
             data = resp.json()
             assert data["target_date"] == "2026-12-31"
@@ -290,9 +330,11 @@ async def test_patch_goal_target_date_and_notes(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_patch_goal_not_found(db_session, mock_user):
     import uuid
+
     client = await _client(db_session, mock_user)
     try:
         async with client:
@@ -300,6 +342,7 @@ async def test_patch_goal_not_found(db_session, mock_user):
             assert resp.status_code == 404
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_patch_goal_zero_amount_rejected(db_session, mock_user):
@@ -318,9 +361,11 @@ async def test_patch_goal_zero_amount_rejected(db_session, mock_user):
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # POST /api/goals/{id}/contributions
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_add_contribution(db_session, mock_user):
@@ -341,6 +386,7 @@ async def test_add_contribution(db_session, mock_user):
             assert float(data["remaining"]) == 7500.0
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_add_multiple_contributions(db_session, mock_user):
@@ -363,6 +409,7 @@ async def test_add_multiple_contributions(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_add_contribution_zero_amount_rejected(db_session, mock_user):
     from app.models import Goal
@@ -380,9 +427,11 @@ async def test_add_contribution_zero_amount_rejected(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_add_contribution_to_missing_goal(db_session, mock_user):
     import uuid
+
     client = await _client(db_session, mock_user)
     try:
         async with client:
@@ -390,6 +439,7 @@ async def test_add_contribution_to_missing_goal(db_session, mock_user):
             assert resp.status_code == 404
     finally:
         _cleanup()
+
 
 @pytest.mark.asyncio
 async def test_add_contribution_to_other_users_goal_returns_404(db_session, mock_user):
@@ -410,9 +460,11 @@ async def test_add_contribution_to_other_users_goal_returns_404(db_session, mock
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # DELETE /api/goals/{id}
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_delete_goal(db_session, mock_user):
@@ -436,6 +488,7 @@ async def test_delete_goal(db_session, mock_user):
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_delete_goal_cascades_contributions(db_session, mock_user):
     from sqlalchemy import select
@@ -457,16 +510,18 @@ async def test_delete_goal_cascades_contributions(db_session, mock_user):
         async with client:
             await client.delete(f"/api/goals/{g.id}")
 
-        remaining = (await db_session.execute(
-            select(GoalContribution).where(GoalContribution.id == cid)
-        )).scalar_one_or_none()
+        remaining = (
+            await db_session.execute(select(GoalContribution).where(GoalContribution.id == cid))
+        ).scalar_one_or_none()
         assert remaining is None
     finally:
         _cleanup()
 
+
 @pytest.mark.asyncio
 async def test_delete_goal_not_found(db_session, mock_user):
     import uuid
+
     client = await _client(db_session, mock_user)
     try:
         async with client:
@@ -475,9 +530,11 @@ async def test_delete_goal_not_found(db_session, mock_user):
     finally:
         _cleanup()
 
+
 # ---------------------------------------------------------------------------
 # pct cap at 100 when over-funded
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_pct_capped_at_100_when_overfunded(db_session, mock_user):

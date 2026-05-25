@@ -15,6 +15,7 @@ router = APIRouter()
 
 class MonthKey(ColumnElement):
     """Cross-dialect SQL expression: returns 'YYYY-MM' from a date column."""
+
     inherit_cache = True
 
     def __init__(self, col):
@@ -35,6 +36,7 @@ def _sqlite_month_key(element, compiler, **kw):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _add_months(d: date, n: int) -> date:
     """Add n months to date d, returning the 1st of that month."""
     month = d.month - 1 + n
@@ -49,12 +51,7 @@ def _effective_month(txn_date: date, label: str, sender: str | None) -> date:
     Axis Bank income on day >= 25 shifts to the 1st of the following month.
     All other transactions: 1st of their own month.
     """
-    if (
-        label == "income"
-        and txn_date.day >= 25
-        and sender
-        and "axis" in sender.lower()
-    ):
+    if label == "income" and txn_date.day >= 25 and sender and "axis" in sender.lower():
         return _add_months(txn_date, settings.INCOME_MONTH_SHIFT)
     return txn_date.replace(day=1)
 
@@ -75,6 +72,7 @@ def _period_start(period: str) -> date:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/stats/summary")
 async def stats_summary(
@@ -107,25 +105,30 @@ async def stats_summary(
     if category:
         expense_where.append(Transaction.category == category)
 
-    total_expenses = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*expense_where)
-    )).scalar_one() or 0)
+    total_expenses = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount)).join(Email, Transaction.email_id == Email.id).where(*expense_where)
+            )
+        ).scalar_one()
+        or 0
+    )
 
     # Intentional: income that shifts to next month via effective_month is excluded
     # from the current period (e.g., Axis salary on Apr 28 counts as May income).
-    income_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount, Email.sender)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "income",
-            Transaction.txn_date >= _add_months(start, -1),
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
+    income_rows = (
+        await db.execute(
+            select(Transaction.txn_date, Transaction.amount, Email.sender)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.label == "income",
+                Transaction.txn_date >= _add_months(start, -1),
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+            )
         )
-    )).all()
+    ).all()
 
     total_income = sum(
         float(r.amount or 0)
@@ -133,46 +136,62 @@ async def stats_summary(
         if start <= _effective_month(r.txn_date, "income", r.sender) <= this_month
     )
 
-    total_cc_payments = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.transaction_type == "cc_payment",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
-    )).scalar_one() or 0)
+    total_cc_payments = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Email.user_id == current_user.id,
+                    Transaction.transaction_type == "cc_payment",
+                    Transaction.txn_date >= start,
+                    Transaction.txn_date <= end,
+                    Transaction.txn_date.isnot(None),
+                    Transaction.status != "needs_review",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    total_investments = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.transaction_type == "investment",
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-        )
-    )).scalar_one() or 0)
+    total_investments = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Email.user_id == current_user.id,
+                    Transaction.transaction_type == "investment",
+                    Transaction.txn_date >= start,
+                    Transaction.txn_date <= end,
+                    Transaction.txn_date.isnot(None),
+                    Transaction.status != "needs_review",
+                )
+            )
+        ).scalar_one()
+        or 0
+    )
 
     saved = total_income - total_expenses - total_cc_payments - total_investments
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
 
-    needs_review_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Email.user_id == current_user.id, Transaction.status == "needs_review")
-    )).scalar_one()
+    needs_review_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Email.user_id == current_user.id, Transaction.status == "needs_review")
+        )
+    ).scalar_one()
 
-    unread_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Email.user_id == current_user.id, not Transaction.read)
-    )).scalar_one()
+    unread_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Email.user_id == current_user.id, not Transaction.read)
+        )
+    ).scalar_one()
 
     return {
         "total_expenses": round(total_expenses, 2),
@@ -216,13 +235,15 @@ async def stats_category_breakdown(
     if category:
         where.append(Transaction.category == category)
 
-    rows = (await db.execute(
-        select(Transaction.category, func.sum(Transaction.amount).label("total"))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*where)
-        .group_by(Transaction.category)
-        .order_by(desc("total"))
-    )).all()
+    rows = (
+        await db.execute(
+            select(Transaction.category, func.sum(Transaction.amount).label("total"))
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*where)
+            .group_by(Transaction.category)
+            .order_by(desc("total"))
+        )
+    ).all()
 
     total = sum(float(r.total or 0) for r in rows)
     categories = [
@@ -235,18 +256,22 @@ async def stats_category_breakdown(
     ]
 
     if len(categories) > settings.CATEGORY_BREAKDOWN_LIMIT:
-        other_amount = sum(c["amount"] for c in categories[settings.CATEGORY_BREAKDOWN_LIMIT:])
-        categories = categories[:settings.CATEGORY_BREAKDOWN_LIMIT]
-        categories.append({
-            "category": "Other",
-            "amount": round(other_amount, 2),
-            "pct": round(other_amount / total * 100, 1) if total > 0 else 0.0,
-        })
+        other_amount = sum(c["amount"] for c in categories[settings.CATEGORY_BREAKDOWN_LIMIT :])
+        categories = categories[: settings.CATEGORY_BREAKDOWN_LIMIT]
+        categories.append(
+            {
+                "category": "Other",
+                "amount": round(other_amount, 2),
+                "pct": round(other_amount / total * 100, 1) if total > 0 else 0.0,
+            }
+        )
 
     return {"categories": categories, "total": round(total, 2)}
 
 
-async def _monthly_data(period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = "") -> list:
+async def _monthly_data(
+    period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = ""
+) -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
     today = date.today()
     if date_from and date_to:
@@ -281,26 +306,30 @@ async def _monthly_data(period: str, db: AsyncSession, date_from: date | None = 
     expense_where.insert(0, Email.user_id == user_id)
     income_where.insert(0, Email.user_id == user_id)
 
-    expense_rows = (await db.execute(
-        select(
-            MonthKey(Transaction.txn_date).label('month_key'),
-            func.sum(Transaction.amount).label('total'),
+    expense_rows = (
+        await db.execute(
+            select(
+                MonthKey(Transaction.txn_date).label("month_key"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*expense_where)
+            .group_by(MonthKey(Transaction.txn_date))
         )
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*expense_where)
-        .group_by(MonthKey(Transaction.txn_date))
-    )).all()
+    ).all()
 
     for r in expense_rows:
         key = r.month_key
         if key in months:
             months[key]["expenses"] += float(r.total or 0)
 
-    income_rows = (await db.execute(
-        select(Transaction.txn_date, Transaction.amount, Email.sender)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*income_where)
-    )).all()
+    income_rows = (
+        await db.execute(
+            select(Transaction.txn_date, Transaction.amount, Email.sender)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*income_where)
+        )
+    ).all()
 
     for r in income_rows:
         em = _effective_month(r.txn_date, "income", r.sender)
@@ -345,30 +374,27 @@ async def stats_top_merchants(
         start = _period_start(period)
         end = date.today()
 
-    rows = (await db.execute(
-        select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "expense",
-            or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-            Transaction.txn_date >= start,
-            Transaction.txn_date <= end,
-            Transaction.txn_date.isnot(None),
-            Transaction.status != "needs_review",
-            Transaction.merchant.isnot(None),
+    rows = (
+        await db.execute(
+            select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.label == "expense",
+                or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+                Transaction.merchant.isnot(None),
+            )
+            .group_by(Transaction.merchant)
+            .order_by(desc("total"))
+            .limit(8)
         )
-        .group_by(Transaction.merchant)
-        .order_by(desc("total"))
-        .limit(8)
-    )).all()
+    ).all()
 
-    return {
-        "merchants": [
-            {"merchant": r.merchant, "amount": round(float(r.total or 0), 2)}
-            for r in rows
-        ]
-    }
+    return {"merchants": [{"merchant": r.merchant, "amount": round(float(r.total or 0), 2)} for r in rows]}
 
 
 @router.get("/stats/monthly-summary")
@@ -384,15 +410,18 @@ async def stats_monthly_summary(
         net = round(income - expenses, 2)
         savings_rate = round(net / income * 100, 1) if income > 0 else 0.0
         from datetime import datetime as _dt
+
         label = _dt.strptime(m["month"], "%Y-%m").strftime("%B %Y")
-        result.append({
-            "month": m["month"],
-            "label": label,
-            "income": income,
-            "expenses": expenses,
-            "net": net,
-            "savings_rate": savings_rate,
-        })
+        result.append(
+            {
+                "month": m["month"],
+                "label": label,
+                "income": income,
+                "expenses": expenses,
+                "net": net,
+                "savings_rate": savings_rate,
+            }
+        )
     return {"months": result}
 
 
@@ -440,13 +469,11 @@ async def stats_health(
     savings_rate = round(avg_net / avg_income * 100, 1) if avg_income > 0 else 0.0
 
     # Starting balance from user_settings scoped to current_user
-    settings_row = (await db.execute(
-        select(UserSettings).where(UserSettings.user_id == current_user.id)
-    )).scalar_one_or_none()
+    settings_row = (
+        await db.execute(select(UserSettings).where(UserSettings.user_id == current_user.id))
+    ).scalar_one_or_none()
     starting_balance = (
-        float(settings_row.starting_balance)
-        if settings_row and settings_row.starting_balance is not None
-        else None
+        float(settings_row.starting_balance) if settings_row and settings_row.starting_balance is not None else None
     )
     starting_balance_date = settings_row.starting_balance_date if settings_row else None
 
@@ -459,29 +486,44 @@ async def stats_health(
     if starting_balance_date:
         base_filter.append(Transaction.txn_date >= starting_balance_date)
 
-    expense_total = (await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "expense", or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)), *base_filter)
-    )).scalar_one() or 0
+    expense_total = (
+        await db.execute(
+            select(func.sum(Transaction.amount))
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.label == "expense",
+                or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+                *base_filter,
+            )
+        )
+    ).scalar_one() or 0
 
-    cc_payment_total = (await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "cc_payment", *base_filter)
-    )).scalar_one() or 0
+    cc_payment_total = (
+        await db.execute(
+            select(func.sum(Transaction.amount))
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.transaction_type == "cc_payment", *base_filter)
+        )
+    ).scalar_one() or 0
 
-    investment_total = (await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "investment", *base_filter)
-    )).scalar_one() or 0
+    investment_total = (
+        await db.execute(
+            select(func.sum(Transaction.amount))
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.transaction_type == "investment", *base_filter)
+        )
+    ).scalar_one() or 0
 
-    income_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "income", *base_filter)
-    )).scalar_one() or 0)
+    income_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.label == "income", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
     net_since = income_total - float(expense_total) - float(cc_payment_total or 0) - float(investment_total or 0)
     current_balance = round((starting_balance or 0.0) + net_since, 2)
@@ -512,59 +554,90 @@ async def stats_confidence(
         Transaction.confidence.isnot(None),
     ]
 
-    total = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where)
-    )).scalar_one()
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where)
+        )
+    ).scalar_one()
 
-    auto_confirmed = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
-    )).scalar_one()
+    auto_confirmed = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
+        )
+    ).scalar_one()
 
-    corrected = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
-    )).scalar_one()
+    corrected = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
+        )
+    ).scalar_one()
 
-    needs_review = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
-    )).scalar_one()
+    needs_review = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
+        )
+    ).scalar_one()
 
-    high_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
-    )).scalar_one()
+    high_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
+        )
+    ).scalar_one()
 
-    medium_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence >= settings.MEDIUM_CONFIDENCE_THRESHOLD, Transaction.confidence < settings.HIGH_CONFIDENCE_THRESHOLD)
-    )).scalar_one()
+    medium_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                *base_where,
+                Transaction.confidence >= settings.MEDIUM_CONFIDENCE_THRESHOLD,
+                Transaction.confidence < settings.HIGH_CONFIDENCE_THRESHOLD,
+            )
+        )
+    ).scalar_one()
 
-    low_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD)
-    )).scalar_one()
+    low_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD)
+        )
+    ).scalar_one()
 
-    rule_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.classifier_method == ClassifierMethod.rule.value)
-    )).scalar_one()
+    rule_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.classifier_method == ClassifierMethod.rule.value)
+        )
+    ).scalar_one()
 
-    llm_count = (await db.execute(
-        select(func.count()).select_from(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_where, Transaction.classifier_method == ClassifierMethod.llm.value)
-    )).scalar_one()
+    llm_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.classifier_method == ClassifierMethod.llm.value)
+        )
+    ).scalar_one()
 
     correction_rate = round(corrected / total, 4) if total > 0 else 0.0
 

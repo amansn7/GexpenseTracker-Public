@@ -33,6 +33,7 @@ def override_auth():
 
 def _make_row(txn_id: str):
     from app.models import Email, Transaction
+
     t = MagicMock(spec=Transaction)
     t.id = txn_id
     t.label = "expense"

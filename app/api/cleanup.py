@@ -5,7 +5,7 @@ AND synced_at > 90 days ago. Processes in batches of 100. Supports dry-run mode.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -39,7 +39,7 @@ async def cleanup_old_emails(
     Processes in batches of 100. Returns counts of deleted and remaining.
     When dry_run=True, only reports what would be deleted without modifying data.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(days=CLEANUP_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=CLEANUP_DAYS)
 
     # Count what would be deleted
     count_q = await db.execute(
@@ -64,10 +64,8 @@ async def cleanup_old_emails(
     # Process in batches
     deleted = 0
     for i in range(0, total, BATCH_SIZE):
-        batch = all_ids[i:i + BATCH_SIZE]
-        result = await db.execute(
-            select(Email).where(Email.id.in_(batch))
-        )
+        batch = all_ids[i : i + BATCH_SIZE]
+        result = await db.execute(select(Email).where(Email.id.in_(batch)))
         emails = result.scalars().all()
         for email in emails:
             await db.delete(email)

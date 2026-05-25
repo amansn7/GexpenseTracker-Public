@@ -1,4 +1,5 @@
 """Goals service router — CRUD for savings goals and contributions."""
+
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +16,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
+
 
 class GoalCreate(BaseModel):
     name: str
@@ -70,15 +72,17 @@ class ContributionCreate(BaseModel):
             raise ValueError("amount must be positive")
         return v
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _compute_current_amount(db: AsyncSession, goal_id: str) -> float:
     """Return SUM of contributions for goal_id, 0.0 if none."""
-    row = (await db.execute(
-        select(func.sum(GoalContribution.amount)).where(GoalContribution.goal_id == goal_id)
-    )).scalar()
+    row = (
+        await db.execute(select(func.sum(GoalContribution.amount)).where(GoalContribution.goal_id == goal_id))
+    ).scalar()
     return float(row or 0.0)
 
 
@@ -103,25 +107,27 @@ def _build_response(goal: Goal, current_amount: float) -> dict:
 
 async def _get_own_goal(goal_id: str, user: User, db: AsyncSession) -> Goal:
     """Fetch goal by id + user_id, raise 404 if missing."""
-    g = (await db.execute(
-        select(Goal).where(Goal.id == goal_id, Goal.user_id == user.id)
-    )).scalar_one_or_none()
+    g = (await db.execute(select(Goal).where(Goal.id == goal_id, Goal.user_id == user.id))).scalar_one_or_none()
     if not g:
         raise HTTPException(status_code=404, detail="Goal not found")
     return g
 
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/goals")
 async def list_goals(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    goals = (await db.execute(
-        select(Goal).where(Goal.user_id == current_user.id).order_by(Goal.created_at.desc())
-    )).scalars().all()
+    goals = (
+        (await db.execute(select(Goal).where(Goal.user_id == current_user.id).order_by(Goal.created_at.desc())))
+        .scalars()
+        .all()
+    )
 
     result = []
     for g in goals:
@@ -211,6 +217,7 @@ async def delete_goal(
     current_user: User = Depends(get_current_user),
 ):
     from sqlalchemy import delete as sa_delete
+
     g = await _get_own_goal(goal_id, current_user, db)
     gid = g.id
     # Delete contributions first (SQLite may not enforce FK cascade without PRAGMA)

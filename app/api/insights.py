@@ -1,4 +1,5 @@
 """Insights & AI-pattern endpoints — rule-based v1, LLM only for /explain."""
+
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
@@ -17,6 +18,7 @@ router = APIRouter()
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _utcnow_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -26,9 +28,7 @@ def _fmt(amount: float, currency: str = "INR") -> str:
     return f"{symbol}{amount:,.0f}"
 
 
-async def _fetch_expense_txns(
-    user_id: str, start: date, end: date, db: AsyncSession
-) -> list[Transaction]:
+async def _fetch_expense_txns(user_id: str, start: date, end: date, db: AsyncSession) -> list[Transaction]:
     """Fetch expense transactions for the user in [start, end] via Email join."""
     stmt = (
         select(Transaction)
@@ -47,6 +47,7 @@ async def _fetch_expense_txns(
 # ---------------------------------------------------------------------------
 # GET /insights
 # ---------------------------------------------------------------------------
+
 
 @router.get("/insights")
 async def get_insights(
@@ -70,27 +71,31 @@ async def get_insights(
         pct = (current_spend - prev_spend) / prev_spend * 100
         currency = current_txns[0].currency if current_txns else "INR"
         if pct > 20:
-            insights.append({
-                "id": str(uuid.uuid4()),
-                "type": "spending_spike",
-                "title": f"Spending up {pct:.0f}% this month",
-                "body": (
-                    f"You spent {_fmt(current_spend, currency)} in the last 30 days "
-                    f"vs {_fmt(prev_spend, currency)} the 30 days before that."
-                ),
-                "generated_at": _utcnow_iso(),
-            })
+            insights.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "type": "spending_spike",
+                    "title": f"Spending up {pct:.0f}% this month",
+                    "body": (
+                        f"You spent {_fmt(current_spend, currency)} in the last 30 days "
+                        f"vs {_fmt(prev_spend, currency)} the 30 days before that."
+                    ),
+                    "generated_at": _utcnow_iso(),
+                }
+            )
         elif pct < -10:
-            insights.append({
-                "id": str(uuid.uuid4()),
-                "type": "saving_win",
-                "title": f"Great job — down {abs(pct):.0f}% this month",
-                "body": (
-                    f"You spent {_fmt(current_spend, currency)} in the last 30 days "
-                    f"vs {_fmt(prev_spend, currency)} the 30 days before. Keep it up!"
-                ),
-                "generated_at": _utcnow_iso(),
-            })
+            insights.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "type": "saving_win",
+                    "title": f"Great job — down {abs(pct):.0f}% this month",
+                    "body": (
+                        f"You spent {_fmt(current_spend, currency)} in the last 30 days "
+                        f"vs {_fmt(prev_spend, currency)} the 30 days before. Keep it up!"
+                    ),
+                    "generated_at": _utcnow_iso(),
+                }
+            )
 
     return {"insights": insights[:3]}
 
@@ -98,6 +103,7 @@ async def get_insights(
 # ---------------------------------------------------------------------------
 # GET /insights/patterns
 # ---------------------------------------------------------------------------
+
 
 @router.get("/insights/patterns")
 async def get_insights_patterns(
@@ -123,35 +129,38 @@ async def get_insights_patterns(
     if avg_weekday > 0 and avg_weekend > avg_weekday * 1.5 and len(weekend_amounts) >= 3:
         ratio = avg_weekend / avg_weekday
         delta_pct = round((ratio - 1) * 100, 1)
-        patterns.append({
-            "id": "weekend_spender",
-            "label": "Weekend Spender",
-            "description": (
-                f"You spend ~{ratio:.1f}× more on Sat/Sun than on weekdays. "
-                f"Avg ₹{avg_weekend:,.0f}/day vs ₹{avg_weekday:,.0f}/day."
-            ),
-            "delta_pct": delta_pct,
-            "supporting_data": {
-                "avg_weekend_daily": round(avg_weekend, 2),
-                "avg_weekday_daily": round(avg_weekday, 2),
-            },
-        })
+        patterns.append(
+            {
+                "id": "weekend_spender",
+                "label": "Weekend Spender",
+                "description": (
+                    f"You spend ~{ratio:.1f}× more on Sat/Sun than on weekdays. "
+                    f"Avg ₹{avg_weekend:,.0f}/day vs ₹{avg_weekday:,.0f}/day."
+                ),
+                "delta_pct": delta_pct,
+                "supporting_data": {
+                    "avg_weekend_daily": round(avg_weekend, 2),
+                    "avg_weekday_daily": round(avg_weekday, 2),
+                },
+            }
+        )
 
     # Subscription total
     sub_txns = [t for t in txns if t.category and "subscription" in t.category.lower()]
     if sub_txns:
         sub_total = sum(float(t.amount or 0) for t in sub_txns)
         currency = sub_txns[0].currency if sub_txns else "INR"
-        patterns.append({
-            "id": "subscription_total",
-            "label": f"{_fmt(sub_total, currency)}/mo on subscriptions",
-            "description": (
-                f"{len(sub_txns)} subscription charge(s) totalling "
-                f"{_fmt(sub_total, currency)} in the last 30 days."
-            ),
-            "delta_pct": 0.0,
-            "supporting_data": {"count": len(sub_txns), "total": round(sub_total, 2)},
-        })
+        patterns.append(
+            {
+                "id": "subscription_total",
+                "label": f"{_fmt(sub_total, currency)}/mo on subscriptions",
+                "description": (
+                    f"{len(sub_txns)} subscription charge(s) totalling {_fmt(sub_total, currency)} in the last 30 days."
+                ),
+                "delta_pct": 0.0,
+                "supporting_data": {"count": len(sub_txns), "total": round(sub_total, 2)},
+            }
+        )
 
     return {"patterns": patterns}
 
@@ -159,6 +168,7 @@ async def get_insights_patterns(
 # ---------------------------------------------------------------------------
 # POST /insights/explain
 # ---------------------------------------------------------------------------
+
 
 class ExplainRequest(BaseModel):
     insight_id: str
@@ -179,8 +189,7 @@ async def explain_insight(
         "Be encouraging and specific. Do not repeat the numbers verbatim."
     )
     user_prompt = (
-        f"Insight: {payload.title}\nDetails: {payload.body}\n\n"
-        "Explain why this matters and what the user could do."
+        f"Insight: {payload.title}\nDetails: {payload.body}\n\nExplain why this matters and what the user could do."
     )
 
     try:

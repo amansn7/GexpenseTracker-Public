@@ -23,19 +23,21 @@ async def test_export_without_date_range_exceeds_10k_returns_422(mock_user, db_s
         )
         db_session.add(email)
         await db_session.flush()
-        db_session.add(Transaction(
-            email_id=email.id,
-            label="expense",
-            amount=100.0 + i,
-            currency="INR",
-            merchant=f"Merchant {i}",
-            category="Shopping",
-            txn_date=date(2026, 5, 1),
-            confidence=0.9,
-            status="auto",
-            classifier_method="llm",
-            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-        ))
+        db_session.add(
+            Transaction(
+                email_id=email.id,
+                label="expense",
+                amount=100.0 + i,
+                currency="INR",
+                merchant=f"Merchant {i}",
+                category="Shopping",
+                txn_date=date(2026, 5, 1),
+                confidence=0.9,
+                status="auto",
+                classifier_method="llm",
+                created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+            )
+        )
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -63,19 +65,21 @@ async def test_export_with_date_range_under_10k_succeeds(mock_user, db_session):
         )
         db_session.add(email)
         await db_session.flush()
-        db_session.add(Transaction(
-            email_id=email.id,
-            label="expense",
-            amount=50.0 + i,
-            currency="INR",
-            merchant=f"Shop {i}",
-            category="Food",
-            txn_date=date(2026, 5, 1),
-            confidence=0.85,
-            status="auto",
-            classifier_method="llm",
-            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-        ))
+        db_session.add(
+            Transaction(
+                email_id=email.id,
+                label="expense",
+                amount=50.0 + i,
+                currency="INR",
+                merchant=f"Shop {i}",
+                category="Food",
+                txn_date=date(2026, 5, 1),
+                confidence=0.85,
+                status="auto",
+                classifier_method="llm",
+                created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+            )
+        )
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -125,19 +129,21 @@ async def test_export_with_label_filter_returns_only_matching(mock_user, db_sess
         )
         db_session.add(email)
         await db_session.flush()
-        db_session.add(Transaction(
-            email_id=email.id,
-            label=label,
-            amount=100.0,
-            currency="INR",
-            merchant="Test",
-            category="Test",
-            txn_date=date(2026, 5, 1),
-            confidence=0.9,
-            status="auto",
-            classifier_method="llm",
-            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-        ))
+        db_session.add(
+            Transaction(
+                email_id=email.id,
+                label=label,
+                amount=100.0,
+                currency="INR",
+                merchant="Test",
+                category="Test",
+                txn_date=date(2026, 5, 1),
+                confidence=0.9,
+                status="auto",
+                classifier_method="llm",
+                created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+            )
+        )
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -165,22 +171,24 @@ async def test_export_csv_columns_match_export_columns(mock_user, db_session):
     )
     db_session.add(email)
     await db_session.flush()
-    db_session.add(Transaction(
-        email_id=email.id,
-        label="expense",
-        amount=42.0,
-        currency="USD",
-        merchant="TestMerchant",
-        category="TestCategory",
-        txn_date=date(2026, 5, 1),
-        confidence=0.95,
-        status="corrected",
-        classifier_method="rules",
-        user_notes="test note",
-        read=False,
-        flagged=True,
-        created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-    ))
+    db_session.add(
+        Transaction(
+            email_id=email.id,
+            label="expense",
+            amount=42.0,
+            currency="USD",
+            merchant="TestMerchant",
+            category="TestCategory",
+            txn_date=date(2026, 5, 1),
+            confidence=0.95,
+            status="corrected",
+            classifier_method="rules",
+            user_notes="test note",
+            read=False,
+            flagged=True,
+            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+        )
+    )
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -227,19 +235,21 @@ async def test_export_includes_x_row_count_header(mock_user, db_session):
         )
         db_session.add(email)
         await db_session.flush()
-        db_session.add(Transaction(
-            email_id=email.id,
-            label="expense",
-            amount=10.0,
-            currency="INR",
-            merchant="Test",
-            category="Test",
-            txn_date=date(2026, 5, 1),
-            confidence=0.9,
-            status="auto",
-            classifier_method="llm",
-            created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
-        ))
+        db_session.add(
+            Transaction(
+                email_id=email.id,
+                label="expense",
+                amount=10.0,
+                currency="INR",
+                merchant="Test",
+                category="Test",
+                txn_date=date(2026, 5, 1),
+                confidence=0.9,
+                status="auto",
+                classifier_method="llm",
+                created_at=datetime(2026, 5, 1, 11, 0, tzinfo=UTC),
+            )
+        )
     await db_session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

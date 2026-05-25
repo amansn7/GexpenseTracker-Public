@@ -119,13 +119,27 @@ def _ai_service_dict(service: UserAIService) -> dict:
 async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
     profile = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one()
     s = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one()
-    accounts = (await db.execute(
-        select(ConnectedAccount).where(ConnectedAccount.user_id == user.id).order_by(ConnectedAccount.provider, ConnectedAccount.account_email)
-    )).scalars().all()
+    accounts = (
+        (
+            await db.execute(
+                select(ConnectedAccount)
+                .where(ConnectedAccount.user_id == user.id)
+                .order_by(ConnectedAccount.provider, ConnectedAccount.account_email)
+            )
+        )
+        .scalars()
+        .all()
+    )
     categories = await CategoryService.get_list(db, str(user.id))
-    services = (await db.execute(
-        select(UserAIService).where(UserAIService.user_id == user.id).order_by(UserAIService.display_name)
-    )).scalars().all()
+    services = (
+        (
+            await db.execute(
+                select(UserAIService).where(UserAIService.user_id == user.id).order_by(UserAIService.display_name)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "user": {
             "id": user.id,
@@ -145,9 +159,7 @@ async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
 
 
 async def _get_owned(db: AsyncSession, model, user_id: str, item_id: str):
-    item = (await db.execute(
-        select(model).where(model.id == item_id, model.user_id == user_id)
-    )).scalar_one_or_none()
+    item = (await db.execute(select(model).where(model.id == item_id, model.user_id == user_id))).scalar_one_or_none()
     if not item:
         raise HTTPException(status_code=404, detail="Not found")
     return item

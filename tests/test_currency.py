@@ -1,4 +1,5 @@
 """Tests for the currency conversion service."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -42,16 +43,14 @@ async def test_convert_amount_same_currency():
 
 @pytest.mark.asyncio
 async def test_convert_amount_uses_rate():
-    with patch("app.services.currency.get_exchange_rate",
-               new_callable=AsyncMock, return_value=83.0):
+    with patch("app.services.currency.get_exchange_rate", new_callable=AsyncMock, return_value=83.0):
         result = await convert_amount(5.90, "USD", "INR")
         assert result == 489.70  # 5.90 * 83.0 = 489.70
 
 
 @pytest.mark.asyncio
 async def test_convert_amount_rounds_to_two_decimals():
-    with patch("app.services.currency.get_exchange_rate",
-               new_callable=AsyncMock, return_value=83.1234):
+    with patch("app.services.currency.get_exchange_rate", new_callable=AsyncMock, return_value=83.1234):
         result = await convert_amount(5.90, "USD", "INR")
         assert result == 490.43  # 5.90 * 83.1234 = 490.42806 → 490.43
 

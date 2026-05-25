@@ -258,46 +258,87 @@ async def generate_categories(
     from app.models import Transaction
 
     try:
-        rows = (await db.execute(
-            select(Transaction.category)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user.id,
-                Transaction.category.isnot(None),
-                Transaction.category != "",
+        rows = (
+            (
+                await db.execute(
+                    select(Transaction.category)
+                    .join(Email, Transaction.email_id == Email.id)
+                    .where(
+                        Email.user_id == user.id,
+                        Transaction.category.isnot(None),
+                        Transaction.category != "",
+                    )
+                    .group_by(Transaction.category)
+                    .order_by(func.count().desc())
+                )
             )
-            .group_by(Transaction.category)
-            .order_by(func.count().desc())
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
     except Exception:
-        rows = (await db.execute(
-            select(Transaction.category)
-            .where(Transaction.category.isnot(None), Transaction.category != "")
-            .group_by(Transaction.category)
-            .order_by(func.count().desc())
-        )).scalars().all()
+        rows = (
+            (
+                await db.execute(
+                    select(Transaction.category)
+                    .where(Transaction.category.isnot(None), Transaction.category != "")
+                    .group_by(Transaction.category)
+                    .order_by(func.count().desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     _PALETTE = {
-        "food": "#e8d5b7", "dining": "#e8d5b7", "restaurant": "#e8d5b7",
-        "groceries": "#ddd2ba", "grocery": "#ddd2ba", "kirana": "#ddd2ba",
-        "rent": "#cdd8d1", "housing": "#cdd8d1", "home": "#cdd8d1",
-        "transport": "#d4dde5", "commute": "#d4dde5", "fuel": "#d4dde5",
-        "travel": "#b8cce4", "flight": "#b8cce4", "hotel": "#b8cce4",
-        "shopping": "#e5d1d9", "retail": "#e5d1d9", "clothing": "#e5d1d9",
-        "entertainment": "#dccfe0", "movie": "#dccfe0", "cinema": "#dccfe0",
-        "healthcare": "#f0d9d9", "medical": "#f0d9d9", "health": "#f0d9d9",
-        "education": "#dde4ef", "edu": "#dde4ef", "tuition": "#dde4ef",
-        "subscriptions": "#c8b8d8", "subscription": "#c8b8d8",
-        "utilities": "#d9dbc9", "electricity": "#d9dbc9", "internet": "#d9dbc9",
-        "cc payment": "#d4c4b7", "cc": "#d4c4b7", "credit card": "#d4c4b7",
-        "transfers": "#d4d0b8", "transfer": "#d4d0b8", "upi": "#d4d0b8",
-        "income": "#c9dcc8", "salary": "#c9dcc8", "refund": "#c9dcc8",
-        "emi": "#e8e0d5", "loan": "#e8e0d5",
+        "food": "#e8d5b7",
+        "dining": "#e8d5b7",
+        "restaurant": "#e8d5b7",
+        "groceries": "#ddd2ba",
+        "grocery": "#ddd2ba",
+        "kirana": "#ddd2ba",
+        "rent": "#cdd8d1",
+        "housing": "#cdd8d1",
+        "home": "#cdd8d1",
+        "transport": "#d4dde5",
+        "commute": "#d4dde5",
+        "fuel": "#d4dde5",
+        "travel": "#b8cce4",
+        "flight": "#b8cce4",
+        "hotel": "#b8cce4",
+        "shopping": "#e5d1d9",
+        "retail": "#e5d1d9",
+        "clothing": "#e5d1d9",
+        "entertainment": "#dccfe0",
+        "movie": "#dccfe0",
+        "cinema": "#dccfe0",
+        "healthcare": "#f0d9d9",
+        "medical": "#f0d9d9",
+        "health": "#f0d9d9",
+        "education": "#dde4ef",
+        "edu": "#dde4ef",
+        "tuition": "#dde4ef",
+        "subscriptions": "#c8b8d8",
+        "subscription": "#c8b8d8",
+        "utilities": "#d9dbc9",
+        "electricity": "#d9dbc9",
+        "internet": "#d9dbc9",
+        "cc payment": "#d4c4b7",
+        "cc": "#d4c4b7",
+        "credit card": "#d4c4b7",
+        "transfers": "#d4d0b8",
+        "transfer": "#d4d0b8",
+        "upi": "#d4d0b8",
+        "income": "#c9dcc8",
+        "salary": "#c9dcc8",
+        "refund": "#c9dcc8",
+        "emi": "#e8e0d5",
+        "loan": "#e8e0d5",
     }
 
-    existing = {c.name.lower() for c in (await db.execute(
-        select(UserCategory).where(UserCategory.user_id == user.id)
-    )).scalars().all()}
+    existing = {
+        c.name.lower()
+        for c in (await db.execute(select(UserCategory).where(UserCategory.user_id == user.id))).scalars().all()
+    }
 
     added = 0
     for cat_name in rows:
@@ -306,13 +347,15 @@ async def generate_categories(
             continue
         color = _PALETTE.get(name.lower(), "#dcd5c3")
         kind = "income" if name.lower() in ("income", "salary", "refund", "cashback", "freelance") else "expense"
-        db.add(UserCategory(
-            user_id=user.id,
-            name=name,
-            color=color,
-            kind=kind,
-            sort_order=len(existing) + added,
-        ))
+        db.add(
+            UserCategory(
+                user_id=user.id,
+                name=name,
+                color=color,
+                kind=kind,
+                sort_order=len(existing) + added,
+            )
+        )
         existing.add(name.lower())
         added += 1
 
@@ -452,6 +495,7 @@ async def update_ai_service(
     await db.commit()
     await db.refresh(service)
     from app.classifier.llm.client import MultiLLMClient
+
     MultiLLMClient.invalidate_user_client(str(user.id))
     return {"ai_service": _ai_service_dict(service)}
 
@@ -505,6 +549,7 @@ async def rotate_api_key(
     )
 
     from app.classifier.llm.client import MultiLLMClient
+
     MultiLLMClient.invalidate_user_client(str(user.id))
     return {"ai_service": _ai_service_dict(service)}
 
@@ -521,13 +566,19 @@ async def list_expiring_ai_keys(
     from sqlalchemy import select
 
     threshold = datetime.now(UTC) + timedelta(days=days)
-    rows = (await db.execute(
-        select(UserAIService).where(
-            UserAIService.user_id == user.id,
-            UserAIService.key_expires_at.isnot(None),
-            UserAIService.key_expires_at <= threshold,
+    rows = (
+        (
+            await db.execute(
+                select(UserAIService).where(
+                    UserAIService.user_id == user.id,
+                    UserAIService.key_expires_at.isnot(None),
+                    UserAIService.key_expires_at <= threshold,
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
     return {
         "expiring": [
             {
@@ -550,6 +601,7 @@ async def setup_2fa(
 
     import pyotp
     import qrcode
+
     secret = pyotp.random_base32()
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
     user_row.totp_secret_pending = encrypt_secret(secret)
@@ -569,6 +621,7 @@ async def verify_2fa(
     db: AsyncSession = Depends(get_db),
 ):
     import pyotp
+
     user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
     if not user_row.totp_secret_pending:
         raise HTTPException(status_code=400, detail="No pending 2FA setup")
@@ -599,25 +652,41 @@ async def disable_2fa(
 async def _delete_user_data(db: AsyncSession, uid: str):
     """Full deletion pipeline — used by scheduled cleanup and admin reset."""
     # Step 1: Duplicate pairs (FK to transactions)
-    await db.execute(text("""
+    await db.execute(
+        text("""
         DELETE FROM duplicate_pairs WHERE
             primary_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
             OR duplicate_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)
-    """), {"uid": uid})
+    """),
+        {"uid": uid},
+    )
 
     # Step 2: Personal data
     for table in [
-        "connected_accounts", "sessions", "user_settings", "user_profiles",
-        "user_categories", "user_ai_services", "budgets", "debts",
-        "recurring_expenses", "user_merchant_overrides", "sender_rules",
+        "connected_accounts",
+        "sessions",
+        "user_settings",
+        "user_profiles",
+        "user_categories",
+        "user_ai_services",
+        "budgets",
+        "debts",
+        "recurring_expenses",
+        "user_merchant_overrides",
+        "sender_rules",
     ]:
         await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
 
     # Step 3: Classification logs (FK to emails)
-    await db.execute(text("DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
+    await db.execute(
+        text("DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"),
+        {"uid": uid},
+    )
 
     # Step 4: Transactions (FK to emails)
-    await db.execute(text("DELETE FROM transactions WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid})
+    await db.execute(
+        text("DELETE FROM transactions WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"), {"uid": uid}
+    )
 
     # Step 5: Emails (FK to users)
     await db.execute(text("DELETE FROM emails WHERE user_id = :uid"), {"uid": uid})
@@ -645,8 +714,8 @@ async def schedule_account_deletion(
         "scheduled": True,
         "deletion_at": deletion_at.isoformat(),
         "message": "Your account will be permanently deleted within the next 24 to 48 hours. "
-                   "You have been signed out. If this was a mistake, sign back in and cancel "
-                   "from Settings before the deletion date.",
+        "You have been signed out. If this was a mistake, sign back in and cancel "
+        "from Settings before the deletion date.",
     }
 
 

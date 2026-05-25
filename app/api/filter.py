@@ -18,6 +18,7 @@ class FilterRuleBody(BaseModel):
     rule_type: str  # allowlist_domain | blocklist_domain | keyword_pattern
     value: str
 
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -29,12 +30,26 @@ async def list_filter_rules(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    total_q = await db.execute(select(FilterRule.id).where(FilterRule.user_id == current_user.id).order_by(FilterRule.rule_type, FilterRule.created_at))
+    total_q = await db.execute(
+        select(FilterRule.id)
+        .where(FilterRule.user_id == current_user.id)
+        .order_by(FilterRule.rule_type, FilterRule.created_at)
+    )
     total = len(total_q.all())
 
-    rows = (await db.execute(
-        select(FilterRule).where(FilterRule.user_id == current_user.id).order_by(FilterRule.rule_type, FilterRule.created_at).offset(skip).limit(limit)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(FilterRule)
+                .where(FilterRule.user_id == current_user.id)
+                .order_by(FilterRule.rule_type, FilterRule.created_at)
+                .offset(skip)
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return {
         "items": [
             {
@@ -61,15 +76,17 @@ async def refine_filter_rules(
     if not llm_client:
         return {"error": "No LLM configured. Add an AI service in settings first."}
 
-    rows = (await db.execute(
-        select(Email.subject, Email.sender_domain, Email.pre_filter_status)
-        .where(
-            Email.user_id == current_user.id,
-            Email.pre_filter_status.in_(["passed", "discarded"]),
+    rows = (
+        await db.execute(
+            select(Email.subject, Email.sender_domain, Email.pre_filter_status)
+            .where(
+                Email.user_id == current_user.id,
+                Email.pre_filter_status.in_(["passed", "discarded"]),
+            )
+            .order_by(Email.synced_at.desc())
+            .limit(50)
         )
-        .order_by(Email.synced_at.desc())
-        .limit(50)
-    )).all()
+    ).all()
 
     if not rows:
         return {"added": [], "updated": [], "message": "No labeled examples yet."}
@@ -114,13 +131,15 @@ async def refine_filter_rules(
         if rule_type not in ("allowlist_domain", "blocklist_domain", "keyword_pattern"):
             continue
 
-        existing = (await db.execute(
-            select(FilterRule).where(
-                FilterRule.rule_type == rule_type,
-                FilterRule.value == value,
-                FilterRule.user_id == current_user.id,
+        existing = (
+            await db.execute(
+                select(FilterRule).where(
+                    FilterRule.rule_type == rule_type,
+                    FilterRule.value == value,
+                    FilterRule.user_id == current_user.id,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         if existing:
             existing.source = "llm"
@@ -140,7 +159,9 @@ async def create_filter_rule(
     current_user: User = Depends(get_current_user),
 ):
     if body.rule_type not in ("allowlist_domain", "blocklist_domain", "keyword_pattern"):
-        raise HTTPException(status_code=422, detail="rule_type must be allowlist_domain, blocklist_domain, or keyword_pattern")
+        raise HTTPException(
+            status_code=422, detail="rule_type must be allowlist_domain, blocklist_domain, or keyword_pattern"
+        )
     if not body.value.strip():
         raise HTTPException(status_code=422, detail="value is required")
 
@@ -149,9 +170,13 @@ async def create_filter_rule(
     if body.rule_type == "keyword_pattern" and not _is_safe_pattern(value):
         raise HTTPException(status_code=422, detail="Pattern rejected: potentially unsafe regex (ReDoS risk)")
 
-    existing = (await db.execute(
-        select(FilterRule).where(FilterRule.rule_type == body.rule_type, FilterRule.value == value, FilterRule.user_id == current_user.id)
-    )).scalar_one_or_none()
+    existing = (
+        await db.execute(
+            select(FilterRule).where(
+                FilterRule.rule_type == body.rule_type, FilterRule.value == value, FilterRule.user_id == current_user.id
+            )
+        )
+    ).scalar_one_or_none()
 
     if existing:
         raise HTTPException(status_code=409, detail="Filter rule already exists")
@@ -167,7 +192,9 @@ async def delete_filter_rule(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    row = (await db.execute(select(FilterRule).where(FilterRule.id == rule_id, FilterRule.user_id == current_user.id))).scalar_one_or_none()
+    row = (
+        await db.execute(select(FilterRule).where(FilterRule.id == rule_id, FilterRule.user_id == current_user.id))
+    ).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Filter rule not found")
 

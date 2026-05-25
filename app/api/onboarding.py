@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -45,9 +44,7 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     if settings.INVITE_CODE and body.invite_code != settings.INVITE_CODE:
         raise HTTPException(status_code=403, detail="Invalid invite code")
 
-    existing_count = (await db.scalar(
-        select(func.count(User.id)).where(User.email != "service@localhost")
-    )) or 0
+    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
     role = UserRole.owner.value if existing_count == 0 else UserRole.member.value
     user = User(email=email, role=role, status=UserStatus.active.value, onboarding_complete=True)
     db.add(user)
@@ -56,15 +53,17 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     except IntegrityError:
         await db.rollback()
         raise HTTPException(status_code=409, detail="User already exists")
-    db.add(UserProfile(
-        user_id=user.id,
-        full_name=body.full_name.strip(),
-        display_name=(body.display_name or "").strip() or None,
-        phone=(body.phone or "").strip() or None,
-        location=(body.location or "").strip() or None,
-        default_currency=body.default_currency.upper(),
-        timezone=body.timezone.strip() or "Asia/Kolkata",
-    ))
+    db.add(
+        UserProfile(
+            user_id=user.id,
+            full_name=body.full_name.strip(),
+            display_name=(body.display_name or "").strip() or None,
+            phone=(body.phone or "").strip() or None,
+            location=(body.location or "").strip() or None,
+            default_currency=body.default_currency.upper(),
+            timezone=body.timezone.strip() or "Asia/Kolkata",
+        )
+    )
     db.add(UserSettings(user_id=user.id))
     db.add(ConnectedAccount(user_id=user.id, provider="gmail", account_email=email, status="disconnected"))
     for idx, (name, color, kind) in enumerate(DEFAULT_CATEGORIES):

@@ -32,6 +32,7 @@ router = APIRouter()
 
 BULK_SELECT_ALL_MAX = 5000
 
+
 class TransactionPatch(BaseModel):
     label: str | None = None
     category: str | None = None
@@ -59,7 +60,9 @@ class TransactionPatch(BaseModel):
 
 class BulkAction(BaseModel):
     ids: list[str] = []
-    action: Literal["mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates", "set_category", "set_label"]
+    action: Literal[
+        "mark_read", "mark_unread", "flag", "unflag", "delete", "detect_duplicates", "set_category", "set_label"
+    ]
     select_all: bool = False
     category: str | None = None
     label: str | None = None
@@ -81,7 +84,7 @@ async def bulk_transactions(
         if total > BULK_SELECT_ALL_MAX:
             raise HTTPException(
                 status_code=422,
-                detail=f"Too many transactions ({total}) for bulk action. Maximum is {BULK_SELECT_ALL_MAX}. Use date range filter to narrow your selection."
+                detail=f"Too many transactions ({total}) for bulk action. Maximum is {BULK_SELECT_ALL_MAX}. Use date range filter to narrow your selection.",
             )
 
         BATCH_SIZE = 500
@@ -89,14 +92,20 @@ async def bulk_transactions(
         total_updated = 0
         all_stats = None
         while True:
-            rows = (await db.execute(
-                select(Transaction)
-                .join(Email, Transaction.email_id == Email.id)
-                .where(Email.user_id == current_user.id)
-                .options(selectinload(Transaction.email))
-                .offset(offset)
-                .limit(BATCH_SIZE)
-            )).scalars().all()
+            rows = (
+                (
+                    await db.execute(
+                        select(Transaction)
+                        .join(Email, Transaction.email_id == Email.id)
+                        .where(Email.user_id == current_user.id)
+                        .options(selectinload(Transaction.email))
+                        .offset(offset)
+                        .limit(BATCH_SIZE)
+                    )
+                )
+                .scalars()
+                .all()
+            )
 
             if not rows:
                 break
@@ -116,9 +125,7 @@ async def bulk_transactions(
             elif payload.action == "delete":
                 for t in rows:
                     if t.email_id:
-                        email = (await db.execute(
-                            select(Email).where(Email.id == t.email_id)
-                        )).scalar_one_or_none()
+                        email = (await db.execute(select(Email).where(Email.id == t.email_id))).scalar_one_or_none()
                         if email:
                             await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
                             await db.delete(email)
@@ -153,12 +160,18 @@ async def bulk_transactions(
             return {"updated": total_updated, "duplicates": all_stats or {}}
         return {"updated": total_updated}
     else:
-        rows = (await db.execute(
-            select(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.id.in_(payload.ids), Email.user_id == current_user.id)
-            .options(selectinload(Transaction.email))
-        )).scalars().all()
+        rows = (
+            (
+                await db.execute(
+                    select(Transaction)
+                    .join(Email, Transaction.email_id == Email.id)
+                    .where(Transaction.id.in_(payload.ids), Email.user_id == current_user.id)
+                    .options(selectinload(Transaction.email))
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         if payload.action == "mark_read":
             for t in rows:
@@ -175,9 +188,7 @@ async def bulk_transactions(
         elif payload.action == "delete":
             for t in rows:
                 if t.email_id:
-                    email = (await db.execute(
-                        select(Email).where(Email.id == t.email_id)
-                    )).scalar_one_or_none()
+                    email = (await db.execute(select(Email).where(Email.id == t.email_id))).scalar_one_or_none()
                     if email:
                         await db.execute(delete(ClassificationLog).where(ClassificationLog.email_id == t.email_id))
                         await db.delete(email)
@@ -204,6 +215,7 @@ async def bulk_transactions(
         await db.commit()
         return {"updated": len(rows)}
 
+
 @router.get("/transactions")
 async def list_transactions(
     label: str | None = None,
@@ -211,8 +223,8 @@ async def list_transactions(
     date_from: date | None = None,
     date_to: date | None = None,
     category: str | None = None,
-    offset: int = 0,
-    limit: int = 50,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -228,11 +240,7 @@ async def list_transactions(
     if category:
         conditions.append(Transaction.category == category)
 
-    count_q = (
-        select(func.count(Transaction.id))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*conditions)
-    )
+    count_q = select(func.count(Transaction.id)).join(Email, Transaction.email_id == Email.id).where(*conditions)
     data_q = (
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
@@ -249,6 +257,7 @@ async def list_transactions(
         "offset": offset,
         "limit": limit,
     }
+
 
 @router.get("/search")
 async def search_transactions(
@@ -289,13 +298,15 @@ async def search_transactions(
             match_cond = text_cond
         conditions.append(match_cond)
 
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*conditions)
-        .order_by(desc(Transaction.created_at))
-        .limit(limit)
-    )).all()
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*conditions)
+            .order_by(desc(Transaction.created_at))
+            .limit(limit)
+        )
+    ).all()
     return {"items": [format_transaction(t, e) for t, e in rows]}
 
 
@@ -304,17 +315,19 @@ async def list_low_confidence_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.confidence.isnot(None),
-            Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD,
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.confidence.isnot(None),
+                Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD,
+            )
+            .order_by(Transaction.confidence.asc())
+            .limit(50)
         )
-        .order_by(Transaction.confidence.asc())
-        .limit(50)
-    )).all()
+    ).all()
     return {"items": [format_transaction(t, e) for t, e in rows], "total": len(rows)}
 
 
@@ -367,11 +380,7 @@ async def export_transactions(
     if label:
         conditions.append(Transaction.label == label)
 
-    count_q = (
-        select(func.count(Transaction.id))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*conditions)
-    )
+    count_q = select(func.count(Transaction.id)).join(Email, Transaction.email_id == Email.id).where(*conditions)
     total = (await db.execute(count_q)).scalar_one()
 
     has_date_filter = date_from is not None or date_to is not None
@@ -393,35 +402,35 @@ async def export_transactions(
     writer = csv.DictWriter(output, fieldnames=EXPORT_COLUMNS)
     writer.writeheader()
     for t, e in rows:
-        writer.writerow({
-            "id": t.id,
-            "label": t.label,
-            "amount": float(t.amount) if t.amount is not None else None,
-            "currency": t.currency,
-            "merchant": t.merchant,
-            "category": t.category,
-            "txn_date": _csv_value(t.txn_date),
-            "confidence": t.confidence,
-            "status": t.status,
-            "classifier_method": t.classifier_method,
-            "user_notes": t.user_notes,
-            "read": bool(t.read),
-            "flagged": bool(t.flagged),
-            "email_subject": e.subject if e else None,
-            "email_sender": e.sender if e else None,
-            "email_received_at": _csv_value(e.received_at if e else None),
-            "gmail_link": e.gmail_link if e else None,
-            "created_at": _csv_value(t.created_at),
-        })
+        writer.writerow(
+            {
+                "id": t.id,
+                "label": t.label,
+                "amount": float(t.amount) if t.amount is not None else None,
+                "currency": t.currency,
+                "merchant": t.merchant,
+                "category": t.category,
+                "txn_date": _csv_value(t.txn_date),
+                "confidence": t.confidence,
+                "status": t.status,
+                "classifier_method": t.classifier_method,
+                "user_notes": t.user_notes,
+                "read": bool(t.read),
+                "flagged": bool(t.flagged),
+                "email_subject": e.subject if e else None,
+                "email_sender": e.sender if e else None,
+                "email_received_at": _csv_value(e.received_at if e else None),
+                "gmail_link": e.gmail_link if e else None,
+                "created_at": _csv_value(t.created_at),
+            }
+        )
 
     headers = {
         "Content-Disposition": 'attachment; filename="transactions.csv"',
         "X-Row-Count": str(total),
     }
     if total > 5000:
-        headers["X-Warning"] = (
-            f"Large export: {total} rows. Consider narrowing your date range or applying filters."
-        )
+        headers["X-Warning"] = f"Large export: {total} rows. Consider narrowing your date range or applying filters."
 
     return Response(
         content=output.getvalue(),
@@ -436,11 +445,13 @@ async def get_transaction(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    row = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
-    )).one_or_none()
+    row = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
+        )
+    ).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
@@ -449,6 +460,7 @@ async def get_transaction(
     result["email"]["body_snippet"] = e.body_snippet if e else None
     result["email"]["body_text"] = e.body_text if e else None
     return result
+
 
 @router.patch("/transactions/{transaction_id}")
 async def patch_transaction(
@@ -462,11 +474,13 @@ async def patch_transaction(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    row = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
-    )).one_or_none()
+    row = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
+        )
+    ).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
@@ -492,12 +506,14 @@ async def patch_transaction(
             should_learn = True
 
     if should_learn and e and e.sender_domain:
-        existing = (await db.execute(
-            select(SenderRule).where(
-                SenderRule.sender_domain == e.sender_domain,
-                SenderRule.user_id == current_user.id,
+        existing = (
+            await db.execute(
+                select(SenderRule).where(
+                    SenderRule.sender_domain == e.sender_domain,
+                    SenderRule.user_id == current_user.id,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         current_label = patch.label if patch.label is not None else t.label
         current_category = patch.category if patch.category is not None else t.category
         if existing:
@@ -505,13 +521,15 @@ async def patch_transaction(
             existing.category = current_category
             existing.source = RuleSource.user_trained.value
         else:
-            db.add(SenderRule(
-                user_id=current_user.id,
-                sender_domain=e.sender_domain,
-                label=current_label,
-                category=current_category,
-                source=RuleSource.user_trained.value,
-            ))
+            db.add(
+                SenderRule(
+                    user_id=current_user.id,
+                    sender_domain=e.sender_domain,
+                    label=current_label,
+                    category=current_category,
+                    source=RuleSource.user_trained.value,
+                )
+            )
     if patch.merchant is not None:
         t.merchant = patch.merchant
     if patch.amount is not None:
@@ -526,18 +544,20 @@ async def patch_transaction(
         t.status = patch.status
 
     if changed_fields:
-        db.add(TransactionCorrection(
-            transaction_id=t.id,
-            user_id=current_user.id,
-            old_label=changed_fields.get("label", (None, None))[0],
-            new_label=changed_fields.get("label", (None, None))[1],
-            old_category=changed_fields.get("category", (None, None))[0],
-            new_category=changed_fields.get("category", (None, None))[1],
-            old_merchant=changed_fields.get("merchant", (None, None))[0],
-            new_merchant=changed_fields.get("merchant", (None, None))[1],
-            old_amount=changed_fields.get("amount", (None, None))[0],
-            new_amount=changed_fields.get("amount", (None, None))[1],
-        ))
+        db.add(
+            TransactionCorrection(
+                transaction_id=t.id,
+                user_id=current_user.id,
+                old_label=changed_fields.get("label", (None, None))[0],
+                new_label=changed_fields.get("label", (None, None))[1],
+                old_category=changed_fields.get("category", (None, None))[0],
+                new_category=changed_fields.get("category", (None, None))[1],
+                old_merchant=changed_fields.get("merchant", (None, None))[0],
+                new_merchant=changed_fields.get("merchant", (None, None))[1],
+                old_amount=changed_fields.get("amount", (None, None))[0],
+                new_amount=changed_fields.get("amount", (None, None))[1],
+            )
+        )
 
     await db.commit()
 
@@ -550,6 +570,7 @@ async def patch_transaction(
             await db.commit()
         except Exception as exc:
             import logging
+
             logging.getLogger(__name__).warning("MerchantStore.correct failed: %s", exc)
 
     await db.refresh(t)
@@ -562,12 +583,15 @@ async def patch_transaction(
         }
     return {"id": t.id, "status": t.status, "learned_rule": learned_rule}
 
+
 async def _load_tx_email(transaction_id: str, db: AsyncSession, user_id: str):
-    row = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.id == transaction_id, Email.user_id == user_id)
-    )).one_or_none()
+    row = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.id == transaction_id, Email.user_id == user_id)
+        )
+    ).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
     t, e = row
@@ -592,8 +616,11 @@ async def reclassify_preview(
 
     if method == "rules":
         from app.classifier.classifier import _rules_fallback_result
+
         db_rules = ctx["rules"]
-        cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
+        cls = _rules_fallback_result(
+            e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules
+        )
     else:
         user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
@@ -611,13 +638,13 @@ async def reclassify_preview(
             )
         )
     return {
-        "label":      cls.label.value,
-        "amount":     cls.amount,
-        "merchant":   cls.merchant,
-        "category":   cls.category,
+        "label": cls.label.value,
+        "amount": cls.amount,
+        "merchant": cls.merchant,
+        "category": cls.category,
         "confidence": cls.confidence,
-        "txn_date":   cls.txn_date.isoformat() if cls.txn_date else None,
-        "status":     cls.status.value,
+        "txn_date": cls.txn_date.isoformat() if cls.txn_date else None,
+        "status": cls.status.value,
         "classifier_method": cls.classifier_method.value,
     }
 
@@ -633,11 +660,15 @@ async def reclassify_transaction(
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.classifier.classifier import classify_email
     from app.classifier.context import ClassificationContext
+
     if method == "rules":
         from app.classifier.classifier import _rules_fallback_result
+
         ctx = await get_classifier_context(str(current_user.id), db)
         db_rules = ctx["rules"]
-        cls = _rules_fallback_result(e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules)
+        cls = _rules_fallback_result(
+            e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules
+        )
     else:
         user_llm_client = await get_user_llm_client(str(current_user.id), db)
         cls = await classify_email(
@@ -654,13 +685,13 @@ async def reclassify_transaction(
             )
         )
 
-    t.label     = cls.label.value
-    t.amount    = cls.amount
-    t.merchant  = cls.merchant
-    t.category  = cls.category
+    t.label = cls.label.value
+    t.amount = cls.amount
+    t.merchant = cls.merchant
+    t.category = cls.category
     t.confidence = cls.confidence
     t.classifier_method = cls.classifier_method.value
-    t.status    = cls.status.value
+    t.status = cls.status.value
     if cls.txn_date:
         t.txn_date = cls.txn_date
 
@@ -669,24 +700,28 @@ async def reclassify_transaction(
     # Learn from the accepted reclassification
     learned_rule = None
     if e and e.sender_domain:
-        existing = (await db.execute(
-            select(SenderRule).where(
-                SenderRule.sender_domain == e.sender_domain,
-                SenderRule.user_id == current_user.id,
+        existing = (
+            await db.execute(
+                select(SenderRule).where(
+                    SenderRule.sender_domain == e.sender_domain,
+                    SenderRule.user_id == current_user.id,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if existing:
             existing.label = t.label
             existing.category = t.category
             existing.source = RuleSource.user_trained.value
         else:
-            db.add(SenderRule(
-                user_id=current_user.id,
-                sender_domain=e.sender_domain,
-                label=t.label,
-                category=t.category,
-                source=RuleSource.user_trained.value,
-            ))
+            db.add(
+                SenderRule(
+                    user_id=current_user.id,
+                    sender_domain=e.sender_domain,
+                    label=t.label,
+                    category=t.category,
+                    source=RuleSource.user_trained.value,
+                )
+            )
         learned_rule = {
             "domain": e.sender_domain,
             "label": t.label,
@@ -709,6 +744,7 @@ async def fetch_transaction_body(
     """Re-fetch clean body text for a transaction's email from Gmail API.
     Updates email.body_text in DB and returns the fresh text."""
     import asyncio
+
     t, e = await _load_tx_email(transaction_id, db, user_id=current_user.id)
     from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
@@ -720,16 +756,18 @@ async def fetch_transaction_body(
 
     try:
         msg = await asyncio.to_thread(
-            lambda eid=e.gmail_id: service.users().messages().get(
-                userId="me", id=eid, format="full"
-            ).execute()
+            lambda eid=e.gmail_id: service.users().messages().get(userId="me", id=eid, format="full").execute()
         )
         body = _extract_body_text(msg.get("payload", {}))
         if body:
             e.body_text = body
             await db.commit()
             return {"body_text": body, "body_chars": len(body)}
-        return {"body_text": e.body_text or "", "body_chars": len(e.body_text or ""), "note": "Could not extract body from Gmail"}
+        return {
+            "body_text": e.body_text or "",
+            "body_chars": len(e.body_text or ""),
+            "note": "Could not extract body from Gmail",
+        }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gmail fetch failed: {str(exc)}")
 
@@ -743,20 +781,23 @@ async def find_duplicates(
     Find potential duplicate expenses: same amount on the same date from different sender domains.
     Only looks at expense-labelled transactions with non-null amount and txn_date.
     """
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Email.user_id == current_user.id,
-            Transaction.label == "expense",
-            Transaction.amount.isnot(None),
-            Transaction.txn_date.isnot(None),
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.label == "expense",
+                Transaction.amount.isnot(None),
+                Transaction.txn_date.isnot(None),
+            )
+            .order_by(Transaction.txn_date.desc(), Transaction.amount)
         )
-        .order_by(Transaction.txn_date.desc(), Transaction.amount)
-    )).all()
+    ).all()
 
     # Group by (amount, txn_date)
     from collections import defaultdict
+
     groups: dict = defaultdict(list)
     for t, e in rows:
         key = (float(t.amount), t.txn_date.isoformat())
@@ -767,10 +808,12 @@ async def find_duplicates(
     for (amount, txn_date), items in groups.items():
         domains = {item["email"].get("sender") for item in items}
         if len(items) >= 2 and len(domains) > 1:
-            duplicates.append({
-                "amount": amount,
-                "txn_date": txn_date,
-                "transactions": items,
-            })
+            duplicates.append(
+                {
+                    "amount": amount,
+                    "txn_date": txn_date,
+                    "transactions": items,
+                }
+            )
 
     return sorted(duplicates, key=lambda g: g["txn_date"], reverse=True)

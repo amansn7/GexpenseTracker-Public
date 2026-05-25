@@ -52,13 +52,11 @@ async def test_patch_transaction_not_found(db_session, mock_user):
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.patch(
-                "/api/transactions/00000000-0000-0000-0000-000000000000",
-                json={"label": "income"}
+                "/api/transactions/00000000-0000-0000-0000-000000000000", json={"label": "income"}
             )
         assert resp.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
-
 
 
 from datetime import UTC
@@ -68,6 +66,7 @@ from datetime import date as _date_cls
 @pytest.mark.asyncio
 async def test_effective_month_no_shift():
     from app.api.stats import _effective_month
+
     d = _date_cls(2026, 3, 15)
     assert _effective_month(d, "income", "axis bank") == _date_cls(2026, 3, 1)
 
@@ -75,6 +74,7 @@ async def test_effective_month_no_shift():
 @pytest.mark.asyncio
 async def test_effective_month_shifts_axis_day_25():
     from app.api.stats import _effective_month
+
     d = _date_cls(2026, 2, 28)
     assert _effective_month(d, "income", "AXIS BANK SALARY") == _date_cls(2026, 3, 1)
 
@@ -82,6 +82,7 @@ async def test_effective_month_shifts_axis_day_25():
 @pytest.mark.asyncio
 async def test_effective_month_no_shift_non_axis():
     from app.api.stats import _effective_month
+
     d = _date_cls(2026, 2, 28)
     assert _effective_month(d, "income", "HDFC BANK") == _date_cls(2026, 2, 1)
 
@@ -89,6 +90,7 @@ async def test_effective_month_no_shift_non_axis():
 @pytest.mark.asyncio
 async def test_effective_month_no_shift_expense():
     from app.api.stats import _effective_month
+
     d = _date_cls(2026, 2, 28)
     assert _effective_month(d, "expense", "AXIS BANK") == _date_cls(2026, 2, 1)
 
