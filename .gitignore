@@ -29,3 +29,9 @@ graphify-out/
 .superpowers/
 .planning/
 skills-lock.json
+
+# test artifacts
+test-results/
+
+# external projects
+money-movie/
