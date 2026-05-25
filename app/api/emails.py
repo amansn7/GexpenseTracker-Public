@@ -19,6 +19,7 @@ from app.services.llm_service import get_user_llm_client
 def _body(email: Email) -> str:
     return email.body_text or email.body_snippet or ""
 
+
 router = APIRouter()
 
 
@@ -77,9 +78,9 @@ async def fetch_email_body(
     from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
 
-    email = (await db.execute(
-        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
-    )).scalar_one_or_none()
+    email = (
+        await db.execute(select(Email).where(Email.id == email_id, Email.user_id == current_user.id))
+    ).scalar_one_or_none()
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
 
@@ -90,16 +91,18 @@ async def fetch_email_body(
 
     try:
         msg = await asyncio.to_thread(
-            lambda eid=email.gmail_id: service.users().messages().get(
-                userId="me", id=eid, format="full"
-            ).execute()
+            lambda eid=email.gmail_id: service.users().messages().get(userId="me", id=eid, format="full").execute()
         )
         body = _extract_body_text(msg.get("payload", {}))
         if body:
             email.body_text = body
             await db.commit()
             return {"body_text": body, "body_chars": len(body)}
-        return {"body_text": email.body_text or "", "body_chars": len(email.body_text or ""), "note": "Could not extract body from Gmail"}
+        return {
+            "body_text": email.body_text or "",
+            "body_chars": len(email.body_text or ""),
+            "note": "Could not extract body from Gmail",
+        }
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Gmail fetch failed: {str(exc)}")
 
@@ -119,15 +122,16 @@ async def review_email(
 
     from app.models import FilterRule
 
-    email = (await db.execute(
-        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
-    )).scalar_one_or_none()
+    email = (
+        await db.execute(select(Email).where(Email.id == email_id, Email.user_id == current_user.id))
+    ).scalar_one_or_none()
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
 
     if payload.action == "keep":
         from app.classifier.classifier import classify_email
         from app.classifier.context import ClassificationContext
+
         result = await classify_email(
             ClassificationContext(
                 email_id=email.id,
@@ -153,53 +157,66 @@ async def review_email(
             txn_date=result.txn_date,
             status=TransactionStatus.needs_review,
         )
-        log.info("review_email keep: email=%s status=%s txn_date=%s confidence=%s",
-                 email.id, TransactionStatus.needs_review, result.txn_date, result.confidence)
+        log.info(
+            "review_email keep: email=%s status=%s txn_date=%s confidence=%s",
+            email.id,
+            TransactionStatus.needs_review,
+            result.txn_date,
+            result.confidence,
+        )
         db.add(txn)
         email.pre_filter_status = "passed"
 
         if email.sender_domain:
-            existing_rule = (await db.execute(
-                select(FilterRule).where(
-                    FilterRule.rule_type == "allowlist_domain",
-                    FilterRule.value == email.sender_domain,
-                    FilterRule.source == "user",
-                    FilterRule.user_id == current_user.id,
+            existing_rule = (
+                await db.execute(
+                    select(FilterRule).where(
+                        FilterRule.rule_type == "allowlist_domain",
+                        FilterRule.value == email.sender_domain,
+                        FilterRule.source == "user",
+                        FilterRule.user_id == current_user.id,
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
             if existing_rule:
                 existing_rule.hit_count += 1
             else:
-                db.add(FilterRule(
-                    rule_type="allowlist_domain",
-                    value=email.sender_domain,
-                    source="user",
-                    user_id=current_user.id,
-                    hit_count=1,
-                ))
+                db.add(
+                    FilterRule(
+                        rule_type="allowlist_domain",
+                        value=email.sender_domain,
+                        source="user",
+                        user_id=current_user.id,
+                        hit_count=1,
+                    )
+                )
 
     elif payload.action == "discard":
         email.pre_filter_status = "discarded"
 
         if email.sender_domain:
-            existing_rule = (await db.execute(
-                select(FilterRule).where(
-                    FilterRule.rule_type == "blocklist_domain",
-                    FilterRule.value == email.sender_domain,
-                    FilterRule.source == "user",
-                    FilterRule.user_id == current_user.id,
+            existing_rule = (
+                await db.execute(
+                    select(FilterRule).where(
+                        FilterRule.rule_type == "blocklist_domain",
+                        FilterRule.value == email.sender_domain,
+                        FilterRule.source == "user",
+                        FilterRule.user_id == current_user.id,
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
             if existing_rule:
                 existing_rule.hit_count += 1
             else:
-                db.add(FilterRule(
-                    rule_type="blocklist_domain",
-                    value=email.sender_domain,
-                    source="user",
-                    user_id=current_user.id,
-                    hit_count=1,
-                ))
+                db.add(
+                    FilterRule(
+                        rule_type="blocklist_domain",
+                        value=email.sender_domain,
+                        source="user",
+                        user_id=current_user.id,
+                        hit_count=1,
+                    )
+                )
     else:
         raise HTTPException(status_code=400, detail="action must be 'keep' or 'discard'")
 
@@ -225,9 +242,9 @@ async def undo_review_email(
 
     from app.models import FilterRule, Transaction
 
-    email = (await db.execute(
-        select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
-    )).scalar_one_or_none()
+    email = (
+        await db.execute(select(Email).where(Email.id == email_id, Email.user_id == current_user.id))
+    ).scalar_one_or_none()
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
 
@@ -238,54 +255,72 @@ async def undo_review_email(
 
     if current_status == "passed":
         # Undo a "keep" — delete Transaction, handle allowlist rule
-        txn = (await db.execute(
-            select(Transaction).where(Transaction.email_id == email.id)
-        )).scalar_one_or_none()
+        txn = (await db.execute(select(Transaction).where(Transaction.email_id == email.id))).scalar_one_or_none()
         if txn:
             log.info("undo_review_email deleting Transaction: id=%s email=%s", txn.id, email.id)
             await db.delete(txn)
 
         if email.sender_domain:
-            existing_rule = (await db.execute(
-                select(FilterRule).where(
-                    FilterRule.rule_type == "allowlist_domain",
-                    FilterRule.value == email.sender_domain,
-                    FilterRule.source == "user",
-                    FilterRule.user_id == current_user.id,
+            existing_rule = (
+                await db.execute(
+                    select(FilterRule).where(
+                        FilterRule.rule_type == "allowlist_domain",
+                        FilterRule.value == email.sender_domain,
+                        FilterRule.source == "user",
+                        FilterRule.user_id == current_user.id,
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
             if existing_rule:
                 if existing_rule.hit_count <= 1:
-                    log.info("undo_review_email deleting allowlist rule: id=%s value=%s hit_count=%s",
-                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    log.info(
+                        "undo_review_email deleting allowlist rule: id=%s value=%s hit_count=%s",
+                        existing_rule.id,
+                        email.sender_domain,
+                        existing_rule.hit_count,
+                    )
                     await db.delete(existing_rule)
                 else:
                     existing_rule.hit_count -= 1
-                    log.info("undo_review_email decremented allowlist rule: id=%s value=%s hit_count=%s",
-                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    log.info(
+                        "undo_review_email decremented allowlist rule: id=%s value=%s hit_count=%s",
+                        existing_rule.id,
+                        email.sender_domain,
+                        existing_rule.hit_count,
+                    )
 
         email.pre_filter_status = "review_pending"
 
     elif current_status == "discarded":
         # Undo a "discard" — handle blocklist rule
         if email.sender_domain:
-            existing_rule = (await db.execute(
-                select(FilterRule).where(
-                    FilterRule.rule_type == "blocklist_domain",
-                    FilterRule.value == email.sender_domain,
-                    FilterRule.source == "user",
-                    FilterRule.user_id == current_user.id,
+            existing_rule = (
+                await db.execute(
+                    select(FilterRule).where(
+                        FilterRule.rule_type == "blocklist_domain",
+                        FilterRule.value == email.sender_domain,
+                        FilterRule.source == "user",
+                        FilterRule.user_id == current_user.id,
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
             if existing_rule:
                 if existing_rule.hit_count <= 1:
-                    log.info("undo_review_email deleting blocklist rule: id=%s value=%s hit_count=%s",
-                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    log.info(
+                        "undo_review_email deleting blocklist rule: id=%s value=%s hit_count=%s",
+                        existing_rule.id,
+                        email.sender_domain,
+                        existing_rule.hit_count,
+                    )
                     await db.delete(existing_rule)
                 else:
                     existing_rule.hit_count -= 1
-                    log.info("undo_review_email decremented blocklist rule: id=%s value=%s hit_count=%s",
-                             existing_rule.id, email.sender_domain, existing_rule.hit_count)
+                    log.info(
+                        "undo_review_email decremented blocklist rule: id=%s value=%s hit_count=%s",
+                        existing_rule.id,
+                        email.sender_domain,
+                        existing_rule.hit_count,
+                    )
 
         email.pre_filter_status = "review_pending"
 
@@ -320,9 +355,9 @@ async def bulk_review_emails(
 
     try:
         for email_id in payload.email_ids:
-            email = (await db.execute(
-                select(Email).where(Email.id == email_id, Email.user_id == current_user.id)
-            )).scalar_one_or_none()
+            email = (
+                await db.execute(select(Email).where(Email.id == email_id, Email.user_id == current_user.id))
+            ).scalar_one_or_none()
             if not email:
                 errors.append({"id": email_id, "error": "not found"})
                 continue
@@ -357,47 +392,55 @@ async def bulk_review_emails(
                 email.pre_filter_status = "passed"
 
                 if email.sender_domain:
-                    existing_rule = (await db.execute(
-                        select(FilterRule).where(
-                            FilterRule.rule_type == "allowlist_domain",
-                            FilterRule.value == email.sender_domain,
-                            FilterRule.source == "user",
-                            FilterRule.user_id == current_user.id,
+                    existing_rule = (
+                        await db.execute(
+                            select(FilterRule).where(
+                                FilterRule.rule_type == "allowlist_domain",
+                                FilterRule.value == email.sender_domain,
+                                FilterRule.source == "user",
+                                FilterRule.user_id == current_user.id,
+                            )
                         )
-                    )).scalar_one_or_none()
+                    ).scalar_one_or_none()
                     if existing_rule:
                         existing_rule.hit_count += 1
                     else:
-                        db.add(FilterRule(
-                            rule_type="allowlist_domain",
-                            value=email.sender_domain,
-                            source="user",
-                            user_id=current_user.id,
-                            hit_count=1,
-                        ))
+                        db.add(
+                            FilterRule(
+                                rule_type="allowlist_domain",
+                                value=email.sender_domain,
+                                source="user",
+                                user_id=current_user.id,
+                                hit_count=1,
+                            )
+                        )
 
             elif payload.action == "discard":
                 email.pre_filter_status = "discarded"
 
                 if email.sender_domain:
-                    existing_rule = (await db.execute(
-                        select(FilterRule).where(
-                            FilterRule.rule_type == "blocklist_domain",
-                            FilterRule.value == email.sender_domain,
-                            FilterRule.source == "user",
-                            FilterRule.user_id == current_user.id,
+                    existing_rule = (
+                        await db.execute(
+                            select(FilterRule).where(
+                                FilterRule.rule_type == "blocklist_domain",
+                                FilterRule.value == email.sender_domain,
+                                FilterRule.source == "user",
+                                FilterRule.user_id == current_user.id,
+                            )
                         )
-                    )).scalar_one_or_none()
+                    ).scalar_one_or_none()
                     if existing_rule:
                         existing_rule.hit_count += 1
                     else:
-                        db.add(FilterRule(
-                            rule_type="blocklist_domain",
-                            value=email.sender_domain,
-                            source="user",
-                            user_id=current_user.id,
-                            hit_count=1,
-                        ))
+                        db.add(
+                            FilterRule(
+                                rule_type="blocklist_domain",
+                                value=email.sender_domain,
+                                source="user",
+                                user_id=current_user.id,
+                                hit_count=1,
+                            )
+                        )
 
             else:
                 errors.append({"id": email_id, "error": "action must be 'keep' or 'discard'"})
@@ -420,7 +463,9 @@ class RetrainPayload(BaseModel):
 
 
 @router.post("/emails/retrain")
-async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def retrain_rules(
+    payload: RetrainPayload, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     """
     For each selected email, upsert a SenderRule from its current transaction label.
     Emails with no transaction or label='ignore' are skipped unless they already
@@ -445,33 +490,39 @@ async def retrain_rules(payload: RetrainPayload, db: AsyncSession = Depends(get_
             skipped.append({"id": email.id, "subject": email.subject, "reason": "no transaction"})
             continue
 
-        existing = (await db.execute(
-            select(SenderRule).where(
-                SenderRule.sender_domain == domain,
-                SenderRule.user_id == current_user.id,
+        existing = (
+            await db.execute(
+                select(SenderRule).where(
+                    SenderRule.sender_domain == domain,
+                    SenderRule.user_id == current_user.id,
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
 
         if existing:
             existing.label = txn.label
             existing.category = txn.category or existing.category
             existing.source = RuleSource.user_trained.value
         else:
-            db.add(SenderRule(
-                user_id=current_user.id,
-                sender_domain=domain,
-                label=txn.label,
-                category=txn.category,
-                source=RuleSource.user_trained.value,
-            ))
+            db.add(
+                SenderRule(
+                    user_id=current_user.id,
+                    sender_domain=domain,
+                    label=txn.label,
+                    category=txn.category,
+                    source=RuleSource.user_trained.value,
+                )
+            )
 
-        saved.append({
-            "domain": domain,
-            "label": txn.label,
-            "category": txn.category,
-            "subject": email.subject,
-            "was_existing": bool(existing),
-        })
+        saved.append(
+            {
+                "domain": domain,
+                "label": txn.label,
+                "category": txn.category,
+                "subject": email.subject,
+                "was_existing": bool(existing),
+            }
+        )
 
     await db.commit()
     return {"saved": saved, "skipped": skipped}
@@ -497,9 +548,10 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
             from sqlalchemy import select as _select
 
             from app.models import UserSettings
-            user_settings = (await db.execute(
-                _select(UserSettings).where(UserSettings.user_id == user_id)
-            )).scalar_one_or_none()
+
+            user_settings = (
+                await db.execute(_select(UserSettings).where(UserSettings.user_id == user_id))
+            ).scalar_one_or_none()
 
             user_llm_client = None
             if user_settings and user_settings.active_ai_service_id:
@@ -514,11 +566,11 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                 email_q = await db.execute(select(Email).where(Email.id == email_id, Email.user_id == user_id))
                 email = email_q.scalar_one_or_none()
                 if not email:
-                    yield _sse({"type": "error", "message": f"[{i+1}/{total}] NOT FOUND: {email_id}"})
+                    yield _sse({"type": "error", "message": f"[{i + 1}/{total}] NOT FOUND: {email_id}"})
                     continue
 
                 short = (email.subject or "(no subject)")[:72]
-                yield _sse({"type": "processing", "message": f"\n[{i+1}/{total}] {short}"})
+                yield _sse({"type": "processing", "message": f"\n[{i + 1}/{total}] {short}"})
                 yield _sse({"type": "dim", "message": f"    From   : {email.sender or '—'}"})
                 yield _sse({"type": "dim", "message": f"    Domain : {email.sender_domain or '—'}"})
 
@@ -531,6 +583,7 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                 try:
                     from app.classifier.classifier import classify_email
                     from app.classifier.context import ClassificationContext
+
                     cls = await classify_email(
                         ClassificationContext(
                             email_id=email.id,
@@ -546,7 +599,9 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     )
 
                     txn_q = await db.execute(
-                        select(Transaction).where(Transaction.email_id == email.id, Email.user_id == user_id).join(Email, Transaction.email_id == Email.id)
+                        select(Transaction)
+                        .where(Transaction.email_id == email.id, Email.user_id == user_id)
+                        .join(Email, Transaction.email_id == Email.id)
                     )
                     txn = txn_q.scalar_one_or_none()
 
@@ -590,30 +645,36 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     domain = email.sender_domain or ""
                     if domain and cls.confidence >= 0.75 and cls.label.value in ("expense", "income"):
                         from app.models import RuleSource
-                        existing_rule = (await db.execute(
-                            select(SenderRule).where(
-                                SenderRule.sender_domain == domain,
-                                SenderRule.user_id == user_id,
+
+                        existing_rule = (
+                            await db.execute(
+                                select(SenderRule).where(
+                                    SenderRule.sender_domain == domain,
+                                    SenderRule.user_id == user_id,
+                                )
                             )
-                        )).scalar_one_or_none()
+                        ).scalar_one_or_none()
                         if existing_rule:
                             existing_rule.label = cls.label.value
                             existing_rule.category = cls.category or existing_rule.category
                             existing_rule.source = RuleSource.user_trained.value
                             rule_saved_msg = f"  ✦ domain rule updated: {domain} → {cls.label.value}"
                         else:
-                            db.add(SenderRule(
-                                user_id=user_id,
-                                sender_domain=domain,
-                                label=cls.label.value,
-                                category=cls.category,
-                                source=RuleSource.user_trained.value,
-                            ))
+                            db.add(
+                                SenderRule(
+                                    user_id=user_id,
+                                    sender_domain=domain,
+                                    label=cls.label.value,
+                                    category=cls.category,
+                                    source=RuleSource.user_trained.value,
+                                )
+                            )
                             rule_saved_msg = f"  ✦ domain rule created: {domain} → {cls.label.value}"
 
                     # Flush fuzzy-learned merchant aliases
                     try:
                         from app.classifier.merchant import learn_pending_aliases
+
                         await learn_pending_aliases(db)
                     except Exception as _me:
                         log.warning("merchant alias flush failed: %s", _me)
@@ -624,32 +685,36 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                     yield _sse({"type": "section", "message": "  ── Result ──"})
                     if rule_saved_msg:
                         yield _sse({"type": "match", "message": rule_saved_msg})
-                    yield _sse({
-                        "type": "result",
-                        "email_id": email_id,
-                        "label": cls.label.value,
-                        "amount": cls.amount,
-                        "category": cls.category,
-                        "merchant": cls.merchant,
-                        "message": (
-                            f"  → {cls.label.value.upper()} | {amt_str}"
-                            f" | merchant={cls.merchant or '—'}"
-                            f" | cat={cls.category or '—'}"
-                            f" | conf={cls.confidence:.0%} via {cls.classifier_method.value}"
-                            f"{change_note}"
-                        ),
-                    })
+                    yield _sse(
+                        {
+                            "type": "result",
+                            "email_id": email_id,
+                            "label": cls.label.value,
+                            "amount": cls.amount,
+                            "category": cls.category,
+                            "merchant": cls.merchant,
+                            "message": (
+                                f"  → {cls.label.value.upper()} | {amt_str}"
+                                f" | merchant={cls.merchant or '—'}"
+                                f" | cat={cls.category or '—'}"
+                                f" | conf={cls.confidence:.0%} via {cls.classifier_method.value}"
+                                f"{change_note}"
+                            ),
+                        }
+                    )
 
-                    yield _sse({
-                        "type": "action",
-                        "email_id": email_id,
-                        "txn_id": txn.id,
-                        "domain": email.sender_domain or "",
-                        "current_label": cls.label.value,
-                        "current_category": cls.category or "",
-                        "current_merchant": cls.merchant or "",
-                        "current_amount": cls.amount,
-                    })
+                    yield _sse(
+                        {
+                            "type": "action",
+                            "email_id": email_id,
+                            "txn_id": txn.id,
+                            "domain": email.sender_domain or "",
+                            "current_label": cls.label.value,
+                            "current_category": cls.category or "",
+                            "current_merchant": cls.merchant or "",
+                            "current_amount": cls.amount,
+                        }
+                    )
 
                     ok += 1
                     if label_changed:
@@ -661,10 +726,12 @@ async def reclassify_emails(payload: ReclassifyPayload, current_user: User = Dep
                 yield _sse({"type": "divider", "message": "─" * 60})
 
             await db.commit()
-            yield _sse({
-                "type": "complete",
-                "message": f"\n✓ Done — {ok}/{total} processed, {changed} label(s) changed.",
-            })
+            yield _sse(
+                {
+                    "type": "complete",
+                    "message": f"\n✓ Done — {ok}/{total} processed, {changed} label(s) changed.",
+                }
+            )
 
     return StreamingResponse(
         generate(),

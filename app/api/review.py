@@ -13,14 +13,16 @@ from app.models import Email, RuleSource, SenderRule, Transaction, TransactionSt
 
 logger = logging.getLogger(__name__)
 
-_REPROCESS_CONCURRENCY = 4   # max concurrent LLM calls during bulk reprocess
+_REPROCESS_CONCURRENCY = 4  # max concurrent LLM calls during bulk reprocess
 
 
 router = APIRouter()
 
 
 @router.get("/review")
-async def get_review_queue(count: bool = False, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_review_queue(
+    count: bool = False, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     if count:
         result = await db.execute(
             select(func.count())
@@ -32,61 +34,71 @@ async def get_review_queue(count: bool = False, db: AsyncSession = Depends(get_d
             )
         )
         return {"count": result.scalar() or 0}
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email)
-        .where(
-            Transaction.status == TransactionStatus.needs_review.value,
-            Email.user_id == current_user.id,
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email)
+            .where(
+                Transaction.status == TransactionStatus.needs_review.value,
+                Email.user_id == current_user.id,
+            )
+            .order_by(desc(Email.received_at))
         )
-        .order_by(desc(Email.received_at))
-    )).all()
+    ).all()
 
     # Pre-aggregate domain counts in one query instead of one query per row
-    domain_counts_rows = (await db.execute(
-        select(Email.sender_domain, func.count().label("cnt"))
-        .join(Transaction, Transaction.email_id == Email.id)
-        .where(
-            Transaction.status == TransactionStatus.needs_review.value,
-            Email.sender_domain.isnot(None),
-            Email.user_id == current_user.id,
+    domain_counts_rows = (
+        await db.execute(
+            select(Email.sender_domain, func.count().label("cnt"))
+            .join(Transaction, Transaction.email_id == Email.id)
+            .where(
+                Transaction.status == TransactionStatus.needs_review.value,
+                Email.sender_domain.isnot(None),
+                Email.user_id == current_user.id,
+            )
+            .group_by(Email.sender_domain)
         )
-        .group_by(Email.sender_domain)
-    )).all()
+    ).all()
     domain_counts = {r.sender_domain: r.cnt for r in domain_counts_rows}
 
     result = []
     for t, e in rows:
         domain_count = max(0, domain_counts.get(e.sender_domain or "", 0) - 1)
-        result.append({
-            "id": t.id,
-            "label": t.label,
-            "amount": float(t.amount) if t.amount is not None else None,
-            "merchant": t.merchant,
-            "category": t.category,
-            "confidence": t.confidence,
-            "domain_count": domain_count,
-            "email": {
-                "subject": e.subject,
-                "sender": e.sender,
-                "sender_domain": e.sender_domain,
-                "received_at": e.received_at.isoformat() if e.received_at else None,
-                "body_snippet": e.body_snippet,
-                "gmail_link": e.gmail_link,
-            },
-        })
+        result.append(
+            {
+                "id": t.id,
+                "label": t.label,
+                "amount": float(t.amount) if t.amount is not None else None,
+                "merchant": t.merchant,
+                "category": t.category,
+                "confidence": t.confidence,
+                "domain_count": domain_count,
+                "email": {
+                    "subject": e.subject,
+                    "sender": e.sender,
+                    "sender_domain": e.sender_domain,
+                    "received_at": e.received_at.isoformat() if e.received_at else None,
+                    "body_snippet": e.body_snippet,
+                    "gmail_link": e.gmail_link,
+                },
+            }
+        )
 
     return result
 
 
 @router.post("/review/{transaction_id}/reprocess")
-async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def reprocess_transaction(
+    transaction_id: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     """Re-run the rule engine + LLM classifier on the email and update the transaction."""
-    row = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
-    )).one_or_none()
+    row = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(Transaction.id == transaction_id, Email.user_id == current_user.id)
+        )
+    ).one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -95,6 +107,7 @@ async def reprocess_transaction(transaction_id: str, db: AsyncSession = Depends(
     logger.info("Reprocessing transaction %s (email %s)", t.id, e.gmail_id)
     try:
         from app.classifier.context import ClassificationContext
+
         result = await classify_email(
             ClassificationContext(
                 email_id=e.id,
@@ -141,9 +154,18 @@ _bulk_progress: dict[int, dict] = {}
 
 @router.get("/review/reprocess-all/progress")
 async def reprocess_all_progress(current_user: User = Depends(get_current_user)):
-    return dict(_bulk_progress.get(current_user.id, {
-        "running": False, "total": 0, "done": 0, "errors": 0, "moved_out": 0,
-    }))
+    return dict(
+        _bulk_progress.get(
+            current_user.id,
+            {
+                "running": False,
+                "total": 0,
+                "done": 0,
+                "errors": 0,
+                "moved_out": 0,
+            },
+        )
+    )
 
 
 @router.post("/review/reprocess-all")
@@ -156,14 +178,20 @@ async def reprocess_all(db: AsyncSession = Depends(get_db), current_user: User =
         return {"message": "Already running", "progress": dict(_bulk_progress[current_user.id])}
 
     # Fetch IDs now; processing happens in background
-    rows = (await db.execute(
-        select(Transaction.id)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.status == TransactionStatus.needs_review.value,
-            Email.user_id == current_user.id,
+    rows = (
+        (
+            await db.execute(
+                select(Transaction.id)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Transaction.status == TransactionStatus.needs_review.value,
+                    Email.user_id == current_user.id,
+                )
+            )
         )
-    )).scalars().all()
+        .scalars()
+        .all()
+    )
 
     if not rows:
         return {"message": "Nothing to reprocess", "progress": dict(_bulk_progress.get(current_user.id, {}))}
@@ -187,17 +215,20 @@ async def _bulk_reprocess_task(transaction_ids: list, user_id: int):
         async with sem:
             try:
                 async with AsyncSessionLocal() as session:
-                    row = (await session.execute(
-                        select(Transaction, Email)
-                        .join(Email, Transaction.email_id == Email.id)
-                        .where(Transaction.id == txn_id, Email.user_id == user_id)
-                    )).one_or_none()
+                    row = (
+                        await session.execute(
+                            select(Transaction, Email)
+                            .join(Email, Transaction.email_id == Email.id)
+                            .where(Transaction.id == txn_id, Email.user_id == user_id)
+                        )
+                    ).one_or_none()
                     if not row:
                         return
 
                     t, e = row
 
                     from app.classifier.context import ClassificationContext
+
                     result = await classify_email(
                         ClassificationContext(
                             email_id=e.id,
@@ -224,8 +255,12 @@ async def _bulk_reprocess_task(transaction_ids: list, user_id: int):
                         _bulk_progress[user_id]["moved_out"] += 1
 
                 _bulk_progress[user_id]["done"] += 1
-                logger.info("Bulk reprocess %s/%s: %s",
-                            _bulk_progress[user_id]["done"], _bulk_progress[user_id]["total"], txn_id)
+                logger.info(
+                    "Bulk reprocess %s/%s: %s",
+                    _bulk_progress[user_id]["done"],
+                    _bulk_progress[user_id]["total"],
+                    txn_id,
+                )
             except Exception as exc:
                 _bulk_progress[user_id]["errors"] += 1
                 _bulk_progress[user_id]["done"] += 1
@@ -237,13 +272,15 @@ async def _bulk_reprocess_task(transaction_ids: list, user_id: int):
 
 
 class BatchActionBody(BaseModel):
-    action: str          # "ignore_domain" | "expense_domain" | "income_domain"
+    action: str  # "ignore_domain" | "expense_domain" | "income_domain"
     domain: str
     category: str | None = None
 
 
 @router.post("/review/batch")
-async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def batch_action(
+    body: BatchActionBody, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
     """
     Apply label to ALL needs_review transactions from a given sender domain.
     Also upserts a SenderRule so future emails from this domain are auto-classified.
@@ -259,15 +296,17 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
     label = label_map[body.action]
 
     # Find all needs_review transactions for this domain
-    rows = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.status == TransactionStatus.needs_review.value,
-            Email.sender_domain == body.domain,
-            Email.user_id == current_user.id,
+    rows = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.status == TransactionStatus.needs_review.value,
+                Email.sender_domain == body.domain,
+                Email.user_id == current_user.id,
+            )
         )
-    )).all()
+    ).all()
 
     for t, e in rows:
         t.label = label
@@ -276,12 +315,14 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
             t.category = body.category
 
     # Upsert sender rule
-    existing = (await db.execute(
-        select(SenderRule).where(
-            SenderRule.sender_domain == body.domain,
-            SenderRule.user_id == current_user.id,
+    existing = (
+        await db.execute(
+            select(SenderRule).where(
+                SenderRule.sender_domain == body.domain,
+                SenderRule.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if existing:
         existing.label = label
@@ -289,13 +330,15 @@ async def batch_action(body: BatchActionBody, db: AsyncSession = Depends(get_db)
             existing.category = body.category
         existing.source = RuleSource.user_trained.value
     else:
-        db.add(SenderRule(
-            user_id=current_user.id,
-            sender_domain=body.domain,
-            label=label,
-            category=body.category,
-            source=RuleSource.user_trained.value,
-        ))
+        db.add(
+            SenderRule(
+                user_id=current_user.id,
+                sender_domain=body.domain,
+                label=label,
+                category=body.category,
+                source=RuleSource.user_trained.value,
+            )
+        )
 
     await db.commit()
     return {"updated": len(rows), "domain": body.domain, "label": label}

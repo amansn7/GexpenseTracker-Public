@@ -2,6 +2,7 @@
 
 Validates tracked transactions against expected balances and flags anomalies.
 """
+
 import re
 from datetime import date
 
@@ -78,13 +79,11 @@ async def reconciliation_health(
     db: AsyncSession = Depends(get_db),
 ):
     """Run financial reconciliation checks and return anomaly report."""
-    settings_row = (await db.execute(
-        select(UserSettings).where(UserSettings.user_id == current_user.id)
-    )).scalar_one_or_none()
+    settings_row = (
+        await db.execute(select(UserSettings).where(UserSettings.user_id == current_user.id))
+    ).scalar_one_or_none()
     starting_balance = (
-        float(settings_row.starting_balance)
-        if settings_row and settings_row.starting_balance is not None
-        else None
+        float(settings_row.starting_balance) if settings_row and settings_row.starting_balance is not None else None
     )
     starting_balance_date = settings_row.starting_balance_date if settings_row else None
 
@@ -96,31 +95,53 @@ async def reconciliation_health(
     if starting_balance_date:
         base_filter.append(Transaction.txn_date >= starting_balance_date)
 
-    income_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "income", *base_filter)
-    )).scalar_one() or 0)
+    income_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.label == "income", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    expense_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "expense", Transaction.transaction_type == "purchase", *base_filter)
-    )).scalar_one() or 0)
+    expense_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.label == "expense", Transaction.transaction_type == "purchase", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    cc_payment_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "cc_payment", *base_filter)
-    )).scalar_one() or 0)
+    cc_payment_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.transaction_type == "cc_payment", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    investment_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "investment", *base_filter)
-    )).scalar_one() or 0)
+    investment_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.transaction_type == "investment", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    expected_balance = round((starting_balance or 0.0) + income_total - expense_total - cc_payment_total - investment_total, 2)
+    expected_balance = round(
+        (starting_balance or 0.0) + income_total - expense_total - cc_payment_total - investment_total, 2
+    )
     cash_outflow = round(expense_total + cc_payment_total + investment_total, 2)
 
     anomalies = []
@@ -129,33 +150,39 @@ async def reconciliation_health(
         net_flow = round(income_total - expense_total - cc_payment_total - investment_total, 2)
         balance_discrepancy = abs(net_flow)
         if balance_discrepancy > 100:
-            anomalies.append({
-                "type": "balance_discrepancy",
-                "severity": "high",
-                "message": f"Balance discrepancy of ₹{balance_discrepancy:.2f} detected",
-                "expected": expected_balance,
-                "threshold": 100,
-            })
+            anomalies.append(
+                {
+                    "type": "balance_discrepancy",
+                    "severity": "high",
+                    "message": f"Balance discrepancy of ₹{balance_discrepancy:.2f} detected",
+                    "expected": expected_balance,
+                    "threshold": 100,
+                }
+            )
 
     if income_total > 0:
         expense_ratio = expense_total / income_total
         if expense_ratio > 0.95:
-            anomalies.append({
-                "type": "high_expense_ratio",
-                "severity": "warning",
-                "message": f"Expenses are {expense_ratio*100:.1f}% of income",
-                "ratio": round(expense_ratio, 3),
-            })
+            anomalies.append(
+                {
+                    "type": "high_expense_ratio",
+                    "severity": "warning",
+                    "message": f"Expenses are {expense_ratio * 100:.1f}% of income",
+                    "ratio": round(expense_ratio, 3),
+                }
+            )
 
     if cc_payment_total > 0 and expense_total > 0:
         cc_ratio = cc_payment_total / expense_total
         if cc_ratio > 0.5:
-            anomalies.append({
-                "type": "high_cc_payment_ratio",
-                "severity": "info",
-                "message": f"CC payments are {cc_ratio*100:.1f}% of tracked expenses",
-                "ratio": round(cc_ratio, 3),
-            })
+            anomalies.append(
+                {
+                    "type": "high_cc_payment_ratio",
+                    "severity": "info",
+                    "message": f"CC payments are {cc_ratio * 100:.1f}% of tracked expenses",
+                    "ratio": round(cc_ratio, 3),
+                }
+            )
 
     return {
         "starting_balance": starting_balance,
@@ -200,29 +227,49 @@ async def reconciliation_monthly(
         Transaction.status != "needs_review",
     ]
 
-    income_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "income", *base_filter)
-    )).scalar_one() or 0)
+    income_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.label == "income", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    expense_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.label == "expense", Transaction.transaction_type == "purchase", *base_filter)
-    )).scalar_one() or 0)
+    expense_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.label == "expense", Transaction.transaction_type == "purchase", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    cc_payment_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "cc_payment", *base_filter)
-    )).scalar_one() or 0)
+    cc_payment_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.transaction_type == "cc_payment", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
-    investment_total = float((await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(Email, Transaction.email_id == Email.id)
-        .where(Transaction.transaction_type == "investment", *base_filter)
-    )).scalar_one() or 0)
+    investment_total = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(Transaction.transaction_type == "investment", *base_filter)
+            )
+        ).scalar_one()
+        or 0
+    )
 
     net = round(income_total - expense_total, 2)
 
@@ -265,12 +312,18 @@ async def cc_statement_reconciliation(
         Transaction.payment_mode == "credit_card",
     ]
 
-    txn_rows = (await db.execute(
-        select(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_filter)
-        .order_by(Transaction.amount.desc())
-    )).scalars().all()
+    txn_rows = (
+        (
+            await db.execute(
+                select(Transaction)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(*base_filter)
+                .order_by(Transaction.amount.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     tracked_total = sum(float(t.amount or 0) for t in txn_rows)
     tracked_total = round(tracked_total, 2)
@@ -291,14 +344,16 @@ async def cc_statement_reconciliation(
         if t.amount is not None and float(t.amount) > statement_total * 0.25 and statement_total > 0:
             reasons.append("large_amount")
         if reasons:
-            flagged.append({
-                "id": t.id,
-                "merchant": t.merchant,
-                "amount": float(t.amount) if t.amount else 0,
-                "date": t.txn_date.isoformat() if t.txn_date else None,
-                "category": t.category,
-                "reasons": reasons,
-            })
+            flagged.append(
+                {
+                    "id": t.id,
+                    "merchant": t.merchant,
+                    "amount": float(t.amount) if t.amount else 0,
+                    "date": t.txn_date.isoformat() if t.txn_date else None,
+                    "category": t.category,
+                    "reasons": reasons,
+                }
+            )
 
     return {
         "matched": matched,
@@ -324,11 +379,11 @@ async def cc_accounts(
         Transaction.merchant.isnot(None),
     ]
 
-    all_txns = (await db.execute(
-        select(Transaction)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*base_filter)
-    )).scalars().all()
+    all_txns = (
+        (await db.execute(select(Transaction).join(Email, Transaction.email_id == Email.id).where(*base_filter)))
+        .scalars()
+        .all()
+    )
 
     cc_groups: dict[str, dict] = {}
 
@@ -358,12 +413,14 @@ async def cc_accounts(
     result = []
     for acct in sorted(cc_groups.keys()):
         g = cc_groups[acct]
-        result.append({
-            "account": g["account"],
-            "last_4": g["last_4"],
-            "total_purchases": round(g["total_purchases"], 2),
-            "total_payments": round(g["total_payments"], 2),
-            "net_balance": round(g["total_purchases"] - g["total_payments"], 2),
-        })
+        result.append(
+            {
+                "account": g["account"],
+                "last_4": g["last_4"],
+                "total_purchases": round(g["total_purchases"], 2),
+                "total_payments": round(g["total_payments"], 2),
+                "net_balance": round(g["total_purchases"] - g["total_payments"], 2),
+            }
+        )
 
     return result
