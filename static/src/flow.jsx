@@ -360,13 +360,6 @@ const FlowView = ({ transactions, categoryFilter }) => {
               </div>
             )}
           </div>
-          {!isMobile && (
-            <a href="/money-movie/" target="_blank" style={{ fontSize: 11, color: "var(--paper)", opacity: 0.5, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", transition: "opacity 150ms" }}
-               onMouseEnter={e => e.target.style.opacity = "1"}
-               onMouseLeave={e => e.target.style.opacity = "0.5"}>
-              Export movie
-            </a>
-          )}
         </div>
         <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: isMobile ? "10px 12px" : "8px 20px", display: "flex", justifyContent: "flex-end", overflowX: "auto" }}>
           <DateRangeControl
