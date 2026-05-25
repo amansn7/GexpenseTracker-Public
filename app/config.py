@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     def force_asyncpg(cls, v: str) -> str:
         for sync_scheme in ("postgresql://", "postgresql+psycopg2://", "postgres://"):
             if v.startswith(sync_scheme):
-                return "postgresql+asyncpg://" + v[len(sync_scheme):]
+                return "postgresql+asyncpg://" + v[len(sync_scheme) :]
         return v
 
     GOOGLE_CLIENT_ID: str = ""
@@ -25,12 +25,12 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
 
     # Additional free-tier LLM providers (OpenAI-compatible)
-    GROK_API_KEY: str = ""          # xAI Grok  — https://api.x.ai/v1
-    GROQ_API_KEY: str = ""         # Groq    — https://api.groq.com/openai/v1
-    GOOGLE_AI_API_KEY: str = ""     # Gemini  — https://generativelanguage.googleapis.com/v1beta/openai
-    SCALEWAY_API_KEY: str = ""      # Scaleway   — https://api.scaleway.ai/v1
-    CLOUDFLARE_ACCOUNT_ID: str = ""   # Cloudflare — https://api.cloudflare.com/client/v4/accounts/
-    CLOUDFLARE_API_TOKEN: str = ""   # Workers AI token
+    GROK_API_KEY: str = ""  # xAI Grok  — https://api.x.ai/v1
+    GROQ_API_KEY: str = ""  # Groq    — https://api.groq.com/openai/v1
+    GOOGLE_AI_API_KEY: str = ""  # Gemini  — https://generativelanguage.googleapis.com/v1beta/openai
+    SCALEWAY_API_KEY: str = ""  # Scaleway   — https://api.scaleway.ai/v1
+    CLOUDFLARE_ACCOUNT_ID: str = ""  # Cloudflare — https://api.cloudflare.com/client/v4/accounts/
+    CLOUDFLARE_API_TOKEN: str = ""  # Workers AI token
 
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75
@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     LLM_BATCH_SIZE: int = 5
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
-    JWT_SECRET: str = ""   # Required for JWT auth — set in .env
-    FERNET_KEY: str = ""   # base64 Fernet key; if empty, tokens stored plaintext
+    JWT_SECRET: str = ""  # Required for JWT auth — set in .env
+    FERNET_KEY: str = ""  # base64 Fernet key; if empty, tokens stored plaintext
     INVITE_CODE: str = ""
     DEV_MODE: bool = False
 
@@ -81,5 +81,6 @@ class Settings(BaseSettings):
     RECLASSIFY_METHODS: list = ["llm", "rules"]
 
     LOG_LEVEL: str = "INFO"
+
 
 settings = Settings()

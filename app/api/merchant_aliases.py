@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import delete, select
@@ -29,12 +28,18 @@ async def list_merchant_aliases(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    rows = (await db.execute(
-        select(MerchantAlias)
-        .where(MerchantAlias.user_id == current_user.id)
-        .order_by(MerchantAlias.hit_count.desc())
-        .limit(200)
-    )).scalars().all()
+    rows = (
+        (
+            await db.execute(
+                select(MerchantAlias)
+                .where(MerchantAlias.user_id == current_user.id)
+                .order_by(MerchantAlias.hit_count.desc())
+                .limit(200)
+            )
+        )
+        .scalars()
+        .all()
+    )
     return [
         {
             "id": r.id,
@@ -56,26 +61,30 @@ async def create_merchant_alias(
     current_user: User = Depends(get_current_user),
 ):
     raw_key = body.raw.strip().lower()
-    existing = (await db.execute(
-        select(MerchantAlias).where(
-            MerchantAlias.raw == raw_key,
-            MerchantAlias.user_id == current_user.id,
+    existing = (
+        await db.execute(
+            select(MerchantAlias).where(
+                MerchantAlias.raw == raw_key,
+                MerchantAlias.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if existing:
         existing.canonical = body.canonical
         existing.category = body.category
         existing.source = "user"
     else:
-        db.add(MerchantAlias(
-            user_id=current_user.id,
-            raw=raw_key,
-            canonical=body.canonical,
-            category=body.category,
-            confidence=body.confidence or 1.0,
-            source="user",
-        ))
+        db.add(
+            MerchantAlias(
+                user_id=current_user.id,
+                raw=raw_key,
+                canonical=body.canonical,
+                category=body.category,
+                confidence=body.confidence or 1.0,
+                source="user",
+            )
+        )
 
     await db.commit()
     return {"raw": raw_key, "canonical": body.canonical, "category": body.category}
@@ -88,12 +97,14 @@ async def patch_merchant_alias(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    row = (await db.execute(
-        select(MerchantAlias).where(
-            MerchantAlias.id == alias_id,
-            MerchantAlias.user_id == current_user.id,
+    row = (
+        await db.execute(
+            select(MerchantAlias).where(
+                MerchantAlias.id == alias_id,
+                MerchantAlias.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Merchant alias not found")
 
@@ -112,12 +123,14 @@ async def delete_merchant_alias(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    row = (await db.execute(
-        select(MerchantAlias).where(
-            MerchantAlias.id == alias_id,
-            MerchantAlias.user_id == current_user.id,
+    row = (
+        await db.execute(
+            select(MerchantAlias).where(
+                MerchantAlias.id == alias_id,
+                MerchantAlias.user_id == current_user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Merchant alias not found")
 

@@ -1,4 +1,5 @@
 """Symmetric encryption helpers for secrets stored in the DB."""
+
 import base64
 import hashlib
 
@@ -9,6 +10,7 @@ from app.config import settings
 
 def _fernet():
     from cryptography.fernet import Fernet
+
     if not settings.FERNET_KEY:
         raise RuntimeError("FERNET_KEY is not configured. Encryption is required.")
     try:
@@ -36,6 +38,7 @@ def decrypt_secret(value: str) -> str:
 
 def _ai_key_fernet():
     from cryptography.fernet import Fernet
+
     if not settings.FERNET_KEY:
         raise RuntimeError("FERNET_KEY is required for AI key encryption")
     try:

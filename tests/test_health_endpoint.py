@@ -1,8 +1,9 @@
 """Tests for /health/detailed and /health/ready endpoints."""
+
 import os
+
 import pytest
 import pytest_asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
@@ -12,6 +13,7 @@ async def auth_client(mock_user):
     os.environ["TESTING"] = "1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
     from app.main import app
+
     return TestClient(app)
 
 
@@ -20,14 +22,16 @@ def unauth_client():
     """Client with no auth overrides — for testing 401 responses."""
     os.environ["TESTING"] = "1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-    from app.main import app
     # Ensure no auth overrides are active
     from app.auth_deps import get_current_user
+    from app.main import app
+
     app.dependency_overrides.pop(get_current_user, None)
     return TestClient(app)
 
 
 # ── /health/ready — public, minimal ──────────────────────────────────────────
+
 
 def test_health_ready_returns_200(unauth_client):
     resp = unauth_client.get("/api/health/ready")
@@ -48,6 +52,7 @@ def test_health_ready_no_internal_details(unauth_client):
 
 
 # ── /health/detailed — requires authentication ────────────────────────────────
+
 
 def test_health_detailed_unauthenticated_returns_401(unauth_client):
     """Unauthenticated requests must be rejected."""

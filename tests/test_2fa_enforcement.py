@@ -8,6 +8,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.auth_deps import TOTP_COOKIE_NAME
+from app.crypto import encrypt_secret
 from app.database import get_db
 from app.main import app
 from app.models import Session, User, UserRole, UserSettings, UserStatus
@@ -39,6 +40,7 @@ async def _create_authed_client(db_session, user, cookies=None):
 async def db_override(db_session):
     async def _override():
         yield db_session
+
     app.dependency_overrides[get_db] = _override
     yield db_session
     app.dependency_overrides.pop(get_db, None)
@@ -71,7 +73,7 @@ async def test_user_with_totp_no_cookie_returns_2fa_required(db_override):
         status=UserStatus.active,
         onboarding_complete=True,
         totp_enabled=True,
-        totp_secret=pyotp.random_base32(),
+        totp_secret=encrypt_secret(pyotp.random_base32()),
     )
     db_session.add(user)
     await db_session.flush()
@@ -98,7 +100,7 @@ async def test_valid_totp_code_sets_cookie(db_override):
         status=UserStatus.active,
         onboarding_complete=True,
         totp_enabled=True,
-        totp_secret=secret,
+        totp_secret=encrypt_secret(secret),
     )
     db_session.add(user)
     await db_session.flush()
@@ -138,7 +140,7 @@ async def test_invalid_totp_code_returns_401(db_override):
         status=UserStatus.active,
         onboarding_complete=True,
         totp_enabled=True,
-        totp_secret=secret,
+        totp_secret=encrypt_secret(secret),
     )
     db_session.add(user)
     await db_session.flush()
@@ -163,7 +165,7 @@ async def test_totp_verified_cookie_allows_auth(db_override):
         status=UserStatus.active,
         onboarding_complete=True,
         totp_enabled=True,
-        totp_secret=secret,
+        totp_secret=encrypt_secret(secret),
     )
     db_session.add(user)
     await db_session.flush()

@@ -10,10 +10,13 @@ os.environ.setdefault("FERNET_KEY", "test-fernet-key-for-tests-only-not-for-prod
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-tests-only-not-for-production")
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
+
 
 @pytest_asyncio.fixture
 async def db_session():
     from app.models import Base
+
     engine = create_async_engine(TEST_DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -42,12 +45,14 @@ async def mock_user(db_session):
     db_session.add(user)
     await db_session.flush()
     db_session.add(UserSettings(user_id=user.id))
-    db_session.add(UserProfile(
-        user_id=user.id,
-        full_name="Test User",
-        default_currency="INR",
-        timezone="Asia/Kolkata",
-    ))
+    db_session.add(
+        UserProfile(
+            user_id=user.id,
+            full_name="Test User",
+            default_currency="INR",
+            timezone="Asia/Kolkata",
+        )
+    )
     await db_session.commit()
     await db_session.refresh(user)
 

@@ -1,4 +1,5 @@
 """Tests for AI key encryption using FERNET_KEY hierarchy."""
+
 import base64
 import hashlib
 
@@ -16,6 +17,7 @@ def test_encrypt_decrypt_roundtrip(monkeypatch):
     """Encrypt with FERNET_KEY, decrypt with same key → round-trip works."""
     monkeypatch.setenv("FERNET_KEY", _make_fernet_key("test-roundtrip-key"))
     from app.config import settings
+
     settings.FERNET_KEY = _make_fernet_key("test-roundtrip-key")
 
     plaintext = "sk-test-abc123xyz"
@@ -32,6 +34,7 @@ def test_decrypt_with_wrong_fernet_key_raises(monkeypatch):
 
     monkeypatch.setenv("FERNET_KEY", _make_fernet_key("correct-key"))
     from app.config import settings
+
     settings.FERNET_KEY = _make_fernet_key("correct-key")
 
     plaintext = "sk-secret-value"
@@ -48,6 +51,7 @@ def test_encrypt_none_returns_none(monkeypatch):
     """encrypt_ai_secret with None → returns None."""
     monkeypatch.setenv("FERNET_KEY", _make_fernet_key("test-none-key"))
     from app.config import settings
+
     settings.FERNET_KEY = _make_fernet_key("test-none-key")
 
     assert encrypt_ai_secret(None) is None
@@ -58,6 +62,7 @@ def test_decrypt_none_returns_none(monkeypatch):
     """decrypt_ai_secret with None → returns None."""
     monkeypatch.setenv("FERNET_KEY", _make_fernet_key("test-none-key"))
     from app.config import settings
+
     settings.FERNET_KEY = _make_fernet_key("test-none-key")
 
     assert decrypt_ai_secret(None) is None
@@ -88,6 +93,7 @@ def test_migration_reencryption_scenario(monkeypatch):
 
     monkeypatch.setenv("FERNET_KEY", new_fernet_key)
     from app.config import settings
+
     settings.FERNET_KEY = new_fernet_key
 
     final_decrypted = decrypt_ai_secret(new_encrypted)
@@ -110,6 +116,7 @@ def test_migration_skip_on_corrupt_data(monkeypatch):
 
     monkeypatch.setenv("FERNET_KEY", new_fernet_key)
     from app.config import settings
+
     settings.FERNET_KEY = new_fernet_key
 
     result = decrypt_ai_secret(corrupt_value)

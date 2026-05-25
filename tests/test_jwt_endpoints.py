@@ -7,6 +7,7 @@ Tests:
 - POST /api/auth/logout (Bearer) — blacklists refresh token
 - GET  /api/auth/callback       — dual-issue: mobile client gets JSON, browser still redirects
 """
+
 import os
 
 import pytest
@@ -76,6 +77,7 @@ async def authed(db_session):
 
 # ── POST /api/auth/token/refresh ──────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_refresh_returns_new_token_pair(authed):
     client, user, _, refresh, db = authed
@@ -89,6 +91,7 @@ async def test_refresh_returns_new_token_pair(authed):
     assert "refresh_token" in data
     # New tokens must be decodable
     from app.jwt_utils import TokenType, decode_token
+
     decode_token(data["access_token"], expected_type=TokenType.ACCESS)
     decode_token(data["refresh_token"], expected_type=TokenType.REFRESH)
 
@@ -109,6 +112,7 @@ async def test_refresh_with_blacklisted_token(authed):
     import time
 
     import jwt as pyjwt
+
     client, user, _, _, db = authed
 
     now = int(time.time())
@@ -136,6 +140,7 @@ async def test_refresh_with_blacklisted_token(authed):
 
 # ── POST /api/auth/device-token ───────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_register_device_token(authed):
     client, user, _, _, db = authed
@@ -148,9 +153,7 @@ async def test_register_device_token(authed):
     assert "id" in data
 
     # Confirm it's in DB
-    row = (await db.execute(
-        select(DeviceToken).where(DeviceToken.token == "apns-xyz-789")
-    )).scalar_one_or_none()
+    row = (await db.execute(select(DeviceToken).where(DeviceToken.token == "apns-xyz-789"))).scalar_one_or_none()
     assert row is not None
     assert row.platform == "ios"
     assert row.user_id == user.id
@@ -178,6 +181,7 @@ async def test_register_device_token_upsert(authed):
 
 # ── DELETE /api/auth/device-token ─────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_delete_device_token(authed):
     client, user, _, _, db = authed
@@ -186,6 +190,7 @@ async def test_delete_device_token(authed):
     await db.commit()
 
     import json as _json
+
     resp = await client.request(
         "DELETE",
         "/api/auth/device-token",
@@ -196,9 +201,7 @@ async def test_delete_device_token(authed):
     assert resp.json() == {"deleted": True}
 
     # Confirm gone
-    row = (await db.execute(
-        select(DeviceToken).where(DeviceToken.token == "del-token-123")
-    )).scalar_one_or_none()
+    row = (await db.execute(select(DeviceToken).where(DeviceToken.token == "del-token-123"))).scalar_one_or_none()
     assert row is None
 
 
@@ -206,6 +209,7 @@ async def test_delete_device_token(authed):
 async def test_delete_nonexistent_device_token(authed):
     """Deleting a token that doesn't exist → 404."""
     import json as _json
+
     client, *_ = authed
     resp = await client.request(
         "DELETE",
@@ -218,12 +222,14 @@ async def test_delete_nonexistent_device_token(authed):
 
 # ── POST /api/auth/logout (Bearer) ────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_logout_bearer_blacklists_refresh(authed):
     """Logout with Bearer + refresh_token body blacklists the jti."""
     import time
 
     import jwt as pyjwt
+
     client, user, _, _, db = authed
 
     jti = "logout-jti-abc"
@@ -245,7 +251,5 @@ async def test_logout_bearer_blacklists_refresh(authed):
     assert resp.status_code == 200
 
     # Confirm blacklisted
-    row = (await db.execute(
-        select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti)
-    )).scalar_one_or_none()
+    row = (await db.execute(select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti))).scalar_one_or_none()
     assert row is not None

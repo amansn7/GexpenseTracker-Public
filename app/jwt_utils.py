@@ -3,6 +3,7 @@
 Uses PyJWT with HS256. Secret read from JWT_SECRET env var (or settings).
 Raises ValueError (not HTTPException) so callers can wrap appropriately.
 """
+
 import os
 import time
 import uuid
@@ -10,8 +11,8 @@ from enum import StrEnum
 
 import jwt as pyjwt
 
-ACCESS_TTL_SECONDS: int = 3600          # 1 hour
-REFRESH_TTL_SECONDS: int = 30 * 86400   # 30 days
+ACCESS_TTL_SECONDS: int = 3600  # 1 hour
+REFRESH_TTL_SECONDS: int = 30 * 86400  # 30 days
 _ALGORITHM = "HS256"
 
 
@@ -23,6 +24,7 @@ class TokenType(StrEnum):
 def _secret() -> str:
     # Prefer settings object; fall back to env var for test isolation
     from app.config import settings as _settings
+
     secret = _settings.JWT_SECRET or os.getenv("JWT_SECRET", "")
     if not secret:
         raise RuntimeError("JWT_SECRET is not configured — set it in .env")

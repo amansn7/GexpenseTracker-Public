@@ -1,4 +1,5 @@
 """Test get_current_user with Bearer JWT auth."""
+
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -45,6 +46,7 @@ async def user_and_db(db_session):
 def _db_override(db_session):
     async def override():
         yield db_session
+
     return override
 
 
@@ -58,7 +60,8 @@ async def test_get_current_user_via_bearer_jwt(user_and_db):
     try:
         token = create_access_token(user_id=user.id, email=user.email)
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test",
+            transport=ASGITransport(app=app),
+            base_url="http://test",
             headers={"Authorization": f"Bearer {token}"},
         ) as client:
             resp = await client.get("/api/auth/me")
@@ -88,7 +91,8 @@ async def test_bearer_expired_returns_401(user_and_db):
         }
         expired_token = pyjwt.encode(payload, os.environ["JWT_SECRET"], algorithm="HS256")
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test",
+            transport=ASGITransport(app=app),
+            base_url="http://test",
             headers={"Authorization": f"Bearer {expired_token}"},
         ) as client:
             resp = await client.get("/api/auth/me")
@@ -107,7 +111,8 @@ async def test_bearer_refresh_token_rejected(user_and_db):
     try:
         refresh = create_refresh_token(user_id=user.id, email=user.email)
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test",
+            transport=ASGITransport(app=app),
+            base_url="http://test",
             headers={"Authorization": f"Bearer {refresh}"},
         ) as client:
             resp = await client.get("/api/auth/me")
@@ -131,14 +136,17 @@ async def test_cookie_auth_still_works(user_and_db):
     app.dependency_overrides[get_db] = _db_override(db)
     try:
         token = secrets.token_bytes(32)
-        db.add(Session(
-            user_id=user.id,
-            token=token,
-            expires_at=datetime.now(UTC) + timedelta(days=30),
-        ))
+        db.add(
+            Session(
+                user_id=user.id,
+                token=token,
+                expires_at=datetime.now(UTC) + timedelta(days=30),
+            )
+        )
         await db.commit()
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test",
+            transport=ASGITransport(app=app),
+            base_url="http://test",
             cookies={"session": token.hex()},
         ) as client:
             resp = await client.get("/api/auth/me")

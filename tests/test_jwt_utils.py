@@ -1,4 +1,5 @@
 """Tests for jwt_utils — sign/verify JWTs."""
+
 import os
 import time
 

@@ -54,9 +54,7 @@ async def get_current_user(
             user_id = payload.get("sub")
             if not user_id:
                 raise HTTPException(status_code=401, detail="Invalid token payload")
-            user = (await db.execute(
-                select(User).where(User.id == user_id)
-            )).scalar_one_or_none()
+            user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
             if not user:
                 raise HTTPException(status_code=401, detail="User not found")
             if user.scheduled_deletion_at:
@@ -75,9 +73,7 @@ async def get_current_user(
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid session")
 
-    row = (await db.execute(
-        select(Session).where(Session.token == token_bytes)
-    )).scalar_one_or_none()
+    row = (await db.execute(select(Session).where(Session.token == token_bytes))).scalar_one_or_none()
 
     if not row:
         raise HTTPException(status_code=401, detail="Session not found")
@@ -90,17 +86,17 @@ async def get_current_user(
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
-    should_rotate = (
-        row.last_rotated_at is None or
-        row.last_rotated_at < datetime.now(UTC) - timedelta(days=SESSION_ROTATION_DAYS)
+    should_rotate = row.last_rotated_at is None or row.last_rotated_at < datetime.now(UTC) - timedelta(
+        days=SESSION_ROTATION_DAYS
     )
     if should_rotate and response is not None:
-        new_token = __import__('secrets').token_bytes(32)
+        new_token = __import__("secrets").token_bytes(32)
         row.token = new_token
         row.last_rotated_at = datetime.now(UTC)
         await db.commit()
 
         import os
+
         secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
         response.set_cookie(
             "session",
@@ -112,9 +108,7 @@ async def get_current_user(
             path="/",
         )
 
-    user = (await db.execute(
-        select(User).where(User.id == row.user_id)
-    )).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")

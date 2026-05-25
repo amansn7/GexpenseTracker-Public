@@ -1,14 +1,14 @@
 """Detailed health and readiness endpoints."""
+
 import time
-from datetime import datetime, UTC
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import get_current_user, is_owner
-from app.database import get_db, engine
-from app.models import User, ConnectedAccount, Session
+from app.database import get_db
+from app.models import ConnectedAccount, User
 
 router = APIRouter()
 
@@ -18,6 +18,7 @@ _START_TIME = time.time()
 def _get_git_sha() -> str:
     """Return short git SHA from environment or fallback."""
     import os
+
     return os.getenv("RAILWAY_GIT_COMMIT_SHA", os.getenv("GIT_SHA", "unknown"))[:8]
 
 
@@ -62,6 +63,7 @@ async def health_detailed(
     # LLM providers — check config
     try:
         from app.config import settings
+
         available = []
         if settings.GOOGLE_AI_API_KEY:
             available.append("gemini")
@@ -85,6 +87,7 @@ async def health_detailed(
     # Scheduler
     try:
         from app.scheduler import scheduler
+
         jobs = scheduler.get_jobs()
         components["scheduler"] = {
             "status": "ok" if scheduler.running else "stopped",
@@ -97,6 +100,7 @@ async def health_detailed(
     # Worker queue
     try:
         from app.workers.queue import task_queue
+
         components["worker_queue"] = {
             "status": "ok",
             "workers": task_queue.worker_count,
@@ -105,7 +109,11 @@ async def health_detailed(
     except Exception as exc:
         components["worker_queue"] = {"status": "error", "detail": str(exc)}
 
-    overall = "ok" if all(c.get("status") in ("ok", "no_accounts", "no_keys_configured") for c in components.values()) else "degraded"
+    overall = (
+        "ok"
+        if all(c.get("status") in ("ok", "no_accounts", "no_keys_configured") for c in components.values())
+        else "degraded"
+    )
 
     return {
         "status": overall,

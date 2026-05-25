@@ -56,16 +56,13 @@ class _LogoutBearerBody(BaseModel):
     refresh_token: str | None = None
 
 
-
 def require_dev(request: Request):
     """Hardened DEV_MODE gate — only allows localhost requests in dev mode."""
     if not settings.DEV_MODE:
         raise HTTPException(status_code=404, detail="Not found")
     client_host = request.client.host if request.client else ""
     if client_host not in ("127.0.0.1", "localhost", "::1"):
-        logging.getLogger(__name__).warning(
-            "require_dev blocked non-local request from %s", client_host
-        )
+        logging.getLogger(__name__).warning("require_dev blocked non-local request from %s", client_host)
         raise HTTPException(status_code=403, detail="DEV endpoints only accessible from localhost")
 
 
@@ -97,55 +94,55 @@ async def _get_or_create_user(
     name: str,
     picture: str | None,
 ) -> User:
-    existing_count = (await db.scalar(select(func.count(User.id)).where(
-        User.email != "service@localhost"
-    ))) or 0
+    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
 
     if existing_count == 0:
         role = UserRole.owner
     else:
-        owner = (await db.execute(
-            select(User).where(User.role == UserRole.owner, User.email != "service@localhost")
-        )).scalar_one_or_none()
+        owner = (
+            await db.execute(select(User).where(User.role == UserRole.owner, User.email != "service@localhost"))
+        ).scalar_one_or_none()
         if owner is None:
             # No real owner yet — first real user becomes owner
             role = UserRole.owner
         else:
-            raw = (await db.execute(
-                select(UserSettings.allowed_emails).where(UserSettings.user_id == owner.id)
-            )).scalar_one_or_none()
+            raw = (
+                await db.execute(select(UserSettings.allowed_emails).where(UserSettings.user_id == owner.id))
+            ).scalar_one_or_none()
             allowed = json.loads(raw) if raw else []
             if email not in allowed:
                 raise HTTPException(status_code=403, detail="access_denied")
             role = UserRole.member
 
-    user = (await db.execute(
-        select(User).where(User.email == email)
-    )).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
 
     if user is None:
         user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=True)
         db.add(user)
         await db.flush()
-        db.add(UserProfile(
-            user_id=user.id,
-            full_name=name or email,
-            avatar_url=picture,
-        ))
-        db.add(UserSettings(
-            user_id=user.id,
-            allowed_emails=json.dumps([email]) if role == UserRole.owner else None,
-        ))
-        db.add(ConnectedAccount(
-            user_id=user.id,
-            provider="gmail",
-            account_email=email,
-            status="connected",
-        ))
+        db.add(
+            UserProfile(
+                user_id=user.id,
+                full_name=name or email,
+                avatar_url=picture,
+            )
+        )
+        db.add(
+            UserSettings(
+                user_id=user.id,
+                allowed_emails=json.dumps([email]) if role == UserRole.owner else None,
+            )
+        )
+        db.add(
+            ConnectedAccount(
+                user_id=user.id,
+                provider="gmail",
+                account_email=email,
+                status="connected",
+            )
+        )
     else:
-        profile_row = (await db.execute(
-            select(UserProfile).where(UserProfile.user_id == user.id)
-        )).scalar_one_or_none()
+        profile_row = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one_or_none()
         if profile_row and picture:
             profile_row.avatar_url = picture
 
@@ -156,11 +153,13 @@ async def _get_or_create_user(
 
 async def _create_session(db: AsyncSession, user: User) -> bytes:
     token = secrets.token_bytes(32)
-    db.add(Session(
-        user_id=user.id,
-        token=token,
-        expires_at=datetime.now(UTC) + timedelta(days=SESSION_DAYS),
-    ))
+    db.add(
+        Session(
+            user_id=user.id,
+            token=token,
+            expires_at=datetime.now(UTC) + timedelta(days=SESSION_DAYS),
+        )
+    )
     await db.commit()
     return token
 
@@ -191,13 +190,13 @@ async def start_google_auth(db: AsyncSession = Depends(get_db)):
         include_granted_scopes="true",
     )
     # Purge expired states, then persist new one
-    await db.execute(
-        sa_delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC))
+    await db.execute(sa_delete(OAuthState).where(OAuthState.expires_at < datetime.now(UTC)))
+    db.add(
+        OAuthState(
+            state=state,
+            expires_at=datetime.now(UTC) + timedelta(minutes=OAUTH_STATE_MINUTES),
+        )
     )
-    db.add(OAuthState(
-        state=state,
-        expires_at=datetime.now(UTC) + timedelta(minutes=OAUTH_STATE_MINUTES),
-    ))
     await db.commit()
     return RedirectResponse(auth_url)
 
@@ -209,9 +208,7 @@ async def google_callback(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    state_row = (await db.execute(
-        select(OAuthState).where(OAuthState.state == state)
-    )).scalar_one_or_none()
+    state_row = (await db.execute(select(OAuthState).where(OAuthState.state == state))).scalar_one_or_none()
     if not state_row or state_row.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
         raise HTTPException(status_code=400, detail="No pending auth flow")
     await db.delete(state_row)
@@ -228,12 +225,14 @@ async def google_callback(
 
     user = await _get_or_create_user(db, email, name, picture)
 
-    account = (await db.execute(
-        select(ConnectedAccount).where(
-            ConnectedAccount.user_id == user.id,
-            ConnectedAccount.provider == "gmail",
+    account = (
+        await db.execute(
+            select(ConnectedAccount).where(
+                ConnectedAccount.user_id == user.id,
+                ConnectedAccount.provider == "gmail",
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if account is None:
         account = ConnectedAccount(
             user_id=user.id,
@@ -281,9 +280,9 @@ async def logout(
                 payload = decode_token(refresh_raw, expected_type=TokenType.REFRESH)
                 jti = payload.get("jti")
                 if jti:
-                    existing = (await db.execute(
-                        select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti)
-                    )).scalar_one_or_none()
+                    existing = (
+                        await db.execute(select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti))
+                    ).scalar_one_or_none()
                     if not existing:
                         db.add(RefreshTokenBlacklist(user_id=user.id, jti=jti))
                         await db.commit()
@@ -309,27 +308,19 @@ async def auth_me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    seed_row = (await db.execute(
-        select(User).where(User.email == "service@localhost")
-    )).scalar_one_or_none()
+    seed_row = (await db.execute(select(User).where(User.email == "service@localhost"))).scalar_one_or_none()
     has_seed_data = False
     if seed_row:
         try:
-            seed_count = (await db.scalar(
-                select(func.count(Email.id)).where(Email.user_id == seed_row.id)
-            )) or 0
+            seed_count = (await db.scalar(select(func.count(Email.id)).where(Email.user_id == seed_row.id))) or 0
             has_seed_data = seed_count > 0
         except Exception:
             pass
 
     # Eagerly fetch profile to avoid lazy-load in async context
-    profile = (await db.execute(
-        select(UserProfile).where(UserProfile.user_id == user.id)
-    )).scalar_one_or_none()
+    profile = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one_or_none()
 
-    services = (await db.execute(
-        select(UserAIService).where(UserAIService.user_id == user.id)
-    )).scalars().all()
+    services = (await db.execute(select(UserAIService).where(UserAIService.user_id == user.id))).scalars().all()
 
     return {
         "id": user.id,
@@ -340,9 +331,15 @@ async def auth_me(
         "has_seed_data": has_seed_data,
         "onboarding_complete": user.onboarding_complete,
         "ai_services": [
-            {"id": s.id, "provider": s.provider, "display_name": s.display_name,
-             "model_id": s.model_id, "base_url": s.base_url, "api_key_hint": s.api_key_hint,
-             "enabled": s.enabled}
+            {
+                "id": s.id,
+                "provider": s.provider,
+                "display_name": s.display_name,
+                "model_id": s.model_id,
+                "base_url": s.base_url,
+                "api_key_hint": s.api_key_hint,
+                "enabled": s.enabled,
+            }
             for s in services
         ],
     }
@@ -354,14 +351,10 @@ async def claim_seed_data(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    seed_row = (await db.execute(
-        select(User).where(User.email == "service@localhost")
-    )).scalar_one_or_none()
+    seed_row = (await db.execute(select(User).where(User.email == "service@localhost"))).scalar_one_or_none()
     if not seed_row:
         return {"transferred": 0}
-    result = await db.execute(
-        update(Email).where(Email.user_id == seed_row.id).values(user_id=user.id)
-    )
+    result = await db.execute(update(Email).where(Email.user_id == seed_row.id).values(user_id=user.id))
     await db.commit()
     return {"transferred": result.rowcount}
 
@@ -378,9 +371,9 @@ async def get_allowlist(
 ):
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    raw = (await db.execute(
-        select(UserSettings.allowed_emails).where(UserSettings.user_id == user.id)
-    )).scalar_one_or_none()
+    raw = (
+        await db.execute(select(UserSettings.allowed_emails).where(UserSettings.user_id == user.id))
+    ).scalar_one_or_none()
     return {"allowed_emails": json.loads(raw) if raw else [user.email]}
 
 
@@ -395,9 +388,7 @@ async def add_to_allowlist(
     email_to_add = (body.get("email") or "").strip().lower()
     if not email_to_add or "@" not in email_to_add:
         raise HTTPException(status_code=422, detail="Valid email required")
-    settings_row = (await db.execute(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )).scalar_one()
+    settings_row = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one()
     current = json.loads(settings_row.allowed_emails) if settings_row.allowed_emails else [user.email]
     if email_to_add not in current:
         current.append(email_to_add)
@@ -416,9 +407,7 @@ async def remove_from_allowlist(
         raise HTTPException(status_code=403, detail="Owner only")
     if email.lower() == user.email.lower():
         raise HTTPException(status_code=400, detail="Cannot remove owner email")
-    settings_row = (await db.execute(
-        select(UserSettings).where(UserSettings.user_id == user.id)
-    )).scalar_one()
+    settings_row = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one()
     current = json.loads(settings_row.allowed_emails) if settings_row.allowed_emails else [user.email]
     current = [e for e in current if e.lower() != email.lower()]
     settings_row.allowed_emails = json.dumps(current)
@@ -441,9 +430,7 @@ async def verify_2fa(
     except (ValueError, TypeError):
         raise HTTPException(status_code=401, detail="Invalid session")
 
-    row = (await db.execute(
-        select(Session).where(Session.token == token_bytes)
-    )).scalar_one_or_none()
+    row = (await db.execute(select(Session).where(Session.token == token_bytes))).scalar_one_or_none()
 
     if not row:
         raise HTTPException(status_code=401, detail="Session not found")
@@ -456,9 +443,7 @@ async def verify_2fa(
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
-    user = (await db.execute(
-        select(User).where(User.id == row.user_id)
-    )).scalar_one_or_none()
+    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
@@ -494,6 +479,7 @@ async def verify_2fa(
 
 # ── Dual-issue helper ─────────────────────────────────────────────────────
 
+
 def _jwt_response_for_user(user: User) -> dict:
     """Build the JSON payload returned to mobile clients after OAuth."""
     pair = create_token_pair(user_id=user.id, email=user.email)
@@ -508,6 +494,7 @@ def _jwt_response_for_user(user: User) -> dict:
 
 
 # ── POST /auth/token/refresh ──────────────────────────────────────────────
+
 
 @router.post("/auth/token/refresh")
 async def refresh_access_token(
@@ -525,9 +512,9 @@ async def refresh_access_token(
 
     jti = payload.get("jti")
     if jti:
-        blacklisted = (await db.execute(
-            select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti)
-        )).scalar_one_or_none()
+        blacklisted = (
+            await db.execute(select(RefreshTokenBlacklist).where(RefreshTokenBlacklist.jti == jti))
+        ).scalar_one_or_none()
         if blacklisted:
             raise HTTPException(status_code=401, detail="Token has been revoked")
 
@@ -542,6 +529,7 @@ async def refresh_access_token(
 
 # ── POST /auth/device-token ───────────────────────────────────────────────
 
+
 @router.post("/auth/device-token")
 async def register_device_token(
     body: _DeviceTokenBody,
@@ -549,9 +537,7 @@ async def register_device_token(
     db: AsyncSession = Depends(get_db),
 ):
     """Register (or re-register) a mobile push-notification device token."""
-    existing = (await db.execute(
-        select(DeviceToken).where(DeviceToken.token == body.token)
-    )).scalar_one_or_none()
+    existing = (await db.execute(select(DeviceToken).where(DeviceToken.token == body.token))).scalar_one_or_none()
 
     if existing:
         # Update ownership if token was re-registered by this user
@@ -569,6 +555,7 @@ async def register_device_token(
 
 # ── DELETE /auth/device-token ─────────────────────────────────────────────
 
+
 @router.delete("/auth/device-token")
 async def delete_device_token(
     body: _DeleteDeviceTokenBody,
@@ -576,12 +563,14 @@ async def delete_device_token(
     db: AsyncSession = Depends(get_db),
 ):
     """Remove a device token belonging to the current user."""
-    row = (await db.execute(
-        select(DeviceToken).where(
-            DeviceToken.token == body.token,
-            DeviceToken.user_id == user.id,
+    row = (
+        await db.execute(
+            select(DeviceToken).where(
+                DeviceToken.token == body.token,
+                DeviceToken.user_id == user.id,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404, detail="Device token not found")
     await db.delete(row)

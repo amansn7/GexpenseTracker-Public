@@ -1,4 +1,5 @@
 """CSRF protection using double-submit cookie pattern."""
+
 import secrets
 
 from fastapi import HTTPException, Request

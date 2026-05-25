@@ -13,8 +13,10 @@ from app.models import Session, User, UserRole, UserSettings, UserStatus
 @pytest_asyncio.fixture
 async def authed_client(db_session):
     """HTTP client with a valid session cookie pre-set."""
+
     async def override_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_db
 
     # create user
@@ -69,6 +71,7 @@ async def test_me_authenticated(authed_client):
 async def test_transactions_returns_401_without_session(db_session):
     async def override_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_db
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -90,6 +93,7 @@ async def test_transactions_scoped_to_user(db_session):
 
     async def override_db():
         yield db_session
+
     app.dependency_overrides[get_db] = override_db
 
     # Create user A (owner) and user B (member)
@@ -123,11 +127,13 @@ async def test_transactions_scoped_to_user(db_session):
 
     # Session for user B
     token_b = secrets.token_bytes(32)
-    db_session.add(Session(
-        user_id=user_b.id,
-        token=token_b,
-        expires_at=datetime.now(UTC) + timedelta(days=1),
-    ))
+    db_session.add(
+        Session(
+            user_id=user_b.id,
+            token=token_b,
+            expires_at=datetime.now(UTC) + timedelta(days=1),
+        )
+    )
     await db_session.commit()
 
     try:
