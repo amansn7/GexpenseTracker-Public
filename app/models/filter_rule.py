@@ -13,7 +13,7 @@ class FilterRule(Base):
     )
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=True, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     rule_type: Mapped[str] = mapped_column(
         String(30), index=True
     )  # allowlist_domain | blocklist_domain | keyword_pattern

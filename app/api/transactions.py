@@ -4,6 +4,7 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -88,7 +89,7 @@ async def bulk_transactions(
             )
 
         BATCH_SIZE = 500
-        offset = 0
+        last_id = 0
         total_updated = 0
         all_stats = None
         while True:
@@ -97,9 +98,9 @@ async def bulk_transactions(
                     await db.execute(
                         select(Transaction)
                         .join(Email, Transaction.email_id == Email.id)
-                        .where(Email.user_id == current_user.id)
+                        .where(Email.user_id == current_user.id, Transaction.id > last_id)
                         .options(selectinload(Transaction.email))
-                        .offset(offset)
+                        .order_by(Transaction.id)
                         .limit(BATCH_SIZE)
                     )
                 )
@@ -109,6 +110,8 @@ async def bulk_transactions(
 
             if not rows:
                 break
+
+            last_id = rows[-1].id
 
             if payload.action == "mark_read":
                 for t in rows:
@@ -154,7 +157,6 @@ async def bulk_transactions(
 
             await db.commit()
             total_updated += len(rows)
-            offset += BATCH_SIZE
 
         if payload.action == "detect_duplicates":
             return {"updated": total_updated, "duplicates": all_stats or {}}
@@ -362,6 +364,68 @@ def _csv_value(value):
 
 
 EXPORT_MAX_ROWS = 10000
+EXPORT_BATCH_SIZE = 1000
+
+
+async def _stream_export_csv(db, user_id, filters, total):
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=EXPORT_COLUMNS)
+    writer.writeheader()
+    yield buf.getvalue()
+    buf.seek(0)
+    buf.truncate(0)
+
+    conditions = [Email.user_id == user_id]
+    if filters.get("date_from"):
+        conditions.append(Transaction.txn_date >= filters["date_from"])
+    if filters.get("date_to"):
+        conditions.append(Transaction.txn_date <= filters["date_to"])
+    if filters.get("label"):
+        conditions.append(Transaction.label == filters["label"])
+
+    last_id = 0
+    while True:
+        rows = (
+            await db.execute(
+                select(Transaction, Email)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(*conditions, Transaction.id > last_id)
+                .order_by(Transaction.id)
+                .limit(EXPORT_BATCH_SIZE)
+            )
+        ).all()
+
+        if not rows:
+            break
+
+        for t, e in rows:
+            last_id = t.id
+            writer.writerow(
+                {
+                    "id": t.id,
+                    "label": t.label,
+                    "amount": float(t.amount) if t.amount is not None else None,
+                    "currency": t.currency,
+                    "merchant": t.merchant,
+                    "category": t.category,
+                    "txn_date": _csv_value(t.txn_date),
+                    "confidence": t.confidence,
+                    "status": t.status,
+                    "classifier_method": t.classifier_method,
+                    "user_notes": t.user_notes,
+                    "read": bool(t.read),
+                    "flagged": bool(t.flagged),
+                    "email_subject": e.subject if e else None,
+                    "email_sender": e.sender if e else None,
+                    "email_received_at": _csv_value(e.received_at if e else None),
+                    "gmail_link": e.gmail_link if e else None,
+                    "created_at": _csv_value(t.created_at),
+                }
+            )
+
+        yield buf.getvalue()
+        buf.seek(0)
+        buf.truncate(0)
 
 
 @router.get("/transactions/export")
@@ -390,41 +454,6 @@ async def export_transactions(
             detail="Export limited to 10,000 rows. Please specify a date range (date_from and/or date_to) to narrow your export.",
         )
 
-    data_q = (
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(*conditions)
-        .order_by(desc(Transaction.created_at))
-    )
-    rows = (await db.execute(data_q)).all()
-
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=EXPORT_COLUMNS)
-    writer.writeheader()
-    for t, e in rows:
-        writer.writerow(
-            {
-                "id": t.id,
-                "label": t.label,
-                "amount": float(t.amount) if t.amount is not None else None,
-                "currency": t.currency,
-                "merchant": t.merchant,
-                "category": t.category,
-                "txn_date": _csv_value(t.txn_date),
-                "confidence": t.confidence,
-                "status": t.status,
-                "classifier_method": t.classifier_method,
-                "user_notes": t.user_notes,
-                "read": bool(t.read),
-                "flagged": bool(t.flagged),
-                "email_subject": e.subject if e else None,
-                "email_sender": e.sender if e else None,
-                "email_received_at": _csv_value(e.received_at if e else None),
-                "gmail_link": e.gmail_link if e else None,
-                "created_at": _csv_value(t.created_at),
-            }
-        )
-
     headers = {
         "Content-Disposition": 'attachment; filename="transactions.csv"',
         "X-Row-Count": str(total),
@@ -432,8 +461,9 @@ async def export_transactions(
     if total > 5000:
         headers["X-Warning"] = f"Large export: {total} rows. Consider narrowing your date range or applying filters."
 
-    return Response(
-        content=output.getvalue(),
+    filters = {"date_from": date_from, "date_to": date_to, "label": label}
+    return StreamingResponse(
+        _stream_export_csv(db, current_user.id, filters, total),
         media_type="text/csv",
         headers=headers,
     )

@@ -300,6 +300,7 @@ async def logout(
         except Exception:
             pass
     _clear_session_cookie(response)
+    response.delete_cookie("totp_verified", path="/")
     return {"ok": True}
 
 

@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
 from app.database import AsyncSessionLocal
+from app.rate_limiter import rate_limiter
 
 logger = structlog.get_logger()
 scheduler = AsyncIOScheduler()
@@ -197,6 +198,17 @@ def setup_scheduler() -> None:
         trigger="interval",
         minutes=30,
         id="idempotency_cleanup",
+        replace_existing=True,
+    )
+
+    async def _rate_limiter_cleanup_job():
+        rate_limiter.cleanup(max_age_seconds=3600)
+
+    scheduler.add_job(
+        _rate_limiter_cleanup_job,
+        trigger="interval",
+        hours=1,
+        id="rate_limiter_cleanup",
         replace_existing=True,
     )
 

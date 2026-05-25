@@ -9,7 +9,7 @@ class TransactionCorrection(Base):
 
     id: Mapped[str] = _uuid_col()
     transaction_id: Mapped[str] = mapped_column(String(36), ForeignKey("transactions.id"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     old_label: Mapped[str | None] = mapped_column(String(20))
     new_label: Mapped[str | None] = mapped_column(String(20))
     old_category: Mapped[str | None] = mapped_column(String(100))

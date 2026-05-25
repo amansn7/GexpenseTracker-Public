@@ -66,6 +66,10 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
         )
+    if not settings.JWT_SECRET and not os.getenv("TESTING"):
+        raise RuntimeError(
+            "JWT_SECRET is not configured. Set a secure random value in .env before starting the server."
+        )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
         from app.workers.sync_worker import register as register_sync_worker
@@ -117,8 +121,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
+            # TODO: login-effects.js externalized — remaining 'unsafe-inline' needed for FOUC-prevention theme scripts in login.html:3 and index.html:3
             "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
             "font-src 'self' https://fonts.gstatic.com; "

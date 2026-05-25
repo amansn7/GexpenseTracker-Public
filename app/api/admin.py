@@ -255,28 +255,43 @@ async def reset_my_data(
 ):
     """
     Reset the owner's data back to first-time-onboarding state.
-    Keeps: user credentials, system classification rules (filter_rules, sender_rules, etc.)
-    Clears: transactions, emails, connected accounts, AI services, settings, sessions.
+    Keeps: user credentials.
+    Clears: transactions, emails, connected accounts, AI services, settings, sessions,
+    classification logs, corrections, goals, rules, tokens, sync state, audit logs.
     """
     from sqlalchemy import text
 
     uid = str(current_user.id)
 
     wipe = [
-        "DELETE FROM classification_log WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = :uid)",
-        "DELETE FROM duplicate_pairs       WHERE user_id = :uid",
-        "DELETE FROM transactions          WHERE user_id = :uid",
-        "DELETE FROM emails                WHERE user_id = :uid",
-        "DELETE FROM sync_state",
-        "DELETE FROM budgets               WHERE user_id = :uid",
-        "DELETE FROM debts                 WHERE user_id = :uid",
-        "DELETE FROM recurring_expenses    WHERE user_id = :uid",
+        # FK-dependent deletes: children before parents
+        "DELETE FROM duplicate_pairs WHERE primary_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid) OR duplicate_tx_id IN (SELECT t.id FROM transactions t JOIN emails e ON t.email_id = e.id WHERE e.user_id = :uid)",
+        "DELETE FROM transaction_corrections WHERE user_id = :uid",
+        "DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)",
+        "DELETE FROM transactions WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)",
+        "DELETE FROM emails WHERE user_id = :uid",
+        # Direct user-scoped tables
+        "DELETE FROM sync_state WHERE user_id = :uid",
+        "DELETE FROM sync_progress WHERE user_id = :uid",
+        "DELETE FROM budgets WHERE user_id = :uid",
+        "DELETE FROM debts WHERE user_id = :uid",
+        "DELETE FROM recurring_expenses WHERE user_id = :uid",
         "DELETE FROM user_merchant_overrides WHERE user_id = :uid",
-        "DELETE FROM user_ai_services      WHERE user_id = :uid",
-        "DELETE FROM user_categories       WHERE user_id = :uid",
-        "DELETE FROM connected_accounts    WHERE user_id = :uid",
-        "DELETE FROM sessions              WHERE user_id = :uid",
-        "DELETE FROM user_profiles         WHERE user_id = :uid",
+        "DELETE FROM user_ai_services WHERE user_id = :uid",
+        "DELETE FROM user_categories WHERE user_id = :uid",
+        "DELETE FROM connected_accounts WHERE user_id = :uid",
+        "DELETE FROM sessions WHERE user_id = :uid",
+        "DELETE FROM user_profiles WHERE user_id = :uid",
+        "DELETE FROM sender_rules WHERE user_id = :uid",
+        "DELETE FROM filter_rules WHERE user_id = :uid",
+        "DELETE FROM goals WHERE user_id = :uid",
+        "DELETE FROM goal_contributions WHERE user_id = :uid",
+        "DELETE FROM merchant_aliases WHERE user_id = :uid",
+        "DELETE FROM merchant_entity_aliases WHERE user_id = :uid",
+        "DELETE FROM device_tokens WHERE user_id = :uid",
+        "DELETE FROM refresh_token_blacklist WHERE user_id = :uid",
+        "DELETE FROM llm_spend_tracker WHERE user_id = :uid",
+        "DELETE FROM audit_logs WHERE user_id = :uid",
     ]
     deleted = {}
     for sql in wipe:
@@ -294,7 +309,14 @@ async def reset_my_data(
             use_rule_engine       = TRUE,
             show_confidence       = FALSE,
             daily_digest          = FALSE,
-            low_confidence_alerts = FALSE
+            low_confidence_alerts = FALSE,
+            sound_effects         = FALSE,
+            two_factor_enabled    = FALSE,
+            confidence_threshold  = 70,
+            digest_hour           = 9,
+            allowed_emails        = NULL,
+            starting_balance      = NULL,
+            starting_balance_date = NULL
         WHERE user_id = :uid
     """),
         {"uid": uid},

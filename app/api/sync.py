@@ -155,7 +155,6 @@ async def backfill_bodies(
         return {"updated": 0, "errors": 0, "total": 0}
 
     batch_size = 100
-    offset = 0
     total_updated = 0
     total_errors = 0
     total_scanned = 0
@@ -171,7 +170,7 @@ async def backfill_bodies(
                 await db.execute(
                     select(Email)
                     .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
-                    .offset(offset)
+                    .order_by(Email.id)
                     .limit(batch_size)
                 )
             )
@@ -198,7 +197,6 @@ async def backfill_bodies(
                 total_errors += 1
 
         await db.commit()
-        offset += batch_size
 
     logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
     return {"updated": total_updated, "errors": total_errors, "total": total_scanned}

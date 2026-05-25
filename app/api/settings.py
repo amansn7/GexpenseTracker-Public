@@ -674,6 +674,15 @@ async def _delete_user_data(db: AsyncSession, uid: str):
         "recurring_expenses",
         "user_merchant_overrides",
         "sender_rules",
+        # Tables with FK to users.id but no ondelete="CASCADE"
+        "filter_rules",
+        "sync_state",
+        "transaction_corrections",
+        # Tables with no FK (plain String column) — explicit DELETE required
+        "sync_progress",
+        "llm_spend_tracker",
+        # Audit logs: policy decision to delete on account removal.
+        "audit_logs",
     ]:
         await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
 
