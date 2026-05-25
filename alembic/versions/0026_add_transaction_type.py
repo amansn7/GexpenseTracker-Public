@@ -16,7 +16,7 @@ depends_on = None
 def upgrade() -> None:
     op.execute(
         "ALTER TABLE transactions "
-        "ADD COLUMN IF NOT EXISTS transaction_type VARCHAR(20) NULL"
+        "ADD COLUMN transaction_type VARCHAR(20) NULL"
     )
 
     op.execute(

@@ -18,7 +18,8 @@ def upgrade() -> None:
     op.create_table(
         'merchant_aliases',
         sa.Column('id', sa.String(36), primary_key=True),
-        sa.Column('raw', sa.String(255), nullable=False, unique=True),
+        sa.Column('raw', sa.String(255), nullable=False),
+        sa.UniqueConstraint('raw', name='merchant_aliases_raw_key'),
         sa.Column('canonical', sa.String(255), nullable=False),
         sa.Column('confidence', sa.Float(), nullable=False, server_default='1.0'),
         sa.Column('source', sa.String(20), nullable=False, server_default='fuzzy_learned'),

@@ -15,21 +15,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('budgets', sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
+    with op.batch_alter_table('budgets') as batch_op:
+        batch_op.add_column(sa.Column('user_id', sa.String(36), nullable=True))
+        batch_op.create_foreign_key('fk_budgets_user_id', 'users', ['user_id'], ['id'], ondelete='CASCADE')
+        batch_op.drop_constraint('budgets_category_key', type_='unique')
+        batch_op.create_unique_constraint('uq_budget_user_category', ['user_id', 'category'])
     op.create_index('ix_budgets_user_id', 'budgets', ['user_id'])
-    op.drop_constraint('budgets_category_key', 'budgets', type_='unique')
-    op.create_unique_constraint('uq_budget_user_category', 'budgets', ['user_id', 'category'])
 
-    op.add_column('debts', sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
+    with op.batch_alter_table('debts') as batch_op:
+        batch_op.add_column(sa.Column('user_id', sa.String(36), nullable=True))
+        batch_op.create_foreign_key('fk_debts_user_id', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_index('ix_debts_user_id', 'debts', ['user_id'])
 
-    op.add_column('recurring_expenses', sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
+    with op.batch_alter_table('recurring_expenses') as batch_op:
+        batch_op.add_column(sa.Column('user_id', sa.String(36), nullable=True))
+        batch_op.create_foreign_key('fk_recurring_expenses_user_id', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_index('ix_recurring_expenses_user_id', 'recurring_expenses', ['user_id'])
 
-    op.add_column('sender_rules', sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True))
+    with op.batch_alter_table('sender_rules') as batch_op:
+        batch_op.add_column(sa.Column('user_id', sa.String(36), nullable=True))
+        batch_op.create_foreign_key('fk_sender_rules_user_id', 'users', ['user_id'], ['id'], ondelete='CASCADE')
+        batch_op.drop_constraint('sender_rules_sender_domain_key', type_='unique')
+        batch_op.create_unique_constraint('uq_sender_rule_user_domain', ['user_id', 'sender_domain'])
     op.create_index('ix_sender_rules_user_id', 'sender_rules', ['user_id'])
-    op.drop_constraint('sender_rules_sender_domain_key', 'sender_rules', type_='unique')
-    op.create_unique_constraint('uq_sender_rule_user_domain', 'sender_rules', ['user_id', 'sender_domain'])
 
     # Backfill existing rows to the owner user
     op.execute("""
@@ -55,8 +63,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint('uq_budget_user_category', 'budgets', type_='unique')
-    op.create_unique_constraint('budgets_category_key', 'budgets', ['category'])
+    with op.batch_alter_table('budgets') as batch_op:
+        batch_op.drop_constraint('uq_budget_user_category', type_='unique')
+        batch_op.create_unique_constraint('budgets_category_key', ['category'])
     op.drop_index('ix_budgets_user_id', 'budgets')
     op.drop_column('budgets', 'user_id')
 
@@ -66,7 +75,8 @@ def downgrade() -> None:
     op.drop_index('ix_recurring_expenses_user_id', 'recurring_expenses')
     op.drop_column('recurring_expenses', 'user_id')
 
-    op.drop_constraint('uq_sender_rule_user_domain', 'sender_rules', type_='unique')
-    op.create_unique_constraint('sender_rules_sender_domain_key', 'sender_rules', ['sender_domain'])
+    with op.batch_alter_table('sender_rules') as batch_op:
+        batch_op.drop_constraint('uq_sender_rule_user_domain', type_='unique')
+        batch_op.create_unique_constraint('sender_rules_sender_domain_key', ['sender_domain'])
     op.drop_index('ix_sender_rules_user_id', 'sender_rules')
     op.drop_column('sender_rules', 'user_id')

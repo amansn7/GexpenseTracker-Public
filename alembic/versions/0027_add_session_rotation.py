@@ -14,9 +14,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER TABLE sessions "
-        "ADD COLUMN IF NOT EXISTS last_rotated_at TIMESTAMP WITH TIME ZONE NULL"
+    op.add_column(
+        "sessions",
+        sa.Column("last_rotated_at", sa.DateTime(timezone=True), nullable=True),
     )
 
 

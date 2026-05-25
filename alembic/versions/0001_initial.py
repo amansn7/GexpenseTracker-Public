@@ -74,7 +74,7 @@ def upgrade() -> None:
         sa.Column('source', sa.String(length=20), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('sender_domain'),
+        sa.UniqueConstraint('sender_domain', name='sender_rules_sender_domain_key'),
     )
 
 

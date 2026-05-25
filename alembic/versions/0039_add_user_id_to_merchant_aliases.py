@@ -14,22 +14,14 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "merchant_aliases",
-        sa.Column(
-            "user_id",
-            sa.String(36),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=True,
-        ),
-    )
-    op.create_index("ix_merchant_aliases_user_id", "merchant_aliases", ["user_id"])
-
-    # Drop old global unique constraint on raw; replace with per-user unique
-    op.drop_constraint("merchant_aliases_raw_key", "merchant_aliases", type_="unique")
-    op.create_unique_constraint(
-        "uq_merchant_alias_user_raw", "merchant_aliases", ["user_id", "raw"]
-    )
+    with op.batch_alter_table("merchant_aliases") as batch_op:
+        batch_op.add_column(sa.Column("user_id", sa.String(36), nullable=True))
+        batch_op.create_foreign_key("fk_merchant_aliases_user_id", "users", ["user_id"], ["id"], ondelete="CASCADE")
+        batch_op.drop_constraint("merchant_aliases_raw_key", type_="unique")
+        batch_op.create_unique_constraint(
+            "uq_merchant_alias_user_raw", ["user_id", "raw"]
+        )
+        batch_op.create_index("ix_merchant_aliases_user_id", ["user_id"])
 
     # Backfill existing rows to the owner user
     op.execute("""
@@ -40,9 +32,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_merchant_alias_user_raw", "merchant_aliases", type_="unique")
-    op.create_unique_constraint(
-        "merchant_aliases_raw_key", "merchant_aliases", ["raw"]
-    )
+    with op.batch_alter_table("merchant_aliases") as batch_op:
+        batch_op.drop_constraint("uq_merchant_alias_user_raw", type_="unique")
+        batch_op.create_unique_constraint(
+            "merchant_aliases_raw_key", ["raw"]
+        )
     op.drop_index("ix_merchant_aliases_user_id", "merchant_aliases")
     op.drop_column("merchant_aliases", "user_id")

@@ -44,7 +44,7 @@ def upgrade() -> None:
     bind.execute(
         sa.text(
             "INSERT INTO users (id, email, role, status, onboarding_complete, created_at, updated_at) "
-            "VALUES (:id, 'service@localhost', 'owner', 'active', true, now(), now()) "
+            "VALUES (:id, 'service@localhost', 'owner', 'active', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
             "ON CONFLICT (email) DO NOTHING"
         ),
         {"id": service_id}
@@ -55,15 +55,18 @@ def upgrade() -> None:
     actual_service_id = row[0]
 
     op.add_column('emails', sa.Column('user_id', sa.String(36), nullable=True))
-    op.create_foreign_key('fk_emails_user_id', 'emails', 'users', ['user_id'], ['id'], ondelete='CASCADE')
+    with op.batch_alter_table('emails') as batch_op:
+        batch_op.create_foreign_key('fk_emails_user_id', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     bind.execute(sa.text("UPDATE emails SET user_id = :uid"), {"uid": actual_service_id})
-    op.alter_column('emails', 'user_id', nullable=False)
+    with op.batch_alter_table('emails') as batch_op:
+        batch_op.alter_column('user_id', nullable=False)
     op.create_index('ix_emails_user_id', 'emails', ['user_id'])
 
 
 def downgrade() -> None:
     op.drop_index('ix_emails_user_id', table_name='emails')
-    op.drop_constraint('fk_emails_user_id', 'emails', type_='foreignkey')
+    with op.batch_alter_table('emails') as batch_op:
+        batch_op.drop_constraint('fk_emails_user_id', type_='foreignkey')
     op.drop_column('emails', 'user_id')
     op.drop_column('connected_accounts', 'token_expiry')
     op.drop_column('connected_accounts', 'refresh_token')

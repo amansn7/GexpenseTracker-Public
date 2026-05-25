@@ -16,11 +16,11 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "sender_rules",
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
     )
     op.add_column(
         "pattern_rules",
-        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
     )
 
 

@@ -26,14 +26,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Unique constraint on Transaction.email_id — run dedup_before_migration.py first
-    op.create_unique_constraint("uq_transactions_email_id", "transactions", ["email_id"])
+    with op.batch_alter_table("transactions") as batch_op:
+        batch_op.create_unique_constraint("uq_transactions_email_id", ["email_id"])
 
     # Composite unique constraint on FilterRule
-    op.create_unique_constraint(
-        "uq_filter_rules_type_value_source_user",
-        "filter_rules",
-        ["rule_type", "value", "source", "user_id"],
-    )
+    with op.batch_alter_table("filter_rules") as batch_op:
+        batch_op.create_unique_constraint(
+            "uq_filter_rules_type_value_source_user",
+            ["rule_type", "value", "source", "user_id"],
+        )
 
     # Composite index for pending tab queries
     op.create_index(
@@ -46,6 +47,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_transactions_email_id", "transactions", type_="unique")
-    op.drop_constraint("uq_filter_rules_type_value_source_user", "filter_rules", type_="unique")
+    with op.batch_alter_table("transactions") as batch_op:
+        batch_op.drop_constraint("uq_transactions_email_id", type_="unique")
+    with op.batch_alter_table("filter_rules") as batch_op:
+        batch_op.drop_constraint("uq_filter_rules_type_value_source_user", type_="unique")
     op.drop_index("ix_emails_user_id_pre_filter_status", table_name="emails")
