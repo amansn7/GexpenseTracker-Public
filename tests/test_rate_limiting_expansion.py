@@ -81,7 +81,7 @@ class TestMatchRateLimit:
         assert self._match("/api/review/abc-123/reprocess") == (20, 60)
 
     def test_no_match_for_unrelated_path(self):
-        assert self._match("/api/stats/summary") is None
+        assert self._match("/api/not-a-real-endpoint/v2") is None
 
     def test_no_match_for_health(self):
         assert self._match("/health") is None
