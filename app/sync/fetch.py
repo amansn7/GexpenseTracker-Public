@@ -1,4 +1,5 @@
 """Gmail fetch + core sync orchestration."""
+
 import asyncio
 import logging
 from datetime import UTC, datetime
@@ -46,21 +47,20 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
 
     try:
         state_result = await session.execute(
-            select(SyncState).where(SyncState.user_id == user_id)
-            if user_id else select(SyncState)
+            select(SyncState).where(SyncState.user_id == user_id) if user_id else select(SyncState)
         )
         sync_state = state_result.scalar_one_or_none()
 
         # Fallback: adopt orphaned sync_state (user_id=NULL, from pre-multi-user code)
         if sync_state is None and user_id:
-            orphan_result = await session.execute(
-                select(SyncState).where(SyncState.user_id.is_(None))
-            )
+            orphan_result = await session.execute(select(SyncState).where(SyncState.user_id.is_(None)))
             sync_state = orphan_result.scalar_one_or_none()
             if sync_state is not None:
                 logger.info(
                     "Adopted orphan SyncState (id=%s, last_history_id=%s) for user %s",
-                    sync_state.id, sync_state.last_history_id, user_id,
+                    sync_state.id,
+                    sync_state.last_history_id,
+                    user_id,
                 )
                 sync_state.user_id = user_id
 
@@ -75,7 +75,9 @@ async def sync_emails(session: AsyncSession, user_id: str = None) -> dict:
         raise
 
 
-async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_state, last_history_id, email_filter) -> dict:
+async def _sync_emails_inner(
+    session: AsyncSession, user_id, uid, prog, sync_state, last_history_id, email_filter
+) -> dict:
 
     # ── Phase 1: fetch from Gmail ──────────────────────────────────────────
     new_history_id = last_history_id
@@ -83,6 +85,7 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     try:
         # Load existing gmail_ids for two-phase fetch optimization
         from app.models import Email
+
         existing_ids_result = await session.execute(
             select(Email.gmail_id).where(Email.user_id == user_id) if user_id else select(Email.gmail_id)
         )
@@ -93,7 +96,9 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
         if not creds:
             raise RuntimeError("Gmail not authenticated. Visit /api/auth/google")
         messages, new_history_id = await fetch_new_messages(
-            last_history_id, email_filter, creds,
+            last_history_id,
+            email_filter,
+            creds,
             existing_gmail_ids=existing_gmail_ids,
         )
     except Exception as exc:
@@ -118,10 +123,14 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
         await session.commit()
         result = {"processed": 0, "total_fetched": total, "skipped": skipped}
         _log_event(uid, "All emails already synced or sent to review — nothing to classify", "info")
-        prog.update({
-            "running": False, "phase": "done", "result": result,
-            "phase_detail": "No new emails to process",
-        })
+        prog.update(
+            {
+                "running": False,
+                "phase": "done",
+                "result": result,
+                "phase_detail": "No new emails to process",
+            }
+        )
         logger.info("Sync complete (no new emails): %s", result)
         return result
 
@@ -137,6 +146,7 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     total = len(classifications)
     if total > 0 and rules_only / total > 0.5:
         from app.alerts import add_alert
+
         add_alert(
             "warning",
             f"{rules_only}/{total} emails classified with rules only (LLM unavailable). "
@@ -167,11 +177,17 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     # ── Phase 4b: batch duplicate detection ──────────────────────────────────
     prog.update({"phase_detail": "Checking for duplicates…"})
     from app.dedup.service import batch_detect_duplicates
+
     dedup_stats = await batch_detect_duplicates(new_transactions, session, user_id or "default")
-    _log_event(uid, f"Dedup: {dedup_stats.get('same_domain', 0)} same-domain, {dedup_stats.get('cross_domain', 0)} cross-domain, {dedup_stats.get('merchant_alias', 0)} merchant-alias", "info")
+    _log_event(
+        uid,
+        f"Dedup: {dedup_stats.get('same_domain', 0)} same-domain, {dedup_stats.get('cross_domain', 0)} cross-domain, {dedup_stats.get('merchant_alias', 0)} merchant-alias",
+        "info",
+    )
 
     # ── Phase 4c: persist fuzzy-learned merchant aliases ────────────────────
     from app.classifier.merchant import learn_pending_aliases
+
     await learn_pending_aliases(session)
 
     # ── Phase 5: update SyncState + commit ──────────────────────────────────
@@ -179,11 +195,15 @@ async def _sync_emails_inner(session: AsyncSession, user_id, uid, prog, sync_sta
     await session.commit()
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}
-    prog.update({
-        "running": False, "phase": "done", "result": result,
-        "phase_detail": f"Sync complete: {processed} processed, {skipped} skipped",
-        "current_email": None,
-    })
+    prog.update(
+        {
+            "running": False,
+            "phase": "done",
+            "result": result,
+            "phase_detail": f"Sync complete: {processed} processed, {skipped} skipped",
+            "current_email": None,
+        }
+    )
     _log_event(uid, f"Done — {processed} processed, {skipped} skipped, {total} total", "success")
     logger.info("Sync complete: %s", result)
     return result
@@ -195,9 +215,7 @@ async def clean_bodies_job(user_id: str):
 
     from app.gmail.client import _build_service, _extract_body_text
 
-    _DIRTY_BODY_RE = re.compile(
-        r'&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]'
-    )
+    _DIRTY_BODY_RE = re.compile(r"&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]")
 
     uid = user_id or "default"
     _reset_progress(uid)
@@ -213,12 +231,18 @@ async def clean_bodies_job(user_id: str):
     async with AsyncSessionLocal() as session:
         try:
             while True:
-                count_batch = (await session.execute(
-                    select(Email)
-                    .where(Email.user_id == user_id if user_id else True)
-                    .offset(offset)
-                    .limit(batch_size)
-                )).scalars().all()
+                count_batch = (
+                    (
+                        await session.execute(
+                            select(Email)
+                            .where(Email.user_id == user_id if user_id else True)
+                            .offset(offset)
+                            .limit(batch_size)
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
                 if not count_batch:
                     break
                 total += sum(1 for e in count_batch if e.body_text and _DIRTY_BODY_RE.search(e.body_text))
@@ -232,10 +256,14 @@ async def clean_bodies_job(user_id: str):
     _log_event(uid, f"Found {total} emails with dirty body text")
 
     if not total:
-        prog.update({
-            "phase": "done", "running": False, "phase_detail": "All bodies clean",
-            "result": {"cleaned": 0, "total_candidates": 0},
-        })
+        prog.update(
+            {
+                "phase": "done",
+                "running": False,
+                "phase_detail": "All bodies clean",
+                "result": {"cleaned": 0, "total_candidates": 0},
+            }
+        )
         _log_event(uid, "All email bodies are clean", "success")
         return
 
@@ -257,12 +285,18 @@ async def clean_bodies_job(user_id: str):
 
     while True:
         async with AsyncSessionLocal() as batch_session:
-            batch = (await batch_session.execute(
-                select(Email)
-                .where(Email.user_id == user_id if user_id else True)
-                .offset(offset)
-                .limit(batch_size)
-            )).scalars().all()
+            batch = (
+                (
+                    await batch_session.execute(
+                        select(Email)
+                        .where(Email.user_id == user_id if user_id else True)
+                        .offset(offset)
+                        .limit(batch_size)
+                    )
+                )
+                .scalars()
+                .all()
+            )
             if not batch:
                 break
 
@@ -278,9 +312,9 @@ async def clean_bodies_job(user_id: str):
                 prog["phase_detail"] = f"Cleaning {processed}/{total}: {(email.subject or '(no subject)')[:50]}"
                 try:
                     msg = await asyncio.to_thread(
-                        lambda eid=email.gmail_id: service.users().messages().get(
-                            userId="me", id=eid, format="full"
-                        ).execute()
+                        lambda eid=email.gmail_id: (
+                            service.users().messages().get(userId="me", id=eid, format="full").execute()
+                        )
                     )
                     body = _extract_body_text(msg.get("payload", {}))
                     if body and body != email.body_text:
@@ -292,11 +326,14 @@ async def clean_bodies_job(user_id: str):
             await batch_session.commit()
         offset += batch_size
 
-    prog.update({
-        "phase": "done", "running": False,
-        "phase_detail": f"Cleaned {cleaned} of {total} emails",
-        "result": {"cleaned": cleaned, "total_candidates": total},
-    })
+    prog.update(
+        {
+            "phase": "done",
+            "running": False,
+            "phase_detail": f"Cleaned {cleaned} of {total} emails",
+            "result": {"cleaned": cleaned, "total_candidates": total},
+        }
+    )
     _log_event(uid, f"Done: cleaned {cleaned} of {total} emails", "success")
 
 

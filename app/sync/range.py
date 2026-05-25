@@ -1,4 +1,5 @@
 """Run sync for a specific date range with body backfill."""
+
 import asyncio
 import logging
 from datetime import datetime as _dt
@@ -53,9 +54,7 @@ async def run_sync_range(
             creds = await get_credentials_for_user(session, user_id)
             if not creds:
                 raise RuntimeError("Gmail not authenticated")
-            messages, _ = await fetch_new_messages(
-                None, "all", creds, after_date, before_date, query_extra
-            )
+            messages, _ = await fetch_new_messages(None, "all", creds, after_date, before_date, query_extra)
         except Exception as exc:
             logger.error("fetch-range: Gmail fetch failed: %s", exc)
             prog.update({"phase": "error", "running": False, "error": str(exc)})
@@ -79,7 +78,10 @@ async def run_sync_range(
             prog["phase_detail"] = f"Classifying {len(new_pairs)} emails..."
 
             classifications = await _classify_batch(
-                new_pairs, session, user_id, llm_priority=llm_priority,
+                new_pairs,
+                session,
+                user_id,
+                llm_priority=llm_priority,
             )
 
             new_transactions = []
@@ -107,6 +109,7 @@ async def run_sync_range(
             await session.flush()
 
             from app.dedup.service import batch_detect_duplicates
+
             await batch_detect_duplicates(new_transactions, session, user_id)
 
         prog["phase_detail"] = "Backfilling missing body text..."
@@ -133,18 +136,20 @@ async def run_sync_range(
             service = await asyncio.to_thread(_build_service, creds)
 
             while True:
-                batch = (await session.execute(
-                    missing_q.offset(backfill_offset).limit(backfill_batch_size)
-                )).scalars().all()
+                batch = (
+                    (await session.execute(missing_q.offset(backfill_offset).limit(backfill_batch_size)))
+                    .scalars()
+                    .all()
+                )
                 if not batch:
                     break
 
                 for email in batch:
                     try:
                         msg = await asyncio.to_thread(
-                            lambda eid=email.gmail_id: service.users().messages().get(
-                                userId="me", id=eid, format="full"
-                            ).execute()
+                            lambda eid=email.gmail_id: (
+                                service.users().messages().get(userId="me", id=eid, format="full").execute()
+                            )
                         )
                         body = _extract_body_text(msg.get("payload", {}))
                         if body:
@@ -162,13 +167,15 @@ async def run_sync_range(
         await session.commit()
 
     result = {"fetched": fetched, "inserted": inserted, "backfilled": backfilled, "errors": errors}
-    prog.update({
-        "running": False,
-        "phase": "done",
-        "phase_detail": f"Done: {inserted} transactions, {backfilled} bodies backfilled",
-        "current": prog["total"],
-        "result": result,
-    })
+    prog.update(
+        {
+            "running": False,
+            "phase": "done",
+            "phase_detail": f"Done: {inserted} transactions, {backfilled} bodies backfilled",
+            "current": prog["total"],
+            "result": result,
+        }
+    )
     _log_event(uid, f"Fetch-range done: {inserted} inserted, {backfilled} backfilled", "success")
     logger.info("fetch-range: fetched=%d inserted=%d backfilled=%d errors=%d", *result.values())
     return result

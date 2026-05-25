@@ -36,6 +36,7 @@ async def test_detect_no_candidates():
     db.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[])))
 
     from app.models import Email, Transaction
+
     tx = MagicMock(spec=Transaction)
     tx.id = str(uuid.uuid4())
     tx.label = "expense"
@@ -48,7 +49,6 @@ async def test_detect_no_candidates():
     db.add.assert_not_called()
 
 
-
 @pytest.mark.asyncio
 async def test_duplicates_api_list():
     """GET /api/duplicates returns list (may be empty)."""
@@ -57,6 +57,7 @@ async def test_duplicates_api_list():
     from httpx import ASGITransport, AsyncClient
 
     from app.database import get_db
+
     os.environ["TESTING"] = "1"
     from app.main import app
 
@@ -70,6 +71,7 @@ async def test_duplicates_api_list():
     from unittest.mock import MagicMock as _MagicMock
 
     from app.auth_deps import get_current_user
+
     _user = _MagicMock()
     _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
@@ -93,6 +95,7 @@ async def test_duplicates_api_resolve_validation():
 
     from httpx import ASGITransport, AsyncClient
     from sqlalchemy.ext.asyncio import AsyncSession
+
     os.environ["TESTING"] = "1"
     from app.database import get_db
     from app.main import app
@@ -110,6 +113,7 @@ async def test_duplicates_api_resolve_validation():
     from unittest.mock import MagicMock as _MagicMock
 
     from app.auth_deps import get_current_user
+
     _user = _MagicMock()
     _user.id = "test-user-id"
     app.dependency_overrides[get_db] = override_get_db
@@ -121,7 +125,10 @@ async def test_duplicates_api_resolve_validation():
             assert r.status_code == 422
 
             # valid action, nonexistent pair → 404
-            r = await client.patch("/api/duplicates/00000000-0000-0000-0000-000000000000", json={"action": "confirmed", "primary_tx_id": "x"})
+            r = await client.patch(
+                "/api/duplicates/00000000-0000-0000-0000-000000000000",
+                json={"action": "confirmed", "primary_tx_id": "x"},
+            )
             assert r.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
@@ -130,21 +137,45 @@ async def test_duplicates_api_resolve_validation():
 
 # ── Real-row integration tests (in-memory aiosqlite) ─────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_detect_same_domain_creates_auto_resolved_pair(db_session, mock_user):
     """Strategy 1: same sender_domain + same amount + within 3 days → auto_resolved pair."""
     from app.models import Email, Transaction
+
     uid = str(mock_user.id)
-    email1 = Email(id=str(uuid.uuid4()), gmail_id="sd-g1", sender="bills@swiggy.in",
-                   sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
-    tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
-                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
-    email2 = Email(id=str(uuid.uuid4()), gmail_id="sd-g2", sender="bills@swiggy.in",
-                   sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
-    tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
-                      label="expense", amount=500.0, txn_date=date(2026, 4, 11), status="auto")
+    email1 = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="sd-g1",
+        sender="bills@swiggy.in",
+        sender_domain="swiggy.in",
+        user_id=uid,
+        received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC),
+    )
+    tx1 = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email1.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 10),
+        status="auto",
+    )
+    email2 = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="sd-g2",
+        sender="bills@swiggy.in",
+        sender_domain="swiggy.in",
+        user_id=uid,
+        received_at=datetime(2026, 4, 11, 10, 0, tzinfo=UTC),
+    )
+    tx2 = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email2.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 11),
+        status="auto",
+    )
     db_session.add_all([email1, tx1, email2, tx2])
     await db_session.flush()
 
@@ -162,24 +193,46 @@ async def test_detect_same_domain_creates_auto_resolved_pair(db_session, mock_us
 async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
     """Regression for a1ea4c7: User B's expense must not match User A's expense."""
     from app.models import Email, Transaction, User, UserRole, UserStatus
-    uid_a = str(mock_user.id)
-    email_a = Email(id=str(uuid.uuid4()), gmail_id="iso-ga", sender="bills@swiggy.in",
-                    sender_domain="swiggy.in", user_id=uid_a,
-                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
-    tx_a = Transaction(id=str(uuid.uuid4()), email_id=email_a.id,
-                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
 
-    user_b = User(email="userb@test.com", role=UserRole.owner,
-                  status=UserStatus.active, onboarding_complete=True)
+    uid_a = str(mock_user.id)
+    email_a = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="iso-ga",
+        sender="bills@swiggy.in",
+        sender_domain="swiggy.in",
+        user_id=uid_a,
+        received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC),
+    )
+    tx_a = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email_a.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 10),
+        status="auto",
+    )
+
+    user_b = User(email="userb@test.com", role=UserRole.owner, status=UserStatus.active, onboarding_complete=True)
     db_session.add(user_b)
     await db_session.flush()
     uid_b = str(user_b.id)
 
-    email_b = Email(id=str(uuid.uuid4()), gmail_id="iso-gb", sender="bills@swiggy.in",
-                    sender_domain="swiggy.in", user_id=uid_b,
-                    received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
-    tx_b = Transaction(id=str(uuid.uuid4()), email_id=email_b.id,
-                       label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+    email_b = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="iso-gb",
+        sender="bills@swiggy.in",
+        sender_domain="swiggy.in",
+        user_id=uid_b,
+        received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC),
+    )
+    tx_b = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email_b.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 10),
+        status="auto",
+    )
 
     db_session.add_all([email_a, tx_a, email_b, tx_b])
     await db_session.flush()
@@ -195,19 +248,49 @@ async def test_user_isolation_no_cross_user_pair(db_session, mock_user):
 async def test_detect_cross_domain_with_rule_queues_pending(db_session, mock_user):
     """Strategy 2: different sender_domains + DomainPairRule (no auto_resolve) → pending pair."""
     from app.models import Email, Transaction
+
     uid = str(mock_user.id)
-    rule = DomainPairRule(id=str(uuid.uuid4()), domain_a="hdfcbank.com", domain_b="swiggy.in",
-                          confirmed_count=1, dismissed_count=0, confidence=0.5, auto_resolve=False)
-    email1 = Email(id=str(uuid.uuid4()), gmail_id="cd-g1", sender="alerts@hdfcbank.com",
-                   sender_domain="hdfcbank.com", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
-    tx1 = Transaction(id=str(uuid.uuid4()), email_id=email1.id,
-                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
-    email2 = Email(id=str(uuid.uuid4()), gmail_id="cd-g2", sender="noreply@swiggy.in",
-                   sender_domain="swiggy.in", user_id=uid,
-                   received_at=datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
-    tx2 = Transaction(id=str(uuid.uuid4()), email_id=email2.id,
-                      label="expense", amount=500.0, txn_date=date(2026, 4, 10), status="auto")
+    rule = DomainPairRule(
+        id=str(uuid.uuid4()),
+        domain_a="hdfcbank.com",
+        domain_b="swiggy.in",
+        confirmed_count=1,
+        dismissed_count=0,
+        confidence=0.5,
+        auto_resolve=False,
+    )
+    email1 = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="cd-g1",
+        sender="alerts@hdfcbank.com",
+        sender_domain="hdfcbank.com",
+        user_id=uid,
+        received_at=datetime(2026, 4, 10, 9, 0, tzinfo=UTC),
+    )
+    tx1 = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email1.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 10),
+        status="auto",
+    )
+    email2 = Email(
+        id=str(uuid.uuid4()),
+        gmail_id="cd-g2",
+        sender="noreply@swiggy.in",
+        sender_domain="swiggy.in",
+        user_id=uid,
+        received_at=datetime(2026, 4, 10, 12, 0, tzinfo=UTC),
+    )
+    tx2 = Transaction(
+        id=str(uuid.uuid4()),
+        email_id=email2.id,
+        label="expense",
+        amount=500.0,
+        txn_date=date(2026, 4, 10),
+        status="auto",
+    )
     db_session.add_all([rule, email1, tx1, email2, tx2])
     await db_session.flush()
 

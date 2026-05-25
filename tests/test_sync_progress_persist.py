@@ -1,7 +1,7 @@
 """Tests for sync progress persistence (updated for batched writer)."""
+
 import asyncio
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -9,6 +9,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _clean_progress():
     from app.sync.progress import _sync_progress
+
     _sync_progress.clear()
     yield
     _sync_progress.clear()
@@ -21,8 +22,8 @@ async def test_persist_progress_enqueues():
 
     # Ensure writer is not running (it would drain the queue)
     was_running = _progress_writer_running
-    from app.sync.progress import _progress_writer_running as running_flag
     import app.sync.progress as progress_mod
+
     progress_mod._progress_writer_running = False
 
     # Drain any leftover items first
@@ -33,6 +34,10 @@ async def test_persist_progress_enqueues():
             break
 
     prog = {"running": True, "phase": "fetching", "phase_detail": "", "current": 5, "total": 100}
+    from app.sync.progress import set_db_session_factory
+
+    mock_factory = MagicMock()
+    set_db_session_factory(mock_factory)
     _persist_progress("test-user-1", prog)
     assert _progress_write_queue.qsize() >= 1
 
@@ -44,10 +49,7 @@ async def test_persist_progress_enqueues():
 async def test_persist_progress_upserts_via_writer():
     """The background writer should call _do_write_progress which upserts."""
     from app.sync.progress import (
-        _persist_progress,
         _do_write_progress,
-        _progress_write_queue,
-        _progress_writer_running,
     )
 
     mock_session = AsyncMock()
@@ -59,13 +61,22 @@ async def test_persist_progress_upserts_via_writer():
 
     mock_factory = MagicMock(return_value=mock_session)
     from app.sync.progress import set_db_session_factory
+
     set_db_session_factory(mock_factory)
 
     prog = {
-        "running": True, "phase": "fetching", "phase_detail": "",
-        "current": 5, "total": 100, "tally": {}, "previews": [],
-        "current_email": None, "log": [], "result": None,
-        "error": None, "minimized": False,
+        "running": True,
+        "phase": "fetching",
+        "phase_detail": "",
+        "current": 5,
+        "total": 100,
+        "tally": {},
+        "previews": [],
+        "current_email": None,
+        "log": [],
+        "result": None,
+        "error": None,
+        "minimized": False,
     }
 
     # Call _do_write_progress directly (bypass queue)

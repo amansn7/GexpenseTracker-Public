@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 _AUTO_RESOLVE_MIN_CONFIRMED = 3
 
 # ── Currency normalization ──────────────────────────────────────────────────
-_CURRENCY_RE = re.compile(r'[₹$€£]\s*|Rs\.?\s*|INR\s*|USD\s*|EUR\s*|GBP\s*', re.IGNORECASE)
-_COMMA_RE = re.compile(r',')
+_CURRENCY_RE = re.compile(r"[₹$€£]\s*|Rs\.?\s*|INR\s*|USD\s*|EUR\s*|GBP\s*", re.IGNORECASE)
+_COMMA_RE = re.compile(r",")
+
 
 def _normalize_amount(raw: Any) -> float | None:
     """Strip currency symbols, commas, and whitespace; return float or None."""
@@ -26,27 +27,50 @@ def _normalize_amount(raw: Any) -> float | None:
     if isinstance(raw, (int, float)):
         return float(raw)
     text = str(raw).strip()
-    text = _CURRENCY_RE.sub('', text)
-    text = _COMMA_RE.sub('', text)
+    text = _CURRENCY_RE.sub("", text)
+    text = _COMMA_RE.sub("", text)
     try:
         return float(text)
     except (ValueError, TypeError):
         return None
 
+
 # ── Merchant similarity ─────────────────────────────────────────────────────
-_MERCHANT_STOP = frozenset([
-    "the", "and", "for", "of", "on", "at", "to", "in", "by", "pvt", "ltd",
-    "limited", "private", "india", "indian", "services", "solutions", "technologies",
-    "inc", "corp", "company", "llc", "payments", "payment",
-])
+_MERCHANT_STOP = frozenset(
+    [
+        "the",
+        "and",
+        "for",
+        "of",
+        "on",
+        "at",
+        "to",
+        "in",
+        "by",
+        "pvt",
+        "ltd",
+        "limited",
+        "private",
+        "india",
+        "indian",
+        "services",
+        "solutions",
+        "technologies",
+        "inc",
+        "corp",
+        "company",
+        "llc",
+        "payments",
+        "payment",
+    ]
+)
+
 
 def _normalize_merchant(name: str | None) -> str:
     if not name:
         return ""
-    return " ".join(
-        w for w in re.split(r'[\s\-_./,]+', name.lower())
-        if w not in _MERCHANT_STOP and len(w) > 1
-    )
+    return " ".join(w for w in re.split(r"[\s\-_./,]+", name.lower()) if w not in _MERCHANT_STOP and len(w) > 1)
+
 
 # Known cross-domain aliases: (canonical, variant domain)
 _MERCHANT_DOMAIN_ALIASES: dict[str, list[str]] = {
@@ -66,6 +90,7 @@ _DOMAIN_TO_CANONICAL: dict[str, str] = {}
 for canonical, variants in _MERCHANT_DOMAIN_ALIASES.items():
     for v in variants:
         _DOMAIN_TO_CANONICAL[v.lower()] = canonical
+
 
 def _merchant_match(m1: str | None, m2: str | None, d1: str | None, d2: str | None) -> float:
     """
@@ -88,18 +113,37 @@ def _merchant_match(m1: str | None, m2: str | None, d1: str | None, d2: str | No
     overlap = len(words1 & words2)
     return overlap / max(len(words1), len(words2))
 
-_INVEST_ORDER_SIGNALS = frozenset([
-    "order placed", "order sent", "purchase initiated", "sip initiated",
-    "sip registered", "folio", "nav", "invest", "purchase order",
-    "transaction initiated", "processing of purchase",
-])
 
-_INVEST_CONFIRM_SIGNALS = frozenset([
-    "units allotted", "transaction successful", "purchase successful",
-    "investment successful", "transaction confirmation", "purchase confirmation",
-    "allotment", "credited to your folio", "transaction complete",
-    "purchase transaction confirmation",
-])
+_INVEST_ORDER_SIGNALS = frozenset(
+    [
+        "order placed",
+        "order sent",
+        "purchase initiated",
+        "sip initiated",
+        "sip registered",
+        "folio",
+        "nav",
+        "invest",
+        "purchase order",
+        "transaction initiated",
+        "processing of purchase",
+    ]
+)
+
+_INVEST_CONFIRM_SIGNALS = frozenset(
+    [
+        "units allotted",
+        "transaction successful",
+        "purchase successful",
+        "investment successful",
+        "transaction confirmation",
+        "purchase confirmation",
+        "allotment",
+        "credited to your folio",
+        "transaction complete",
+        "purchase transaction confirmation",
+    ]
+)
 
 
 def _sorted_domains(d1: str, d2: str) -> tuple[str, str]:
@@ -119,18 +163,17 @@ def _subject_has_any(subject: str | None, signals: frozenset) -> bool:
 
 async def _load_paired_ids(tx_id: str, db: AsyncSession) -> set[str]:
     """One query — returns the set of tx IDs already paired with tx_id."""
-    rows = (await db.execute(
-        select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id).where(
-            or_(
-                DuplicatePair.primary_tx_id == tx_id,
-                DuplicatePair.duplicate_tx_id == tx_id,
+    rows = (
+        await db.execute(
+            select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id).where(
+                or_(
+                    DuplicatePair.primary_tx_id == tx_id,
+                    DuplicatePair.duplicate_tx_id == tx_id,
+                )
             )
         )
-    )).all()
-    return {
-        row.duplicate_tx_id if row.primary_tx_id == tx_id else row.primary_tx_id
-        for row in rows
-    }
+    ).all()
+    return {row.duplicate_tx_id if row.primary_tx_id == tx_id else row.primary_tx_id for row in rows}
 
 
 def _is_dedup_candidate(transaction):
@@ -242,12 +285,14 @@ async def _score_pair(
         email_a.sender_domain.lower(),
         email_b.sender_domain.lower(),
     )
-    rule = (await db.execute(
-        select(DomainPairRule).where(
-            DomainPairRule.domain_a == da,
-            DomainPairRule.domain_b == db_,
+    rule = (
+        await db.execute(
+            select(DomainPairRule).where(
+                DomainPairRule.domain_a == da,
+                DomainPairRule.domain_b == db_,
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     return _compute_score(tx_a, email_a, tx_b, email_b, rule)
 
@@ -312,9 +357,7 @@ async def detect_and_record_duplicates(
     # Pre-load all DomainPairRule rows once (eliminates per-pair DB queries)
     # DomainPairRule is a global table (not user-scoped)
     rules_rows = (await db.execute(select(DomainPairRule))).scalars().all()
-    rules_map: dict[tuple[str, str], DomainPairRule] = {
-        (r.domain_a, r.domain_b): r for r in rules_rows
-    }
+    rules_map: dict[tuple[str, str], DomainPairRule] = {(r.domain_a, r.domain_b): r for r in rules_rows}
 
     # Pre-load all existing pairs in one query; check membership in O(1) below.
     paired_ids = await _load_paired_ids(tx.id, db)
@@ -336,18 +379,20 @@ async def detect_and_record_duplicates(
         same_domain_filter = None
 
     if same_domain_filter is not None:
-        same_domain_dupes = (await db.execute(
-            select(Transaction, Email)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Transaction.id != tx.id,
-                Transaction.label == "expense",
-                func.abs(Transaction.amount - amount) <= tol,
-                Email.user_id == user_id,
-                Email.sender_domain == email.sender_domain,
-                same_domain_filter,
+        same_domain_dupes = (
+            await db.execute(
+                select(Transaction, Email)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Transaction.id != tx.id,
+                    Transaction.label == "expense",
+                    func.abs(Transaction.amount - amount) <= tol,
+                    Email.user_id == user_id,
+                    Email.sender_domain == email.sender_domain,
+                    same_domain_filter,
+                )
             )
-        )).all()
+        ).all()
 
         for cand_tx, cand_email in same_domain_dupes:
             if cand_tx.id in paired_ids:
@@ -358,16 +403,17 @@ async def detect_and_record_duplicates(
             dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
             dup_tx = tx if dup_id == tx.id else cand_tx
             dup_tx.label = "ignore"
-            db.add(DuplicatePair(
-                id=str(uuid.uuid4()),
-                primary_tx_id=primary_id,
-                duplicate_tx_id=dup_id,
-                status="auto_resolved",
-                confidence=1.0,
-                rule_source="same_domain_exact",
-            ))
-            logger.info("Auto-resolved same-domain duplicate: %s vs %s (domain %s)",
-                        primary_id, dup_id, tx_domain)
+            db.add(
+                DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=primary_id,
+                    duplicate_tx_id=dup_id,
+                    status="auto_resolved",
+                    confidence=1.0,
+                    rule_source="same_domain_exact",
+                )
+            )
+            logger.info("Auto-resolved same-domain duplicate: %s vs %s (domain %s)", primary_id, dup_id, tx_domain)
 
     # ── 2. Cross-domain duplicate check (±1 day window) ──────────────────────
     effective_date = tx.txn_date or (email.received_at.date() if email.received_at else None)
@@ -375,7 +421,7 @@ async def detect_and_record_duplicates(
         return
 
     window_start = effective_date - timedelta(days=1)
-    window_end   = effective_date + timedelta(days=1)
+    window_end = effective_date + timedelta(days=1)
 
     if email.received_at is not None:
         recv_d1 = email.received_at - timedelta(days=1)
@@ -399,18 +445,20 @@ async def detect_and_record_duplicates(
             Transaction.txn_date <= window_end,
         )
 
-    candidates = (await db.execute(
-        select(Transaction, Email)
-        .outerjoin(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.id != tx.id,
-            Transaction.label == "expense",
-            func.abs(Transaction.amount - amount) <= tol,
-            date_filter,
-            Email.user_id == user_id,
-            Email.sender_domain.isnot(None),
+    candidates = (
+        await db.execute(
+            select(Transaction, Email)
+            .outerjoin(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.id != tx.id,
+                Transaction.label == "expense",
+                func.abs(Transaction.amount - amount) <= tol,
+                date_filter,
+                Email.user_id == user_id,
+                Email.sender_domain.isnot(None),
+            )
         )
-    )).all()
+    ).all()
 
     for cand_tx, cand_email in candidates:
         if not cand_email or not cand_email.sender_domain:
@@ -428,28 +476,31 @@ async def detect_and_record_duplicates(
         if rule and rule.auto_resolve:
             primary_id = _pick_primary(tx, email, cand_tx, cand_email)
             dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
-            db.add(DuplicatePair(
-                id=str(uuid.uuid4()),
-                primary_tx_id=primary_id,
-                duplicate_tx_id=dup_id,
-                status="auto_resolved",
-                confidence=rule.confidence,
-                rule_source="domain_pair",
-            ))
+            db.add(
+                DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=primary_id,
+                    duplicate_tx_id=dup_id,
+                    status="auto_resolved",
+                    confidence=rule.confidence,
+                    rule_source="domain_pair",
+                )
+            )
             dup_tx = tx if dup_id == tx.id else cand_tx
             dup_tx.label = "ignore"
-            logger.info("Auto-resolved duplicate: %s vs %s (rule %s/%s)",
-                        primary_id, dup_id, domain_a, domain_b)
+            logger.info("Auto-resolved duplicate: %s vs %s (rule %s/%s)", primary_id, dup_id, domain_a, domain_b)
         else:
             confidence = rule.confidence if rule else 0.0
-            db.add(DuplicatePair(
-                id=str(uuid.uuid4()),
-                primary_tx_id=tx.id,
-                duplicate_tx_id=cand_tx.id,
-                status="pending",
-                confidence=confidence,
-                rule_source="domain_pair" if rule else "amount_date",
-            ))
+            db.add(
+                DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=tx.id,
+                    duplicate_tx_id=cand_tx.id,
+                    status="pending",
+                    confidence=confidence,
+                    rule_source="domain_pair" if rule else "amount_date",
+                )
+            )
             logger.info("Queued duplicate for review: %s vs %s", tx.id, cand_tx.id)
 
     # ── 3. Investment flow detection (order + confirmation across domains) ─────
@@ -464,7 +515,7 @@ async def detect_and_record_duplicates(
     # auto-resolve semantics — re-handling them here would double-create pairs.
     bulk_tol = _amount_tolerance(amount, bulk=True)
     extra_window_start = effective_date - timedelta(days=3)
-    extra_window_end   = effective_date + timedelta(days=3)
+    extra_window_end = effective_date + timedelta(days=3)
 
     if email.received_at is not None:
         recv_lo = email.received_at - timedelta(days=3)
@@ -488,18 +539,20 @@ async def detect_and_record_duplicates(
             Transaction.txn_date <= extra_window_end,
         )
 
-    extra_candidates = (await db.execute(
-        select(Transaction, Email)
-        .outerjoin(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.id != tx.id,
-            Transaction.label == "expense",
-            func.abs(Transaction.amount - amount) <= bulk_tol,
-            extra_date_filter,
-            Email.user_id == user_id,
-            Email.sender_domain.isnot(None),
+    extra_candidates = (
+        await db.execute(
+            select(Transaction, Email)
+            .outerjoin(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.id != tx.id,
+                Transaction.label == "expense",
+                func.abs(Transaction.amount - amount) <= bulk_tol,
+                extra_date_filter,
+                Email.user_id == user_id,
+                Email.sender_domain.isnot(None),
+            )
         )
-    )).all()
+    ).all()
 
     for cand_tx, cand_email in extra_candidates:
         if cand_tx.id in paired_ids:
@@ -511,16 +564,17 @@ async def detect_and_record_duplicates(
             # Higher-confidence layers already handled above.
             continue
         paired_ids.add(cand_tx.id)
-        db.add(DuplicatePair(
-            id=str(uuid.uuid4()),
-            primary_tx_id=tx.id,
-            duplicate_tx_id=cand_tx.id,
-            status="pending",
-            confidence=score,
-            rule_source=rule_source,
-        ))
-        logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)",
-                    rule_source, tx.id, cand_tx.id, score)
+        db.add(
+            DuplicatePair(
+                id=str(uuid.uuid4()),
+                primary_tx_id=tx.id,
+                duplicate_tx_id=cand_tx.id,
+                status="pending",
+                confidence=score,
+                rule_source=rule_source,
+            )
+        )
+        logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)", rule_source, tx.id, cand_tx.id, score)
 
 
 async def _detect_investment_flow(
@@ -540,7 +594,7 @@ async def _detect_investment_flow(
       - Same or near-same amount, within 3 days
     """
     subject = email.subject or ""
-    is_order   = _subject_has_any(subject, _INVEST_ORDER_SIGNALS)
+    is_order = _subject_has_any(subject, _INVEST_ORDER_SIGNALS)
     is_confirm = _subject_has_any(subject, _INVEST_CONFIRM_SIGNALS)
 
     if not is_order and not is_confirm:
@@ -551,26 +605,28 @@ async def _detect_investment_flow(
         return
 
     window_start = recv_ref - timedelta(days=3)
-    window_end   = recv_ref + timedelta(days=3)
+    window_end = recv_ref + timedelta(days=3)
 
-    candidates = (await db.execute(
-        select(Transaction, Email)
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.id != tx.id,
-            Transaction.label == "expense",
-            func.abs(Transaction.amount - amount) <= tol,
-            Email.user_id == user_id,
-            Email.sender_domain.isnot(None),
-            Email.sender_domain != email.sender_domain,
-            Email.received_at >= window_start,
-            Email.received_at <= window_end,
+    candidates = (
+        await db.execute(
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.id != tx.id,
+                Transaction.label == "expense",
+                func.abs(Transaction.amount - amount) <= tol,
+                Email.user_id == user_id,
+                Email.sender_domain.isnot(None),
+                Email.sender_domain != email.sender_domain,
+                Email.received_at >= window_start,
+                Email.received_at <= window_end,
+            )
         )
-    )).all()
+    ).all()
 
     for cand_tx, cand_email in candidates:
         cand_subject = cand_email.subject or ""
-        cand_is_order   = _subject_has_any(cand_subject, _INVEST_ORDER_SIGNALS)
+        cand_is_order = _subject_has_any(cand_subject, _INVEST_ORDER_SIGNALS)
         cand_is_confirm = _subject_has_any(cand_subject, _INVEST_CONFIRM_SIGNALS)
 
         if not ((is_order and cand_is_confirm) or (is_confirm and cand_is_order)):
@@ -580,21 +636,23 @@ async def _detect_investment_flow(
         paired_ids.add(cand_tx.id)
 
         primary_id, dup_id = (tx.id, cand_tx.id) if is_order else (cand_tx.id, tx.id)
-        db.add(DuplicatePair(
-            id=str(uuid.uuid4()),
-            primary_tx_id=primary_id,
-            duplicate_tx_id=dup_id,
-            status="pending",
-            confidence=0.65,
-            rule_source="investment_flow",
-        ))
+        db.add(
+            DuplicatePair(
+                id=str(uuid.uuid4()),
+                primary_tx_id=primary_id,
+                duplicate_tx_id=dup_id,
+                status="pending",
+                confidence=0.65,
+                rule_source="investment_flow",
+            )
+        )
         logger.info("Queued investment-flow duplicate for review: %s vs %s", primary_id, dup_id)
 
 
 def _pick_primary(tx1: Transaction, email1: Email | None, tx2: Transaction, email2: Email | None) -> str:
     """Return the ID of whichever transaction arrived first (received_at → txn_date → created_at)."""
-    t1 = (email1.received_at if email1 and email1.received_at else None)
-    t2 = (email2.received_at if email2 and email2.received_at else None)
+    t1 = email1.received_at if email1 and email1.received_at else None
+    t2 = email2.received_at if email2 and email2.received_at else None
     if t1 and t2:
         return tx1.id if t1 <= t2 else tx2.id
     d1 = tx1.txn_date
@@ -620,16 +678,35 @@ async def batch_detect_duplicates(
              "merchant_alias": N, "new_pair_ids": [str, ...]}.
     """
     if not new_transactions:
-        return {"checked": 0, "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "already_paired": 0, "new_pair_ids": []}
+        return {
+            "checked": 0,
+            "same_domain_exact": 0,
+            "same_domain": 0,
+            "cross_domain": 0,
+            "investment_flow": 0,
+            "merchant_alias": 0,
+            "amount_date": 0,
+            "existing_pairs": 0,
+            "already_paired": 0,
+            "new_pair_ids": [],
+        }
 
-    stats = {"checked": len(new_transactions), "same_domain_exact": 0, "same_domain": 0, "cross_domain": 0, "investment_flow": 0, "merchant_alias": 0, "amount_date": 0, "existing_pairs": 0, "already_paired": 0}
+    stats = {
+        "checked": len(new_transactions),
+        "same_domain_exact": 0,
+        "same_domain": 0,
+        "cross_domain": 0,
+        "investment_flow": 0,
+        "merchant_alias": 0,
+        "amount_date": 0,
+        "existing_pairs": 0,
+        "already_paired": 0,
+    }
     new_pair_ids: list[str] = []
 
     # Load ALL DomainPairRule rows once (eliminates per-pair DB queries)
     all_rules = (await db.execute(select(DomainPairRule))).scalars().all()
-    rules_map: dict[tuple[str, str], DomainPairRule] = {
-        (r.domain_a, r.domain_b): r for r in all_rules
-    }
+    rules_map: dict[tuple[str, str], DomainPairRule] = {(r.domain_a, r.domain_b): r for r in all_rules}
 
     # Collect date range and amounts for the windowed query
     dates = []
@@ -650,33 +727,36 @@ async def batch_detect_duplicates(
         min_amount = min(amounts) * 0.95
         max_amount = max(amounts) * 1.05
 
-        existing = (await db.execute(
-            select(Transaction, Email)
-            .outerjoin(Email, Transaction.email_id == Email.id)
-            .where(
-                Transaction.label == "expense",
-                Transaction.amount >= min_amount,
-                Transaction.amount <= max_amount,
-                Email.user_id == user_id,
-                or_(
-                    and_(Transaction.txn_date >= min_date, Transaction.txn_date <= max_date),
-                    and_(Email.received_at >= min_date, Email.received_at <= max_date),
-                ),
+        existing = (
+            await db.execute(
+                select(Transaction, Email)
+                .outerjoin(Email, Transaction.email_id == Email.id)
+                .where(
+                    Transaction.label == "expense",
+                    Transaction.amount >= min_amount,
+                    Transaction.amount <= max_amount,
+                    Email.user_id == user_id,
+                    or_(
+                        and_(Transaction.txn_date >= min_date, Transaction.txn_date <= max_date),
+                        and_(Email.received_at >= min_date, Email.received_at <= max_date),
+                    ),
+                )
             )
-        )).all()
+        ).all()
 
         existing_map = {row[0].id: (row[0], row[1]) for row in existing if row[1]}
 
     # Pre-load ALL existing DuplicatePair rows for this user
-    all_user_pairs = (await db.execute(
-        select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id)
-        .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
-        .join(Email, Email.id == Transaction.email_id)
-        .where(Email.user_id == user_id)
-    )).all()
+    all_user_pairs = (
+        await db.execute(
+            select(DuplicatePair.primary_tx_id, DuplicatePair.duplicate_tx_id)
+            .join(Transaction, Transaction.id == DuplicatePair.primary_tx_id)
+            .join(Email, Email.id == Transaction.email_id)
+            .where(Email.user_id == user_id)
+        )
+    ).all()
     db_existing_pairs: set[tuple[str, str]] = {
-        tuple(sorted([row.primary_tx_id, row.duplicate_tx_id]))
-        for row in all_user_pairs
+        tuple(sorted([row.primary_tx_id, row.duplicate_tx_id])) for row in all_user_pairs
     }
 
     # Build a lookup: tx_id -> set of tx_ids it's already paired with
@@ -689,7 +769,9 @@ async def batch_detect_duplicates(
 
     for new_tx, new_email in new_transactions:
         if not _is_dedup_candidate(new_tx):
-            logger.info("batch_detect_duplicates: skip tx=%s (not a dedup candidate, label=%s)", new_tx.id, new_tx.label)
+            logger.info(
+                "batch_detect_duplicates: skip tx=%s (not a dedup candidate, label=%s)", new_tx.id, new_tx.label
+            )
             continue
         if not new_email or not new_email.sender_domain:
             logger.info("batch_detect_duplicates: skip tx=%s (no email or sender_domain)", new_tx.id)
@@ -732,16 +814,20 @@ async def batch_detect_duplicates(
 
             # Bulk detect always creates pending pairs (user initiated this)
             pair_id = str(uuid.uuid4())
-            db.add(DuplicatePair(
-                id=pair_id,
-                primary_tx_id=new_tx.id,
-                duplicate_tx_id=existing_tx.id,
-                status="pending",
-                confidence=score,
-                rule_source=rule_source,
-            ))
+            db.add(
+                DuplicatePair(
+                    id=pair_id,
+                    primary_tx_id=new_tx.id,
+                    duplicate_tx_id=existing_tx.id,
+                    status="pending",
+                    confidence=score,
+                    rule_source=rule_source,
+                )
+            )
             new_pair_ids.append(pair_id)
-            logger.info("Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score)
+            logger.info(
+                "Batch queued for review: %s vs %s (%s, conf=%.2f)", new_tx.id, existing_tx.id, rule_source, score
+            )
 
     # ── Intra-batch dedup: group by (amount, txn_date) to avoid O(M²) ────────
     # Transactions with different amounts or dates can NEVER be duplicates,
@@ -757,7 +843,7 @@ async def batch_detect_duplicates(
             continue
         for i, (tx_a, email_a) in enumerate(group):
             already_paired_a = paired_ids_map.get(tx_a.id, set())
-            for tx_b, email_b in group[i + 1:]:
+            for tx_b, email_b in group[i + 1 :]:
                 pair_key = tuple(sorted([tx_a.id, tx_b.id]))
                 if pair_key in seen_pairs:
                     continue
@@ -773,16 +859,24 @@ async def batch_detect_duplicates(
                 seen_pairs.add(pair_key)
                 stats[rule_source] = stats.get(rule_source, 0) + 1
                 pair_id = str(uuid.uuid4())
-                db.add(DuplicatePair(
-                    id=pair_id,
-                    primary_tx_id=tx_a.id,
-                    duplicate_tx_id=tx_b.id,
-                    status="pending",
-                    confidence=score,
-                    rule_source=rule_source,
-                ))
+                db.add(
+                    DuplicatePair(
+                        id=pair_id,
+                        primary_tx_id=tx_a.id,
+                        duplicate_tx_id=tx_b.id,
+                        status="pending",
+                        confidence=score,
+                        rule_source=rule_source,
+                    )
+                )
                 new_pair_ids.append(pair_id)
-                logger.info("Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)", tx_a.id, tx_b.id, rule_source, score)
+                logger.info(
+                    "Batch intra-batch queued for review: %s vs %s (%s, conf=%.2f)",
+                    tx_a.id,
+                    tx_b.id,
+                    rule_source,
+                    score,
+                )
 
     logger.debug("batch_detect_duplicates: complete stats=%s new_pair_ids=%s", stats, new_pair_ids)
     return {**stats, "new_pair_ids": new_pair_ids}
@@ -807,28 +901,36 @@ async def resolve_duplicate(
     pair.resolved_at = datetime.now(UTC)
 
     if primary_email is None:
-        primary_email = (await db.execute(
-            select(Email).join(Transaction, Email.id == Transaction.email_id)
-            .where(Transaction.id == pair.primary_tx_id)
-        )).scalar_one_or_none()
+        primary_email = (
+            await db.execute(
+                select(Email)
+                .join(Transaction, Email.id == Transaction.email_id)
+                .where(Transaction.id == pair.primary_tx_id)
+            )
+        ).scalar_one_or_none()
     discard_lookup_id = discard_tx_id or pair.duplicate_tx_id
     if duplicate_email is None:
-        duplicate_email = (await db.execute(
-            select(Email).join(Transaction, Email.id == Transaction.email_id)
-            .where(Transaction.id == discard_lookup_id)
-        )).scalar_one_or_none()
+        duplicate_email = (
+            await db.execute(
+                select(Email)
+                .join(Transaction, Email.id == Transaction.email_id)
+                .where(Transaction.id == discard_lookup_id)
+            )
+        ).scalar_one_or_none()
 
     if primary_email and duplicate_email:
         d1 = (primary_email.sender_domain or "").lower()
         d2 = (duplicate_email.sender_domain or "").lower()
         if d1 and d2 and d1 != d2:
             domain_a, domain_b = _sorted_domains(d1, d2)
-            rule = (await db.execute(
-                select(DomainPairRule).where(
-                    DomainPairRule.domain_a == domain_a,
-                    DomainPairRule.domain_b == domain_b,
+            rule = (
+                await db.execute(
+                    select(DomainPairRule).where(
+                        DomainPairRule.domain_a == domain_a,
+                        DomainPairRule.domain_b == domain_b,
+                    )
                 )
-            )).scalar_one_or_none()
+            ).scalar_one_or_none()
             if rule is None:
                 rule = DomainPairRule(
                     id=str(uuid.uuid4()),
@@ -852,19 +954,23 @@ async def resolve_duplicate(
             )
 
     if action == "confirmed" and discard_tx_id:
-        referencing_pairs = (await db.execute(
-            select(DuplicatePair).where(
-                or_(
-                    DuplicatePair.primary_tx_id == discard_tx_id,
-                    DuplicatePair.duplicate_tx_id == discard_tx_id,
+        referencing_pairs = (
+            (
+                await db.execute(
+                    select(DuplicatePair).where(
+                        or_(
+                            DuplicatePair.primary_tx_id == discard_tx_id,
+                            DuplicatePair.duplicate_tx_id == discard_tx_id,
+                        )
+                    )
                 )
             )
-        )).scalars().all()
+            .scalars()
+            .all()
+        )
         for p in referencing_pairs:
             await db.delete(p)
 
-        discard_tx = (await db.execute(
-            select(Transaction).where(Transaction.id == discard_tx_id)
-        )).scalar_one_or_none()
+        discard_tx = (await db.execute(select(Transaction).where(Transaction.id == discard_tx_id))).scalar_one_or_none()
         if discard_tx:
             await db.delete(discard_tx)

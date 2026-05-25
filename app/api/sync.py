@@ -32,14 +32,13 @@ def _log_task_result(task: asyncio.Task):
 @router.get("/sync/progress")
 async def sync_progress_endpoint(current_user=Depends(get_current_user)):
     from app.sync import get_sync_progress_public
+
     return get_sync_progress_public(user_id=current_user.id)
 
 
 @router.get("/sync/status")
 async def sync_status(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
-    state = (await db.execute(
-        select(SyncState).where(SyncState.user_id == current_user.id)
-    )).scalar_one_or_none()
+    state = (await db.execute(select(SyncState).where(SyncState.user_id == current_user.id))).scalar_one_or_none()
     if state and state.last_synced_at:
         next_sync = state.last_synced_at + timedelta(hours=settings.SYNC_INTERVAL_HOURS)
         return {
@@ -57,16 +56,16 @@ async def sync_status(db: AsyncSession = Depends(get_db), current_user=Depends(g
 
 
 class SyncSettingsBody(BaseModel):
-    email_filter: str   # all | unread | read
+    email_filter: str  # all | unread | read
 
 
 @router.patch("/sync/settings")
-async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+async def update_sync_settings(
+    body: SyncSettingsBody, db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)
+):
     if body.email_filter not in ("all", "unread", "read"):
         raise HTTPException(status_code=422, detail="email_filter must be all, unread, or read")
-    state = (await db.execute(
-        select(SyncState).where(SyncState.user_id == current_user.id)
-    )).scalar_one_or_none()
+    state = (await db.execute(select(SyncState).where(SyncState.user_id == current_user.id))).scalar_one_or_none()
     if state is None:
         state = SyncState(user_id=current_user.id, email_filter=body.email_filter)
         db.add(state)
@@ -79,6 +78,7 @@ async def update_sync_settings(body: SyncSettingsBody, db: AsyncSession = Depend
 @router.post("/sync/trigger")
 async def trigger_sync(current_user=Depends(get_current_user)):
     from app.workers.queue import task_queue
+
     user_id = getattr(current_user, "id", None)
     task_id = await task_queue.enqueue("sync", user_id, {"trigger": "manual"})
     if task_id is None:
@@ -87,11 +87,15 @@ async def trigger_sync(current_user=Depends(get_current_user)):
 
 
 class BackfillBody(BaseModel):
-    email_ids: list[str] = []   # empty = backfill all missing
+    email_ids: list[str] = []  # empty = backfill all missing
 
 
 @router.post("/sync/backfill-bodies")
-async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def backfill_bodies(
+    payload: BackfillBody = BackfillBody(),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     import asyncio
@@ -122,9 +126,9 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
         for email in emails:
             try:
                 msg = await asyncio.to_thread(
-                    lambda eid=email.gmail_id: service.users().messages().get(
-                        userId="me", id=eid, format="full"
-                    ).execute()
+                    lambda eid=email.gmail_id: (
+                        service.users().messages().get(userId="me", id=eid, format="full").execute()
+                    )
                 )
                 body = _extract_body_text(msg.get("payload", {}))
                 if body:
@@ -140,10 +144,13 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
 
     from sqlalchemy import func
 
-    count = (await db.execute(
-        select(func.count(Email.id))
-        .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
-    )).scalar()
+    count = (
+        await db.execute(
+            select(func.count(Email.id)).where(
+                Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == "")
+            )
+        )
+    ).scalar()
     if not count:
         return {"updated": 0, "errors": 0, "total": 0}
 
@@ -159,12 +166,18 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     service = await asyncio.to_thread(_build_service, creds)
 
     while True:
-        batch = (await db.execute(
-            select(Email)
-            .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
-            .offset(offset)
-            .limit(batch_size)
-        )).scalars().all()
+        batch = (
+            (
+                await db.execute(
+                    select(Email)
+                    .where(Email.user_id == current_user.id, or_(Email.body_text.is_(None), Email.body_text == ""))
+                    .offset(offset)
+                    .limit(batch_size)
+                )
+            )
+            .scalars()
+            .all()
+        )
         if not batch:
             break
 
@@ -172,9 +185,9 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
             total_scanned += 1
             try:
                 msg = await asyncio.to_thread(
-                    lambda eid=email.gmail_id: service.users().messages().get(
-                        userId="me", id=eid, format="full"
-                    ).execute()
+                    lambda eid=email.gmail_id: (
+                        service.users().messages().get(userId="me", id=eid, format="full").execute()
+                    )
                 )
                 body = _extract_body_text(msg.get("payload", {}))
                 if body:
@@ -191,9 +204,7 @@ async def backfill_bodies(payload: BackfillBody = BackfillBody(), db: AsyncSessi
     return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
 
 
-_DIRTY_BODY_RE = re.compile(
-    r'&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]'
-)
+_DIRTY_BODY_RE = re.compile(r"&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]")
 
 
 @router.post("/sync/trigger-clean-bodies")
@@ -204,6 +215,7 @@ async def trigger_clean_bodies(
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.sync import clean_bodies_job
+
     task = asyncio.create_task(clean_bodies_job(user_id=current_user.id))
     _background_tasks.add(task)
     task.add_done_callback(_log_task_result)
@@ -235,6 +247,7 @@ async def fetch_range(
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.sync import run_sync_range
+
     result = await asyncio.wait_for(
         run_sync_range(
             user_id=current_user.id,
@@ -257,13 +270,18 @@ async def trigger_fetch_range(
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
     from app.workers.queue import task_queue
-    task_id = await task_queue.enqueue("fetch_range", current_user.id, {
-        "after_date": body.after_date.strftime("%Y/%m/%d"),
-        "before_date": body.before_date.strftime("%Y/%m/%d"),
-        "llm_priority": body.llm_priority,
-        "sender": body.sender,
-        "subject": body.subject,
-    })
+
+    task_id = await task_queue.enqueue(
+        "fetch_range",
+        current_user.id,
+        {
+            "after_date": body.after_date.strftime("%Y/%m/%d"),
+            "before_date": body.before_date.strftime("%Y/%m/%d"),
+            "llm_priority": body.llm_priority,
+            "sender": body.sender,
+            "subject": body.subject,
+        },
+    )
     return {"message": "Fetch-range queued", "task_id": task_id}
 
 
@@ -272,18 +290,21 @@ async def get_alerts(current_user: User = Depends(get_current_user)):
     if not is_owner(current_user):
         raise HTTPException(403, "Admin only")
     from app.alerts import get_alerts as _get
+
     return _get()
 
 
 @router.get("/tasks")
 async def list_tasks(current_user: User = Depends(get_current_user)):
     from app.workers.queue import task_queue
+
     return {"tasks": task_queue.get_tasks(user_id=current_user.id, limit=20)}
 
 
 @router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str, current_user: User = Depends(get_current_user)):
     from app.workers.queue import task_queue
+
     task = task_queue.get_status(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -297,6 +318,7 @@ async def clear_alerts(current_user: User = Depends(get_current_user)):
     if not is_owner(current_user):
         raise HTTPException(403, "Admin only")
     from app.alerts import clear_alerts as _clear
+
     _clear()
     return {"cleared": True}
 
@@ -343,29 +365,29 @@ async def llm_status(
         for p in user_client.get_status():
             provider_runtime[p["name"]] = p
 
-    services_result = await db.execute(
-        select(UserAIService).where(UserAIService.user_id == current_user.id)
-    )
+    services_result = await db.execute(select(UserAIService).where(UserAIService.user_id == current_user.id))
     custom_services = services_result.scalars().all()
 
     for svc in custom_services:
         runtime = provider_runtime.get(svc.provider, {})
-        providers.append({
-            "source": "custom",
-            "service_id": svc.id,
-            "name": svc.display_name,
-            "display_name": svc.display_name,
-            "model": svc.model_id,
-            "model_id": svc.model_id,
-            "enabled": svc.enabled,
-            "available": svc.enabled,
-            "rate_limited_secs": runtime.get("rate_limited_secs", 0),
-            "rate_limit_count": runtime.get("rate_limit_count", 0),
-            "priority_score": runtime.get("priority_score", 0),
-            "success": runtime.get("success", 0),
-            "fail": runtime.get("fail", 0),
-            "error_rate": runtime.get("error_rate", 0),
-        })
+        providers.append(
+            {
+                "source": "custom",
+                "service_id": svc.id,
+                "name": svc.display_name,
+                "display_name": svc.display_name,
+                "model": svc.model_id,
+                "model_id": svc.model_id,
+                "enabled": svc.enabled,
+                "available": svc.enabled,
+                "rate_limited_secs": runtime.get("rate_limited_secs", 0),
+                "rate_limit_count": runtime.get("rate_limit_count", 0),
+                "priority_score": runtime.get("priority_score", 0),
+                "success": runtime.get("success", 0),
+                "fail": runtime.get("fail", 0),
+                "error_rate": runtime.get("error_rate", 0),
+            }
+        )
 
     result = {
         "providers": providers,

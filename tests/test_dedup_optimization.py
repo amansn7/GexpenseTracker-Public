@@ -55,6 +55,7 @@ def _make_tx(
 
 # ── Test 1: Query count optimization ────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_batch_detect_duplicates_query_count(db_session, mock_user):
     """
@@ -77,8 +78,7 @@ async def test_batch_detect_duplicates_query_count(db_session, mock_user):
     for i in range(10):
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, "swiggy.in",
-                            datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, 500.0, date(2026, 4, 10))
         db_session.add_all([email, tx])
         existing_pairs.append((tx, email))
@@ -89,8 +89,7 @@ async def test_batch_detect_duplicates_query_count(db_session, mock_user):
     for i in range(10):
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, "swiggy.in",
-                            datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, 500.0, date(2026, 4, 11))
         new_pairs.append((tx, email))
 
@@ -104,6 +103,7 @@ async def test_batch_detect_duplicates_query_count(db_session, mock_user):
 
 
 # ── Test 2: _score_pair_with_rules produces identical results to _score_pair ─
+
 
 @pytest.mark.asyncio
 async def test_score_pair_with_rules_matches_score_pair(db_session, mock_user):
@@ -126,12 +126,10 @@ async def test_score_pair_with_rules_matches_score_pair(db_session, mock_user):
     db_session.add(rule)
     await db_session.flush()
 
-    email_a = _make_email(str(uuid.uuid4()), uid, "hdfcbank.com",
-                          datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
+    email_a = _make_email(str(uuid.uuid4()), uid, "hdfcbank.com", datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
     tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
 
-    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                          datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
+    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
     tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
 
     db_session.add_all([email_a, tx_a, email_b, tx_b])
@@ -139,9 +137,7 @@ async def test_score_pair_with_rules_matches_score_pair(db_session, mock_user):
 
     # Build rules map
     all_rules = (await db_session.execute(select(DomainPairRule))).scalars().all()
-    rules_map: dict[tuple[str, str], DomainPairRule] = {
-        (r.domain_a, r.domain_b): r for r in all_rules
-    }
+    rules_map: dict[tuple[str, str], DomainPairRule] = {(r.domain_a, r.domain_b): r for r in all_rules}
 
     # Compare results
     score_async, source_async = await _score_pair(tx_a, email_a, tx_b, email_b, db_session)
@@ -158,12 +154,10 @@ async def test_score_pair_with_rules_same_domain(db_session, mock_user):
     """Same-domain pair should return (1.0, 'same_domain_exact') in both functions."""
     uid = str(mock_user.id)
 
-    email_a = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                          datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
+    email_a = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
     tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
 
-    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                          datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
+    email_b = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
     tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
 
     db_session.add_all([email_a, tx_a, email_b, tx_b])
@@ -183,12 +177,10 @@ async def test_score_pair_with_rules_amount_date_fallback(db_session, mock_user)
     """Different domains with no rule should fall back to amount_date (0.5)."""
     uid = str(mock_user.id)
 
-    email_a = _make_email(str(uuid.uuid4()), uid, "unknown-a.com",
-                          datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
+    email_a = _make_email(str(uuid.uuid4()), uid, "unknown-a.com", datetime(2026, 4, 10, 9, 0, tzinfo=UTC))
     tx_a = _make_tx(str(uuid.uuid4()), email_a.id, 500.0, date(2026, 4, 10))
 
-    email_b = _make_email(str(uuid.uuid4()), uid, "unknown-b.com",
-                          datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
+    email_b = _make_email(str(uuid.uuid4()), uid, "unknown-b.com", datetime(2026, 4, 10, 12, 0, tzinfo=UTC))
     tx_b = _make_tx(str(uuid.uuid4()), email_b.id, 500.0, date(2026, 4, 10))
 
     db_session.add_all([email_a, tx_a, email_b, tx_b])
@@ -205,6 +197,7 @@ async def test_score_pair_with_rules_amount_date_fallback(db_session, mock_user)
 
 # ── Test 3: detect_and_record_duplicates (single-tx path) still works ────────
 
+
 @pytest.mark.asyncio
 async def test_single_tx_path_still_works(db_session, mock_user):
     """
@@ -214,15 +207,13 @@ async def test_single_tx_path_still_works(db_session, mock_user):
     uid = str(mock_user.id)
 
     # Create an existing transaction
-    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                         datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx1 = _make_tx(str(uuid.uuid4()), email1.id, 500.0, date(2026, 4, 10))
     db_session.add_all([email1, tx1])
     await db_session.flush()
 
     # Create a new transaction that should match
-    email2 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                         datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
+    email2 = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
     tx2 = _make_tx(str(uuid.uuid4()), email2.id, 500.0, date(2026, 4, 11))
     db_session.add_all([email2, tx2])
     await db_session.flush()
@@ -238,6 +229,7 @@ async def test_single_tx_path_still_works(db_session, mock_user):
 
 
 # ── Test 4: Dedup correctness preserved (same pairs, same scores) ────────────
+
 
 @pytest.mark.asyncio
 async def batch_detect_duplicates_preserves_correctness(db_session, mock_user):
@@ -268,20 +260,20 @@ async def batch_detect_duplicates_preserves_correctness(db_session, mock_user):
     for domain, amount, txn_date in existing_data:
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, domain,
-                            datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, domain, datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, amount, txn_date)
         db_session.add_all([email, tx])
     await db_session.flush()
 
     # Create 2 new transactions
     new_pairs = []
-    for domain, amount, txn_date in [("swiggy.in", 500.0, date(2026, 4, 11)),
-                                      ("hdfcbank.com", 500.0, date(2026, 4, 11))]:
+    for domain, amount, txn_date in [
+        ("swiggy.in", 500.0, date(2026, 4, 11)),
+        ("hdfcbank.com", 500.0, date(2026, 4, 11)),
+    ]:
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, domain,
-                            datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, domain, datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, amount, txn_date)
         new_pairs.append((tx, email))
 
@@ -315,26 +307,27 @@ async def test_batch_detect_skips_non_candidates(db_session, mock_user):
     uid = str(mock_user.id)
 
     # Income transaction — should be skipped
-    email_income = _make_email(str(uuid.uuid4()), uid, "bank.com",
-                               datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
-    tx_income = _make_tx(str(uuid.uuid4()), email_income.id, 5000.0,
-                         date(2026, 4, 10), label="income")
+    email_income = _make_email(str(uuid.uuid4()), uid, "bank.com", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+    tx_income = _make_tx(str(uuid.uuid4()), email_income.id, 5000.0, date(2026, 4, 10), label="income")
 
     # No sender_domain — should be skipped
     email_no_domain = Email(
-        id=str(uuid.uuid4()), gmail_id="g-nodomain", sender="unknown",
-        sender_domain=None, user_id=uid,
+        id=str(uuid.uuid4()),
+        gmail_id="g-nodomain",
+        sender="unknown",
+        sender_domain=None,
+        user_id=uid,
         received_at=datetime(2026, 4, 10, 10, 0, tzinfo=UTC),
     )
-    tx_no_domain = _make_tx(str(uuid.uuid4()), email_no_domain.id, 500.0,
-                            date(2026, 4, 10))
+    tx_no_domain = _make_tx(str(uuid.uuid4()), email_no_domain.id, 500.0, date(2026, 4, 10))
 
     db_session.add_all([email_income, tx_income, email_no_domain, tx_no_domain])
     await db_session.flush()
 
     result = await batch_detect_duplicates(
         [(tx_income, email_income), (tx_no_domain, email_no_domain)],
-        db_session, uid,
+        db_session,
+        uid,
     )
     assert result["checked"] == 2
     assert len(result["new_pair_ids"]) == 0
@@ -397,6 +390,7 @@ async def test_score_pair_with_rules_day_diff_too_large():
 
 
 # ── Test 5: _compute_score pure function ─────────────────────────────────────
+
 
 def _make_mock_email(sender_domain: str, received_at: datetime, subject: str = "") -> MagicMock:
     m = MagicMock(spec=Email)
@@ -559,6 +553,7 @@ def test_compute_score_is_pure_no_side_effects():
 
 # ── Task 2A: N+1 query fix for detect_and_record_duplicates ──────────────────
 
+
 @pytest.mark.asyncio
 async def test_detect_and_record_duplicates_query_count(db_session, mock_user):
     """
@@ -580,8 +575,7 @@ async def test_detect_and_record_duplicates_query_count(db_session, mock_user):
     db_session.execute = counting_execute
 
     # Create one existing transaction
-    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                         datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx1 = _make_tx(str(uuid.uuid4()), email1.id, 500.0, date(2026, 4, 10))
     db_session.add_all([email1, tx1])
     await db_session.flush()
@@ -589,8 +583,7 @@ async def test_detect_and_record_duplicates_query_count(db_session, mock_user):
     # Create 100 new transactions that are candidates (same amount, within window)
     query_count_before = query_count
     for i in range(100):
-        email_new = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                                datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
+        email_new = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
         tx_new = _make_tx(str(uuid.uuid4()), email_new.id, 500.0, date(2026, 4, 11))
         db_session.add_all([email_new, tx_new])
         await db_session.flush()
@@ -624,15 +617,13 @@ async def test_detect_and_record_duplicates_correctness_preserved(db_session, mo
     db_session.add(rule)
 
     # Existing transaction
-    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                         datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+    email1 = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
     tx1 = _make_tx(str(uuid.uuid4()), email1.id, 500.0, date(2026, 4, 10))
     db_session.add_all([email1, tx1])
     await db_session.flush()
 
     # New transaction — should match existing (same_domain_exact)
-    email2 = _make_email(str(uuid.uuid4()), uid, "swiggy.in",
-                         datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
+    email2 = _make_email(str(uuid.uuid4()), uid, "swiggy.in", datetime(2026, 4, 11, 10, 0, tzinfo=UTC))
     tx2 = _make_tx(str(uuid.uuid4()), email2.id, 500.0, date(2026, 4, 11))
     db_session.add_all([email2, tx2])
     await db_session.flush()
@@ -648,6 +639,7 @@ async def test_detect_and_record_duplicates_correctness_preserved(db_session, mo
 
 
 # ── Task 2B: Intra-batch O(N²) fix for batch_detect_duplicates ───────────────
+
 
 @pytest.mark.asyncio
 async def test_batch_intra_batch_grouped_comparisons(db_session, mock_user):
@@ -672,8 +664,7 @@ async def test_batch_intra_batch_grouped_comparisons(db_session, mock_user):
         for i in range(490):
             eid = str(uuid.uuid4())
             tid = str(uuid.uuid4())
-            email = _make_email(eid, uid, "swiggy.in",
-                                datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+            email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
             tx = _make_tx(tid, eid, 100.0 + i, date(2026, 4, 10))  # unique amounts
             new_pairs.append((tx, email))
 
@@ -681,8 +672,7 @@ async def test_batch_intra_batch_grouped_comparisons(db_session, mock_user):
         for i in range(10):
             eid = str(uuid.uuid4())
             tid = str(uuid.uuid4())
-            email = _make_email(eid, uid, "swiggy.in",
-                                datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+            email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
             tx = _make_tx(tid, eid, 500.0, date(2026, 4, 10))  # same amount+date
             new_pairs.append((tx, email))
 
@@ -706,8 +696,7 @@ async def test_batch_intra_batch_finds_all_duplicate_pairs(db_session, mock_user
     for i in range(5):
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, "swiggy.in",
-                            datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, 500.0, date(2026, 4, 10))
         new_pairs.append((tx, email))
 
@@ -739,8 +728,7 @@ async def test_batch_intra_batch_all_same_amount_date(db_session, mock_user):
         for i in range(500):
             eid = str(uuid.uuid4())
             tid = str(uuid.uuid4())
-            email = _make_email(eid, uid, "swiggy.in",
-                                datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+            email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
             tx = _make_tx(tid, eid, 500.0, date(2026, 4, 10))
             new_pairs.append((tx, email))
 
@@ -748,7 +736,9 @@ async def test_batch_intra_batch_all_same_amount_date(db_session, mock_user):
 
     # All in one group → full C(500,2) = 124,750 comparisons
     expected_comparisons = 500 * 499 // 2
-    assert comparison_count == expected_comparisons, f"Expected {expected_comparisons} comparisons, got {comparison_count}"
+    assert comparison_count == expected_comparisons, (
+        f"Expected {expected_comparisons} comparisons, got {comparison_count}"
+    )
     assert result["checked"] == 500
     # All same domain → all should be same_domain_exact
     assert result["same_domain_exact"] == expected_comparisons
@@ -767,8 +757,7 @@ async def test_batch_intra_batch_no_false_negatives(db_session, mock_user):
     for i in range(20):
         eid = str(uuid.uuid4())
         tid = str(uuid.uuid4())
-        email = _make_email(eid, uid, "swiggy.in",
-                            datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
+        email = _make_email(eid, uid, "swiggy.in", datetime(2026, 4, 10, 10, 0, tzinfo=UTC))
         tx = _make_tx(tid, eid, 100.0 + i * 10, date(2026, 4, 10))  # all different amounts
         new_pairs.append((tx, email))
 

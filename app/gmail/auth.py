@@ -67,13 +67,15 @@ async def get_credentials_for_user(db, user_id: str):
 
     from app.models import ConnectedAccount
 
-    account = (await db.execute(
-        select(ConnectedAccount).where(
-            ConnectedAccount.user_id == user_id,
-            ConnectedAccount.provider == "gmail",
-            ConnectedAccount.status == "connected",
+    account = (
+        await db.execute(
+            select(ConnectedAccount).where(
+                ConnectedAccount.user_id == user_id,
+                ConnectedAccount.provider == "gmail",
+                ConnectedAccount.status == "connected",
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
 
     if not account or not account.refresh_token:
         return None
@@ -115,7 +117,7 @@ async def get_credentials_for_user(db, user_id: str):
             )
         except TimeoutError:
             raise RuntimeError("Gmail token refresh timed out — please reconnect Gmail")
-        except RefreshError as exc:
+        except RefreshError:
             account.status = "disconnected"
             await db.commit()
             raise RuntimeError(f"Gmail token revoked for user {user_id}, reconnection required")

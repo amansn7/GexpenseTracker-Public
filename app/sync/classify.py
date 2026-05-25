@@ -10,7 +10,9 @@ from app.models import UserSettings
 from app.services.llm_service import get_user_llm_client
 
 
-async def _apply_pre_filter(session: AsyncSession, messages: list[dict], user_id: str, prog: dict, uid: str) -> tuple[list, int]:
+async def _apply_pre_filter(
+    session: AsyncSession, messages: list[dict], user_id: str, prog: dict, uid: str
+) -> tuple[list, int]:
     """
     Deduplicate + pre-filter incoming messages.
     Returns (new_pairs, skipped_count) where new_pairs is List[(Email, msg_dict)].
@@ -91,15 +93,23 @@ async def _classify_batch(
     db_rules: dict = {}
     if rule_engine_enabled:
         from app.classifier.rules import build_domain_rules
+
         db_rules = await build_domain_rules(session)
 
     effective_llm_client = user_llm_client
     if not effective_llm_client and user_id and user_settings and user_settings.active_ai_service_id:
         effective_llm_client = await get_user_llm_client(user_id, session)
 
-    items = [(email.id, msg["sender"], msg["sender_domain"],
-              msg.get("subject", ""), msg.get("body_text") or msg.get("body_snippet") or "")
-             for email, msg in new_pairs]
+    items = [
+        (
+            email.id,
+            msg["sender"],
+            msg["sender_domain"],
+            msg.get("subject", ""),
+            msg.get("body_text") or msg.get("body_snippet") or "",
+        )
+        for email, msg in new_pairs
+    ]
 
     classifications = await batch_classify_emails(
         items,

@@ -7,6 +7,7 @@ def test_is_authenticated_false_when_no_token(tmp_path, monkeypatch):
     monkeypatch.setattr("app.gmail.auth.TOKEN_FILE", tmp_path / "token.json")
     assert is_authenticated() is False
 
+
 def test_save_credentials_creates_file(tmp_path, monkeypatch):
     monkeypatch.setattr("app.gmail.auth.TOKEN_FILE", tmp_path / "token.json")
     mock_creds = MagicMock()

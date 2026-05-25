@@ -1,4 +1,5 @@
 """Backward-compatible re-exports for app.sync package."""
+
 from app.sync.fetch import clean_bodies_job, run_sync, sync_emails
 from app.sync.progress import (
     _add_preview,
@@ -40,14 +41,16 @@ async def scan_all_for_duplicates(user_id: str) -> dict:
     logger = logging.getLogger(__name__)
 
     async with AsyncSessionLocal() as session:
-        rows = (await session.execute(
-            select(Transaction, Email)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user_id,
-                Transaction.label == Label.expense,
+        rows = (
+            await session.execute(
+                select(Transaction, Email)
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Email.user_id == user_id,
+                    Transaction.label == Label.expense,
+                )
             )
-        )).all()
+        ).all()
 
         checked = 0
         _user_pairs_q = (

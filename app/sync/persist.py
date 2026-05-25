@@ -1,4 +1,5 @@
 """Transaction persistence and sync state updates."""
+
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,11 +50,13 @@ async def _update_sync_state(
 ) -> None:
     """Update or create SyncState row with new history_id and timestamp."""
     if sync_state is None:
-        session.add(SyncState(
-            user_id=user_id,
-            last_history_id=new_history_id,
-            last_synced_at=datetime.now(UTC),
-        ))
+        session.add(
+            SyncState(
+                user_id=user_id,
+                last_history_id=new_history_id,
+                last_synced_at=datetime.now(UTC),
+            )
+        )
     else:
         sync_state.last_history_id = new_history_id
         sync_state.last_synced_at = datetime.now(UTC)

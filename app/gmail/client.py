@@ -28,14 +28,17 @@ async def _async_retry_with_backoff(func, max_retries=_MAX_RETRIES):
             return await asyncio.to_thread(func)
         except HttpError as exc:
             if exc.resp.status in _RETRYABLE_STATUS and attempt < max_retries:
-                wait = _RETRY_BACKOFF_BASE ** attempt
+                wait = _RETRY_BACKOFF_BASE**attempt
                 if exc.resp.status == 429:
                     retry_after = exc.resp.get("retry-after")
                     if retry_after:
                         wait = max(wait, int(retry_after))
                 logger.warning(
                     "Gmail API error %s (attempt %d/%d), retrying in %ds",
-                    exc.resp.status, attempt + 1, max_retries, wait,
+                    exc.resp.status,
+                    attempt + 1,
+                    max_retries,
+                    wait,
                 )
                 await asyncio.sleep(wait)
                 last_exc = exc
@@ -43,10 +46,13 @@ async def _async_retry_with_backoff(func, max_retries=_MAX_RETRIES):
             raise
         except OSError as exc:
             if attempt < max_retries:
-                wait = _RETRY_BACKOFF_BASE ** attempt
+                wait = _RETRY_BACKOFF_BASE**attempt
                 logger.warning(
                     "Gmail API connection error (attempt %d/%d), retrying in %ds: %s",
-                    attempt + 1, max_retries, wait, exc,
+                    attempt + 1,
+                    max_retries,
+                    wait,
+                    exc,
                 )
                 await asyncio.sleep(wait)
                 last_exc = exc
@@ -54,12 +60,15 @@ async def _async_retry_with_backoff(func, max_retries=_MAX_RETRIES):
             raise
     raise last_exc
 
+
 def extract_domain(sender: str) -> str:
     match = re.search(r"@([\w.-]+)", sender)
     return match.group(1).lower() if match else ""
 
+
 def get_gmail_link(gmail_id: str) -> str:
     return f"https://mail.google.com/mail/u/0/#inbox/{gmail_id}"
+
 
 def _build_service(creds: Credentials | None = None):
     import httplib2
@@ -86,23 +95,22 @@ def _decode_part(part: dict) -> str:
 
 def _strip_html(html: str) -> str:
     """HTML → plain text suitable for LLM input. Removes noise aggressively."""
-    html = re.sub(r'<head[^>]*>.*?</head>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<(style|script)[^>]*>.*?</\1>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r'<!--.*?-->', ' ', html, flags=re.DOTALL)
-    html = re.sub(r'<img[^>]*>', ' ', html, flags=re.IGNORECASE)
-    html = re.sub(r'<(br|p|div|tr|li|h[1-6]|td|th)[^>]*>', '\n', html, flags=re.IGNORECASE)
-    html = re.sub(r'<[^>]+>', ' ', html)
+    html = re.sub(r"<head[^>]*>.*?</head>", " ", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<(style|script)[^>]*>.*?</\1>", " ", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<!--.*?-->", " ", html, flags=re.DOTALL)
+    html = re.sub(r"<img[^>]*>", " ", html, flags=re.IGNORECASE)
+    html = re.sub(r"<(br|p|div|tr|li|h[1-6]|td|th)[^>]*>", "\n", html, flags=re.IGNORECASE)
+    html = re.sub(r"<[^>]+>", " ", html)
     return html
 
 
-_INVISIBLE_CHARS_RE = re.compile(
-    r'[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]'
-)
+_INVISIBLE_CHARS_RE = re.compile(r"[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]")
 
-_AMOUNT_PRESENT_RE = re.compile(r'(?:Rs\.?|INR|₹)\s*\d', re.IGNORECASE)
+_AMOUNT_PRESENT_RE = re.compile(r"(?:Rs\.?|INR|₹)\s*\d", re.IGNORECASE)
 
 _BOILERPLATE_PATTERNS = [
-    re.compile(r, re.IGNORECASE) for r in [
+    re.compile(r, re.IGNORECASE)
+    for r in [
         r"if this transaction was not initiated by you",
         r"to block (?:upi|card|account)",
         r"call us at",
@@ -133,7 +141,7 @@ def _truncate_after_transaction(text: str) -> str:
     transaction ref on the same line (e.g. Axis Bank IMPS format).
     """
     last_pos = -1
-    for kw in ('UPI/', 'IMPS/', 'NEFT/', 'RTGS/', 'NACH/'):
+    for kw in ("UPI/", "IMPS/", "NEFT/", "RTGS/", "NACH/"):
         pos = text.rfind(kw)
         if pos > last_pos:
             last_pos = pos
@@ -141,7 +149,7 @@ def _truncate_after_transaction(text: str) -> str:
     if last_pos < 0:
         m = _AMOUNT_PRESENT_RE.search(text)
         if m:
-            return text[:m.end() + 150].strip()
+            return text[: m.end() + 150].strip()
         return text
 
     rest = text[last_pos:]
@@ -152,16 +160,16 @@ def _truncate_after_transaction(text: str) -> str:
             earliest = m.start()
 
     if earliest < len(rest):
-        return text[:last_pos + earliest].rstrip()
+        return text[: last_pos + earliest].rstrip()
     return text
 
 
 def _strip_footer(text: str) -> str:
     """Remove boilerplate/footer lines starting from the first signpost match."""
-    lines = text.split('\n')
+    lines = text.split("\n")
     for i, line in enumerate(lines):
         if any(p.search(line) for p in _BOILERPLATE_PATTERNS):
-            return '\n'.join(lines[:i])
+            return "\n".join(lines[:i])
     return text
 
 
@@ -169,12 +177,12 @@ def _clean_body(text: str) -> str:
     """Decode HTML entities + strip invisible Unicode chars + normalize whitespace + strip boilerplate."""
     text = html_module.unescape(text)
     text = text.replace("&INR;", "₹")
-    text = _INVISIBLE_CHARS_RE.sub('', text)
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-    text = re.sub(r'[ \t]+', ' ', text)
-    text = re.sub(r'^[ \t]+|[ \t]+$', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\n[ \t]*\n', '\n', text)
-    text = re.sub(r'\n{2,}', '\n', text)
+    text = _INVISIBLE_CHARS_RE.sub("", text)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"^[ \t]+|[ \t]+$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\n[ \t]*\n", "\n", text)
+    text = re.sub(r"\n{2,}", "\n", text)
     text = _truncate_after_transaction(text)
     text = _strip_footer(text)
     return text.strip()[:4000]
@@ -232,7 +240,7 @@ _FINANCIAL_GMAIL_QUERY = (
     "(subject:debited OR subject:credited OR subject:transaction OR "
     "subject:payment OR subject:UPI OR subject:NEFT OR subject:IMPS OR subject:RTGS OR "
     "subject:salary OR subject:cashback OR subject:refund OR subject:EMI OR "
-    "subject:\"Rs.\" OR subject:INR OR subject:transfer)"
+    'subject:"Rs." OR subject:INR OR subject:transfer)'
 )
 
 # Compiled regex for fast pre-storage check (catches history API path where query filter isn't applied)
@@ -244,12 +252,32 @@ _FINANCIAL_RE = re.compile(
 )
 
 _FINANCIAL_DOMAINS = {
-    "hdfcbank.com", "axisbank.com", "sbi.co.in", "icicibank.com", "kotak.com",
-    "yesbank.in", "indusind.com", "idfcfirstbank.com", "rbl.co.in", "federalbank.co.in",
-    "paytm.com", "phonepe.com", "gpay.com", "googlepay.com", "amazonpay.in",
-    "npci.org.in", "razorpay.com", "cashfree.com", "billdesk.com", "mobikwik.com",
-    "freecharge.in", "pnbindia.in", "canarabank.in", "unionbankofindia.co.in",
-    "bankofbaroda.in", "upi.npci.org.in",
+    "hdfcbank.com",
+    "axisbank.com",
+    "sbi.co.in",
+    "icicibank.com",
+    "kotak.com",
+    "yesbank.in",
+    "indusind.com",
+    "idfcfirstbank.com",
+    "rbl.co.in",
+    "federalbank.co.in",
+    "paytm.com",
+    "phonepe.com",
+    "gpay.com",
+    "googlepay.com",
+    "amazonpay.in",
+    "npci.org.in",
+    "razorpay.com",
+    "cashfree.com",
+    "billdesk.com",
+    "mobikwik.com",
+    "freecharge.in",
+    "pnbindia.in",
+    "canarabank.in",
+    "unionbankofindia.co.in",
+    "bankofbaroda.in",
+    "upi.npci.org.in",
 }
 
 
@@ -291,7 +319,9 @@ async def fetch_new_messages(
     service = _build_service(creds)
 
     try:
-        return await _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids)
+        return await _fetch_messages_inner(
+            service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids
+        )
     except RefreshError as exc:
         raise RuntimeError(f"Gmail credential refresh failed: {exc}. Please reconnect Gmail")
     except OSError as exc:
@@ -299,7 +329,9 @@ async def fetch_new_messages(
         raise RuntimeError(f"Gmail API connection error: {exc}")
 
 
-async def _fetch_messages_inner(service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids=None):
+async def _fetch_messages_inner(
+    service, last_history_id, email_filter, creds, after_date, before_date, query_extra, existing_gmail_ids=None
+):
     use_two_phase = existing_gmail_ids is not None
 
     if last_history_id is None or after_date is not None:
@@ -325,9 +357,7 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
             kwargs = {"userId": "me", "q": query, "maxResults": settings.SYNC_PAGE_SIZE}
             if page_token:
                 kwargs["pageToken"] = page_token
-            results = await _async_retry_with_backoff(
-                lambda: service.users().messages().list(**kwargs).execute()
-            )
+            results = await _async_retry_with_backoff(lambda: service.users().messages().list(**kwargs).execute())
             message_ids.extend(m["id"] for m in results.get("messages", []))
             page_token = results.get("nextPageToken")
             if not page_token:
@@ -336,26 +366,27 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
         if after_date is not None:
             new_history_id = last_history_id
         else:
-            profile = await _async_retry_with_backoff(
-                lambda: service.users().getProfile(userId="me").execute()
-            )
+            profile = await _async_retry_with_backoff(lambda: service.users().getProfile(userId="me").execute())
             new_history_id = str(profile["historyId"])
     else:
         try:
             history = await _async_retry_with_backoff(
-                lambda: service.users().history().list(
-                    userId="me",
-                    startHistoryId=last_history_id,
-                    historyTypes=["messageAdded"],
-                ).execute()
+                lambda: (
+                    service.users()
+                    .history()
+                    .list(
+                        userId="me",
+                        startHistoryId=last_history_id,
+                        historyTypes=["messageAdded"],
+                    )
+                    .execute()
+                )
             )
             # History API returns minimal message objects (id + threadId only),
             # so we can't filter by labelIds here. Collect all ids and filter
             # after fetching the full message below.
             message_ids = [
-                msg["message"]["id"]
-                for record in history.get("history", [])
-                for msg in record.get("messagesAdded", [])
+                msg["message"]["id"] for record in history.get("history", []) for msg in record.get("messagesAdded", [])
             ]
             new_history_id = str(history.get("historyId", last_history_id))
         except HttpError as e:
@@ -371,11 +402,12 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
     metadata_fetch_count = 0
 
     if use_two_phase:
-
         # Phase 1: Fetch metadata in batches — 50x fewer HTTP round-trips
         logger.info("Two-phase fetch: fetching metadata for %d messages", len(message_ids))
         metadata_map = {}
-        meta_batch_size = settings.FETCH_CONCURRENCY * 2  # 10 metadata calls per batch (avoids concurrent request limit)
+        meta_batch_size = (
+            settings.FETCH_CONCURRENCY * 2
+        )  # 10 metadata calls per batch (avoids concurrent request limit)
 
         meta_errors: list[tuple[str, Exception]] = []
 
@@ -392,14 +424,18 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
         for i in range(0, len(message_ids), meta_batch_size):
             meta_errors.clear()
             batch = service.new_batch_http_request(callback=_meta_cb)
-            chunk = message_ids[i:i + meta_batch_size]
+            chunk = message_ids[i : i + meta_batch_size]
             for msg_id in chunk:
                 if msg_id in existing_gmail_ids:
                     skipped += 1
                     continue
                 batch.add(
-                    service.users().messages().get(
-                        userId="me", id=msg_id, format="metadata",
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg_id,
+                        format="metadata",
                         metadataHeaders=["From", "Subject", "Date"],
                     ),
                     request_id=msg_id,
@@ -425,7 +461,8 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
         new_msg_ids = list(metadata_map.keys())
         logger.info(
             "Two-phase: %d already synced, %d new messages to fetch full bodies",
-            skipped_pre, len(new_msg_ids),
+            skipped_pre,
+            len(new_msg_ids),
         )
 
         # Phase 2: Fetch full bodies in batches for new messages
@@ -449,27 +486,31 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
 
             headers = {h["name"]: h["value"] for h in response.get("payload", {}).get("headers", [])}
             sender = headers.get("From", "")
-            messages.append({
-                "gmail_id": request_id,
-                "subject": headers.get("Subject", ""),
-                "sender": sender,
-                "sender_domain": extract_domain(sender),
-                "received_at": datetime.fromtimestamp(
-                    int(response["internalDate"]) / 1000, tz=UTC
-                ),
-                "body_snippet": response.get("snippet", "")[:500],
-                "body_text": _extract_body_text(response.get("payload", {})),
-                "gmail_link": get_gmail_link(request_id),
-            })
+            messages.append(
+                {
+                    "gmail_id": request_id,
+                    "subject": headers.get("Subject", ""),
+                    "sender": sender,
+                    "sender_domain": extract_domain(sender),
+                    "received_at": datetime.fromtimestamp(int(response["internalDate"]) / 1000, tz=UTC),
+                    "body_snippet": response.get("snippet", "")[:500],
+                    "body_text": _extract_body_text(response.get("payload", {})),
+                    "gmail_link": get_gmail_link(request_id),
+                }
+            )
 
         for i in range(0, len(new_msg_ids), full_batch_size):
             full_errors.clear()
             batch = service.new_batch_http_request(callback=_full_cb)
-            chunk = new_msg_ids[i:i + full_batch_size]
+            chunk = new_msg_ids[i : i + full_batch_size]
             for msg_id in chunk:
                 batch.add(
-                    service.users().messages().get(
-                        userId="me", id=msg_id, format="full",
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg_id,
+                        format="full",
                     ),
                     request_id=msg_id,
                 )
@@ -496,9 +537,16 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
 
             try:
                 msg = await _async_retry_with_backoff(
-                    lambda: service.users().messages().get(
-                        userId="me", id=msg_id, format="full",
-                    ).execute()
+                    lambda: (
+                        service.users()
+                        .messages()
+                        .get(
+                            userId="me",
+                            id=msg_id,
+                            format="full",
+                        )
+                        .execute()
+                    )
                 )
             except HttpError as e:
                 if e.resp.status == 404:
@@ -513,18 +561,18 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
 
             headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
             sender = headers.get("From", "")
-            messages.append({
-                "gmail_id": msg_id,
-                "subject": headers.get("Subject", ""),
-                "sender": sender,
-                "sender_domain": extract_domain(sender),
-                "received_at": datetime.fromtimestamp(
-                    int(msg["internalDate"]) / 1000, tz=UTC
-                ),
-                "body_snippet": msg.get("snippet", "")[:500],
-                "body_text": _extract_body_text(msg.get("payload", {})),
-                "gmail_link": get_gmail_link(msg_id),
-            })
+            messages.append(
+                {
+                    "gmail_id": msg_id,
+                    "subject": headers.get("Subject", ""),
+                    "sender": sender,
+                    "sender_domain": extract_domain(sender),
+                    "received_at": datetime.fromtimestamp(int(msg["internalDate"]) / 1000, tz=UTC),
+                    "body_snippet": msg.get("snippet", "")[:500],
+                    "body_text": _extract_body_text(msg.get("payload", {})),
+                    "gmail_link": get_gmail_link(msg_id),
+                }
+            )
 
     if skipped:
         logger.info("Skipped %d message(s) that were deleted/trashed or already synced", skipped)
@@ -532,7 +580,10 @@ async def _fetch_messages_inner(service, last_history_id, email_filter, creds, a
     if use_two_phase:
         logger.info(
             "Two-phase fetch complete: %d metadata + %d full = %d new messages (%d skipped)",
-            metadata_fetch_count, full_fetch_count, len(messages), skipped,
+            metadata_fetch_count,
+            full_fetch_count,
+            len(messages),
+            skipped,
         )
     else:
         logger.info("Fetched %d messages (%d skipped)", len(messages), skipped)

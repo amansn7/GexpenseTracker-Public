@@ -18,11 +18,16 @@ async def test_handle_fetch_range_task_respects_timeout():
     user_id = "test_fetch_range_timeout"
     _reset_progress(user_id)
 
-    task = Task("task-fetch-timeout", "fetch_range", user_id, {
-        "after_date": "2024/01/01",
-        "before_date": "2024/03/31",
-        "llm_priority": False,
-    })
+    task = Task(
+        "task-fetch-timeout",
+        "fetch_range",
+        user_id,
+        {
+            "after_date": "2024/01/01",
+            "before_date": "2024/03/31",
+            "llm_priority": False,
+        },
+    )
 
     async def slow_run_sync_range(*args, **kwargs):
         await asyncio.sleep(999)
@@ -48,13 +53,18 @@ async def test_handle_fetch_range_task_success():
     user_id = "test_fetch_range_success"
     _reset_progress(user_id)
 
-    task = Task("task-fetch-ok", "fetch_range", user_id, {
-        "after_date": "2024/01/01",
-        "before_date": "2024/03/31",
-        "llm_priority": True,
-        "sender": "amazon@in",
-        "subject": "Order",
-    })
+    task = Task(
+        "task-fetch-ok",
+        "fetch_range",
+        user_id,
+        {
+            "after_date": "2024/01/01",
+            "before_date": "2024/03/31",
+            "llm_priority": True,
+            "sender": "amazon@in",
+            "subject": "Order",
+        },
+    )
 
     mock_result = {"fetched": 10, "inserted": 8, "backfilled": 2, "errors": 0}
 
@@ -77,10 +87,15 @@ async def test_handle_fetch_range_task_exception():
     user_id = "test_fetch_range_exception"
     _reset_progress(user_id)
 
-    task = Task("task-fetch-err", "fetch_range", user_id, {
-        "after_date": "2024/01/01",
-        "before_date": "2024/03/31",
-    })
+    task = Task(
+        "task-fetch-err",
+        "fetch_range",
+        user_id,
+        {
+            "after_date": "2024/01/01",
+            "before_date": "2024/03/31",
+        },
+    )
 
     try:
         with patch("app.sync.range.run_sync_range", side_effect=RuntimeError("Gmail not authenticated")):
@@ -154,9 +169,9 @@ async def test_fetch_range_endpoint_wraps_with_wait_for():
     app.dependency_overrides[get_current_user] = lambda: owner
 
     try:
-        with patch("app.sync.run_sync_range", return_value={
-            "fetched": 5, "inserted": 3, "backfilled": 1, "errors": 0
-        }) as mock_run:
+        with patch(
+            "app.sync.run_sync_range", return_value={"fetched": 5, "inserted": 3, "backfilled": 1, "errors": 0}
+        ) as mock_run:
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 resp = await client.post(
                     "/api/sync/fetch-range",
@@ -191,10 +206,14 @@ async def test_fetch_range_task_visible_via_tasks_api():
     app.dependency_overrides[get_current_user] = lambda: owner
 
     try:
-        task_id = await task_queue.enqueue("fetch_range", owner.id, {
-            "after_date": "2024/01/01",
-            "before_date": "2024/03/31",
-        })
+        task_id = await task_queue.enqueue(
+            "fetch_range",
+            owner.id,
+            {
+                "after_date": "2024/01/01",
+                "before_date": "2024/03/31",
+            },
+        )
         assert task_id is not None
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -214,6 +233,4 @@ async def test_fetch_range_task_visible_via_tasks_api():
         app.dependency_overrides.pop(get_current_user, None)
         task_queue._tasks.pop(task_id, None)
         if owner.id in task_queue._user_tasks:
-            task_queue._user_tasks[owner.id] = [
-                tid for tid in task_queue._user_tasks[owner.id] if tid != task_id
-            ]
+            task_queue._user_tasks[owner.id] = [tid for tid in task_queue._user_tasks[owner.id] if tid != task_id]

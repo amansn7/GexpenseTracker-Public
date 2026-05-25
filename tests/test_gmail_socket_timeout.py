@@ -5,6 +5,7 @@ Verifies that:
 2. `_build_service` creates httplib2.Http with timeout=30
 3. Gmail API calls still work with the new timeout approach
 """
+
 import ast
 import os
 import pathlib
@@ -49,17 +50,14 @@ class TestNoGlobalSocketDefaultTimeout:
                 ):
                     offenders.append(f"{fp.relative_to(ROOT)}:{node.lineno}")
 
-        assert offenders == [], (
-            f"Found socket.setdefaulttimeout() in: {offenders}. "
-            "Use per-client timeouts instead."
-        )
+        assert offenders == [], f"Found socket.setdefaulttimeout() in: {offenders}. Use per-client timeouts instead."
 
 
 class TestBuildServiceTimeout:
     """Verify _build_service uses httplib2.Http with explicit timeout."""
 
     @patch("app.gmail.client.get_credentials")
-    @patch("googleapiclient.discovery.build")
+    @patch("app.gmail.client.build")
     def test_build_service_creates_httplib2_with_timeout(self, mock_build, mock_get_creds):
         """_build_service must create httplib2.Http(timeout=30)."""
         mock_creds = MagicMock()

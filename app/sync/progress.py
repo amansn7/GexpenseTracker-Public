@@ -1,4 +1,5 @@
 """Sync progress tracking — per-user state for the sync overlay."""
+
 import asyncio
 import json
 import re
@@ -68,9 +69,8 @@ def _load_from_db_sync(user_id: str) -> dict[str, Any] | None:
         async def _read():
             async with _db_session_factory() as session:
                 from sqlalchemy import select
-                row = await session.execute(
-                    select(SyncProgress).where(SyncProgress.user_id == user_id)
-                )
+
+                row = await session.execute(select(SyncProgress).where(SyncProgress.user_id == user_id))
                 return row.scalar_one_or_none()
 
         row = asyncio.get_event_loop().run_until_complete(_read())
@@ -91,9 +91,7 @@ async def _load_from_db_async(user_id: str) -> dict[str, Any] | None:
         from app.models import SyncProgress
 
         async with _db_session_factory() as session:
-            row = await session.execute(
-                select(SyncProgress).where(SyncProgress.user_id == user_id)
-            )
+            row = await session.execute(select(SyncProgress).where(SyncProgress.user_id == user_id))
             row_obj = row.scalar_one_or_none()
         if row_obj is None:
             return None
@@ -133,9 +131,7 @@ async def _do_write_progress(user_id: str, prog: dict[str, Any]):
         from app.models import SyncProgress
 
         async with _db_session_factory() as session:
-            row = await session.execute(
-                select(SyncProgress).where(SyncProgress.user_id == user_id)
-            )
+            row = await session.execute(select(SyncProgress).where(SyncProgress.user_id == user_id))
             existing = row.scalar_one_or_none()
             if existing:
                 existing.running = prog.get("running", False)
@@ -147,21 +143,25 @@ async def _do_write_progress(user_id: str, prog: dict[str, Any]):
                 existing.error = prog.get("error")
                 existing.log_json = json.dumps(prog.get("log", [])[-50:])
                 from datetime import UTC, datetime
+
                 existing.updated_at = datetime.now(UTC)
             else:
                 from datetime import UTC, datetime
-                session.add(SyncProgress(
-                    user_id=user_id,
-                    running=prog.get("running", False),
-                    phase=prog.get("phase", "idle"),
-                    phase_detail=prog.get("phase_detail", ""),
-                    current=prog.get("current", 0),
-                    total=prog.get("total", 0),
-                    result_json=json.dumps(prog["result"]) if prog.get("result") is not None else None,
-                    error=prog.get("error"),
-                    log_json=json.dumps(prog.get("log", [])[-50:]),
-                    updated_at=datetime.now(UTC),
-                ))
+
+                session.add(
+                    SyncProgress(
+                        user_id=user_id,
+                        running=prog.get("running", False),
+                        phase=prog.get("phase", "idle"),
+                        phase_detail=prog.get("phase_detail", ""),
+                        current=prog.get("current", 0),
+                        total=prog.get("total", 0),
+                        result_json=json.dumps(prog["result"]) if prog.get("result") is not None else None,
+                        error=prog.get("error"),
+                        log_json=json.dumps(prog.get("log", [])[-50:]),
+                        updated_at=datetime.now(UTC),
+                    )
+                )
             await session.commit()
     except Exception as exc:
         logger.error("progress_write_failed", user_id=user_id, error=str(exc))
@@ -177,9 +177,7 @@ async def _do_delete_progress(user_id: str):
         from app.models import SyncProgress
 
         async with _db_session_factory() as session:
-            await session.execute(
-                delete(SyncProgress).where(SyncProgress.user_id == user_id)
-            )
+            await session.execute(delete(SyncProgress).where(SyncProgress.user_id == user_id))
             await session.commit()
     except Exception as exc:
         logger.error("progress_delete_failed", user_id=user_id, error=str(exc))
@@ -195,9 +193,7 @@ async def _progress_writer_loop():
     try:
         while _progress_writer_running:
             try:
-                item = await asyncio.wait_for(
-                    _progress_write_queue.get(), timeout=2.0
-                )
+                item = await asyncio.wait_for(_progress_write_queue.get(), timeout=2.0)
                 user_id, data = item
                 if data is None:
                     delete_pending.add(user_id)
@@ -256,11 +252,13 @@ def _persist_progress(user_id: str, prog: dict[str, Any]):
 def _log_event(user_id: str, message: str, event_type: str = "info"):
     prog = _user_progress(user_id)
     log = prog.setdefault("log", [])
-    log.append({
-        "time": datetime.now(UTC).isoformat(),
-        "message": message,
-        "type": event_type,
-    })
+    log.append(
+        {
+            "time": datetime.now(UTC).isoformat(),
+            "message": message,
+            "type": event_type,
+        }
+    )
     if len(log) > 50:
         log[:] = log[-50:]
     _persist_progress(user_id, prog)
@@ -343,9 +341,7 @@ async def recover_stale_progresses():
         from app.models import SyncProgress
 
         async with _db_session_factory() as session:
-            result = await session.execute(
-                select(SyncProgress).where(SyncProgress.running.is_(True))
-            )
+            result = await session.execute(select(SyncProgress).where(SyncProgress.running.is_(True)))
             stale = result.scalars().all()
             for row in stale:
                 row.running = False
