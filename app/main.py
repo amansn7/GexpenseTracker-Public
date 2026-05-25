@@ -1,15 +1,30 @@
 import logging
 import os
+import secrets as _secrets
 import uuid
 from contextlib import asynccontextmanager
 
+import jwt as pyjwt
+import sentry_sdk
 import structlog
+
+SENSITIVE_KEYS = {"password", "token", "secret", "authorization", "fernet", "api_key", "cookie", "jwt"}
+
+
+def _redact_sensitive_fields(_logger, _method_name, event_dict):
+    """Redact sensitive values from log entries before JSON rendering."""
+    for key in event_dict:
+        if any(s in key.lower() for s in SENSITIVE_KEYS):
+            event_dict[key] = "***REDACTED***"
+    return event_dict
+
 
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
+        _redact_sensitive_fields,
         structlog.processors.JSONRenderer(),
     ],
     logger_factory=structlog.PrintLoggerFactory(),
@@ -27,6 +42,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse as StarletteRedirect
 
@@ -58,6 +74,10 @@ from app.scheduler import scheduler, setup_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    dsn = os.getenv("SENTRY_DSN")
+    if dsn:
+        sentry_sdk.init(dsn=dsn, traces_sample_rate=0.1)
+
     if settings.SECRET_KEY == "change-me-in-production" and not os.getenv("TESTING"):
         raise RuntimeError(
             "SECRET_KEY is still the default value. Set a secure random key in .env before starting the server."
@@ -115,6 +135,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
     async def dispatch(self, request: StarletteRequest, call_next):
+        nonce = _secrets.token_hex(16)
+        request.state.nonce = nonce
         response = await call_next(request)
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -124,9 +146,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            # TODO: login-effects.js externalized — remaining 'unsafe-inline' needed for FOUC-prevention theme scripts in login.html:3 and index.html:3
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; "
             "connect-src 'self'; "
@@ -135,6 +156,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "form-action 'self'"
         )
         return response
+
+
+def _extract_jwt_user_id(request: StarletteRequest) -> str:
+    """Extract user_id from a Bearer JWT without verification for rate limiting."""
+    auth = request.headers.get("Authorization", "")
+    token = auth.removeprefix("Bearer ").strip()
+    if token:
+        try:
+            payload = pyjwt.decode(token, options={"verify_signature": False})
+            sub = payload.get("sub")
+            if sub:
+                return f"user:{sub}"
+        except Exception:
+            pass
+    return request.client.host if request.client else "unknown"
 
 
 def _match_rate_limit(path: str):
@@ -169,17 +205,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/static") or path in self.EXEMPT or os.getenv("TESTING"):
             return await call_next(request)
 
-        # Bearer-authenticated mobile clients — let handler validate the token
-        if request.headers.get("Authorization", "").startswith("Bearer "):
-            return await call_next(request)
-
         limits = _match_rate_limit(path)
         if limits:
             max_requests, window_seconds = limits
-            session_cookie = request.cookies.get("session")
-            identifier = session_cookie if session_cookie else (request.client.host if request.client else "unknown")
+            if request.headers.get("Authorization", "").startswith("Bearer "):
+                identifier = _extract_jwt_user_id(request)
+            else:
+                session_cookie = request.cookies.get("session")
+                identifier = (
+                    session_cookie if session_cookie else (request.client.host if request.client else "unknown")
+                )
             if not rate_limiter.is_allowed(identifier, path, max_requests, window_seconds):
                 return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
+
+        # Bearer-authenticated requests — let handler validate the token, skip session/CSRF
+        if request.headers.get("Authorization", "").startswith("Bearer "):
+            return await call_next(request)
 
         if not request.cookies.get("session"):
             if path.startswith("/api/"):
@@ -201,6 +242,9 @@ app = FastAPI(title="Expense Tracker", lifespan=lifespan)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(AuthMiddleware)
+if os.getenv("COOKIE_SECURE"):
+    app.add_middleware(HTTPSRedirectMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:8000").split(","),

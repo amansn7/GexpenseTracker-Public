@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en" data-theme="paper">
-<script>try{var t=localStorage.getItem("mf_theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<script nonce="{{ request.state.nonce }}">try{var t=localStorage.getItem("mf_theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/styles.css?v=11">
 <script src="/static/vendor/three.min.js"></script>
-<style>
+<style nonce="{{ request.state.nonce }}">
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Geist',system-ui,sans-serif; font-size:14px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
   .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 32px -8px rgba(0,0,0,0.08); position:relative; z-index:1; }
@@ -23,20 +23,28 @@
   .tgl { position:fixed; bottom:20px; right:20px; z-index:2; width:36px; height:36px; border-radius:999px; background:var(--card); border:1px solid var(--line); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--ink-2); padding:0; box-shadow:0 2px 8px rgba(0,0,0,0.08); transition:transform 400ms cubic-bezier(.34,1.56,.64,1); }
   .tgl:hover { transform:scale(1.1); }
   .tgl:active { transform:scale(0.86); }
+  .skip-link { position:absolute; top:-100%; left:0; z-index:9999; padding:8px 16px; background:var(--ink); color:var(--paper); font-size:13px; font-weight:600; text-decoration:none; border-radius:0 0 6px 0; transition:top 120ms ease-out; }
+  .skip-link:focus { top:0; }
+  #bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .tgl svg { overflow:visible; }
+  #tgl-mc { transition:cx 400ms cubic-bezier(.34,1.56,.64,1),cy 400ms cubic-bezier(.34,1.56,.64,1); }
+  #tgl-body { transition:r 400ms cubic-bezier(.34,1.56,.64,1); }
+  #tgl-rays { transition:opacity 400ms cubic-bezier(.34,1.56,.64,1),transform 400ms cubic-bezier(.34,1.56,.64,1); transform-origin:12px 12px; }
 </style>
 </head>
 <body>
-<div id="bg" style="position:fixed;inset:0;pointer-events:none;z-index:0"></div>
+<a href="#main-content" class="skip-link">Skip to content</a>
+<div id="bg"></div>
 <button class="tgl" id="tgl" aria-label="Toggle theme">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="overflow:visible">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
     <defs>
       <mask id="tgl-mask">
         <rect x="0" y="0" width="100%" height="100%" fill="white" />
-        <circle id="tgl-mc" cx="33" cy="0" r="9" fill="black" style="transition:cx 400ms cubic-bezier(.34,1.56,.64,1),cy 400ms cubic-bezier(.34,1.56,.64,1)" />
+        <circle id="tgl-mc" cx="33" cy="0" r="9" fill="black" />
       </mask>
     </defs>
-    <circle id="tgl-body" cx="12" cy="12" r="5" fill="currentColor" stroke="none" mask="url(#tgl-mask)" style="transition:r 400ms cubic-bezier(.34,1.56,.64,1)" />
-    <g id="tgl-rays" opacity="1" style="transition:opacity 400ms cubic-bezier(.34,1.56,.64,1),transform 400ms cubic-bezier(.34,1.56,.64,1);transform-origin:12px 12px">
+    <circle id="tgl-body" cx="12" cy="12" r="5" fill="currentColor" stroke="none" mask="url(#tgl-mask)" />
+    <g id="tgl-rays" opacity="1">
       <line x1="12" y1="1" x2="12" y2="3" />
       <line x1="12" y1="21" x2="12" y2="23" />
       <line x1="1" y1="12" x2="3" y2="12" />
@@ -48,7 +56,7 @@
     </g>
   </svg>
 </button>
-<div class="wrap">
+  <div class="wrap" id="main-content" tabindex="-1">
   <h1>MoneyFlow</h1>
   <p class="tagline">Your inbox for money.</p>
   <a class="btn" href="/api/auth/google">

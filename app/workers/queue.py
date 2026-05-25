@@ -1,3 +1,7 @@
+# In-memory task queue — single-instance only. All pending tasks and
+# idempotency state are lost on process restart. Suitable for single-container
+# deployments; replace with a DB-backed queue (e.g. Celery + Redis) for
+# multi-instance or zero-downtime deployments.
 import asyncio
 import hashlib
 import json
