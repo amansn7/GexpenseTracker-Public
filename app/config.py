@@ -45,6 +45,21 @@ class Settings(BaseSettings):
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
     JWT_SECRET: str = ""  # Required for JWT auth — set in .env
+
+    @field_validator("JWT_SECRET", mode="after")
+    @classmethod
+    def validate_jwt_secret(cls, v: str) -> str:
+        if v and len(v) < 32:
+            raise ValueError("JWT_SECRET must be at least 32 characters long")
+        return v
+
+    @field_validator("SECRET_KEY", mode="after")
+    @classmethod
+    def validate_secret_key(cls, v: str) -> str:
+        if v and v != "change-me-in-production" and len(v) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long")
+        return v
+
     FERNET_KEY: str = ""  # base64 Fernet key; if empty, tokens stored plaintext
     INVITE_CODE: str = ""
     DEV_MODE: bool = False

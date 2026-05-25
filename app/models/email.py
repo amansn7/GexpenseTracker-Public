@@ -35,7 +35,9 @@ class SyncState(Base):
     __tablename__ = "sync_state"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_history_id: Mapped[str | None] = mapped_column(String(255))
     # all | unread | read

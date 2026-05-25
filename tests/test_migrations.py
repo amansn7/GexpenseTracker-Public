@@ -1,10 +1,6 @@
 import os
 import subprocess
-import sys
 import tempfile
-
-import pytest
-
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ALEMBIC = os.path.join(PROJECT_ROOT, ".venv", "bin", "alembic")
@@ -13,7 +9,9 @@ ALEMBIC = os.path.join(PROJECT_ROOT, ".venv", "bin", "alembic")
 def test_alembic_heads_are_single():
     result = subprocess.run(
         [ALEMBIC, "heads"],
-        capture_output=True, text=True, cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        cwd=PROJECT_ROOT,
     )
     assert result.returncode == 0, f"alembic heads failed:\n{result.stderr}"
     heads = [h for h in result.stdout.strip().split("\n") if h.strip() and "(head)" in h]
@@ -29,21 +27,30 @@ def test_alembic_upgrade_and_downgrade():
     try:
         result = subprocess.run(
             [ALEMBIC, "upgrade", "head"],
-            capture_output=True, text=True, cwd=PROJECT_ROOT, env=env,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            env=env,
         )
         assert result.returncode == 0, f"alembic upgrade head failed:\n{result.stderr}\n{result.stdout}"
 
         # Downgrade one branch from the merge head
         result = subprocess.run(
             [ALEMBIC, "downgrade", "0039_encrypt_totp_secrets"],
-            capture_output=True, text=True, cwd=PROJECT_ROOT, env=env,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            env=env,
         )
         assert result.returncode == 0, f"alembic downgrade to parent failed:\n{result.stderr}\n{result.stdout}"
 
         # Re-upgrade to head
         result = subprocess.run(
             [ALEMBIC, "upgrade", "head"],
-            capture_output=True, text=True, cwd=PROJECT_ROOT, env=env,
+            capture_output=True,
+            text=True,
+            cwd=PROJECT_ROOT,
+            env=env,
         )
         assert result.returncode == 0, f"alembic upgrade head (2nd pass) failed:\n{result.stderr}\n{result.stdout}"
     finally:

@@ -32,6 +32,7 @@ skills-lock.json
 
 # test artifacts
 test-results/
+test_e2e.db
 
 # external projects
 money-movie/

@@ -52,6 +52,7 @@ RATE_LIMITS = {
     "/api/account/ai-services": (10, 60),
     "/api/auth/verify-2fa": (5, 60),
     "/api/emails/retrain": (10, 60),
+    "/health": (30, 60),
 }
 
 RATE_LIMIT_PREFIXES = {
@@ -73,4 +74,9 @@ RATE_LIMIT_PREFIXES = {
     "/api/cleanup/": (10, 60),
     "/api/onboarding/": (10, 60),
     "/api/admin/": (10, 60),
+    "/api/merchant_aliases/": (20, 60),
+    "/api/account/": (20, 60),
+    "/api/auth/": (10, 60),
+    "/api/sync/": (10, 60),
+    "/api/health/": (30, 60),
 }

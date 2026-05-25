@@ -686,6 +686,17 @@ async def _delete_user_data(db: AsyncSession, uid: str):
     ]:
         await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
 
+    # Step 2b: Tables with FK to users.id (CASCADE-backed — explicit for robustness)
+    for table in [
+        "goals",
+        "goal_contributions",
+        "merchant_aliases",
+        "merchant_entity_aliases",
+        "device_tokens",
+        "refresh_token_blacklist",
+    ]:
+        await db.execute(text(f"DELETE FROM {table} WHERE user_id = :uid"), {"uid": uid})
+
     # Step 3: Classification logs (FK to emails)
     await db.execute(
         text("DELETE FROM classification_log WHERE email_id IN (SELECT id FROM emails WHERE user_id = :uid)"),

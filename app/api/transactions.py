@@ -3,7 +3,7 @@ import io
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, desc, func, or_, select
@@ -89,7 +89,7 @@ async def bulk_transactions(
             )
 
         BATCH_SIZE = 500
-        last_id = 0
+        last_id = ""
         total_updated = 0
         all_stats = None
         while True:
@@ -383,7 +383,7 @@ async def _stream_export_csv(db, user_id, filters, total):
     if filters.get("label"):
         conditions.append(Transaction.label == filters["label"])
 
-    last_id = 0
+    last_id = ""
     while True:
         rows = (
             await db.execute(

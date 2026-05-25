@@ -161,6 +161,47 @@ node scripts/build-frontend.mjs --watch  # dev mode with file watching
 
 ---
 
+## Production Deployment
+
+### PostgreSQL Migration Procedure
+
+Before running migrations on a production PostgreSQL database, resolve any existing duplicates to avoid unique constraint failures:
+
+```bash
+# 1. Preview duplicates that would be removed
+python -m app.scripts.dedup_before_migration --dry-run
+
+# 2. Execute if the dry-run looks clean
+python -m app.scripts.dedup_before_migration --execute
+
+# 3. Apply pending migrations
+alembic upgrade head
+```
+
+> **Note**: The dedup preflight is required before migration 0040, which adds unique constraints on `Transaction.email_id` and `FilterRule(rule_type, value, source, user_id)`.
+
+### Required Environment Variables (Production)
+
+| Variable | Description |
+|---|---|
+| `SECRET_KEY` | Session signing key (generate with `openssl rand -hex 32`) |
+| `JWT_SECRET` | JWT signing key (generate with `openssl rand -hex 32`) |
+| `FERNET_KEY` | Encryption key for TOTP secrets (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+
+### Production Checklist
+
+- [ ] **HTTPS** — configure TLS termination (Railway provides this automatically; set `COOKIE_SECURE=true`)
+- [ ] `COOKIE_SECURE=true` — cookies sent over HTTPS only
+- [ ] `CORS_ORIGINS` — restrict to your frontend domain
+- [ ] **Rate limiting** — enable via `RATE_LIMIT_ENABLED=true` (default: 100 requests/min per IP)
+- [ ] `DATABASE_URL` — must use PostgreSQL (asyncpg driver), not SQLite
+- [ ] `GOOGLE_REDIRECT_URI` — set to production callback URL
+- [ ] Generate unique secrets for `SECRET_KEY`, `JWT_SECRET`, and `FERNET_KEY` — never reuse dev values in production
+
+---
+
 ## Project Structure
 
 ```
@@ -267,6 +308,14 @@ pytest -v --tb=short     # unit tests (skips LLM tests requiring API keys)
 alembic revision --autogenerate -m "description"
 alembic upgrade head
 ```
+
+> **Pre-migration dedup**: Before running migration 0040 on PostgreSQL, run `python -m app.scripts.dedup_before_migration --dry-run` first. If clean, execute with `--execute` to resolve duplicates before unique constraints are applied.
+
+> **SQLite limitations**: SQLite works for local development but has known migration constraints:
+> - The upgrade path through all migrations is verified and supported
+> - Downgrade from migration 0033 may fail (only upgrade is supported)
+> - SQLite does not support concurrent writers (single-user dev only)
+> - Use PostgreSQL for any multi-user or production deployment
 
 ### Manual Sync Trigger
 

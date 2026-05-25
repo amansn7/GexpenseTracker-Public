@@ -207,7 +207,7 @@ def setup_scheduler() -> None:
     scheduler.add_job(
         _rate_limiter_cleanup_job,
         trigger="interval",
-        hours=1,
+        minutes=30,
         id="rate_limiter_cleanup",
         replace_existing=True,
     )

@@ -83,8 +83,8 @@ class TestMatchRateLimit:
     def test_no_match_for_unrelated_path(self):
         assert self._match("/api/not-a-real-endpoint/v2") is None
 
-    def test_no_match_for_health(self):
-        assert self._match("/health") is None
+    def test_health_has_rate_limit(self):
+        assert self._match("/health") == (30, 60)
 
     def test_exact_match_takes_precedence_over_prefix(self):
         result = self._match("/api/transactions/bulk")
