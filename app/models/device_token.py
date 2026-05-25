@@ -1,6 +1,7 @@
 """DeviceToken — push notification tokens for mobile clients.
 RefreshTokenBlacklist — invalidated refresh JWTs (by jti claim).
 """
+
 from datetime import datetime
 
 import sqlalchemy as sa
@@ -23,9 +24,7 @@ class DeviceToken(Base):
     )
     token: Mapped[str] = mapped_column(sa.String(512), nullable=False, unique=True)
     platform: Mapped[str] = mapped_column(sa.String(20), nullable=False)  # "ios" | "android"
-    created_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), default=_utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), default=_utcnow, nullable=False)
 
 
 class RefreshTokenBlacklist(Base):
@@ -41,6 +40,4 @@ class RefreshTokenBlacklist(Base):
         index=True,
     )
     jti: Mapped[str] = mapped_column(sa.String(64), nullable=False, unique=True, index=True)
-    blacklisted_at: Mapped[datetime] = mapped_column(
-        sa.DateTime(timezone=True), default=_utcnow, nullable=False
-    )
+    blacklisted_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), default=_utcnow, nullable=False)

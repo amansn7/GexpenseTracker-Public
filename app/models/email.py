@@ -9,12 +9,12 @@ from .base import Base, _utcnow, _uuid_col
 
 class Email(Base):
     __tablename__ = "emails"
-    __table_args__ = (
-        Index("ix_emails_user_id_pre_filter_status", "user_id", "pre_filter_status"),
-    )
+    __table_args__ = (Index("ix_emails_user_id_pre_filter_status", "user_id", "pre_filter_status"),)
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     gmail_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     subject: Mapped[str | None] = mapped_column(Text)
     sender: Mapped[str | None] = mapped_column(String(500))
@@ -24,7 +24,9 @@ class Email(Base):
     body_text: Mapped[str | None] = mapped_column(Text)
     gmail_link: Mapped[str | None] = mapped_column(String(500))
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    pre_filter_status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="passed", default="passed")
+    pre_filter_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="passed", default="passed"
+    )
 
     transaction: Mapped[Optional["Transaction"]] = relationship(back_populates="email")
 

@@ -37,9 +37,7 @@ class ClassifierMethod(StrEnum):
 
 class Transaction(Base):
     __tablename__ = "transactions"
-    __table_args__ = (
-        UniqueConstraint("email_id", name="uq_transactions_email_id"),
-    )
+    __table_args__ = (UniqueConstraint("email_id", name="uq_transactions_email_id"),)
 
     id: Mapped[str] = _uuid_col()
     email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True, index=True)
@@ -82,4 +80,3 @@ class ClassificationLog(Base):
     llm_txn_date: Mapped[date | None] = mapped_column(Date)
     raw_response: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-

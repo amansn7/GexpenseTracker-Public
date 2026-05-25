@@ -1,4 +1,5 @@
 """Tests for DeviceToken and RefreshTokenBlacklist models."""
+
 import os
 
 import pytest

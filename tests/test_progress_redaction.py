@@ -15,7 +15,15 @@ def test_get_sync_progress_public_excludes_current_email():
         "current": 5,
         "total": 20,
         "tally": {"expense": 3, "income": 1, "ignore": 1, "review": 0},
-        "previews": [{"subject": "Receipt", "sender": "store@example.com", "label": "expense", "category": "Food", "amount": 25.0}],
+        "previews": [
+            {
+                "subject": "Receipt",
+                "sender": "store@example.com",
+                "label": "expense",
+                "category": "Food",
+                "amount": 25.0,
+            }
+        ],
         "current_email": {"subject": "Receipt from Store", "sender": "noreply@store.com"},
         "log": [],
         "result": None,
@@ -43,8 +51,20 @@ def test_get_sync_progress_public_excludes_previews():
         "total": 10,
         "tally": {"expense": 2, "income": 0, "ignore": 1, "review": 0},
         "previews": [
-            {"subject": "Invoice #123", "sender": "billing@vendor.com", "label": "expense", "category": "Software", "amount": 99.0},
-            {"subject": "Payment received", "sender": "pay@client.com", "label": "income", "category": "Freelance", "amount": 500.0},
+            {
+                "subject": "Invoice #123",
+                "sender": "billing@vendor.com",
+                "label": "expense",
+                "category": "Software",
+                "amount": 99.0,
+            },
+            {
+                "subject": "Payment received",
+                "sender": "pay@client.com",
+                "label": "income",
+                "category": "Freelance",
+                "amount": 500.0,
+            },
         ],
         "current_email": None,
         "log": [],
@@ -116,6 +136,7 @@ async def test_progress_api_endpoint_returns_redacted_data():
     app.dependency_overrides[get_current_user] = lambda: fake_user
 
     from app.sync.progress import _sync_progress
+
     _sync_progress[fake_user.id] = {
         "running": True,
         "phase": "fetching",
@@ -123,7 +144,15 @@ async def test_progress_api_endpoint_returns_redacted_data():
         "current": 1,
         "total": 10,
         "tally": {"expense": 0, "income": 0, "ignore": 0, "review": 0},
-        "previews": [{"subject": "Secret Invoice", "sender": "ceo@company.com", "label": "expense", "category": "Travel", "amount": 1200.0}],
+        "previews": [
+            {
+                "subject": "Secret Invoice",
+                "sender": "ceo@company.com",
+                "label": "expense",
+                "category": "Travel",
+                "amount": 1200.0,
+            }
+        ],
         "current_email": {"subject": "Confidential: Salary Details", "sender": "hr@company.com"},
         "log": [],
         "result": None,

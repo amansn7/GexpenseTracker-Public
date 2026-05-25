@@ -3,6 +3,7 @@
 No database, no fixtures, no async — just the deterministic logic in
 ``CategoryService.resolve`` and ``format_transaction``.
 """
+
 from datetime import date, datetime
 from types import SimpleNamespace
 
@@ -107,14 +108,30 @@ def _make_email(**overrides):
 
 
 _EXPECTED_TOP_KEYS = {
-    "id", "label", "transaction_type", "amount", "currency", "merchant",
-    "category", "txn_date", "confidence", "status", "classifier_method",
-    "user_notes", "read", "flagged", "email",
+    "id",
+    "label",
+    "transaction_type",
+    "amount",
+    "currency",
+    "merchant",
+    "category",
+    "txn_date",
+    "confidence",
+    "status",
+    "classifier_method",
+    "user_notes",
+    "read",
+    "flagged",
+    "email",
 }
 
 _EXPECTED_EMAIL_KEYS = {
-    "subject", "sender", "sender_domain", "received_at",
-    "gmail_link", "body_snippet",
+    "subject",
+    "sender",
+    "sender_domain",
+    "received_at",
+    "gmail_link",
+    "body_snippet",
 }
 
 

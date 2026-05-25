@@ -26,8 +26,12 @@ class User(Base):
 
     id: Mapped[str] = _uuid_col()
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    role: Mapped[str] = mapped_column(String(20), default=UserRole.member, nullable=False, server_default=UserRole.member.value)
-    status: Mapped[str] = mapped_column(String(20), default=UserStatus.invited, nullable=False, server_default=UserStatus.invited.value)
+    role: Mapped[str] = mapped_column(
+        String(20), default=UserRole.member, nullable=False, server_default=UserRole.member.value
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default=UserStatus.invited, nullable=False, server_default=UserStatus.invited.value
+    )
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     totp_secret: Mapped[str | None] = mapped_column(String(256), nullable=True)
@@ -36,9 +40,15 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
     scheduled_deletion_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    profile: Mapped[Optional["UserProfile"]] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
-    settings: Mapped[Optional["UserSettings"]] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
-    connected_accounts: Mapped[list["ConnectedAccount"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    profile: Mapped[Optional["UserProfile"]] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    settings: Mapped[Optional["UserSettings"]] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    connected_accounts: Mapped[list["ConnectedAccount"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     categories: Mapped[list["UserCategory"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     ai_services: Mapped[list["UserAIService"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
@@ -53,7 +63,9 @@ class UserProfile(Base):
     location: Mapped[str | None] = mapped_column(String(120))
     avatar_url: Mapped[str | None] = mapped_column(String(500))
     default_currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False, server_default="INR")
-    timezone: Mapped[str] = mapped_column(String(80), default="Asia/Kolkata", nullable=False, server_default="Asia/Kolkata")
+    timezone: Mapped[str] = mapped_column(
+        String(80), default="Asia/Kolkata", nullable=False, server_default="Asia/Kolkata"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
@@ -87,10 +99,14 @@ class ConnectedAccount(Base):
     __tablename__ = "connected_accounts"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     provider: Mapped[str] = mapped_column(String(40), nullable=False)
     account_email: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="disconnected", nullable=False, server_default="disconnected")
+    status: Mapped[str] = mapped_column(
+        String(20), default="disconnected", nullable=False, server_default="disconnected"
+    )
     external_id: Mapped[str | None] = mapped_column(String(255))
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -110,7 +126,9 @@ class UserCategory(Base):
     __tablename__ = "user_categories"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     color: Mapped[str] = mapped_column(String(20), default="#dcd5c3", nullable=False, server_default="#dcd5c3")
     icon: Mapped[str | None] = mapped_column(String(40))
@@ -122,16 +140,16 @@ class UserCategory(Base):
 
     user: Mapped["User"] = relationship(back_populates="categories")
 
-    __table_args__ = (
-        sa.UniqueConstraint("user_id", "name", name="uq_user_category_name"),
-    )
+    __table_args__ = (sa.UniqueConstraint("user_id", "name", name="uq_user_category_name"),)
 
 
 class UserAIService(Base):
     __tablename__ = "user_ai_services"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     provider: Mapped[str] = mapped_column(String(60), nullable=False)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
     model_id: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -153,7 +171,9 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     token: Mapped[bytes] = mapped_column(sa.LargeBinary(32), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

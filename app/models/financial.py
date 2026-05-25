@@ -19,21 +19,23 @@ class Budget(Base):
     __tablename__ = "budgets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (
-        sa.UniqueConstraint("user_id", "category", name="uq_budget_user_category"),
-    )
+    __table_args__ = (sa.UniqueConstraint("user_id", "category", name="uq_budget_user_category"),)
 
 
 class Debt(Base):
     __tablename__ = "debts"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     paid_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0.0, nullable=False)
@@ -47,13 +49,15 @@ class RecurringExpense(Base):
     __tablename__ = "recurring_expenses"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
     category: Mapped[str | None] = mapped_column(String(100))
     # monthly | weekly | yearly
     frequency: Mapped[str] = mapped_column(String(20), default="monthly")
-    day_of_month: Mapped[int | None] = mapped_column(Integer)   # 1-31, for monthly
+    day_of_month: Mapped[int | None] = mapped_column(Integer)  # 1-31, for monthly
     notes: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
@@ -63,7 +67,9 @@ class SenderRule(Base):
     __tablename__ = "sender_rules"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     sender_domain: Mapped[str] = mapped_column(String(255), nullable=False)
     label: Mapped[str] = mapped_column(String(20), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100))
@@ -71,16 +77,16 @@ class SenderRule(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (
-        sa.UniqueConstraint("user_id", "sender_domain", name="uq_sender_rule_user_domain"),
-    )
+    __table_args__ = (sa.UniqueConstraint("user_id", "sender_domain", name="uq_sender_rule_user_domain"),)
 
 
 class MerchantAlias(Base):
     __tablename__ = "merchant_aliases"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     raw: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -89,23 +95,21 @@ class MerchantAlias(Base):
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (
-        sa.UniqueConstraint("user_id", "raw", name="uq_merchant_alias_user_raw"),
-    )
+    __table_args__ = (sa.UniqueConstraint("user_id", "raw", name="uq_merchant_alias_user_raw"),)
 
 
 class UserMerchantOverride(Base):
     __tablename__ = "user_merchant_overrides"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     merchant: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     corrected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (
-        sa.UniqueConstraint("user_id", "merchant", name="uq_user_merchant_override"),
-    )
+    __table_args__ = (sa.UniqueConstraint("user_id", "merchant", name="uq_user_merchant_override"),)
 
 
 class PatternRule(Base):
@@ -113,7 +117,7 @@ class PatternRule(Base):
 
     id: Mapped[str] = _uuid_col()
     regex_pattern: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    label: Mapped[str] = mapped_column(String(20), nullable=False)      # expense | income
+    label: Mapped[str] = mapped_column(String(20), nullable=False)  # expense | income
     merchant: Mapped[str | None] = mapped_column(String(255))
     category: Mapped[str | None] = mapped_column(String(100))
     confidence: Mapped[float] = mapped_column(Float, default=0.88)
@@ -135,9 +139,7 @@ class DomainPairRule(Base):
     auto_resolve: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (
-        sa.UniqueConstraint("domain_a", "domain_b", name="uq_domain_pair"),
-    )
+    __table_args__ = (sa.UniqueConstraint("domain_a", "domain_b", name="uq_domain_pair"),)
 
 
 class DuplicatePair(Base):
@@ -152,9 +154,7 @@ class DuplicatePair(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (
-        sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),
-    )
+    __table_args__ = (sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),)
 
 
 class LLMSpendTracker(Base):
@@ -179,7 +179,9 @@ class Goal(Base):
     __tablename__ = "goals"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -193,8 +195,12 @@ class GoalContribution(Base):
     __tablename__ = "goal_contributions"
 
     id: Mapped[str] = _uuid_col()
-    goal_id: Mapped[str] = mapped_column(String(36), ForeignKey("goals.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    goal_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("goals.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     contributed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

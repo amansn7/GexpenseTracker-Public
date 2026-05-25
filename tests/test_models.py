@@ -25,11 +25,14 @@ async def _make_user(db_session):
 @pytest.mark.asyncio
 async def test_create_email(db_session):
     user = await _make_user(db_session)
-    email = Email(gmail_id="abc123", subject="Receipt", sender="no-reply@amazon.in", sender_domain="amazon.in", user_id=user.id)
+    email = Email(
+        gmail_id="abc123", subject="Receipt", sender="no-reply@amazon.in", sender_domain="amazon.in", user_id=user.id
+    )
     db_session.add(email)
     await db_session.commit()
     result = await db_session.execute(select(Email).where(Email.gmail_id == "abc123"))
     assert result.scalar_one().subject == "Receipt"
+
 
 @pytest.mark.asyncio
 async def test_create_transaction(db_session):
@@ -53,6 +56,7 @@ async def test_create_transaction(db_session):
     assert t.label == Label.expense
     assert float(t.amount) == 299.00
 
+
 @pytest.mark.asyncio
 async def test_sender_rule_unique(db_session):
     rule = SenderRule(sender_domain="swiggy.in", label=Label.expense, category="Food", source=RuleSource.builtin)
@@ -61,11 +65,13 @@ async def test_sender_rule_unique(db_session):
     result = await db_session.execute(select(SenderRule).where(SenderRule.sender_domain == "swiggy.in"))
     assert result.scalar_one().category == "Food"
 
+
 @pytest.mark.asyncio
 async def test_budget_model_create_and_query(db_session):
     from sqlalchemy import select
 
     from app.models import Budget
+
     b = Budget(category="Food", monthly_limit=4000.0)
     db_session.add(b)
     await db_session.commit()

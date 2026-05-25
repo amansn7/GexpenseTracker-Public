@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 async def _resolve_transaction_duplicates(session: AsyncSession, dry_run: bool = True) -> int:
     """Find duplicate Transaction.email_id values; keep one, delete rest.
-    
+
     Resolution: keep Transaction with highest confidence; tie-break by most recent created_at.
     """
     from app.models.transaction import Transaction
@@ -53,9 +53,16 @@ async def _resolve_transaction_duplicates(session: AsyncSession, dry_run: bool =
         # Keep the first (highest confidence, most recent), delete the rest
         keep, *to_delete = txns
         for txn in to_delete:
-            log.info("Removing duplicate Transaction %s (email_id=%s, confidence=%s, created_at=%s) in favor of %s (confidence=%s, created_at=%s)",
-                     txn.id, email_id, txn.confidence, txn.created_at,
-                     keep.id, keep.confidence, keep.created_at)
+            log.info(
+                "Removing duplicate Transaction %s (email_id=%s, confidence=%s, created_at=%s) in favor of %s (confidence=%s, created_at=%s)",
+                txn.id,
+                email_id,
+                txn.confidence,
+                txn.created_at,
+                keep.id,
+                keep.confidence,
+                keep.created_at,
+            )
             if not dry_run:
                 await session.delete(txn)
             removed += 1
@@ -93,9 +100,17 @@ async def _resolve_filter_rule_duplicates(session: AsyncSession, dry_run: bool =
 
         keep, *to_delete = rules
         for rule in to_delete:
-            log.info("Removing duplicate FilterRule %s (type=%s, value=%s, source=%s, user_id=%s, hit_count=%s) in favor of %s (hit_count=%s)",
-                     rule.id, key["rule_type"], key["value"], key["source"], key["user_id"],
-                     rule.hit_count, keep.id, keep.hit_count)
+            log.info(
+                "Removing duplicate FilterRule %s (type=%s, value=%s, source=%s, user_id=%s, hit_count=%s) in favor of %s (hit_count=%s)",
+                rule.id,
+                key["rule_type"],
+                key["value"],
+                key["source"],
+                key["user_id"],
+                rule.hit_count,
+                keep.id,
+                keep.hit_count,
+            )
             if not dry_run:
                 await session.delete(rule)
             removed += 1
@@ -105,7 +120,9 @@ async def _resolve_filter_rule_duplicates(session: AsyncSession, dry_run: bool =
 
 async def main():
     parser = argparse.ArgumentParser(description="Dedup before adding unique constraints")
-    parser.add_argument("--dry-run", action="store_true", default=True, help="Preview changes without modifying (default)")
+    parser.add_argument(
+        "--dry-run", action="store_true", default=True, help="Preview changes without modifying (default)"
+    )
     parser.add_argument("--execute", action="store_true", help="Actually delete duplicates")
     args = parser.parse_args()
 
@@ -122,11 +139,13 @@ async def main():
         if not dry_run:
             await session.commit()
 
-    log.info("Dedup complete: %s Transaction duplicates removed, %s FilterRule duplicates removed",
-             txn_removed, rule_removed)
+    log.info(
+        "Dedup complete: %s Transaction duplicates removed, %s FilterRule duplicates removed", txn_removed, rule_removed
+    )
     await engine.dispose()
 
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

@@ -36,6 +36,7 @@ async def migrated_engine():
 
     async with engine.begin() as conn:
         from app.models import Base
+
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_apply_indexes_sync)
 
@@ -43,6 +44,7 @@ async def migrated_engine():
 
     async with engine.begin() as conn:
         from app.models import Base
+
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
@@ -113,9 +115,7 @@ async def test_explain_uses_index_for_label_status_query(migrated_session):
     rows = explain_result.fetchall()
     plan_text = " ".join(str(r[-1]) for r in rows).upper()
 
-    assert "SEARCH" in plan_text or "USING INDEX" in plan_text, (
-        f"Expected index usage in query plan, got: {plan_text}"
-    )
+    assert "SEARCH" in plan_text or "USING INDEX" in plan_text, f"Expected index usage in query plan, got: {plan_text}"
 
 
 @pytest.mark.asyncio
@@ -125,9 +125,7 @@ async def test_migration_idempotent(migrated_engine):
         await conn.run_sync(_apply_indexes_sync)
 
     async with migrated_engine.begin() as conn:
-        result = await conn.execute(
-            text("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'ix_%'")
-        )
+        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'ix_%'"))
         index_names = {row[0] for row in result.fetchall()}
 
     expected = {idx[0] for idx in INDEX_DEFS}
@@ -140,9 +138,7 @@ async def test_downgrade_drops_all_indexes(migrated_engine):
         await conn.run_sync(_drop_indexes_sync)
 
     async with migrated_engine.begin() as conn:
-        result = await conn.execute(
-            text("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'ix_%'")
-        )
+        result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'ix_%'"))
         index_names = {row[0] for row in result.fetchall()}
 
     expected = {idx[0] for idx in INDEX_DEFS}
