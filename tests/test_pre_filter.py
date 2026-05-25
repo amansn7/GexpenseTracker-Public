@@ -4,6 +4,7 @@ import pytest
 @pytest.mark.asyncio
 async def test_filter_rule_create(db_session):
     from app.models import FilterRule
+
     rule = FilterRule(rule_type="allowlist_domain", value="hdfcbank.com", source="system")
     db_session.add(rule)
     await db_session.flush()
@@ -14,6 +15,7 @@ async def test_filter_rule_create(db_session):
 @pytest.mark.asyncio
 async def test_email_pre_filter_status_defaults_to_passed(db_session, mock_user):
     from app.models import Email
+
     email = Email(
         gmail_id="test-001",
         subject="Your HDFC statement",
@@ -126,16 +128,18 @@ async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user
     # Patch Gmail fetch to return one non-financial email
     async def _fake_fetch(*a, **kw):
         return (
-            [{
-                "gmail_id": "fake-001",
-                "subject": "Flash sale: 50% off everything!",
-                "body_snippet": "Shop now and save big.",
-                "sender": "promo@deals.com",
-                "sender_domain": "deals.com",
-                "body_text": "Shop now and save big.",
-                "received_at": None,
-                "gmail_link": None,
-            }],
+            [
+                {
+                    "gmail_id": "fake-001",
+                    "subject": "Flash sale: 50% off everything!",
+                    "body_snippet": "Shop now and save big.",
+                    "sender": "promo@deals.com",
+                    "sender_domain": "deals.com",
+                    "body_text": "Shop now and save big.",
+                    "received_at": None,
+                    "gmail_link": None,
+                }
+            ],
             "hist-001",
         )
 
@@ -144,13 +148,12 @@ async def test_sync_routes_non_financial_to_review_pending(db_session, mock_user
     # Patch Gmail creds
     async def _fake_creds(*a, **kw):
         return "fake-creds"
+
     monkeypatch.setattr("app.sync.fetch.get_credentials_for_user", _fake_creds)
 
     await sync_emails(db_session, user_id=mock_user.id)
 
-    email = (await db_session.execute(
-        select(Email).where(Email.gmail_id == "fake-001")
-    )).scalar_one_or_none()
+    email = (await db_session.execute(select(Email).where(Email.gmail_id == "fake-001"))).scalar_one_or_none()
 
     assert email is not None, "Email should be stored even when pre-filter flags it"
     assert email.pre_filter_status == "review_pending"

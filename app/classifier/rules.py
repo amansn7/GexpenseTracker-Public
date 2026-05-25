@@ -107,20 +107,26 @@ def apply_rules(
     text = f"{subject or ''} {body or ''}".lower()
 
     subject_lower = (subject or "").lower()
-    has_delivery_only = any(sig in text for sig in DELIVERY_SIGNALS) and not any(sig in subject_lower for sig in _ORDER_SIGNALS)
+    has_delivery_only = any(sig in text for sig in DELIVERY_SIGNALS) and not any(
+        sig in subject_lower for sig in _ORDER_SIGNALS
+    )
 
     if has_delivery_only:
         return RuleResult(label=Label.ignore, confidence=0.85)
 
     if db_rules and domain in db_rules:
         label, category = db_rules[domain]
-        return RuleResult(label=label, category=category, confidence=0.98, matched_domain=True, merchant=_DOMAIN_MERCHANT.get(domain))
+        return RuleResult(
+            label=label, category=category, confidence=0.98, matched_domain=True, merchant=_DOMAIN_MERCHANT.get(domain)
+        )
 
     if domain in BUILTIN_DOMAIN_RULES:
         label, category = BUILTIN_DOMAIN_RULES[domain]
-        return RuleResult(label=label, category=category, confidence=0.92, matched_domain=True, merchant=_DOMAIN_MERCHANT.get(domain))
+        return RuleResult(
+            label=label, category=category, confidence=0.92, matched_domain=True, merchant=_DOMAIN_MERCHANT.get(domain)
+        )
 
-    cc_payment = re.search(r'credit\s+card.*(?:received\s+payment|payment\s+received)', text)
+    cc_payment = re.search(r"credit\s+card.*(?:received\s+payment|payment\s+received)", text)
     if cc_payment:
         return RuleResult(label=Label.ignore, category="CC Payment", confidence=0.95)
 
@@ -152,21 +158,23 @@ async def build_domain_rules(
 
     from app.models import Email, Transaction
 
-    rows = (await session.execute(
-        select(
-            Email.sender_domain,
-            Transaction.label,
-            Transaction.category,
-            func.count().label("cnt"),
+    rows = (
+        await session.execute(
+            select(
+                Email.sender_domain,
+                Transaction.label,
+                Transaction.category,
+                func.count().label("cnt"),
+            )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Transaction.label.in_(["expense", "income", "ignore"]),
+                Email.sender_domain.isnot(None),
+                Transaction.confidence >= min_confidence,
+            )
+            .group_by(Email.sender_domain, Transaction.label, Transaction.category)
         )
-        .join(Email, Transaction.email_id == Email.id)
-        .where(
-            Transaction.label.in_(["expense", "income", "ignore"]),
-            Email.sender_domain.isnot(None),
-            Transaction.confidence >= min_confidence,
-        )
-        .group_by(Email.sender_domain, Transaction.label, Transaction.category)
-    )).all()
+    ).all()
 
     domain_tally: dict[str, dict] = {}
     for row in rows:
@@ -189,13 +197,16 @@ async def build_domain_rules(
 
     # Merge in SenderRule entries (user-trained, always overrides transaction data)
     from app.models.financial import SenderRule
-    sender_rules = (await session.execute(
-        select(
-            SenderRule.sender_domain,
-            SenderRule.label,
-            SenderRule.category,
-        ).where(SenderRule.sender_domain.isnot(None))
-    )).all()
+
+    sender_rules = (
+        await session.execute(
+            select(
+                SenderRule.sender_domain,
+                SenderRule.label,
+                SenderRule.category,
+            ).where(SenderRule.sender_domain.isnot(None))
+        )
+    ).all()
     for sr in sender_rules:
         domain = sr.sender_domain.lower().strip()
         if sr.label:

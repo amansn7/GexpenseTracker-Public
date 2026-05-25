@@ -1,4 +1,5 @@
 """LLMClient class with _call_provider, batch_classify, and chat."""
+
 import asyncio
 import logging
 from typing import Optional
@@ -45,16 +46,14 @@ class MultiLLMClient:
 
     def get_status(self) -> list[dict]:
         import time
+
         now = time.time()
         ranked_names = [p.name for p in self._ranked_providers()]
         all_providers = sorted(
             self._providers,
             key=lambda p: ranked_names.index(p.name) if p.name in ranked_names else 999,
         )
-        return [
-            provider_status_dict(p, now)
-            for p in all_providers
-        ]
+        return [provider_status_dict(p, now) for p in all_providers]
 
     @classmethod
     def invalidate_user_client(cls, user_id: str) -> None:
@@ -87,6 +86,7 @@ class MultiLLMClient:
 
         decrypted_key = decrypt_ai_secret(config.encrypted_api_key) if config.encrypted_api_key else None
         from app.classifier.llm.user_client import build_user_client
+
         client = build_user_client(
             user_id=user_id,
             provider=config.provider,
@@ -98,13 +98,17 @@ class MultiLLMClient:
         return client
 
     async def classify(
-        self, sender: str, subject: str, body_snippet: str,
+        self,
+        sender: str,
+        subject: str,
+        body_snippet: str,
         categories: str | None = None,
         pre_extraction: dict | None = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
         if not ranked:
             from app.alerts import add_alert
+
             add_alert(
                 "error",
                 "All LLM providers unavailable (rate limited or unconfigured). "
@@ -114,7 +118,9 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=_escape(sender), subject=_escape(subject), body_snippet=_escape(body_snippet),
+            sender=_escape(sender),
+            subject=_escape(subject),
+            body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if pre_extraction:
@@ -142,7 +148,12 @@ class MultiLLMClient:
                             provider.mark_rate_limited(max(retry_after, 60))
                         else:
                             provider.fail_count += 1
-                            logger.error("Provider '%s' HTTP %d: %s", provider.name, exc2.response.status_code, exc2.response.text[:200])
+                            logger.error(
+                                "Provider '%s' HTTP %d: %s",
+                                provider.name,
+                                exc2.response.status_code,
+                                exc2.response.text[:200],
+                            )
                         last_error = exc2
                     except Exception as exc2:
                         provider.fail_count += 1
@@ -152,7 +163,9 @@ class MultiLLMClient:
                 provider.fail_count += 1
                 logger.error(
                     "Provider '%s' HTTP %d: %s",
-                    provider.name, exc.response.status_code, exc.response.text[:200],
+                    provider.name,
+                    exc.response.status_code,
+                    exc.response.text[:200],
                 )
                 last_error = exc
                 continue
@@ -164,15 +177,16 @@ class MultiLLMClient:
 
         raise last_error or RuntimeError("All LLM providers failed")
 
-    async def _call_provider_raw(
-        self, provider: Provider, user_prompt: str
-    ) -> LLMClassification:
+    async def _call_provider_raw(self, provider: Provider, user_prompt: str) -> LLMClassification:
         result, _ = await self._call_provider_verbose(provider, user_prompt)
         return result
 
     async def _provider_http_call(
-        self, provider: Provider, user_prompt: str,
-        timeout: float = 30.0, max_tokens: int = 500,
+        self,
+        provider: Provider,
+        user_prompt: str,
+        timeout: float = 30.0,
+        max_tokens: int = 500,
         system_override: str | None = None,
     ) -> str:
         """Execute HTTP call to a provider and return raw response text."""
@@ -180,12 +194,16 @@ class MultiLLMClient:
         if provider.name == "groq":
             try:
                 limiter = get_groq_limiter(user_id=self._user_id, api_key=provider.api_key)
-                if limiter is not None and not await limiter.acquire(provider.model, estimated_tokens=150, timeout=30.0):
+                if limiter is not None and not await limiter.acquire(
+                    provider.model, estimated_tokens=150, timeout=30.0
+                ):
                     provider.mark_rate_limited(retry_after=60)
                     provider.fail_count += 1
                     raise httpx.HTTPStatusError(
                         "Groq rate limit exceeded",
-                        request=httpx.Request("POST", provider.base_url or "https://api.groq.com/openai/v1/chat/completions"),
+                        request=httpx.Request(
+                            "POST", provider.base_url or "https://api.groq.com/openai/v1/chat/completions"
+                        ),
                         response=httpx.Response(429),
                     )
             except httpx.HTTPStatusError:
@@ -194,10 +212,10 @@ class MultiLLMClient:
                 logger.warning("Groq rate limiter error: %s", e)
 
         api_key_val = provider.api_key
-        if hasattr(api_key_val, 'decode'):
-            api_key_val = api_key_val.decode('utf-8')
+        if hasattr(api_key_val, "decode"):
+            api_key_val = api_key_val.decode("utf-8")
         api_key_str = str(api_key_val) if api_key_val else ""
-        api_key_str = api_key_str.encode('ascii', 'ignore').decode('ascii')
+        api_key_str = api_key_str.encode("ascii", "ignore").decode("ascii")
 
         logger.debug("LLM request: provider=%s model=%s base_url=%s", provider.name, provider.model, provider.base_url)
 
@@ -245,16 +263,17 @@ class MultiLLMClient:
             return str(text).strip()
         return response.json()["choices"][0]["message"]["content"].strip()
 
-    async def _call_provider_verbose(
-        self, provider: Provider, user_prompt: str
-    ) -> tuple:
+    async def _call_provider_verbose(self, provider: Provider, user_prompt: str) -> tuple:
         """Returns (LLMClassification, raw_response_str)."""
         raw = await self._provider_http_call(provider, user_prompt)
         logger.debug("Raw LLM response: %s", raw[:500])
         return parse_response(raw), raw
 
     async def classify_verbose(
-        self, sender: str, subject: str, body_snippet: str,
+        self,
+        sender: str,
+        subject: str,
+        body_snippet: str,
         categories: str | None = None,
         pre_extraction: dict | None = None,
     ) -> dict:
@@ -265,7 +284,9 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=_escape(sender), subject=_escape(subject), body_snippet=_escape(body_snippet),
+            sender=_escape(sender),
+            subject=_escape(subject),
+            body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if pre_extraction:
@@ -278,8 +299,13 @@ class MultiLLMClient:
                 result, raw = await self._call_provider_verbose(provider, prompt)
                 provider.success_count += 1
                 provider.decrement_rate_limit_count()
-                return {"result": result, "provider": provider.name, "model": provider.model,
-                        "prompt": prompt, "raw_response": raw}
+                return {
+                    "result": result,
+                    "provider": provider.name,
+                    "model": provider.model,
+                    "prompt": prompt,
+                    "raw_response": raw,
+                }
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
                     retry_after = int(exc.response.headers.get("Retry-After", "60"))
@@ -290,7 +316,13 @@ class MultiLLMClient:
                         result, raw = await self._call_provider_verbose(provider, prompt)
                         provider.success_count += 1
                         provider.decrement_rate_limit_count()
-                        return {"result": result, "provider": provider.name, "model": provider.model, "prompt": prompt, "raw_response": raw}
+                        return {
+                            "result": result,
+                            "provider": provider.name,
+                            "model": provider.model,
+                            "prompt": prompt,
+                            "raw_response": raw,
+                        }
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:
                             provider.mark_rate_limited(max(retry_after, 60))
@@ -347,7 +379,8 @@ class MultiLLMClient:
             logger.debug("  Trying batch provider: %s", provider.name)
             try:
                 raw = await self._provider_http_call(
-                    provider, prompt,
+                    provider,
+                    prompt,
                     timeout=60.0,
                     max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
                 )
@@ -368,11 +401,22 @@ class MultiLLMClient:
                     logger.info("Provider '%s' batch rate limited, retrying in %ds", provider.name, retry_delay)
                     await asyncio.sleep(retry_delay)
                     try:
-                        raw = await self._provider_http_call(provider, prompt, timeout=60.0, max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS))
+                        raw = await self._provider_http_call(
+                            provider,
+                            prompt,
+                            timeout=60.0,
+                            max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
+                        )
                         provider.success_count += 1
                         provider.decrement_rate_limit_count()
                         results = parse_batch_response(raw, len(email_list))
-                        return {"results": results, "provider": provider.name, "model": provider.model, "raw_response": raw, "prompt": prompt}
+                        return {
+                            "results": results,
+                            "provider": provider.name,
+                            "model": provider.model,
+                            "raw_response": raw,
+                            "prompt": prompt,
+                        }
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:
                             provider.mark_rate_limited(max(retry_after, 60))
@@ -402,8 +446,11 @@ class MultiLLMClient:
         return result["results"]
 
     async def chat(
-        self, system_prompt: str, user_prompt: str,
-        max_tokens: int = 1000, timeout: float = 45.0,
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 1000,
+        timeout: float = 45.0,
     ) -> str:
         """Send a generic chat prompt to the best available provider. Returns raw text response."""
         ranked = self._ranked_providers()
@@ -412,7 +459,9 @@ class MultiLLMClient:
         last_error: Exception | None = None
         for provider in ranked:
             try:
-                raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
+                raw = await self._provider_http_call(
+                    provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt
+                )
                 provider.success_count += 1
                 provider.decrement_rate_limit_count()
                 return raw
@@ -423,7 +472,9 @@ class MultiLLMClient:
                     logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
                     await asyncio.sleep(retry_delay)
                     try:
-                        raw = await self._provider_http_call(provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt)
+                        raw = await self._provider_http_call(
+                            provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt
+                        )
                         provider.success_count += 1
                         provider.decrement_rate_limit_count()
                         return raw

@@ -5,6 +5,7 @@ sync.py depends on this protocol, not on the concrete classifier
 implementation. This breaks the direct coupling between the
 infrastructure/orchestration layer and the domain logic.
 """
+
 from typing import Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,8 +28,7 @@ class ClassifierProtocol(Protocol):
         rule_engine_enabled: bool = True,
         db_rules: dict | None = None,
         user_id: str | None = None,
-    ) -> ClassificationResult:
-        ...
+    ) -> ClassificationResult: ...
 
 
 __all__ = ["ClassifierProtocol", "ClassificationResult"]

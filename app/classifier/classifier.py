@@ -25,10 +25,10 @@ from app.services.currency import (
 )
 
 _AMOUNT_RE = re.compile(
-    r'(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)'  # prefix: Rs. 2754, INR 2754, ₹2754
-    r'|'
-    r'(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)',  # suffix: 2754 INR, 2754 Rs, 2754₹
-    re.IGNORECASE
+    r"(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)"  # prefix: Rs. 2754, INR 2754, ₹2754
+    r"|"
+    r"(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)",  # suffix: 2754 INR, 2754 Rs, 2754₹
+    re.IGNORECASE,
 )
 
 # Amount validation thresholds
@@ -83,6 +83,7 @@ def _validate_llm_amount(amount, confidence, status):
         return amount, TransactionStatus.needs_review, True
     return amount, status, False
 
+
 logger = structlog.get_logger()
 _stdlib_logger = logging.getLogger(__name__)
 
@@ -136,16 +137,18 @@ async def record_llm_spend(
             row.tokens_out += tokens_out
             row.estimated_cost += estimated_cost
         else:
-            session.add(LLMSpendTracker(
-                user_id=user_id,
-                date=today,
-                provider=provider,
-                model=model,
-                calls=1,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
-                estimated_cost=estimated_cost,
-            ))
+            session.add(
+                LLMSpendTracker(
+                    user_id=user_id,
+                    date=today,
+                    provider=provider,
+                    model=model,
+                    calls=1,
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    estimated_cost=estimated_cost,
+                )
+            )
         await session.commit()
     except Exception as exc:
         logger.warning("Failed to record LLM spend: %s", exc)
@@ -192,7 +195,9 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
     if ctx.rule_engine_enabled and not ctx.llm_priority:
         rule_pre = apply_rules(ctx.sender_domain, ctx.subject, ctx.body_text, ctx.db_rules or {})
         if rule_pre.label == Label.ignore and rule_pre.confidence >= 0.82:
-            logger.debug("Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", ctx.sender_domain, rule_pre.confidence)
+            logger.debug(
+                "Rule pre-filter: skipping LLM for ignore (domain=%s conf=%.2f)", ctx.sender_domain, rule_pre.confidence
+            )
             status = (
                 TransactionStatus.auto
                 if rule_pre.confidence >= settings.AUTO_CONFIRM_THRESHOLD
@@ -236,7 +241,9 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             active_client = ctx.llm_client_override or llm_client
             try:
                 verbose = await active_client.classify_verbose(
-                    ctx.sender, ctx.subject, body_snippet,
+                    ctx.sender,
+                    ctx.subject,
+                    body_snippet,
                     categories=user_categories,
                     pre_extraction=pre_extraction,
                 )
@@ -246,7 +253,10 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
                 raw_response = verbose["raw_response"]
                 if ctx.session and ctx.user_id:
                     await record_llm_spend(
-                        ctx.session, ctx.user_id, provider, model_name,
+                        ctx.session,
+                        ctx.user_id,
+                        provider,
+                        model_name,
                         estimated_cost=_COST_PER_CALL_ESTIMATE,
                     )
                 logger.info(
@@ -264,12 +274,18 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
 
     if llm_result:
         raw_merchant = llm_result.merchant
-        merchant_info = resolve_merchant(raw_merchant) if raw_merchant else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+        merchant_info = (
+            resolve_merchant(raw_merchant)
+            if raw_merchant
+            else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+        )
         merchant = merchant_info["canonical"] or None
         try:
             label = Label(llm_result.label)
         except ValueError:
-            logger.warning("LLM returned unknown label %r for email %s, defaulting to ignore", llm_result.label, ctx.email_id)
+            logger.warning(
+                "LLM returned unknown label %r for email %s, defaulting to ignore", llm_result.label, ctx.email_id
+            )
             label = Label.ignore
         amount = llm_result.amount
         category = llm_result.category
@@ -317,8 +333,12 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             raw_merchant = extract_raw_merchant(ctx.body_text)
             merchant_info = resolve_merchant(raw_merchant or "")
             merchant_conf = merchant_info["confidence"]
-            merchant_meta = MERCHANT_MAP.get(merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {})
-            merchant = merchant_meta.get("display") or (merchant_info["canonical"].title() if merchant_info["canonical"] else None)
+            merchant_meta = MERCHANT_MAP.get(
+                merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {}
+            )
+            merchant = merchant_meta.get("display") or (
+                merchant_info["canonical"].title() if merchant_info["canonical"] else None
+            )
             merchant_category = merchant_meta.get("category")
         label = rule_result.label or Label.ignore
         amount = None
@@ -338,11 +358,7 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             txn_type = None
     classifier_method = ClassifierMethod.llm if llm_result else ClassifierMethod.rule
 
-    status = (
-        TransactionStatus.auto
-        if confidence >= settings.AUTO_CONFIRM_THRESHOLD
-        else TransactionStatus.needs_review
-    )
+    status = TransactionStatus.auto if confidence >= settings.AUTO_CONFIRM_THRESHOLD else TransactionStatus.needs_review
 
     # Validate LLM-extracted amount
     if llm_result:
@@ -350,22 +366,24 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
 
     if ctx.session is not None:
         try:
-            ctx.session.add(ClassificationLog(
-                email_id=ctx.email_id,
-                sender_domain=ctx.sender_domain,
-                subject=ctx.subject,
-                body_snippet=body_snippet,
-                provider=provider,
-                model=model_name,
-                latency_ms=latency_ms,
-                llm_label=llm_result.label if llm_result else None,
-                llm_amount=llm_result.amount if llm_result else None,
-                llm_merchant=raw_merchant,
-                llm_category=llm_result.category if llm_result else None,
-                llm_confidence=llm_result.confidence if llm_result else None,
-                llm_txn_date=_parse_date(llm_result.txn_date) if llm_result else None,
-                raw_response=raw_response,
-            ))
+            ctx.session.add(
+                ClassificationLog(
+                    email_id=ctx.email_id,
+                    sender_domain=ctx.sender_domain,
+                    subject=ctx.subject,
+                    body_snippet=body_snippet,
+                    provider=provider,
+                    model=model_name,
+                    latency_ms=latency_ms,
+                    llm_label=llm_result.label if llm_result else None,
+                    llm_amount=llm_result.amount if llm_result else None,
+                    llm_merchant=raw_merchant,
+                    llm_category=llm_result.category if llm_result else None,
+                    llm_confidence=llm_result.confidence if llm_result else None,
+                    llm_txn_date=_parse_date(llm_result.txn_date) if llm_result else None,
+                    raw_response=raw_response,
+                )
+            )
         except Exception as log_exc:
             logger.warning("Failed to write classification log: %s", log_exc)
 
@@ -387,7 +405,9 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
 
 
 def _rules_fallback_result(
-    sender_domain: str, subject: str, body_text: str,
+    sender_domain: str,
+    subject: str,
+    body_text: str,
     db_rules: dict | None,
 ) -> ClassificationResult:
     rule_result = apply_rules(sender_domain, subject, body_text, db_rules or {})
@@ -400,17 +420,15 @@ def _rules_fallback_result(
         merchant_info = resolve_merchant(raw_merchant or "")
         merchant_conf = merchant_info["confidence"]
         merchant_meta = MERCHANT_MAP.get(merchant_info["canonical"].lower() if merchant_info["canonical"] else "", {})
-        merchant = merchant_meta.get("display") or (merchant_info["canonical"].title() if merchant_info["canonical"] else None)
+        merchant = merchant_meta.get("display") or (
+            merchant_info["canonical"].title() if merchant_info["canonical"] else None
+        )
         merchant_category = merchant_meta.get("category")
     label = rule_result.label or Label.ignore
     amount = _extract_amount(body_text)
     category = rule_result.category or merchant_category
     confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
-    status = (
-        TransactionStatus.auto
-        if confidence >= settings.AUTO_CONFIRM_THRESHOLD
-        else TransactionStatus.needs_review
-    )
+    status = TransactionStatus.auto if confidence >= settings.AUTO_CONFIRM_THRESHOLD else TransactionStatus.needs_review
 
     if label == Label.ignore and category == "CC Payment":
         txn_type = "cc_payment"
@@ -424,8 +442,13 @@ def _rules_fallback_result(
         txn_type = None
 
     return ClassificationResult(
-        label=label, amount=amount, merchant=merchant, category=category,
-        txn_date=None, confidence=confidence, status=status,
+        label=label,
+        amount=amount,
+        merchant=merchant,
+        category=category,
+        txn_date=None,
+        confidence=confidence,
+        status=status,
         classifier_method=ClassifierMethod.rule,
         transaction_type=txn_type,
         payment_mode=_detect_payment_mode(body_text),
@@ -499,8 +522,13 @@ async def batch_classify_emails(
                 )
                 txn_type = "cc_payment" if rule_pre.category == "CC Payment" else None
                 results[i] = ClassificationResult(
-                    label=Label.ignore, amount=None, merchant=None, category=None,
-                    txn_date=None, confidence=rule_pre.confidence, status=status,
+                    label=Label.ignore,
+                    amount=None,
+                    merchant=None,
+                    category=None,
+                    txn_date=None,
+                    confidence=rule_pre.confidence,
+                    status=status,
                     classifier_method=ClassifierMethod.rule,
                     transaction_type=txn_type,
                     payment_mode=_detect_payment_mode(body_text),
@@ -522,10 +550,12 @@ async def batch_classify_emails(
         else:
             client = llm_client_override or llm_client
             for batch_start in range(0, len(need_llm), batch_size):
-                batch = need_llm[batch_start:batch_start + batch_size]
+                batch = need_llm[batch_start : batch_start + batch_size]
                 batch_args = [
                     (
-                        items[idx][1], items[idx][3], body_snippets[idx],
+                        items[idx][1],
+                        items[idx][3],
+                        body_snippets[idx],
                         rule_engine_adapter.extract(items[idx][3], body_snippets[idx]),
                     )
                     for idx, _, _, _, _, _ in batch
@@ -541,7 +571,10 @@ async def batch_classify_emails(
 
                     if session and user_id:
                         await record_llm_spend(
-                            session, user_id, llm_provider, llm_model,
+                            session,
+                            user_id,
+                            llm_provider,
+                            llm_model,
                             estimated_cost=_COST_PER_CALL_ESTIMATE * len(batch_results),
                         )
 
@@ -550,7 +583,11 @@ async def batch_classify_emails(
                         snippet = body_snippets[idx]
 
                         raw_merchant = llm_res.merchant
-                        merchant_info = resolve_merchant(raw_merchant) if raw_merchant else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+                        merchant_info = (
+                            resolve_merchant(raw_merchant)
+                            if raw_merchant
+                            else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+                        )
                         merchant = merchant_info["canonical"] or None
                         try:
                             label = Label(llm_res.label)
@@ -603,9 +640,13 @@ async def batch_classify_emails(
                         amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
                         results[idx] = ClassificationResult(
-                            label=label, amount=amount, merchant=merchant,
-                            category=category, txn_date=txn_date,
-                            confidence=confidence, status=status,
+                            label=label,
+                            amount=amount,
+                            merchant=merchant,
+                            category=category,
+                            txn_date=txn_date,
+                            confidence=confidence,
+                            status=status,
                             classifier_method=ClassifierMethod.llm,
                             transaction_type=txn_type,
                             payment_mode=_detect_payment_mode(items[idx][4]),
@@ -616,22 +657,24 @@ async def batch_classify_emails(
                         latency_ms = round((time.monotonic() - batch_ts) * 1000)
                         if session is not None:
                             try:
-                                session.add(ClassificationLog(
-                                    email_id=email_id,
-                                    sender_domain=sender_domain,
-                                    subject=subject,
-                                    body_snippet=snippet,
-                                    provider=llm_provider,
-                                    model=llm_model,
-                                    latency_ms=latency_ms,
-                                    llm_label=llm_res.label if llm_res else None,
-                                    llm_amount=llm_res.amount if llm_res else None,
-                                    llm_merchant=raw_merchant,
-                                    llm_category=llm_res.category if llm_res else None,
-                                    llm_confidence=llm_res.confidence if llm_res else None,
-                                    llm_txn_date=_parse_date(llm_res.txn_date) if llm_res else None,
-                                    raw_response=llm_raw,
-                                ))
+                                session.add(
+                                    ClassificationLog(
+                                        email_id=email_id,
+                                        sender_domain=sender_domain,
+                                        subject=subject,
+                                        body_snippet=snippet,
+                                        provider=llm_provider,
+                                        model=llm_model,
+                                        latency_ms=latency_ms,
+                                        llm_label=llm_res.label if llm_res else None,
+                                        llm_amount=llm_res.amount if llm_res else None,
+                                        llm_merchant=raw_merchant,
+                                        llm_category=llm_res.category if llm_res else None,
+                                        llm_confidence=llm_res.confidence if llm_res else None,
+                                        llm_txn_date=_parse_date(llm_res.txn_date) if llm_res else None,
+                                        raw_response=llm_raw,
+                                    )
+                                )
                             except Exception as log_exc:
                                 logger.warning("Failed to write batch classification log: %s", log_exc)
 
@@ -661,10 +704,16 @@ async def batch_classify_emails(
         try:
             results[i] = await classify_email(
                 ClassificationContext(
-                    email_id=email_id, sender=sender, sender_domain=sender_domain,
-                    subject=subject, body_text=body_text, session=session,
-                    rule_engine_enabled=rule_engine_enabled, db_rules=db_rules,
-                    user_id=user_id, llm_client_override=llm_client_override,
+                    email_id=email_id,
+                    sender=sender,
+                    sender_domain=sender_domain,
+                    subject=subject,
+                    body_text=body_text,
+                    session=session,
+                    rule_engine_enabled=rule_engine_enabled,
+                    db_rules=db_rules,
+                    user_id=user_id,
+                    llm_client_override=llm_client_override,
                     use_llm=use_llm,
                 )
             )

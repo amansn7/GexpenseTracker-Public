@@ -67,8 +67,14 @@ class TestClassificationAlerts:
         mock_user_id = "test-user"
 
         messages = [
-            {"gmail_id": f"msg-{i}", "sender": f"s{i}@x.com", "sender_domain": "x.com",
-             "subject": f"Test {i}", "body_text": f"Body {i}", "body_snippet": f"Body {i}"}
+            {
+                "gmail_id": f"msg-{i}",
+                "sender": f"s{i}@x.com",
+                "sender_domain": "x.com",
+                "subject": f"Test {i}",
+                "body_text": f"Body {i}",
+                "body_snippet": f"Body {i}",
+            }
             for i in range(4)
         ]
 
@@ -78,6 +84,7 @@ class TestClassificationAlerts:
         # Mock _apply_pre_filter to pass all messages through
         async def mock_pre_filter(session, msgs, user_id, prog, uid):
             from app.models import Email
+
             pairs = []
             for msg in msgs:
                 email = Email(**msg)
@@ -87,14 +94,21 @@ class TestClassificationAlerts:
                 pairs.append((email, msg))
             return pairs, 0
 
-        with patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)), \
-             patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()), \
-             patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter), \
-             patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications), \
-             patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 4)):
+        with (
+            patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)),
+            patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()),
+            patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter),
+            patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications),
+            patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 4)),
+        ):
             await _sync_emails_inner(
-                mock_session, mock_user_id, mock_uid, mock_prog,
-                None, None, "all",
+                mock_session,
+                mock_user_id,
+                mock_uid,
+                mock_prog,
+                None,
+                None,
+                "all",
             )
 
         alerts = get_alerts()
@@ -113,13 +127,24 @@ class TestClassificationAlerts:
         mock_session.execute = AsyncMock(return_value=sync_state_result)
 
         mock_prog = {
-            "running": True, "phase": "fetching", "phase_detail": "",
-            "total": 0, "current": 0, "tally": {}, "current_email": None,
+            "running": True,
+            "phase": "fetching",
+            "phase_detail": "",
+            "total": 0,
+            "current": 0,
+            "tally": {},
+            "current_email": None,
         }
 
         messages = [
-            {"gmail_id": f"msg-{i}", "sender": f"s{i}@x.com", "sender_domain": "x.com",
-             "subject": f"Test {i}", "body_text": f"Body {i}", "body_snippet": f"Body {i}"}
+            {
+                "gmail_id": f"msg-{i}",
+                "sender": f"s{i}@x.com",
+                "sender_domain": "x.com",
+                "subject": f"Test {i}",
+                "body_text": f"Body {i}",
+                "body_snippet": f"Body {i}",
+            }
             for i in range(4)
         ]
 
@@ -133,6 +158,7 @@ class TestClassificationAlerts:
 
         async def mock_pre_filter(session, msgs, user_id, prog, uid):
             from app.models import Email
+
             pairs = []
             for msg in msgs:
                 email = Email(**msg)
@@ -142,14 +168,21 @@ class TestClassificationAlerts:
                 pairs.append((email, msg))
             return pairs, 0
 
-        with patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)), \
-             patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()), \
-             patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter), \
-             patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications), \
-             patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 4)):
+        with (
+            patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)),
+            patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()),
+            patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter),
+            patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications),
+            patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 4)),
+        ):
             await _sync_emails_inner(
-                mock_session, "test-user", "test-user", mock_prog,
-                None, None, "all",
+                mock_session,
+                "test-user",
+                "test-user",
+                mock_prog,
+                None,
+                None,
+                "all",
             )
 
         alerts = get_alerts()
@@ -166,13 +199,24 @@ class TestClassificationAlerts:
         mock_session.execute = AsyncMock(return_value=sync_state_result)
 
         mock_prog = {
-            "running": True, "phase": "fetching", "phase_detail": "",
-            "total": 0, "current": 0, "tally": {}, "current_email": None,
+            "running": True,
+            "phase": "fetching",
+            "phase_detail": "",
+            "total": 0,
+            "current": 0,
+            "tally": {},
+            "current_email": None,
         }
 
         messages = [
-            {"gmail_id": f"msg-{i}", "sender": f"s{i}@x.com", "sender_domain": "x.com",
-             "subject": f"Test {i}", "body_text": f"Body {i}", "body_snippet": f"Body {i}"}
+            {
+                "gmail_id": f"msg-{i}",
+                "sender": f"s{i}@x.com",
+                "sender_domain": "x.com",
+                "subject": f"Test {i}",
+                "body_text": f"Body {i}",
+                "body_snippet": f"Body {i}",
+            }
             for i in range(3)
         ]
 
@@ -180,6 +224,7 @@ class TestClassificationAlerts:
 
         async def mock_pre_filter(session, msgs, user_id, prog, uid):
             from app.models import Email
+
             pairs = []
             for msg in msgs:
                 email = Email(**msg)
@@ -189,14 +234,21 @@ class TestClassificationAlerts:
                 pairs.append((email, msg))
             return pairs, 0
 
-        with patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)), \
-             patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()), \
-             patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter), \
-             patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications), \
-             patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 3)):
+        with (
+            patch("app.sync.fetch.fetch_new_messages", return_value=(messages, 12345)),
+            patch("app.sync.fetch.get_credentials_for_user", return_value=MagicMock()),
+            patch("app.sync.fetch._apply_pre_filter", side_effect=mock_pre_filter),
+            patch("app.sync.fetch._classify_batch", new_callable=AsyncMock, return_value=classifications),
+            patch("app.sync.fetch._persist_transactions", new_callable=AsyncMock, return_value=([], 3)),
+        ):
             await _sync_emails_inner(
-                mock_session, "test-user", "test-user", mock_prog,
-                None, None, "all",
+                mock_session,
+                "test-user",
+                "test-user",
+                mock_prog,
+                None,
+                None,
+                "all",
             )
 
         alerts = get_alerts()
@@ -209,8 +261,7 @@ class TestClassificationAlerts:
 
         add_alert(
             "warning",
-            "3/5 emails classified with rules only (LLM unavailable). "
-            "Check AI service configuration.",
+            "3/5 emails classified with rules only (LLM unavailable). Check AI service configuration.",
             source="classifier",
         )
 

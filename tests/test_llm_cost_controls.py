@@ -16,12 +16,17 @@ from app.config import settings
 from app.models import ClassifierMethod, Label
 
 
-def _mock_verbose_result(label="expense", amount=499.0, merchant="Swiggy",
-                          category="Food", txn_date="2026-04-10", confidence=0.95):
+def _mock_verbose_result(
+    label="expense", amount=499.0, merchant="Swiggy", category="Food", txn_date="2026-04-10", confidence=0.95
+):
     return {
         "result": LLMClassification(
-            label=label, amount=amount, merchant=merchant,
-            category=category, txn_date=txn_date, confidence=confidence,
+            label=label,
+            amount=amount,
+            merchant=merchant,
+            category=category,
+            txn_date=txn_date,
+            confidence=confidence,
         ),
         "provider": "google",
         "model": "gemini-2.0-flash-exp",
@@ -90,8 +95,13 @@ async def test_record_llm_spend_inserts_new():
     with patch("app.classifier.classifier.date") as mock_date:
         mock_date.today.return_value = date(2026, 5, 20)
         await record_llm_spend(
-            mock_session, "user-123", "google", "gemini-flash",
-            tokens_in=500, tokens_out=200, estimated_cost=0.0001,
+            mock_session,
+            "user-123",
+            "google",
+            "gemini-flash",
+            tokens_in=500,
+            tokens_out=200,
+            estimated_cost=0.0001,
         )
 
     mock_session.execute.assert_called_once()
@@ -118,8 +128,11 @@ async def test_classify_email_budget_exceeded_falls_back_to_rules():
     with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=False):
         result = await classify_email(
             ClassificationContext(
-                email_id="e-budget", sender="noreply@swiggy.in", sender_domain="swiggy.in",
-                subject="Order", body_text="Rs. 349 debited",
+                email_id="e-budget",
+                sender="noreply@swiggy.in",
+                sender_domain="swiggy.in",
+                subject="Order",
+                body_text="Rs. 349 debited",
                 user_id="user-123",
             )
         )
@@ -133,13 +146,21 @@ async def test_classify_email_budget_exceeded_falls_back_to_rules():
 @pytest.mark.asyncio
 async def test_classify_email_under_budget_calls_llm():
     """Under budget → LLM call proceeds normally."""
-    with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=True), \
-         patch("app.classifier.classifier.llm_client.classify_verbose",
-               new_callable=AsyncMock, return_value=_mock_verbose_result()):
+    with (
+        patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=True),
+        patch(
+            "app.classifier.classifier.llm_client.classify_verbose",
+            new_callable=AsyncMock,
+            return_value=_mock_verbose_result(),
+        ),
+    ):
         result = await classify_email(
             ClassificationContext(
-                email_id="e-ok", sender="s@bank.com", sender_domain="bank.com",
-                subject="Debit", body_text="Rs. 500 debited",
+                email_id="e-ok",
+                sender="s@bank.com",
+                sender_domain="bank.com",
+                subject="Debit",
+                body_text="Rs. 500 debited",
                 user_id="user-123",
             )
         )
@@ -151,13 +172,21 @@ async def test_classify_email_under_budget_calls_llm():
 @pytest.mark.asyncio
 async def test_classify_email_no_user_id_skips_budget_check():
     """No user_id → budget check skipped, LLM proceeds."""
-    with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock) as mock_check, \
-         patch("app.classifier.classifier.llm_client.classify_verbose",
-               new_callable=AsyncMock, return_value=_mock_verbose_result()):
+    with (
+        patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock) as mock_check,
+        patch(
+            "app.classifier.classifier.llm_client.classify_verbose",
+            new_callable=AsyncMock,
+            return_value=_mock_verbose_result(),
+        ),
+    ):
         result = await classify_email(
             ClassificationContext(
-                email_id="e-nouser", sender="s@bank.com", sender_domain="bank.com",
-                subject="Debit", body_text="Rs. 500 debited",
+                email_id="e-nouser",
+                sender="s@bank.com",
+                sender_domain="bank.com",
+                subject="Debit",
+                body_text="Rs. 500 debited",
             )
         )
 
@@ -178,7 +207,9 @@ async def test_batch_classify_emails_budget_exceeded_falls_back():
 
     with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=False):
         results = await batch_classify_emails(
-            items, llm_client_override=mock_client, rule_engine_enabled=True,
+            items,
+            llm_client_override=mock_client,
+            rule_engine_enabled=True,
             user_id="user-123",
         )
 
@@ -191,22 +222,27 @@ async def test_batch_classify_emails_budget_exceeded_falls_back():
 async def test_batch_classify_emails_under_budget_proceeds():
     """Under budget → batch LLM call proceeds."""
     mock_client = AsyncMock()
-    mock_client.batch_classify_verbose = AsyncMock(return_value={
-        "results": [
-            LLMClassification(label="expense", amount=349.0, merchant="Swiggy",
-                              category="Food", txn_date=None, confidence=0.95),
-        ],
-        "provider": "test",
-        "model": "test-model",
-        "raw_response": "...",
-        "prompt": "...",
-    })
+    mock_client.batch_classify_verbose = AsyncMock(
+        return_value={
+            "results": [
+                LLMClassification(
+                    label="expense", amount=349.0, merchant="Swiggy", category="Food", txn_date=None, confidence=0.95
+                ),
+            ],
+            "provider": "test",
+            "model": "test-model",
+            "raw_response": "...",
+            "prompt": "...",
+        }
+    )
 
     items = [("e1", "noreply@swiggy.in", "swiggy.in", "Order", "Rs. 349 debited")]
 
     with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=True):
         results = await batch_classify_emails(
-            items, llm_client_override=mock_client, rule_engine_enabled=False,
+            items,
+            llm_client_override=mock_client,
+            rule_engine_enabled=False,
             user_id="user-123",
         )
 
@@ -246,6 +282,7 @@ async def test_daily_llm_budget_config_default():
 
 
 # ── API endpoint tests ───────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_llm_usage_returns_correct_structure():

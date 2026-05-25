@@ -1,4 +1,5 @@
 """Centralized LLM client building for user-specific AI services."""
+
 import logging
 
 from sqlalchemy import select
@@ -17,17 +18,13 @@ async def get_user_llm_client(user_id: str, db: AsyncSession) -> MultiLLMClient 
 
     Returns None if the user has no active AI service or if building fails.
     """
-    user_settings = (
-        await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
-    ).scalar_one_or_none()
+    user_settings = (await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))).scalar_one_or_none()
 
     if not (user_settings and user_settings.active_ai_service_id):
         return None
 
     ai_svc = (
-        await db.execute(
-            select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id)
-        )
+        await db.execute(select(UserAIService).where(UserAIService.id == user_settings.active_ai_service_id))
     ).scalar_one_or_none()
 
     if not (ai_svc and ai_svc.enabled and ai_svc.encrypted_api_key):
@@ -45,6 +42,9 @@ async def get_user_llm_client(user_id: str, db: AsyncSession) -> MultiLLMClient 
     except Exception as exc:
         logger.error(
             "Failed to build user LLM client for %s (provider=%s model=%s): %s",
-            user_id, ai_svc.provider, ai_svc.model_id, exc,
+            user_id,
+            ai_svc.provider,
+            ai_svc.model_id,
+            exc,
         )
         return None

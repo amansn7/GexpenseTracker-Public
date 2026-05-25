@@ -1,4 +1,5 @@
 """Provider registry, priority scoring, and rate limiter registry."""
+
 import logging
 import time
 from dataclasses import dataclass, field
@@ -35,9 +36,12 @@ class Provider:
         self.rate_limited_until = time.time() + retry_after
         logger.warning(
             "LLM provider '%s' rate limited (hit #%d) - backing off %ds",
-            self.name, self.rate_limit_count, retry_after,
+            self.name,
+            self.rate_limit_count,
+            retry_after,
         )
         from app.alerts import add_alert
+
         add_alert(
             "warning",
             f"LLM provider '{self.name}' hit rate limit (#{self.rate_limit_count}). "
@@ -83,53 +87,65 @@ def build_default_providers() -> list[Provider]:
     """Register providers in default priority order (lowest score = tried first)."""
     providers: list[Provider] = []
     if settings.GOOGLE_AI_API_KEY:
-        providers.append(Provider(
-            name="google",
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-            api_key=settings.GOOGLE_AI_API_KEY,
-            model="gemini-2.0-flash-exp",
-        ))
+        providers.append(
+            Provider(
+                name="google",
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+                api_key=settings.GOOGLE_AI_API_KEY,
+                model="gemini-2.0-flash-exp",
+            )
+        )
     if settings.GROK_API_KEY:
-        providers.append(Provider(
-            name="grok",
-            base_url="https://api.x.ai/v1",
-            api_key=settings.GROK_API_KEY,
-            model="grok-3-mini",
-        ))
+        providers.append(
+            Provider(
+                name="grok",
+                base_url="https://api.x.ai/v1",
+                api_key=settings.GROK_API_KEY,
+                model="grok-3-mini",
+            )
+        )
     if settings.GROQ_API_KEY:
-        providers.append(Provider(
-            name="groq",
-            base_url="https://api.groq.com/openai/v1",
-            api_key=settings.GROQ_API_KEY,
-            model="llama-3.3-70b-versatile",
-        ))
+        providers.append(
+            Provider(
+                name="groq",
+                base_url="https://api.groq.com/openai/v1",
+                api_key=settings.GROQ_API_KEY,
+                model="llama-3.3-70b-versatile",
+            )
+        )
     if settings.SCALEWAY_API_KEY:
-        providers.append(Provider(
-            name="scaleway",
-            base_url="https://api.scaleway.ai/v1",
-            api_key=settings.SCALEWAY_API_KEY,
-            model="llama-3.3-70b-instruct",
-        ))
+        providers.append(
+            Provider(
+                name="scaleway",
+                base_url="https://api.scaleway.ai/v1",
+                api_key=settings.SCALEWAY_API_KEY,
+                model="llama-3.3-70b-instruct",
+            )
+        )
     if settings.OPENROUTER_API_KEY:
-        providers.append(Provider(
-            name="openrouter",
-            base_url="https://openrouter.ai/api/v1",
-            api_key=settings.OPENROUTER_API_KEY,
-            model=settings.LLM_MODEL,
-            extra_headers={
-                "HTTP-Referer": "http://localhost:8000",
-                "X-Title": "Expense Tracker",
-            },
-        ))
+        providers.append(
+            Provider(
+                name="openrouter",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=settings.OPENROUTER_API_KEY,
+                model=settings.LLM_MODEL,
+                extra_headers={
+                    "HTTP-Referer": "http://localhost:8000",
+                    "X-Title": "Expense Tracker",
+                },
+            )
+        )
     if settings.CLOUDFLARE_API_TOKEN and settings.CLOUDFLARE_ACCOUNT_ID:
         account_id_str = str(settings.CLOUDFLARE_ACCOUNT_ID)
         api_token_str = str(settings.CLOUDFLARE_API_TOKEN)
-        providers.append(Provider(
-            name="cloudflare",
-            base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1/run",
-            api_key=api_token_str,
-            model="@cf/meta/llama-3.1-8b-instruct",
-        ))
+        providers.append(
+            Provider(
+                name="cloudflare",
+                base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1/run",
+                api_key=api_token_str,
+                model="@cf/meta/llama-3.1-8b-instruct",
+            )
+        )
     return providers
 
 
@@ -164,6 +180,7 @@ def get_groq_limiter(user_id: str | None, api_key: str):
     if key not in _groq_limiters:
         try:
             from app.classifier.groq_rate_limiter import get_groq_limiter as _get
+
             _groq_limiters[key] = _get(user_id=user_id, api_key=api_key)
         except Exception:
             return None

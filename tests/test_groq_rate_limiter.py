@@ -34,6 +34,7 @@ def test_get_groq_limiter_returns_cached_on_repeat_call():
 def test_get_groq_limiter_raises_when_no_global_key():
     _mod._groq_limiter = None
     from unittest.mock import patch
+
     with patch("app.classifier.groq_rate_limiter.settings") as mock_settings:
         mock_settings.GROQ_API_KEY = None
         with pytest.raises(RuntimeError, match="GROQ_API_KEY not configured"):
@@ -52,6 +53,7 @@ def test_maybe_reset_buckets_resets_rpm_after_minute():
 
 def test_acquire_is_coroutine_function():
     from app.classifier.groq_rate_limiter import GroqRateLimiter
+
     limiter = GroqRateLimiter("key")
     assert inspect.iscoroutinefunction(limiter.acquire)
     limiter.stop()
@@ -60,6 +62,7 @@ def test_acquire_is_coroutine_function():
 @pytest.mark.asyncio
 async def test_acquire_returns_true_when_quota_available():
     from app.classifier.groq_rate_limiter import GroqRateLimiter
+
     limiter = GroqRateLimiter("key")
     result = await limiter.acquire("llama-3.3-70b-versatile", estimated_tokens=10, timeout=5.0)
     assert result is True
@@ -69,6 +72,7 @@ async def test_acquire_returns_true_when_quota_available():
 @pytest.mark.asyncio
 async def test_acquire_returns_false_when_quota_exhausted():
     from app.classifier.groq_rate_limiter import GROQ_LIMITS, GroqRateLimiter
+
     limiter = GroqRateLimiter("key")
     bucket = limiter._get_bucket("llama-3.3-70b-versatile")
     bucket["rpm_used"] = GROQ_LIMITS["llama-3.3-70b-versatile"].requests_per_minute

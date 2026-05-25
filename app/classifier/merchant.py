@@ -14,6 +14,7 @@ Pipeline:
 Fuzzy matches above FUZZY_ACCEPT are queued in _pending_aliases and
 persisted to DB by calling learn_pending_aliases(db) from the caller.
 """
+
 import logging
 import re
 
@@ -21,61 +22,72 @@ log = logging.getLogger(__name__)
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
-FUZZY_ACCEPT    = 85   # score >= 85 → accept + queue alias for persistence
-FUZZY_TENTATIVE = 70   # score >= 70 → accept, do not persist
+FUZZY_ACCEPT = 85  # score >= 85 → accept + queue alias for persistence
+FUZZY_TENTATIVE = 70  # score >= 70 → accept, do not persist
 
 # ── Hardcoded seed aliases ────────────────────────────────────────────────────
 # Longest keys checked first so "swiggy instamart" wins over "swiggy".
 
 MERCHANT_ALIASES: dict[str, str] = {
     "swiggy instamart": "swiggy instamart",
-    "paytm money":      "paytm money",
-    "prime video":      "prime video",
-    "youtube premium":  "youtube premium",
-    "pizza hut":        "pizza hut",
-    "burger king":      "burger king",
-    "namma metro":      "namma metro",
-    "namma yatri":      "namma yatri",
-    "big basket":       "bigbasket",
-    "amzn mktp":        "amazon",
+    "paytm money": "paytm money",
+    "prime video": "prime video",
+    "youtube premium": "youtube premium",
+    "pizza hut": "pizza hut",
+    "burger king": "burger king",
+    "namma metro": "namma metro",
+    "namma yatri": "namma yatri",
+    "big basket": "bigbasket",
+    "amzn mktp": "amazon",
     "phonepe merchant": "phonepe",
-    "ola money":        "ola",
-    "paytm mall":       "paytm",
-    "uber eats":        "uber eats",
-    "uber trip":        "uber",
-    "air india":        "air india",
-    "act fibernet":     "act fibernet",
-    "act broadband":    "act fibernet",
-    "gpay":             "google pay",
-    "amzn":             "amazon",
-    "swgy":             "swiggy",
-    "bbdaily":          "bigbasket",
+    "ola money": "ola",
+    "paytm mall": "paytm",
+    "uber eats": "uber eats",
+    "uber trip": "uber",
+    "air india": "air india",
+    "act fibernet": "act fibernet",
+    "act broadband": "act fibernet",
+    "gpay": "google pay",
+    "amzn": "amazon",
+    "swgy": "swiggy",
+    "bbdaily": "bigbasket",
 }
 
 # ── In-memory caches ──────────────────────────────────────────────────────────
 
-_alias_cache: dict[str, str] = {}          # DB-learned: raw → canonical
-_pending_aliases: dict[str, str] = {}      # queued for DB persist this request
+_alias_cache: dict[str, str] = {}  # DB-learned: raw → canonical
+_pending_aliases: dict[str, str] = {}  # queued for DB persist this request
 
 # ── Regex cleaning ────────────────────────────────────────────────────────────
 
 _STRIP_PREFIXES = ["https ", "http ", "www.", "www "]
 
 _STRIP_SUFFIXES = [
-    " limited", " ltd", " pvt", " india", " in",
-    " bangalore", " blr", " mumbai", " delhi",
-    " chennai", " hyderabad", " pune",
+    " limited",
+    " ltd",
+    " pvt",
+    " india",
+    " in",
+    " bangalore",
+    " blr",
+    " mumbai",
+    " delhi",
+    " chennai",
+    " hyderabad",
+    " pune",
 ]
 
 _CARD_NOISE = re.compile(r"\b(visa|mastercard|rupay)\b", re.IGNORECASE)
-_WHITESPACE  = re.compile(r"\s+")
+_WHITESPACE = re.compile(r"\s+")
 
 _RAW_MERCHANT_PATTERNS = [
-    re.compile(r"towards\s+([A-Za-z0-9 ._\-]{2,40})", re.IGNORECASE),    # HDFC "towards WWW SWIGGY IN"
+    re.compile(r"towards\s+([A-Za-z0-9 ._\-]{2,40})", re.IGNORECASE),  # HDFC "towards WWW SWIGGY IN"
     re.compile(r"to\s+([A-Za-z0-9 ._\-]{2,30})(?:\s+on|\s+via|\s+ref|\s*$)", re.IGNORECASE),
     re.compile(r"at\s+([A-Za-z0-9 ._\-]{2,30})", re.IGNORECASE),
-    re.compile(r"([\w.\-]+)@[\w]+", re.IGNORECASE),                       # UPI handle
-    re.compile(r"by\s+IMPS/(?:NEF[TF]/|RTGS/|P2A/|P2P/)?[A-Z0-9]+/([A-Za-z]{2,40})(?:\.|$|\s)", re.IGNORECASE),  # Axis/ICICI IMPS "...by IMPS/P2A/ref/MEIYAPPA"
+    re.compile(r"([\w.\-]+)@[\w]+", re.IGNORECASE),  # UPI handle
+    re.compile(
+        r"by\s+IMPS/(?:NEF[TF]/|RTGS/|P2A/|P2P/)?[A-Z0-9]+/([A-Za-z]{2,40})(?:\.|$|\s)", re.IGNORECASE
+    ),  # Axis/ICICI IMPS "...by IMPS/P2A/ref/MEIYAPPA"
 ]
 
 
@@ -85,7 +97,7 @@ def _regex_clean(raw: str) -> str:
 
     for prefix in _STRIP_PREFIXES:
         if text.startswith(prefix):
-            text = text[len(prefix):]
+            text = text[len(prefix) :]
 
     # UPI handle — take left of @
     if "@" in text:
@@ -122,6 +134,7 @@ def extract_raw_merchant(text: str) -> str | None:
 
 
 # ── Core normalization ────────────────────────────────────────────────────────
+
 
 def normalize_merchant(raw: str) -> tuple[str, float]:
     """
@@ -183,6 +196,7 @@ def normalize_merchant(raw: str) -> tuple[str, float]:
 
 # ── Alias persistence (async) ─────────────────────────────────────────────────
 
+
 async def learn_pending_aliases(db) -> list[str]:
     """
     Persist all queued fuzzy-learned aliases to DB and update runtime cache.
@@ -199,19 +213,19 @@ async def learn_pending_aliases(db) -> list[str]:
     saved: list[str] = []
     for raw, canonical in list(_pending_aliases.items()):
         try:
-            existing = (await db.execute(
-                select(MerchantAlias).where(MerchantAlias.raw == raw)
-            )).scalar_one_or_none()
+            existing = (await db.execute(select(MerchantAlias).where(MerchantAlias.raw == raw))).scalar_one_or_none()
 
             if existing:
                 existing.hit_count += 1
             else:
-                db.add(MerchantAlias(
-                    raw=raw,
-                    canonical=canonical,
-                    source="fuzzy_learned",
-                    hit_count=1,
-                ))
+                db.add(
+                    MerchantAlias(
+                        raw=raw,
+                        canonical=canonical,
+                        source="fuzzy_learned",
+                        hit_count=1,
+                    )
+                )
                 _alias_cache[raw] = canonical
                 saved.append(raw)
         except Exception as exc:

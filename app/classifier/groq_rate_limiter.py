@@ -3,6 +3,7 @@ Token bucket rate limiter for Groq API.
 
 Implements per-model RPM/TPM limits based on Groq's rate limits table.
 """
+
 import asyncio
 import logging
 import threading
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ModelLimits:
     """Rate limits for a specific model."""
+
     requests_per_minute: int
     tokens_per_minute: int
     requests_per_day: int = 0
@@ -24,21 +26,47 @@ class ModelLimits:
 
 
 GROQ_LIMITS: dict[str, ModelLimits] = {
-    "allam-2-7b": ModelLimits(requests_per_minute=30, tokens_per_minute=6000, requests_per_day=7000, tokens_per_day=500000),
+    "allam-2-7b": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=6000, requests_per_day=7000, tokens_per_day=500000
+    ),
     "groq/compound": ModelLimits(requests_per_minute=30, tokens_per_minute=70000),
     "groq/compound-mini": ModelLimits(requests_per_minute=30, tokens_per_minute=70000),
-    "llama-3.1-8b-instant": ModelLimits(requests_per_minute=30, tokens_per_minute=6000, requests_per_day=14400, tokens_per_day=500000),
-    "llama-3.3-70b-versatile": ModelLimits(requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000),
-    "meta-llama/llama-4-scout-17b-16e-instruct": ModelLimits(requests_per_minute=30, tokens_per_minute=30000, requests_per_day=1000, tokens_per_day=500000),
-    "meta-llama/llama-prompt-guard-2-22m": ModelLimits(requests_per_minute=30, tokens_per_minute=15000, requests_per_day=14400, tokens_per_day=500000),
-    "meta-llama/llama-prompt-guard-2-86m": ModelLimits(requests_per_minute=30, tokens_per_minute=15000, requests_per_day=14400, tokens_per_day=500000),
-    "openai/gpt-oss-120b": ModelLimits(requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000),
-    "openai/gpt-oss-20b": ModelLimits(requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000),
-    "openai/gpt-oss-safeguard-20b": ModelLimits(requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000),
-    "qwen/qwen3-32b": ModelLimits(requests_per_minute=60, tokens_per_minute=6000, requests_per_day=1000, tokens_per_day=500000),
-    "llama-3.3-70b-instruct": ModelLimits(requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000),  # scaleway model fallback
-    "llama-3.1-70b-versatile": ModelLimits(requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000),
-    "llama-3.2-90b-instruct": ModelLimits(requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000),
+    "llama-3.1-8b-instant": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=6000, requests_per_day=14400, tokens_per_day=500000
+    ),
+    "llama-3.3-70b-versatile": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000
+    ),
+    "meta-llama/llama-4-scout-17b-16e-instruct": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=30000, requests_per_day=1000, tokens_per_day=500000
+    ),
+    "meta-llama/llama-prompt-guard-2-22m": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=15000, requests_per_day=14400, tokens_per_day=500000
+    ),
+    "meta-llama/llama-prompt-guard-2-86m": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=15000, requests_per_day=14400, tokens_per_day=500000
+    ),
+    "openai/gpt-oss-120b": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000
+    ),
+    "openai/gpt-oss-20b": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000
+    ),
+    "openai/gpt-oss-safeguard-20b": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=8000, requests_per_day=1000, tokens_per_day=200000
+    ),
+    "qwen/qwen3-32b": ModelLimits(
+        requests_per_minute=60, tokens_per_minute=6000, requests_per_day=1000, tokens_per_day=500000
+    ),
+    "llama-3.3-70b-instruct": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000
+    ),  # scaleway model fallback
+    "llama-3.1-70b-versatile": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000
+    ),
+    "llama-3.2-90b-instruct": ModelLimits(
+        requests_per_minute=30, tokens_per_minute=12000, requests_per_day=1000, tokens_per_day=100000
+    ),
 }
 
 
@@ -182,7 +210,9 @@ class GroqRateLimiter:
         return {
             "requests_per_minute": max(0, limits.requests_per_minute - bucket["rpm_used"]),
             "tokens_per_minute": max(0, limits.tokens_per_minute - bucket["tpm_used"]),
-            "requests_per_day": max(0, limits.requests_per_day - bucket["rpd_used"]) if limits.requests_per_day else None,
+            "requests_per_day": max(0, limits.requests_per_day - bucket["rpd_used"])
+            if limits.requests_per_day
+            else None,
             "tokens_per_day": max(0, limits.tokens_per_day - bucket["tpd_used"]) if limits.tokens_per_day else None,
         }
 

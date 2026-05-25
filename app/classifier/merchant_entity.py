@@ -12,6 +12,7 @@ Pipeline:
     → Parent entity resolution (Swiggy Instamart -> Swiggy)
     → {"canonical", "parent", "confidence", "method"}
 """
+
 import logging
 import re
 
@@ -26,13 +27,35 @@ UPI_HANDLE_RE = re.compile(r"@([a-zA-Z0-9_]+)")
 # ── Suffix / prefix stripping ─────────────────────────────────────────────────
 
 _STRIP_SUFFIXES = [
-    " pvt ltd", " pvt.", " pvt", " llp", " ltd", " limited",
-    " india", " indian", " in",
-    " services", " technologies", " technology", " solutions",
-    " systems", " enterprises", " private limited",
-    " bangalore", " blr", " mumbai", " delhi",
-    " chennai", " hyderabad", " pune", " noida", " gurgaon",
-    " hq", " corp", " corporation", " inc",
+    " pvt ltd",
+    " pvt.",
+    " pvt",
+    " llp",
+    " ltd",
+    " limited",
+    " india",
+    " indian",
+    " in",
+    " services",
+    " technologies",
+    " technology",
+    " solutions",
+    " systems",
+    " enterprises",
+    " private limited",
+    " bangalore",
+    " blr",
+    " mumbai",
+    " delhi",
+    " chennai",
+    " hyderabad",
+    " pune",
+    " noida",
+    " gurgaon",
+    " hq",
+    " corp",
+    " corporation",
+    " inc",
 ]
 
 _STRIP_PREFIXES = ["https ", "http ", "www.", "www ", "pay ", "paid to ", "payment to "]
@@ -172,7 +195,7 @@ def clean_merchant(raw: str) -> str:
 
     for prefix in _STRIP_PREFIXES:
         if text.startswith(prefix):
-            text = text[len(prefix):]
+            text = text[len(prefix) :]
 
     # Strip UPI handle: take left part before @
     if "@" in text:
@@ -224,6 +247,7 @@ def _exact_lookup(cleaned: str) -> str | None:
     # Check against MERCHANT_MAP canonical names
     try:
         from app.classifier.rules import MERCHANT_MAP
+
         if cleaned in MERCHANT_MAP:
             return MERCHANT_MAP[cleaned]["display"]
     except Exception as exc:
@@ -298,6 +322,7 @@ def resolve_merchant(merchant_str: str) -> dict:
     # Stage 3: exact MERCHANT_MAP lookup
     try:
         from app.classifier.rules import MERCHANT_MAP
+
         if cleaned in MERCHANT_MAP:
             canonical = MERCHANT_MAP[cleaned]["display"]
             return {

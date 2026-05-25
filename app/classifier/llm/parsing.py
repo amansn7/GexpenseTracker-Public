@@ -1,4 +1,5 @@
 """Response parsing, JSON extraction, and validation."""
+
 import json
 import logging
 import re
@@ -52,11 +53,37 @@ def extract_json(text: str) -> str:
 _REPAIRERS = [
     ("original", lambda t: t),
     ("trailing commas", lambda t: re.sub(r",(\s*[}\]])", r"\1", t)),
-    ("single quotes", lambda t: t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")),
-    ("unquoted keys", lambda t: re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t)),
-    ("trailing commas + single quotes", lambda t: re.sub(r",(\s*[}\]])", r"\1", t).replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")),
-    ("trailing commas + unquoted keys", lambda t: re.sub(r",(\s*[}\]])", r"\1", re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t))),
-    ("all fixes", lambda t: re.sub(r",(\s*[}\]])", r"\1", re.sub(r'([{,])\s*(\w+)\s*:', r'\1"\2":', t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")))),
+    (
+        "single quotes",
+        lambda t: t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false"),
+    ),
+    ("unquoted keys", lambda t: re.sub(r"([{,])\s*(\w+)\s*:", r'\1"\2":', t)),
+    (
+        "trailing commas + single quotes",
+        lambda t: (
+            re.sub(r",(\s*[}\]])", r"\1", t)
+            .replace("'", '"')
+            .replace("None", "null")
+            .replace("True", "true")
+            .replace("False", "false")
+        ),
+    ),
+    (
+        "trailing commas + unquoted keys",
+        lambda t: re.sub(r",(\s*[}\]])", r"\1", re.sub(r"([{,])\s*(\w+)\s*:", r'\1"\2":', t)),
+    ),
+    (
+        "all fixes",
+        lambda t: re.sub(
+            r",(\s*[}\]])",
+            r"\1",
+            re.sub(
+                r"([{,])\s*(\w+)\s*:",
+                r'\1"\2":',
+                t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false"),
+            ),
+        ),
+    ),
 ]
 
 
@@ -106,31 +133,45 @@ def parse_batch_response(raw: str, expected_count: int) -> list[LLMClassificatio
     results: list[LLMClassification] = []
     for item in data:
         if not isinstance(item, dict):
-            results.append(LLMClassification(
-                label="ignore", amount=None, merchant=None,
-                category=None, txn_date=None, confidence=0.0,
-            ))
+            results.append(
+                LLMClassification(
+                    label="ignore",
+                    amount=None,
+                    merchant=None,
+                    category=None,
+                    txn_date=None,
+                    confidence=0.0,
+                )
+            )
             continue
         sc = item.get("source_currency") or item.get("currency")
         if sc:
             sc = sc.upper() if len(sc) <= 3 else sc
-        results.append(LLMClassification(
-            label=str(item.get("label", "ignore")),
-            amount=float(item["amount"]) if item.get("amount") is not None else None,
-            merchant=item.get("merchant"),
-            category=item.get("category"),
-            txn_date=item.get("txn_date"),
-            confidence=float(item.get("confidence", 0.5)),
-            email_type=item.get("email_type"),
-            source_currency=sc,
-        ))
+        results.append(
+            LLMClassification(
+                label=str(item.get("label", "ignore")),
+                amount=float(item["amount"]) if item.get("amount") is not None else None,
+                merchant=item.get("merchant"),
+                category=item.get("category"),
+                txn_date=item.get("txn_date"),
+                confidence=float(item.get("confidence", 0.5)),
+                email_type=item.get("email_type"),
+                source_currency=sc,
+            )
+        )
 
     if len(results) != expected_count:
         logger.warning("LLM returned %d results for batch of %d; padding/truncating", len(results), expected_count)
     while len(results) < expected_count:
-        results.append(LLMClassification(
-            label="ignore", amount=None, merchant=None,
-            category=None, txn_date=None, confidence=0.0,
-            email_type=None,
-        ))
+        results.append(
+            LLMClassification(
+                label="ignore",
+                amount=None,
+                merchant=None,
+                category=None,
+                txn_date=None,
+                confidence=0.0,
+                email_type=None,
+            )
+        )
     return results[:expected_count]

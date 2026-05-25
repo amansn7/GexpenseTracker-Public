@@ -43,6 +43,7 @@ def build_pre_extraction_block(pre: dict) -> str:
         return ""
     return _PRE_EXTRACTION_BLOCK.format(lines="\n".join(lines))
 
+
 # ── Single-email user prompt ─────────────────────────────────────────────────
 
 _USER_TEMPLATE = """# CLASSIFICATION RULES

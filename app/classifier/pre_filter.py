@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 _REDOS_PATTERNS = [
     re.compile(r"(\([^)]*\)|\[[^\]]*\])\*"),  # (abc)* or [abc]*
     re.compile(r"(\([^)]*\)|\[[^\]]*\])\+"),  # (abc)+ or [abc]+
-    re.compile(r"\(\.\*\)\*"),                 # (.*)*
-    re.compile(r"\(\.\*\)\+"),                 # (.*)+
-    re.compile(r"\(\.\+\)\*"),                 # (.+)*
-    re.compile(r"\(\.\+\)\+"),                 # (.+)+
-    re.compile(r"\(\\w\+\)\*"),                # (\w+)*
-    re.compile(r"\(\\w\*\)\*"),                # (\w*)*
-    re.compile(r"\(\\d\+\)\*"),                # (\d+)*
-    re.compile(r"\(\\d\*\)\*"),                # (\d*)*
-    re.compile(r"\(\\s\+\)\*"),                # (\s+)*
-    re.compile(r"\(\\s\*\)\*"),                # (\s*)*
+    re.compile(r"\(\.\*\)\*"),  # (.*)*
+    re.compile(r"\(\.\*\)\+"),  # (.*)+
+    re.compile(r"\(\.\+\)\*"),  # (.+)*
+    re.compile(r"\(\.\+\)\+"),  # (.+)+
+    re.compile(r"\(\\w\+\)\*"),  # (\w+)*
+    re.compile(r"\(\\w\*\)\*"),  # (\w*)*
+    re.compile(r"\(\\d\+\)\*"),  # (\d+)*
+    re.compile(r"\(\\d\*\)\*"),  # (\d*)*
+    re.compile(r"\(\\s\+\)\*"),  # (\s+)*
+    re.compile(r"\(\\s\*\)\*"),  # (\s*)*
 ]
 
 _MAX_PATTERN_LENGTH = 256
@@ -33,21 +33,22 @@ def _is_safe_pattern(pattern: str) -> bool:
     # Check for nested quantifiers like (a+)+ or (a*)*
     depth = 0
     for i, c in enumerate(pattern):
-        if c == '(':
+        if c == "(":
             depth += 1
-        elif c == ')':
+        elif c == ")":
             depth -= 1
             if depth < 0:
                 return False
-        elif c in '*+?' and depth > 0:
+        elif c in "*+?" and depth > 0:
             # Check if preceded by another quantifier
-            if i > 0 and pattern[i-1] in '*+?':
+            if i > 0 and pattern[i - 1] in "*+?":
                 return False
     return depth == 0
 
 
 class RegexTimeoutError(Exception):
     """Raised when a regex match takes too long."""
+
     pass
 
 
@@ -80,7 +81,7 @@ def _safe_match(pattern: re.Pattern, text: str, timeout_ms: int = 100) -> bool:
 
 @dataclass
 class PreFilterResult:
-    decision: str   # "pass" | "review" | "ambiguous"
+    decision: str  # "pass" | "review" | "ambiguous"
     confidence: float
     tier: int
 

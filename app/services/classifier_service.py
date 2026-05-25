@@ -19,9 +19,7 @@ async def get_classifier_context(
       - rules: dict[str, tuple] from build_domain_rules (or {} if disabled)
       - categories: str — comma-separated active category names (or None)
     """
-    user_settings = (
-        await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))
-    ).scalar_one_or_none()
+    user_settings = (await db.execute(select(UserSettings).where(UserSettings.user_id == user_id))).scalar_one_or_none()
 
     rule_engine_enabled = user_settings.use_rule_engine if user_settings else True
 
