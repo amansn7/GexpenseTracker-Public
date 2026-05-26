@@ -56,8 +56,15 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
-        if v and v != "change-me-in-production" and len(v) < 32:
+        if not v or v == "change-me-in-production" or len(v) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long")
+        return v
+
+    @field_validator("FERNET_KEY", mode="after")
+    @classmethod
+    def validate_fernet_key(cls, v: str) -> str:
+        if v and len(v) < 16:
+            raise ValueError("FERNET_KEY must be at least 16 characters long")
         return v
 
     FERNET_KEY: str = ""  # base64 Fernet key; if empty, tokens stored plaintext

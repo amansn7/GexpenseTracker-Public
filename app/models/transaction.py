@@ -40,7 +40,7 @@ class Transaction(Base):
     __table_args__ = (UniqueConstraint("email_id", name="uq_transactions_email_id"),)
 
     id: Mapped[str] = _uuid_col()
-    email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True, index=True)
+    email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id", ondelete="CASCADE"), nullable=True, index=True)
     label: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     transaction_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
     payment_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)

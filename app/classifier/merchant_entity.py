@@ -222,10 +222,10 @@ async def load_db_aliases(db) -> int:
     """
     from sqlalchemy import select
 
-    from app.models.merchant import MerchantAlias
+    from app.models.merchant import MerchantEntityAlias
 
     _db_alias_cache.clear()
-    rows = (await db.execute(select(MerchantAlias))).scalars().all()
+    rows = (await db.execute(select(MerchantEntityAlias))).scalars().all()
     for row in rows:
         _db_alias_cache[row.alias_name.lower()] = row.canonical_name
 

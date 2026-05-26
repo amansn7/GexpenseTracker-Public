@@ -21,6 +21,7 @@ rapidfuzz>=3.6.0
 pyotp>=2.9.0
 PyJWT>=2.8.0
 qrcode[pil]>=7.4.2
+sentry-sdk[fastapi]>=2.0.0
 structlog>=24.1.0
 
 # Dev dependencies (CI-only)

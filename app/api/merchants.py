@@ -7,7 +7,7 @@ from app.auth_deps import get_current_user
 from app.classifier.merchant_entity import resolve_merchant
 from app.database import get_db
 from app.models import User
-from app.models.merchant import MerchantAlias, MerchantEntity
+from app.models.merchant import MerchantEntityAlias, MerchantEntity
 
 router = APIRouter()
 
@@ -43,9 +43,9 @@ async def list_merchant_aliases(
     rows = (
         (
             await db.execute(
-                select(MerchantAlias)
-                .where((MerchantAlias.user_id == current_user.id) | (MerchantAlias.user_id.is_(None)))
-                .order_by(MerchantAlias.canonical_name, MerchantAlias.alias_name)
+                select(MerchantEntityAlias)
+                .where((MerchantEntityAlias.user_id == current_user.id) | (MerchantEntityAlias.user_id.is_(None)))
+                .order_by(MerchantEntityAlias.canonical_name, MerchantEntityAlias.alias_name)
             )
         )
         .scalars()
@@ -80,9 +80,9 @@ async def create_merchant_alias(
 
     existing = (
         await db.execute(
-            select(MerchantAlias).where(
-                MerchantAlias.alias_name == alias_name,
-                MerchantAlias.user_id == current_user.id,
+            select(MerchantEntityAlias).where(
+                MerchantEntityAlias.alias_name == alias_name,
+                MerchantEntityAlias.user_id == current_user.id,
             )
         )
     ).scalar_one_or_none()
@@ -90,7 +90,7 @@ async def create_merchant_alias(
     if existing:
         raise HTTPException(status_code=409, detail="Alias already exists for this user")
 
-    alias = MerchantAlias(
+    alias = MerchantEntityAlias(
         canonical_name=canonical_name,
         alias_name=alias_name,
         user_id=current_user.id,

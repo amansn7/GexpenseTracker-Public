@@ -266,7 +266,7 @@ async def search_transactions(
     q: str = "",
     amount_min: float | None = None,
     amount_max: float | None = None,
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=200),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

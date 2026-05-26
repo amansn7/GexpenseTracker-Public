@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -31,7 +31,7 @@ async def test_get_insights_spending_spike(mock_user, db_session):
             subject="stmt",
             sender="bank@test.com",
             body_text="",
-            received_at=__import__("datetime").datetime.utcnow(),
+            received_at=datetime.now(UTC),
         )
         db_session.add(email)
         await db_session.flush()
@@ -51,7 +51,7 @@ async def test_get_insights_spending_spike(mock_user, db_session):
         subject="stmt",
         sender="bank@test.com",
         body_text="",
-        received_at=__import__("datetime").datetime.utcnow(),
+        received_at=datetime.now(UTC),
     )
     db_session.add(email)
     await db_session.flush()
@@ -93,7 +93,7 @@ async def test_get_insights_saving_win(mock_user, db_session):
         subject="stmt",
         sender="bank@test.com",
         body_text="",
-        received_at=__import__("datetime").datetime.utcnow(),
+        received_at=datetime.now(UTC),
     )
     db_session.add(email)
     await db_session.flush()
@@ -115,7 +115,7 @@ async def test_get_insights_saving_win(mock_user, db_session):
             subject="stmt",
             sender="bank@test.com",
             body_text="",
-            received_at=__import__("datetime").datetime.utcnow(),
+            received_at=datetime.now(UTC),
         )
         db_session.add(email_n)
         await db_session.flush()
@@ -184,7 +184,7 @@ async def test_get_insights_patterns_weekend_spender(mock_user, db_session):
                 subject="stmt",
                 sender="bank@test.com",
                 body_text="",
-                received_at=__import__("datetime").datetime.utcnow(),
+                received_at=datetime.now(UTC),
             )
             db_session.add(email)
             await db_session.flush()
@@ -212,7 +212,7 @@ async def test_get_insights_patterns_weekend_spender(mock_user, db_session):
                 subject="stmt",
                 sender="bank@test.com",
                 body_text="",
-                received_at=__import__("datetime").datetime.utcnow(),
+                received_at=datetime.now(UTC),
             )
             db_session.add(email)
             await db_session.flush()

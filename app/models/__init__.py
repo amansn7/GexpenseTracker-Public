@@ -35,9 +35,7 @@ from .financial import (
     SenderRule,
     UserMerchantOverride,
 )
-from .merchant import (
-    MerchantAlias as MerchantEntityAlias,
-)
+from .merchant import MerchantEntityAlias
 from .merchant import (
     MerchantEntity,
 )

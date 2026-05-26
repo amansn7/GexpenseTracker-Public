@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-expense}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-expense}
-      POSTGRES_DB: ${POSTGRES_DB:-expense_tracker}
+      POSTGRES_USER: ${POSTGRES_USER:?error: POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error: POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?error: POSTGRES_DB must be set}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -26,7 +26,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-expense}:${POSTGRES_PASSWORD:-expense}@db:5432/${POSTGRES_DB:-expense_tracker}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
 
 volumes:
   pgdata:

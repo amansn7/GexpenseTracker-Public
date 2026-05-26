@@ -19,8 +19,8 @@ class Budget(Base):
     __tablename__ = "budgets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -33,8 +33,8 @@ class Debt(Base):
     __tablename__ = "debts"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     total_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -49,8 +49,8 @@ class RecurringExpense(Base):
     __tablename__ = "recurring_expenses"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
@@ -67,8 +67,8 @@ class SenderRule(Base):
     __tablename__ = "sender_rules"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     sender_domain: Mapped[str] = mapped_column(String(255), nullable=False)
     label: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -84,8 +84,8 @@ class MerchantAlias(Base):
     __tablename__ = "merchant_aliases"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     raw: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -161,7 +161,7 @@ class LLMSpendTracker(Base):
     __tablename__ = "llm_spend_tracker"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String(60), nullable=False)
     model: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -179,8 +179,8 @@ class Goal(Base):
     __tablename__ = "goals"
 
     id: Mapped[str] = _uuid_col()
-    user_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)

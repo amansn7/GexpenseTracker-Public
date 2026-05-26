@@ -149,7 +149,7 @@ async def record_llm_spend(
                     estimated_cost=estimated_cost,
                 )
             )
-        await session.commit()
+        await session.flush()
     except Exception as exc:
         logger.warning("Failed to record LLM spend: %s", exc)
 

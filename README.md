@@ -133,6 +133,8 @@ docker-compose up --build
 
 Open [http://localhost:8000](http://localhost:8000).
 
+> **PostgreSQL on existing data**: If you are reusing an existing PostgreSQL database, run the dedup preflight before migrations to avoid unique constraint failures (see [PostgreSQL Migration Procedure](#postgresql-migration-procedure)).
+
 ### 4. Run Locally (SQLite)
 
 ```bash

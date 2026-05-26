@@ -295,10 +295,12 @@ async def test_backfill_partial_commits_preserve_data_on_error(db_session, mock_
     app.dependency_overrides[get_current_user] = lambda: mock_user
 
     try:
-        with patch("app.gmail.auth.get_credentials_for_user", return_value=MagicMock()):
-            with patch("app.gmail.client._build_service", return_value=mock_service):
-                async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-                    resp = await client.post("/api/sync/backfill-bodies", json={})
+        with (
+            patch("app.gmail.auth.get_credentials_for_user", return_value=MagicMock()),
+            patch("app.gmail.client._build_service", return_value=mock_service),
+        ):
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                resp = await client.post("/api/sync/backfill-bodies", json={})
         assert resp.status_code == 200
         data = resp.json()
         assert data["errors"] >= 1

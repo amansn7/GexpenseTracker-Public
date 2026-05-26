@@ -1,7 +1,7 @@
 """add audit_logs table
 
 Revision ID: 0028_add_audit_logs
-Revises: ec1fbeada45a
+Revises: 0027
 Create Date: 2026-05-16 17:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '0028_add_audit_logs'
-down_revision: Union[str, None] = 'ec1fbeada45a'
+down_revision: Union[str, None] = '0027'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

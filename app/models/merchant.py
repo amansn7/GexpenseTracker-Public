@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base, _utcnow, _uuid_col
 
 
-class MerchantAlias(Base):
+class MerchantEntityAlias(Base):
     """User-defined or global alias mapping a raw name to a canonical merchant."""
 
     __tablename__ = "merchant_entity_aliases"

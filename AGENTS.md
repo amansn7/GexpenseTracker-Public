@@ -47,77 +47,83 @@ Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `compone
 <claude-mem-context>
 # Memory Context
 
-# [GexpenseTracker] recent context, 2026-05-25 12:14pm GMT+5:30
+# [GexpenseTracker] recent context, 2026-05-25 10:12pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (14,523t read) | 1,432,248t work | 99% savings
+Stats: 50 obs (19,353t read) | 1,234,841t work | 98% savings
 
-### May 21, 2026
-746 9:30p 🔵 TOTP Signing Fallback Key Hardcoded in auth_deps.py
-747 " 🔵 decrypt_secret Silently Returns Plaintext on Any Exception
-749 " 🔴 S1 Fixed: TOTP Signing Fallback Key Removed from auth_deps.py
-750 " 🔵 SyncState Model Has default=1 on id Column, Not Autoincrement
-751 " 🔵 Two Conflicting MerchantAlias Models in Codebase
-752 " 🔵 Three Classifier Bugs Confirmed in Pre-filter and LLM Client
-753 " 🔵 TOTP Secrets Written Unencrypted in settings.py
-754 9:33p 🔴 S4 Fixed: JWT _make_token Now Emits jti Claim, Logout Blacklist Activated
-755 " 🔴 C3 Fully Wired: LLM Client Cache Invalidated on Both Key Update and Key Rotation
-756 " 🔴 Test conftest.py Missing SECRET_KEY Env Var — Added for S1 Test Compatibility
-757 " 🔵 Pre-existing Test Failure: test_batch_llm_success Merchant Case Normalization
-S111 Batch 2 parallel fixes — frontend F1-F4, Gmail SY2+SY3, health A4, review A1 — all dispatched and actively being applied (May 21, 9:33 PM)
-758 9:34p 🔴 Batch 1 Complete — C1+C2+C3 Classifier Fixes Committed (9f52fdc)
-759 " 🟣 Batch 2 Dispatched — Frontend Agent ac86283681de95ae4 Fixing F1-F4
-760 " 🔵 Frontend Dead Nav Views Mapped: today→dashboard, picture→flow, review→inbox+filter
-761 " 🔵 F2 Confirmed: API.delete in data.jsx Always Calls r.json() Even on 204
-762 " 🔵 F3 Onboarding Loop: StepDone Only Removes localStorage, Never Calls Backend
-763 " 🔵 F4 Confirmed: handleFetchBody in inbox.jsx Has No try/catch
-764 " 🔵 SY2: Gmail Batch Callbacks Silently Swallow Exceptions via raise Inside BatchHttpRequest
-765 " 🔵 SY3: auth.py Already Raises RuntimeError on RefreshError but Doesn't Mark Account Disconnected
-S112 GexpenseTracker multi-bug fix sprint: 5 parallel subagents fixing frontend, sync, security, and API bugs (May 21, 9:35 PM)
-766 9:36p 🔴 Gmail batch metadata callback: replace raise-in-callback with deferred error handling
-767 " 🟣 Frontend subagent dispatched: 4 critical UI bug fixes (F1–F4)
-### May 22, 2026
-768 2:33a 🔵 Onboarding F3: server sets onboarding_complete=True at registration; wizard close is a reload issue
-769 " 🔵 API.delete 204 fix already present in data.jsx; _full_cb still raises in callback
-770 " 🚨 Health endpoints leak internal system details unauthenticated
-S113 GexpenseTracker multi-bug sprint: parallel subagents executing 10+ fixes across frontend, backend sync, security, and API layers (May 22, 2:34 AM)
-S114 GexpenseTracker bug sprint: verifying fixes, running tests, identifying pre-existing test failures vs regressions (May 22, 2:35 AM)
-S115 User greeted with "hi" — session start, no task assigned yet (May 22, 2:35 AM)
 ### May 25, 2026
-S117 Caveman mode activation via skill invocation (May 25, 10:17 AM)
-S118 GexpenseTracker security audit — verify 19 previously identified issues are fixed (May 25, 10:35 AM)
-S116 Caveman mode activation via skill invocation (May 25, 10:35 AM)
-771 10:35a 🔵 GexpenseTracker IDOR Fix Confirmed in merchant_aliases API
-772 " 🔵 Fernet Key Derivation Fallback via SHA256
-773 " 🔵 Bulk Reprocess Progress Stored in Module-Level Global Dict
-774 " 🔵 Gmail Batch Fetch: Partial Failure Handling with All-Batch-Failed Raise
-775 " 🔵 LLM Client Uses str.format() With Curly-Brace Escaping for User Input
-776 " 🟣 Recent UI Shipping: Motion System, Sankey Toggle, Inbox Redesign
-777 " 🔵 Health Endpoint Auth: /health/detailed Owner-Only, /health/ready Public
-778 " 🔵 TOTP Secret Stored as Raw String(256) — Encryption at Application Layer Only
-779 " 🔵 Bulk Reprocess Task: Double User Isolation — ID List Fetch + Per-Item DB Guard
-780 " 🔵 handleFetchBody: Silent Failure — Body Fetch Non-Blocking for Reclassification
-781 10:37a 🔵 API.delete in data.jsx Returns null on HTTP 204 No Content
-S119 Fix remaining security issues S3 (totp_secret plaintext) and A4 (/health/ready info leak) — parallel subagents dispatched (May 25, 10:37 AM)
-782 " 🟣 S3 Fix: TOTP Secret Encryption — Subagent Dispatched
-783 " 🟣 A4 Fix: /health/ready Response Sanitization — Subagent Dispatched
-785 10:38a 🔵 S3 Test Gap: test_2fa_enforcement.py Stores Plaintext totp_secret — Will Break After Encryption Fix
-786 " 🔵 S3 Encryption Chain Already Correct — Migration 0039 Widened Columns
-784 " 🔵 Public Release Readiness Assessment Initiated
-787 " 🔵 MoneyFlow App Identity and Design System Confirmed
-788 10:39a 🔴 S3 Test Fix: All 2FA Test Fixtures Now Use encrypt_secret() for totp_secret
-790 " 🔵 MoneyFlow Full Codebase Structure and Tech Stack Mapped
-789 " 🔴 S3 Test Fix Verified: All 9 2FA Tests Pass After encrypt_secret() Updates
-792 " 🔵 Production Readiness Issues — What's Fixed vs Still Open
-791 " 🔵 Pre-existing Test Failure: test_batch_classifier Merchant Case Mismatch
 793 10:40a 🔵 Code Quality Scan: 34 Ruff Lint Errors, All Minor
-794 " 🔵 All Category A/B Production Readiness Issues Now Fixed
 795 10:41a 🔵 Second Pre-existing Failure: Gmail Socket Timeout Test Mock Not Called
 796 " 🟣 Important Security Fixes: SSRF, OAuth State, DELETE Re-auth, CSP — Subagent Dispatched
-S120 GexpenseTracker full security audit — all 19 critical issues verified fixed, test suite clean (May 25, 10:41 AM)
+797 3:17p 🔵 Parallel Subagents Launched for Deep Scan — Security + API Surface
+798 3:18p 🔐 SSRF Still Open: base_url Written to DB Without Validation
+799 " 🔵 API Surface Scan: Key Security Findings from Direct Code Read
+800 " 🔵 Security Deep Scan: OAuth State DB-Bound (PASS), CSP Still unsafe-inline (FAIL), JWT Blacklist Active (PASS), TOTP Enforcement Active (PASS)
+804 3:19p 🔵 API key encryption uses dedicated encrypt_ai_secret function
+805 " 🔵 Batch classify prompt includes email content with escape sanitization
+806 " 🔵 Admin endpoints require owner role with _require_owner dependency
+807 " 🔵 Search transactions endpoint has bounded limit constraint
+S126 Parallel deepscan complete — 6 agents finished, comprehensive readiness report compiled with 6+ critical blockers identified (May 25, 3:21 PM)
+S127 Parallel deepscan complete — 6 agents finished, comprehensive readiness report with 6+ critical blockers identified for public release (May 25, 3:22 PM)
+S124 Parallel deepscan application readiness for public consumption — 5 agents complete, data integrity findings critical (May 25, 3:22 PM)
+S125 Parallel deepscan application readiness for public consumption — 5 agents complete, data integrity findings critical (May 25, 3:22 PM)
+S128 Deep scan of GexpenseTracker to determine public release readiness — comprehensive security, data integrity, migration, and deployment audit across 6 domains using parallel subagents (May 25, 3:24 PM)
+S129 Create task list for GexpenseTracker public release blockers — user requested task tracking for all pre-launch blockers identified in deepscan (May 25, 3:25 PM)
+808 3:27p ⚖️ GexpenseTracker Public Release Blockers — Remediation Task List Created
+S130 GexpenseTracker public release readiness deepscan + full blocker/pre-launch task list creation — 20 tasks created covering 7 hard blockers and 13 pre-launch warnings (May 25, 3:40 PM)
+809 3:40p 🟣 GexpenseTracker Pre-Launch Warning Tasks Created (8–16)
+S131 GexpenseTracker public release deepscan + task list creation — deepscan complete, 20 tasks created, canonical report written to tasks/deepscan-2026-05-25.md (May 25, 3:41 PM)
+810 3:41p 🔵 Existing public-release-readiness-checklist.md Found in tasks/
+811 3:42p ✅ Deepscan Report Written to tasks/deepscan-2026-05-25.md
+S132 GexpenseTracker pre-launch hardening: tackle 12 deepscan items (CSP unsafe-inline, .dockerignore, pagination cap, structlog redaction, etc.) (May 25, 3:43 PM)
+812 7:38p 🔵 GexpenseTracker Public Launch Readiness Deep Scan
+813 " 🚨 SSRF Vulnerability in AI Service Base URL Validation
+814 " 🚨 TOTP Not Enforced on JWT Bearer Auth Path
+815 " 🚨 No Re-Authentication Gate for Destructive Account Operations
+816 " 🔵 GexpenseTracker Full Blocker Details with File:Line Evidence
+817 " 🔵 GexpenseTracker Pre-Launch Issues (Non-Blocker) Full Details
+818 7:39p 🔵 Deepscan Blockers Largely Already Fixed — Stale Report
+819 " 🔵 Remaining Real Issues: S4 DATABASE_URL Fallback and D1 Second FK Missing Cascade
+820 " 🔵 SSRF Validation Has DNS Rebinding Gap
+821 7:40p 🔵 D1 Cascade Issue Is ClassificationLog, Not Transaction Table
+822 " 🔵 Migration 0041 Already Exists and Covers All Data Integrity Blockers
+823 " 🔴 S4 Fixed: docker-compose DATABASE_URL Now Fails Fast on Missing Env Vars
+824 " 🔵 GexpenseTracker Security Posture — Comprehensive Passed Items
+825 " 🔵 Additional Pre-Launch Issues: Atomicity, Queue, Pagination, Observability
+826 " ✅ Deepscan Verdict Updated to BLOCKERS CLEARED — All 7 Marked Resolved
+827 8:12p 🔵 GexpenseTracker Pre-Launch Task Files Identified
+828 " 🔵 GexpenseTracker Pre-Launch Readiness State: 7 Blockers Fixed, 12 Pre-Launch Items Remaining
+829 " 🔵 Specific Pre-Launch Fix Locations in GexpenseTracker Codebase
+830 " 🔵 GexpenseTracker Data Integrity Pre-Launch Issues: 5 Open Items with Exact Locations
+831 " 🔵 GexpenseTracker P2 and Remaining Pre-Launch Gaps: Observability, pytest-asyncio, and Security Edge Cases
+832 " 🔵 DeepScan Pre-Launch Items: Multiple Already Fixed in Codebase
+833 " 🔵 Classifier Atomicity: Uses flush() Not commit() — Less Severe Than Deepscan Stated
+834 " 🔵 merchant.py MerchantEntityAlias Model Has Correct FK — Conflict Is Naming Only
+835 8:14p 🔵 LLMSpendTracker ORM Model Already Has ForeignKey — Deepscan Item #14 Already Done
+836 " 🔵 HTTPSRedirectMiddleware and Sentry Already Implemented — Items #17 and #18 Done
+837 " 🔵 True Open Pre-Launch Items: Only 4 Remain from Original 12
+838 8:15p 🔵 CSP style-src unsafe-inline Required by Inline Style Blocks in Both Templates
+839 " 🔵 CSP style-src: No Inline style= Attributes in index.html — Only Style Block
+840 " 🔴 CSP style-src unsafe-inline Fix: Nonce Added to login.html Style Block, Inline Styles Moved to CSS
+841 8:16p 🔴 login.html Inline Styles Fully Removed, index.html Style Block Gets Nonce — CSP style-src Fix In Progress
+842 8:18p ✅ Git push of pre-launch hardening changes
+843 8:22p 🔵 Full pre-launch diff: 31 files, 381 insertions, 270 deletions
+844 8:23p 🔐 CSP unsafe-inline removal committed and pushed to main
+845 10:01p 🔵 Alembic Migration 0038 Fails on PostgreSQL Boolean Default
+846 10:02p 🔴 Fixed Migration 0038 Boolean Default — PostgreSQL Compatibility
+S133 Fix Railway deployment crash — Alembic migration 0038 boolean default PostgreSQL incompatibility (May 25, 10:02 PM)
+**Investigated**: Railway deployment logs showing repeated container crash-restart loop. Traced to `alembic/versions/0038_add_goals_and_contributions.py` failing at startup with `psycopg2.errors.DatatypeMismatch: column "active" is of type boolean but default expression is of type integer`. Confirmed generated SQL was `active BOOLEAN DEFAULT 1` — integer literal rejected by PostgreSQL.
 
-Access 1432k tokens of past work via get_observations([IDs]) or mem-search skill.
+**Learned**: PostgreSQL strictly rejects integer literals (`1`/`0`) as defaults for BOOLEAN columns. SQLite silently accepts them. Alembic `server_default=sa.text("1")` compiles directly to SQL — no type coercion. Must use `sa.text("true")` for PostgreSQL-compatible boolean server defaults. Migration 0034 also produces expected warnings about 2 AI key rows already re-encrypted with FERNET_KEY — not a blocker.
+
+**Completed**: Fixed `alembic/versions/0038_add_goals_and_contributions.py`: changed `server_default=sa.text("1")` → `server_default=sa.text("true")` for `active` BOOLEAN column in `goals` table. Committed as `eca0b5c` on `main`. Pushed to `github.com:amansn7/GexpenseTracker.git` (75d7ca5..eca0b5c). Railway deploy will trigger automatically and migrations should now complete successfully.
+
+**Next Steps**: Wait for Railway to pick up the push and redeploy. Verify deployment succeeds and `/health` check passes. Confirm `goals` and `goal_contributions` tables created in production PostgreSQL.
+
+
+Access 1235k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

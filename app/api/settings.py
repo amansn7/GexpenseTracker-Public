@@ -2,6 +2,7 @@ import base64
 import logging
 import random
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -21,7 +22,7 @@ from app.api._account_helpers import (
     _profile_dict,
     _settings_dict,
 )
-from app.auth_deps import get_current_user
+from app.auth_deps import get_current_user, require_totp_or_recent_auth
 from app.config import settings
 from app.crypto import decrypt_secret, encrypt_ai_secret, encrypt_secret
 from app.database import get_db
@@ -36,6 +37,7 @@ from app.models import (
     UserSettings,
 )
 from app.services.category_service import CategoryService, get_canonical_map
+from app.url_utils import validate_url
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -419,12 +421,15 @@ async def create_ai_service(
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="AI service with this provider and model already exists")
+    base_url = body.base_url
+    if base_url:
+        validate_url(base_url)
     service = UserAIService(
         user_id=user.id,
         provider=provider,
         display_name=body.display_name.strip(),
         model_id=model_id,
-        base_url=body.base_url,
+        base_url=base_url,
         auth_header=body.auth_header,
         api_key_hint=_api_key_hint(body.api_key),
         encrypted_api_key=encrypt_ai_secret(body.api_key),
@@ -445,6 +450,11 @@ async def validate_ai_service(
     body: AIServiceValidateBody,
     user: User = Depends(get_current_user),
 ):
+    try:
+        validate_url(body.base_url)
+    except HTTPException:
+        return {"ok": False, "error": "Invalid or blocked URL"}
+
     headers = {
         "Authorization": f"Bearer {body.api_key}",
         "Content-Type": "application/json",
@@ -470,8 +480,8 @@ async def validate_ai_service(
     except httpx.HTTPStatusError as exc:
         truncated = exc.response.text[:200]
         return {"ok": False, "error": f"HTTP {exc.response.status_code}: {truncated}"}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+    except Exception:
+        return {"ok": False, "error": "validation failed"}
     return {"ok": True}
 
 
@@ -488,6 +498,8 @@ async def update_ai_service(
     if api_key is not None:
         service.encrypted_api_key = encrypt_ai_secret(api_key)
         service.api_key_hint = _api_key_hint(api_key)
+    if "base_url" in updates and updates["base_url"]:
+        validate_url(updates["base_url"])
     for key, value in updates.items():
         if isinstance(value, str):
             value = value.strip()
@@ -638,6 +650,7 @@ async def verify_2fa(
 
 @router.delete("/account/2fa")
 async def disable_2fa(
+    _: None = Depends(require_totp_or_recent_auth),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -711,13 +724,19 @@ async def _delete_user_data(db: AsyncSession, uid: str):
     # Step 5: Emails (FK to users)
     await db.execute(text("DELETE FROM emails WHERE user_id = :uid"), {"uid": uid})
 
-    # Step 6: User row
+    # Step 6: File-based credentials
+    token_file = Path("data/gmail_token.json")
+    if token_file.exists():
+        token_file.unlink()
+
+    # Step 7: User row
     await db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
 
 
 @router.patch("/account/schedule-deletion")
 async def schedule_account_deletion(
     response: Response,
+    _: None = Depends(require_totp_or_recent_auth),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -756,6 +775,7 @@ async def cancel_account_deletion(
 @router.delete("/account")
 async def delete_account(
     response: Response,
+    _: None = Depends(require_totp_or_recent_auth),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -291,12 +291,12 @@ async def test_max_concurrent_syncs_semaphore():
         with patch("app.scheduler.AsyncSessionLocal") as mock_session_local:
             mock_db = AsyncMock()
 
-            mock_user_result = AsyncMock()
+            mock_user_result = MagicMock()
             mock_user_result.scalars.return_value.all.return_value = [
                 MagicMock(id=f"user-{i}", status="active", onboarding_complete=True) for i in range(num_users)
             ]
 
-            mock_account_result = AsyncMock()
+            mock_account_result = MagicMock()
             mock_account_result.scalar_one_or_none.return_value = MagicMock()
 
             call_count = 0
@@ -309,8 +309,8 @@ async def test_max_concurrent_syncs_semaphore():
                 return mock_user_result
 
             mock_db.execute = mock_execute
-            mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
-            mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
+            mock_session_local.return_value.__aenter__.return_value = mock_db
+            mock_session_local.return_value.__aexit__.return_value = None
 
             await sync_job()
 

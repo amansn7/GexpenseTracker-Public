@@ -53,8 +53,10 @@ async def test_persist_progress_upserts_via_writer():
     )
 
     mock_session = AsyncMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.__aenter__.return_value = mock_session
+    mock_session.__aexit__.return_value = False
+    mock_session.add = MagicMock()
+    mock_session.commit = AsyncMock()
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = None
     mock_session.execute = AsyncMock(return_value=mock_result)
@@ -102,8 +104,8 @@ async def test_user_progress_loads_from_db_on_cache_miss():
     fake_row.error = None
 
     mock_session = AsyncMock()
-    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session.__aexit__ = AsyncMock(return_value=False)
+    mock_session.__aenter__.return_value = mock_session
+    mock_session.__aexit__.return_value = False
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = fake_row
     mock_session.execute = AsyncMock(return_value=mock_result)

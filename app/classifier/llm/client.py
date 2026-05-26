@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -21,8 +22,43 @@ from app.classifier.llm.providers import (
     provider_status_dict,
     rank_providers,
 )
+from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class LLMSpendTracker:
+    """In-memory daily LLM spend tracker.
+
+    Tracks estimated spend per call against DAILY_LLM_BUDGET.
+    Resets at midnight UTC. Not persisted across restarts.
+    """
+
+    def __init__(self) -> None:
+        self._date: str = ""
+        self._spend: float = 0.0
+
+    def _sync_date(self) -> None:
+        today = datetime.now(timezone.UTC).strftime("%Y-%m-%d")
+        if self._date != today:
+            self._date = today
+            self._spend = 0.0
+
+    @property
+    def daily_spend(self) -> float:
+        self._sync_date()
+        return self._spend
+
+    def add_call(self, estimated_cost: float = 0.0001) -> None:
+        self._sync_date()
+        self._spend += estimated_cost
+
+    def within_budget(self, budget: float) -> bool:
+        self._sync_date()
+        return self._spend < budget
+
+
+_llm_spend_tracker = LLMSpendTracker()
 
 
 def _escape(s: str) -> str:
@@ -106,6 +142,13 @@ class MultiLLMClient:
         pre_extraction: dict | None = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
+        if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
+            logger.warning(
+                "Daily LLM budget $%.2f exceeded (spent $%.4f). Skipping LLM call.",
+                settings.DAILY_LLM_BUDGET,
+                _llm_spend_tracker.daily_spend,
+            )
+            ranked = []
         if not ranked:
             from app.alerts import add_alert
 
@@ -267,6 +310,7 @@ class MultiLLMClient:
         """Returns (LLMClassification, raw_response_str)."""
         raw = await self._provider_http_call(provider, user_prompt)
         logger.debug("Raw LLM response: %s", raw[:500])
+        _llm_spend_tracker.add_call()
         return parse_response(raw), raw
 
     async def classify_verbose(
@@ -280,6 +324,13 @@ class MultiLLMClient:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
         logger.debug("classify_verbose: %d providers available: %s", len(ranked), [p.name for p in ranked])
+        if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
+            logger.warning(
+                "Daily LLM budget $%.2f exceeded (spent $%.4f). Skipping LLM call.",
+                settings.DAILY_LLM_BUDGET,
+                _llm_spend_tracker.daily_spend,
+            )
+            ranked = []
         if not ranked:
             raise RuntimeError("No LLM providers available")
 
@@ -353,6 +404,13 @@ class MultiLLMClient:
         """Classify multiple emails in one LLM call."""
         ranked = self._ranked_providers()
         logger.debug("batch_classify_verbose: %d providers available: %s", len(ranked), [p.name for p in ranked])
+        if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
+            logger.warning(
+                "Daily LLM budget $%.2f exceeded (spent $%.4f). Skipping LLM batch call.",
+                settings.DAILY_LLM_BUDGET,
+                _llm_spend_tracker.daily_spend,
+            )
+            ranked = []
         if not ranked:
             raise RuntimeError("No LLM providers available")
 
@@ -386,6 +444,7 @@ class MultiLLMClient:
                 )
                 provider.success_count += 1
                 provider.decrement_rate_limit_count()
+                _llm_spend_tracker.add_call()
                 results = parse_batch_response(raw, len(email_list))
                 return {
                     "results": results,
@@ -409,6 +468,7 @@ class MultiLLMClient:
                         )
                         provider.success_count += 1
                         provider.decrement_rate_limit_count()
+                        _llm_spend_tracker.add_call()
                         results = parse_batch_response(raw, len(email_list))
                         return {
                             "results": results,
@@ -454,6 +514,13 @@ class MultiLLMClient:
     ) -> str:
         """Send a generic chat prompt to the best available provider. Returns raw text response."""
         ranked = self._ranked_providers()
+        if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
+            logger.warning(
+                "Daily LLM budget $%.2f exceeded (spent $%.4f). Skipping chat call.",
+                settings.DAILY_LLM_BUDGET,
+                _llm_spend_tracker.daily_spend,
+            )
+            ranked = []
         if not ranked:
             raise RuntimeError("No LLM providers available")
         last_error: Exception | None = None
@@ -464,6 +531,7 @@ class MultiLLMClient:
                 )
                 provider.success_count += 1
                 provider.decrement_rate_limit_count()
+                _llm_spend_tracker.add_call()
                 return raw
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429:
@@ -477,6 +545,7 @@ class MultiLLMClient:
                         )
                         provider.success_count += 1
                         provider.decrement_rate_limit_count()
+                        _llm_spend_tracker.add_call()
                         return raw
                     except httpx.HTTPStatusError as exc2:
                         if exc2.response.status_code == 429:

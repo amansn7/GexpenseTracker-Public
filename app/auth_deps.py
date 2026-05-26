@@ -26,6 +26,17 @@ def _verify_totp_token(session_hex: str, token: str) -> bool:
     return hmac.compare_digest(_sign_totp_token(session_hex), token)
 
 
+async def require_totp_or_recent_auth(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    if user.totp_enabled:
+        totp_token = request.cookies.get(TOTP_COOKIE_NAME)
+        session_hex = request.cookies.get("session")
+        if not totp_token or not session_hex or not _verify_totp_token(session_hex, totp_token):
+            raise HTTPException(status_code=403, detail="TOTP verification required for this action")
+
+
 def is_owner(user: User | None) -> bool:
     """Return True if the user exists and has the owner role."""
     if user is None:
@@ -63,6 +74,13 @@ async def get_current_user(
                     sched = sched.replace(tzinfo=UTC)
                 if sched <= datetime.now(UTC):
                     raise HTTPException(status_code=403, detail="Account scheduled for deletion")
+            if user.totp_enabled:
+                totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
+                if not totp_token or not _verify_totp_token(raw_token, totp_token):
+                    raise HTTPException(
+                        status_code=401,
+                        detail={"detail": "2fa_required", "totp_pending": True},
+                    )
             return user
 
     # ── Cookie / session path (web clients — unchanged) ───────────────────

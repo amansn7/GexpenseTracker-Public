@@ -38,6 +38,7 @@
 ## Deploy
 
 - [ ] Docker build: `docker build -t moneyflow .`
+- [ ] Run Docker smoke test: `./scripts/test_docker_smoke.sh` (builds image, starts container, waits for /health, tests API)
 - [ ] Push to registry / deploy to Railway
 - [ ] Verify health endpoint responds
 - [ ] Smoke-test key flows: inbox, dashboard flow view, settings

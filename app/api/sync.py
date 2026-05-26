@@ -180,6 +180,7 @@ async def backfill_bodies(
         if not batch:
             break
 
+        batch_updated = 0
         for email in batch:
             total_scanned += 1
             try:
@@ -192,11 +193,15 @@ async def backfill_bodies(
                 if body:
                     email.body_text = body
                     total_updated += 1
+                    batch_updated += 1
             except Exception as exc:
                 logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
                 total_errors += 1
 
         await db.commit()
+        if batch_updated == 0:
+            logger.warning("backfill: no progress in batch, stopping")
+            break
 
     logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
     return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
