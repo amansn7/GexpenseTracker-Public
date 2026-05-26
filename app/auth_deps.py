@@ -3,8 +3,6 @@ import hmac
 import os
 from datetime import UTC, datetime, timedelta
 
-import os
-
 from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +27,6 @@ def _verify_totp_token(session_hex: str, token: str) -> bool:
 
 
 def is_owner(user: User | None) -> bool:
-    """Return True if the user exists and has the owner role."""
     if user is None:
         return False
     role = user.role
@@ -44,7 +41,7 @@ async def get_current_user(
     response: Response = None,
     request: Request = None,
 ) -> User:
-    # ── Bearer JWT path (mobile clients) ──────────────────────────────────
+    # Bearer JWT path (mobile clients)
     if request is not None:
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
@@ -72,22 +69,9 @@ async def get_current_user(
                         status_code=401,
                         detail={"detail": "2fa_required", "totp_pending": True},
                     )
-    return user
+            return user
 
-
-async def require_totp_or_recent_auth(
-    request: Request,
-    user: User = Depends(get_current_user),
-):
-    if os.getenv("TESTING"):
-        return
-    if user.totp_enabled:
-        totp_token = request.cookies.get(TOTP_COOKIE_NAME)
-        session_hex = request.cookies.get("session")
-        if not totp_token or not session_hex or not _verify_totp_token(session_hex, totp_token):
-            raise HTTPException(status_code=403, detail="TOTP verification required for this action")
-
-    # ── Cookie / session path (web clients — unchanged) ───────────────────
+    # Cookie / session path (web clients)
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
@@ -116,8 +100,6 @@ async def require_totp_or_recent_auth(
         row.token = new_token
         row.last_rotated_at = datetime.now(UTC)
         await db.commit()
-
-        import os
 
         secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
         response.set_cookie(
@@ -152,3 +134,16 @@ async def require_totp_or_recent_auth(
             )
 
     return user
+
+
+async def require_totp_or_recent_auth(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    if os.getenv("TESTING"):
+        return
+    if user.totp_enabled:
+        totp_token = request.cookies.get(TOTP_COOKIE_NAME)
+        session_hex = request.cookies.get("session")
+        if not totp_token or not session_hex or not _verify_totp_token(session_hex, totp_token):
+            raise HTTPException(status_code=403, detail="TOTP verification required for this action")

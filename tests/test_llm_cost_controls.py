@@ -90,7 +90,7 @@ async def test_record_llm_spend_inserts_new():
     mock_result.scalar_one_or_none.return_value = None  # No existing row
     mock_session.execute = AsyncMock(return_value=mock_result)
     mock_session.add = MagicMock()
-    mock_session.commit = AsyncMock()
+    mock_session.flush = AsyncMock()
 
     with patch("app.classifier.classifier.date") as mock_date:
         mock_date.today.return_value = date(2026, 5, 20)
@@ -106,7 +106,7 @@ async def test_record_llm_spend_inserts_new():
 
     mock_session.execute.assert_called_once()
     mock_session.add.assert_called_once()
-    mock_session.commit.assert_called_once()
+    mock_session.flush.assert_called_once()
 
 
 @pytest.mark.asyncio

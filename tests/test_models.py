@@ -59,7 +59,7 @@ async def test_create_transaction(db_session):
 
 @pytest.mark.asyncio
 async def test_sender_rule_unique(db_session):
-    rule = SenderRule(sender_domain="swiggy.in", label=Label.expense, category="Food", source=RuleSource.builtin)
+    rule = SenderRule(user_id="test-user-id", sender_domain="swiggy.in", label=Label.expense, category="Food", source=RuleSource.builtin)
     db_session.add(rule)
     await db_session.commit()
     result = await db_session.execute(select(SenderRule).where(SenderRule.sender_domain == "swiggy.in"))
@@ -72,7 +72,7 @@ async def test_budget_model_create_and_query(db_session):
 
     from app.models import Budget
 
-    b = Budget(category="Food", monthly_limit=4000.0)
+    b = Budget(user_id="test-user-id", category="Food", monthly_limit=4000.0)
     db_session.add(b)
     await db_session.commit()
     row = (await db_session.execute(select(Budget).where(Budget.category == "Food"))).scalar_one()
