@@ -326,7 +326,7 @@ async def test_delete_account_removes_all_user_data(db_session, mock_user):
 @pytest.mark.asyncio
 async def test_delete_account_preserves_system_tables(db_session, mock_user):
     """System-wide tables survive deletion."""
-    ma = MerchantAlias(raw="TEST RAW", canonical="test")
+    ma = MerchantAlias(user_id=mock_user.id, raw="TEST RAW", canonical="test")
     pr = PatternRule(regex_pattern="test.*", label="expense")
     dr = DomainPairRule(domain_a="a.com", domain_b="b.com")
     db_session.add_all([ma, pr, dr])
@@ -338,7 +338,7 @@ async def test_delete_account_preserves_system_tables(db_session, mock_user):
 
     assert (
         await db_session.execute(select(MerchantAlias).where(MerchantAlias.raw == "TEST RAW"))
-    ).scalar_one_or_none() is not None
+    ).scalar_one_or_none() is None
     assert (
         await db_session.execute(select(PatternRule).where(PatternRule.regex_pattern == "test.*"))
     ).scalar_one_or_none() is not None
