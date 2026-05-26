@@ -95,20 +95,26 @@ async def refine_filter_rules(
         f"- subject: {r.subject!r}, domain: {r.sender_domain!r}, decision: {'keep' if r.pre_filter_status == 'passed' else 'discard'}"
         for r in rows
     )
-    prompt = (
-        "You are a filter rule generator. Based on these labeled email decisions, "
-        "suggest new filter rules as JSON. Return ONLY a JSON array of objects with keys: "
-        "rule_type (allowlist_domain|blocklist_domain|keyword_pattern), value (string).\n\n"
-        f"Examples:\n{examples}\n\nRules:"
+    system_prompt = (
+        "You are a filter rule generator. Based on labeled email decisions, "
+        "suggest new filter rules as JSON. "
+        "Respond ONLY with a valid JSON array. No explanation, no markdown, no code blocks."
+    )
+    user_prompt = (
+        "Based on these labeled email decisions, suggest new filter rules as JSON. "
+        "Each object must have keys: rule_type (allowlist_domain|blocklist_domain|keyword_pattern), value (string).\n\n"
+        f"Examples:\n{examples}\n\nRules:\n\n"
+        "Respond ONLY with a JSON array:\n"
+        '[{{"rule_type": "allowlist_domain|blocklist_domain|keyword_pattern", "value": "example.com"}}]'
     )
 
     try:
-        verbose = await llm_client.classify_verbose(
-            sender="system",
-            subject="Filter rule generation",
-            body_snippet=prompt,
+        raw = await llm_client.chat(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_tokens=500,
+            timeout=30.0,
         )
-        raw = verbose.get("raw_response", "")
     except Exception as exc:
         return {"error": f"LLM call failed: {exc}"}
 

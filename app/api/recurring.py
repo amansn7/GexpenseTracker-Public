@@ -146,7 +146,7 @@ For each merchant, check:
 
 {data}
 
-Return a JSON array of identified recurring expenses, each:
+Respond ONLY with a JSON array of identified recurring expenses, each:
 {{
   "name": "readable merchant name",
   "merchant": "merchant field from data",
@@ -157,7 +157,7 @@ Return a JSON array of identified recurring expenses, each:
   "reasoning": "one-line explanation"
 }}
 
-Return [] if none look recurring."""
+Respond with [] if none look recurring."""
 
 
 @router.post("/recurring/find-from-transactions")

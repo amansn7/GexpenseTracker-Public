@@ -158,14 +158,15 @@ class PreFilterEngine:
             return PreFilterResult(decision="review", confidence=result.confidence, tier=3)
 
         try:
-            verbose = await user_llm_client.classify_verbose(
-                sender=sender_domain,
-                subject=subject,
-                body_snippet=f"{subject} {snippet[:200]}",
+            system = "You are an email pre-filter for a personal finance app."
+            user = f"Subject: {subject}\nBody: {snippet[:200]}\n\nIs this email a financial transaction where money moved? Reply with exactly one word: pass or review."
+            raw = await user_llm_client.chat(
+                system_prompt=system,
+                user_prompt=user,
+                max_tokens=50,
+                timeout=15.0,
             )
-            result = verbose.get("result")
-            label = result.label if result else "ignore"
-            decision = "pass" if label != "ignore" else "review"
+            decision = "pass" if raw.strip().lower() == "pass" else "review"
             return PreFilterResult(decision=decision, confidence=0.5, tier=3)
         except Exception as exc:
             logger.warning("Pre-filter Tier 3 LLM call failed: %s", exc)
