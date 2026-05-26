@@ -193,6 +193,7 @@ def _extract_body_text(payload: dict) -> str:
     Extract readable text from a Gmail message payload.
     Prefers text/plain; falls back to text/html (stripped) for HTML-only emails.
     Walks MIME parts recursively.
+    Uses HTML when text/plain is truncated (<100 chars) or lacks transaction info.
     """
     plain_parts: list[str] = []
     html_parts: list[str] = []
@@ -212,14 +213,20 @@ def _extract_body_text(payload: dict) -> str:
 
     _walk(payload)
 
-    if plain_parts:
-        text = "\n\n".join(plain_parts)
-    elif html_parts:
-        text = _strip_html("\n\n".join(html_parts))
-    else:
-        return ""
+    plain_text = "\n\n".join(plain_parts) if plain_parts else ""
 
-    return _clean_body(text)
+    if plain_text and html_parts:
+        # Many HTML emails have a truncated text/plain fallback.
+        # Use HTML if plain text is very short or lacks transaction indicators.
+        if len(plain_text) < 100 or not _AMOUNT_PRESENT_RE.search(plain_text):
+            html_text = _strip_html("\n\n".join(html_parts))
+            if len(html_text) > len(plain_text):
+                return _clean_body(html_text)
+    if plain_text:
+        return _clean_body(plain_text)
+    if html_parts:
+        return _clean_body(_strip_html("\n\n".join(html_parts)))
+    return ""
 
 
 def _passes_filter(msg: dict, email_filter: str) -> bool:
