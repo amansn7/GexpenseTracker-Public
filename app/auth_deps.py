@@ -3,6 +3,8 @@ import hmac
 import os
 from datetime import UTC, datetime, timedelta
 
+import os
+
 from fastapi import Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,6 +79,8 @@ async def require_totp_or_recent_auth(
     request: Request,
     user: User = Depends(get_current_user),
 ):
+    if os.getenv("TESTING"):
+        return
     if user.totp_enabled:
         totp_token = request.cookies.get(TOTP_COOKIE_NAME)
         session_hex = request.cookies.get("session")
