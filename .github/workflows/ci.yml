@@ -29,6 +29,8 @@ jobs:
       GOOGLE_CLIENT_ID: test
       GOOGLE_CLIENT_SECRET: test
       SECRET_KEY: test-secret
+      FERNET_KEY: test-fernet-key-32chars-long-enough!
+      JWT_SECRET: test-jwt-secret-32chars-long-enough!
       TESTING: "1"
 
     steps:
