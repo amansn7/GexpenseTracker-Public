@@ -39,7 +39,7 @@ class LLMSpendTracker:
         self._spend: float = 0.0
 
     def _sync_date(self) -> None:
-        today = datetime.now(timezone.UTC).strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if self._date != today:
             self._date = today
             self._spend = 0.0

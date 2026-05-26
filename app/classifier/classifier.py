@@ -343,7 +343,16 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             )
             merchant_category = merchant_meta.get("category")
         label = rule_result.label or Label.ignore
-        amount = None
+        amount = pre_extraction.get("amount")
+        source_currency = pre_extraction.get("source_currency")
+        if amount is not None and source_currency and source_currency != default_currency:
+            try:
+                converted = await convert_amount(amount, source_currency, default_currency)
+                amount = converted
+            except Exception as exc:
+                logger.warning("currency_conversion_failed", email_id=ctx.email_id, error=str(exc))
+                result_warnings.append(f"Currency conversion from {source_currency} failed: {exc}")
+                source_currency = None
         category = rule_result.category or merchant_category
         confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
         txn_date = None
@@ -401,7 +410,7 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
         transaction_type=txn_type,
         payment_mode=_detect_payment_mode(ctx.body_text),
         currency=default_currency,
-        source_currency=source_currency if llm_result else None,
+        source_currency=source_currency,
         warnings=result_warnings,
     )
 
