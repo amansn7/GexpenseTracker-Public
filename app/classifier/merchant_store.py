@@ -94,6 +94,7 @@ class MerchantStore:
         else:
             session.add(
                 MerchantAlias(
+                    user_id=user_id,
                     raw=key,
                     canonical=key,
                     category=category,
