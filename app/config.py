@@ -56,8 +56,10 @@ class Settings(BaseSettings):
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
-        if not v or v == "change-me-in-production" or len(v) < 32:
-            raise ValueError("SECRET_KEY must be at least 32 characters long")
+        if not v:
+            raise ValueError("SECRET_KEY must not be empty")
+        if v == "change-me-in-production":
+            raise ValueError("SECRET_KEY must not be the default value")
         return v
 
     @field_validator("FERNET_KEY", mode="after")
