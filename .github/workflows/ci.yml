@@ -28,7 +28,7 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://expense:expense@localhost:5432/expense_tracker
       GOOGLE_CLIENT_ID: test
       GOOGLE_CLIENT_SECRET: test
-      SECRET_KEY: test-secret
+      SECRET_KEY: test-secret-test-secret-test-secret-32
       TESTING: "1"
 
     steps:
