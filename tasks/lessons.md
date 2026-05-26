@@ -1,5 +1,19 @@
 # Lessons
 
+## 2026-05-26 — `merchant_aliases.user_id` Column Not Materializing (4 Failed Migrations)
+
+1. **Alembic's `transactional_ddl` wraps ALL migrations in a single transaction.** When `transactional_ddl = True` (default for PostgreSQL), all DDL across all migrations is committed together at the very end. Any failure ANYWHERE in the chain rolls back EVERYTHING. This means you cannot rely on a DDL change being visible to the rest of the same migration run until the very end.
+
+2. **PostgreSQL's `DO $$ ... EXCEPTION WHEN duplicate_column THEN NULL` rolls back the ADD COLUMN.** Inside a PL/pgSQL DO block, when an EXCEPTION is caught, ALL changes within that BEGIN block are rolled back (subtransaction rollback). So if `ALTER TABLE ADD COLUMN user_id` raises `duplicate_column`, the column creation is reverted even though the exception is handled. The migration "succeeds" but the column never materializes. **Do not use DO blocks with EXCEPTION for DDL operations that must persist.**
+
+3. **`ADD COLUMN IF NOT EXISTS` trusts `pg_catalog` metadata which can be stale after `batch_alter_table`.** Migration 0039 used Alembic's `batch_alter_table` which copies the table. This can leave `pg_catalog` in a state where the column name exists (with `attisdropped=true` or similar) but the column isn't actually live. `IF NOT EXISTS` sees the name is taken and skips — but the column was never usable.
+
+4. **`information_schema.columns` is a VIEW over `pg_attribute` and can be equally stale.** Migrations 0041 and 0042 both checked `information_schema.columns` to decide whether to add the column. Like `IF NOT EXISTS`, they trust stale metadata.
+
+5. **The only way to bypass Alembic's transaction is a SEPARATE connection in AUTOCOMMIT mode.** Creating a second `sqlalchemy.create_engine(url, isolation_level="AUTOCOMMIT")` connection outside Alembic's transaction allows DDL to commit immediately and be visible to all connections. This is the nuclear option for fixing migration bugs where transactional DDL prevents changes from materializing.
+
+6. **Use `pg_attribute` (not `information_schema.columns`) to check actual column state.** `SELECT attname, attisdropped FROM pg_attribute WHERE attrelid = 'tablename'::regclass AND attname = 'colname' AND attnum > 0 AND NOT attisdropped` definitively checks whether a column is LIVE in the table's storage. `information_schema.columns` can show columns that don't physically exist on the table.
+
 ## 2026-05-24 — Sankey Diagram Visual Audit & Toggle Feature
 
 1. **SVG text contrast must account for both themes**: Category fill colors (`--cat-food-ink`, `--cat-rent-ink`, etc.) in light theme are light pastels (`#e8d5b7`, `#cdd8d1`). Hardcoded `fill="white"` on these bars fails WCAG contrast (~1.4:1). Use `var(--ink)` for text on light category fills, keep `white` only on semantically dark fills (`var(--pos)`, `var(--neg)`, `var(--cat-card-ink)` in dark theme).
@@ -100,3 +114,48 @@
 6. **Use Playwright to isolate the bug to data vs rendering**: When diagnosing a disappearing UI element, first unit-test the data-processing function (`buildFlowSummary`) with mock data, then render-test the component (`FlowView`) with mock data. If both pass, the issue is upstream in the data pipeline — not in the frontend code you changed.
 
 7. **Don't trust that a committed dist file contains the source changes**: The first fix was committed with `git add static/dist/data.js` but the dist file hadn't been rebuilt after the source change. Always rebuild before committing dist files, or use a CI step that fails if dist is stale.
+
+## 2026-05-25/26 — Railway Deployment Deepscan & Public Launch Hardening
+
+### Migration & SQL Compatibility
+1. **PostgreSQL rejects `DEFAULT 1` for `BOOLEAN` columns.** Use `sa.text("TRUE")` in Alembic migrations. SQLite silently accepts both; only PostgreSQL catches this at runtime. Always test migrations against a real PG instance.
+2. **Every Alembic migration must have a unique `revision` string.** Two files with revision `"0039"` cause Alembic to silently overwrite one. Use descriptive suffixes like `"0039_encrypt_totp_secrets"`. Match the revision string to the filename suffix.
+3. **Revision IDs must be ≤ 32 characters.** `alembic_version.version_num` is `VARCHAR(32)` by default. Longer IDs cause `StringDataRightTruncation` after the migration succeeds.
+4. **Always match `revision` string to filename's descriptive suffix.** This project's convention is `"{number}_{descriptive_name}"`. Bare numbers create ambiguity with sibling branches.
+5. **Never delete a migration file applied to production.** Restore it with `CREATE TABLE IF NOT EXISTS` guards to make it idempotent.
+6. **PostgreSQL DDL must be guarded with `if dialect == "postgresql":`.** SQLite tests cannot run `ALTER COLUMN SET NOT NULL`, `DROP CONSTRAINT IF EXISTS`, or `CREATE INDEX CONCURRENTLY`.
+7. **`batch_alter_table` behavior differs between PG and SQLite.** On PG it issues direct DDL; on SQLite it recreates the table. Operations that work on one may behave differently on the other.
+
+### Config & Startup
+8. **Config validators that raise at module level crash before migrations run.** Railway may not set every env var. Demote length validators to warnings, or gate with environment checks.
+9. **JWT_SECRET is optional when using session-based auth.** Don't treat missing JWT_SECRET as fatal.
+10. **`datetime.timezone.UTC` never exists in any Python version.** The correct form is `timezone.utc` (lowercase). `datetime.UTC` (module-level constant) was added in Python 3.11, but `timezone.UTC` is never correct.
+
+### ORM & Schema Drift
+11. **ORM model emits SELECT for every mapped column — missing column = hard crash.** No graceful fallback. Always ensure DB schema matches model before deploying.
+12. **Migration "Running upgrade" log != success.** Errors inside `upgrade()` can be silent. Verify column existence via `information_schema.columns` rather than trusting migration logs.
+13. **`InFailedSQLTransactionError` cascading kills all DB ops.** One schema error poisons the entire transaction. Catch early and rollback, or fix the schema.
+14. **Dead code hides bugs.** `MerchantStore.record()` took `user_id` param but never used it. When adding required fields to a model, audit ALL code paths that instantiate it.
+
+### Deployment Verification
+15. **`/health` 200 does not mean app is fully functional.** Smoke-test key flows (inbox, transaction edit, settings) after every deploy.
+16. **JSON Railway logs contain severity + structured tags.** Use `severity` field to distinguish migration messages from runtime errors. Cross-reference `deployment` tag with commit SHA.
+17. **NULL-row guards prevent deployment failures.** Before `ALTER COLUMN SET NOT NULL`, count NULLs and skip with warning. Don't crash.
+18. **Multi-head migration chains mask pre-existing bugs.** Fix migration-load errors first, then check ALL pending migrations in the resolved chain.
+
+## 2026-05-26 — USD Amount Extraction, LLM Crash, HTML Body Fixes
+
+### timezone.UTC Bug
+1. **`datetime.timezone.UTC` does not exist.** The correct attribute is `timezone.utc` (lowercase). `datetime.UTC` (module-level) exists in Python 3.11+ but `timezone.UTC` (class-level) never has. This crashes every import/call that hits it with `"type object 'datetime.timezone' has no attribute 'UTC'"`.
+
+### Currency & Amount Extraction
+2. **Prefer foreign currency over INR in pre-extraction when both are detected.** Indian bank emails often contain both (e.g., "USD5.90 spent" in the transaction detail and "₹200 and above" in marketing footers). The regex picks up both; foreign is the more specific signal and should win.
+3. **LLM amounts are unreliable — override with regex pre-extraction.** The LLM sometimes returns wrong amounts (e.g., 500 instead of 5000) even when the pre-extraction regex correctly extracts it from the email body. Always use the regex amount when available; the LLM handles label/merchant/category/date.
+4. **Rules fallback path must extract amount too.** When the LLM fails, the inline rules fallback in `classify_email()` hardcoded `amount = None`. Must use `pre_extraction.get("amount")` and run currency conversion, same as the LLM path.
+
+### Gmail Body Extraction
+5. **Many HTML emails have truncated text/plain fallback parts.** Gmail stores a brief text/plain alternative (often just the first 2 lines) alongside full HTML. `_extract_body_text` must prefer HTML when text/plain is under 100 chars or lacks transaction indicator keywords.
+6. **Boilerplate/footer patterns must be carefully vetted against real content.** Pattern `r"thank you for (?:being|choosing)"` matched "Thank you for choosing to invest in Parag Parikh Flexi Cap Fund" — real transaction content, not boilerplate. Stripping from this line removed the amount. Test new boilerplate patterns against known email samples.
+
+### Reclassify Flow
+7. **Reclassify always fetches body before calling the API.** `handlePreview()` and `handleConfirm()` both call `handleFetchBody()` internally. The manual "Fetch body" button is optional — just for viewing in the excerpt section. The reclassify works fine without it.
