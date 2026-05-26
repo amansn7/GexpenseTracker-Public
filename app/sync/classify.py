@@ -57,6 +57,12 @@ async def _apply_pre_filter(
         email = Email(**msg)
         if user_id:
             email.user_id = user_id
+        if pf_result.decision == "discard":
+            email.pre_filter_status = "discarded"
+            session.add(email)
+            skipped += 1
+            prog["tally"]["discarded"] = prog["tally"].get("discarded", 0) + 1
+            continue
         email.pre_filter_status = "passed" if pf_result.decision == "pass" else "review_pending"
         session.add(email)
         if pf_result.decision == "pass":

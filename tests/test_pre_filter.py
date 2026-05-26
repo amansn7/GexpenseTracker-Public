@@ -43,7 +43,7 @@ async def test_tier1_allowlist_domain_passes(db_session):
 
 
 @pytest.mark.asyncio
-async def test_tier1_blocklist_domain_reviews(db_session):
+async def test_tier1_blocklist_domain_discards(db_session):
     from app.classifier.pre_filter import PreFilterEngine
     from app.models import FilterRule
 
@@ -53,7 +53,7 @@ async def test_tier1_blocklist_domain_reviews(db_session):
 
     engine = PreFilterEngine([rule])
     result = engine.evaluate_sync("Big sale today!", "50% off everything", "promo.spammy.com")
-    assert result.decision == "review"
+    assert result.decision == "discard"
     assert result.tier == 1
     assert result.confidence == 0.0
 

@@ -81,7 +81,7 @@ def _safe_match(pattern: re.Pattern, text: str, timeout_ms: int = 100) -> bool:
 
 @dataclass
 class PreFilterResult:
-    decision: str  # "pass" | "review" | "ambiguous"
+    decision: str  # "pass" | "review" | "ambiguous" | "discard"
     confidence: float
     tier: int
 
@@ -121,7 +121,7 @@ class PreFilterEngine:
         if domain in self._allowlist:
             return PreFilterResult(decision="pass", confidence=1.0, tier=1)
         if domain in self._blocklist:
-            return PreFilterResult(decision="review", confidence=0.0, tier=1)
+            return PreFilterResult(decision="discard", confidence=0.0, tier=1)
 
         # Tier 2 — weighted regex scoring
         text = f"{subject} {snippet}"
