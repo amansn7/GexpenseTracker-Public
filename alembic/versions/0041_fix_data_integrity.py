@@ -17,48 +17,51 @@ import sqlalchemy as sa
 
 
 revision: str = "0041"
-down_revision: Union[str, Sequence[str], None] = "0040"
+down_revision: Union[str, Sequence[str], None] = ("0040", "ec1fbeada45a")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
     conn = op.get_bind()
+    dialect = conn.dialect.name
 
-    # D1: Replace auto-named FK with CASCADE FK on transactions.email_id
+    # D1 (PostgreSQL only): Replace auto-named FK with CASCADE FK
     # PostgreSQL auto-names anonymous FKs as {table}_{column}_fkey
-    op.execute(
-        "ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_email_id_fkey"
-    )
-    op.create_foreign_key(
-        "fk_transactions_email_id_emails",
-        "transactions",
-        "emails",
-        ["email_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
+    if dialect == "postgresql":
+        op.execute(
+            "ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_email_id_fkey"
+        )
+        op.create_foreign_key(
+            "fk_transactions_email_id_emails",
+            "transactions",
+            "emails",
+            ["email_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
 
-    # D2: Make user_id NOT NULL on 6 financial tables
-    op.alter_column("budgets", "user_id", existing_type=sa.String(36), nullable=False)
-    op.alter_column("debts", "user_id", existing_type=sa.String(36), nullable=False)
-    op.alter_column("recurring_expenses", "user_id", existing_type=sa.String(36), nullable=False)
-    op.alter_column("sender_rules", "user_id", existing_type=sa.String(36), nullable=False)
-    op.alter_column("merchant_aliases", "user_id", existing_type=sa.String(36), nullable=False)
-    op.alter_column("goals", "user_id", existing_type=sa.String(36), nullable=False)
+    # D2 (PostgreSQL only): Make user_id NOT NULL on 6 financial tables
+    if dialect == "postgresql":
+        op.alter_column("budgets", "user_id", existing_type=sa.String(36), nullable=False)
+        op.alter_column("debts", "user_id", existing_type=sa.String(36), nullable=False)
+        op.alter_column("recurring_expenses", "user_id", existing_type=sa.String(36), nullable=False)
+        op.alter_column("sender_rules", "user_id", existing_type=sa.String(36), nullable=False)
+        op.alter_column("merchant_aliases", "user_id", existing_type=sa.String(36), nullable=False)
+        op.alter_column("goals", "user_id", existing_type=sa.String(36), nullable=False)
 
-    # D3: Add FK constraint to llm_spend_tracker.user_id
-    op.create_foreign_key(
-        "fk_llm_spend_tracker_user_id",
-        "llm_spend_tracker",
-        "users",
-        ["user_id"],
-        ["id"],
-        ondelete="CASCADE",
-    )
+    # D3 (PostgreSQL only): Add FK constraint to llm_spend_tracker.user_id
+    if dialect == "postgresql":
+        op.create_foreign_key(
+            "fk_llm_spend_tracker_user_id",
+            "llm_spend_tracker",
+            "users",
+            ["user_id"],
+            ["id"],
+            ondelete="CASCADE",
+        )
 
     # D4: Create merchant_entities / merchant_entity_aliases tables
-    # (replaces deleted orphaned migration ec1fbeada45a)
     inspector = sa.inspect(conn)
     existing = inspector.get_table_names()
 
@@ -86,22 +89,28 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    conn = op.get_bind()
+    dialect = conn.dialect.name
+
     # Reverse D4
     op.drop_table("merchant_entity_aliases")
     op.drop_table("merchant_entities")
 
-    # Reverse D3
-    op.drop_constraint("fk_llm_spend_tracker_user_id", "llm_spend_tracker", type_="foreignkey")
+    # Reverse D3 (PostgreSQL only)
+    if dialect == "postgresql":
+        op.drop_constraint("fk_llm_spend_tracker_user_id", "llm_spend_tracker", type_="foreignkey")
 
-    # Reverse D2: restore nullable=True
-    op.alter_column("goals", "user_id", existing_type=sa.String(36), nullable=True)
-    op.alter_column("merchant_aliases", "user_id", existing_type=sa.String(36), nullable=True)
-    op.alter_column("sender_rules", "user_id", existing_type=sa.String(36), nullable=True)
-    op.alter_column("recurring_expenses", "user_id", existing_type=sa.String(36), nullable=True)
-    op.alter_column("debts", "user_id", existing_type=sa.String(36), nullable=True)
-    op.alter_column("budgets", "user_id", existing_type=sa.String(36), nullable=True)
+    # Reverse D2 (PostgreSQL only): restore nullable=True
+    if dialect == "postgresql":
+        op.alter_column("goals", "user_id", existing_type=sa.String(36), nullable=True)
+        op.alter_column("merchant_aliases", "user_id", existing_type=sa.String(36), nullable=True)
+        op.alter_column("sender_rules", "user_id", existing_type=sa.String(36), nullable=True)
+        op.alter_column("recurring_expenses", "user_id", existing_type=sa.String(36), nullable=True)
+        op.alter_column("debts", "user_id", existing_type=sa.String(36), nullable=True)
+        op.alter_column("budgets", "user_id", existing_type=sa.String(36), nullable=True)
 
-    # Reverse D1: drop CASCADE FK, original unnamed FK restored by next `alembic upgrade`
-    op.execute(
-        "ALTER TABLE transactions DROP CONSTRAINT IF EXISTS fk_transactions_email_id_emails"
-    )
+    # Reverse D1 (PostgreSQL only): drop CASCADE FK
+    if dialect == "postgresql":
+        op.execute(
+            "ALTER TABLE transactions DROP CONSTRAINT IF EXISTS fk_transactions_email_id_emails"
+        )
