@@ -21,7 +21,7 @@ def upgrade() -> None:
         if "enabled" not in {c["name"] for c in inspector.get_columns(table)}:
             op.add_column(
                 table,
-                sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+                sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
             )
 
 
