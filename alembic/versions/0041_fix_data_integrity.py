@@ -42,13 +42,24 @@ def upgrade() -> None:
         )
 
     # D2 (PostgreSQL only): Make user_id NOT NULL on 6 financial tables
+    # Guard against existing NULL values — warn and skip instead of crash
     if dialect == "postgresql":
-        op.alter_column("budgets", "user_id", existing_type=sa.String(36), nullable=False)
-        op.alter_column("debts", "user_id", existing_type=sa.String(36), nullable=False)
-        op.alter_column("recurring_expenses", "user_id", existing_type=sa.String(36), nullable=False)
-        op.alter_column("sender_rules", "user_id", existing_type=sa.String(36), nullable=False)
-        op.alter_column("merchant_aliases", "user_id", existing_type=sa.String(36), nullable=False)
-        op.alter_column("goals", "user_id", existing_type=sa.String(36), nullable=False)
+        _tables_nullable_user_id = [
+            "budgets", "debts", "recurring_expenses",
+            "sender_rules", "merchant_aliases", "goals",
+        ]
+        for _tbl in _tables_nullable_user_id:
+            _null_count = conn.execute(
+                sa.text(f"SELECT COUNT(*) FROM {_tbl} WHERE user_id IS NULL")
+            ).scalar()
+            if _null_count > 0:
+                print(
+                    f"  WARNING: {_tbl} has {_null_count} row(s) with NULL user_id. "
+                    "Skipping NOT NULL constraint to avoid data loss. "
+                    "Manually assign user_id to orphaned rows and re-run this migration."
+                )
+            else:
+                op.alter_column(_tbl, "user_id", existing_type=sa.String(36), nullable=False)
 
     # D3 (PostgreSQL only): Add FK constraint to llm_spend_tracker.user_id
     if dialect == "postgresql":
