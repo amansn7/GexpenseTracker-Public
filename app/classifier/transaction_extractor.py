@@ -341,7 +341,14 @@ def extract(subject: str, body: str) -> dict:
 
     source_currency: str | None = None
     if amount is not None:
-        source_currency = "INR"
+        # If INR match came from keyword-only pattern (Amount/Total/Payment without
+        # currency symbol), it's prone to false positives from unrelated email text
+        # (e.g., "Total: 200" in a footer). Prefer an explicit foreign currency match.
+        if m and m.group(3) and foreign_amount is not None:
+            amount = foreign_amount
+            source_currency = foreign_currency
+        else:
+            source_currency = "INR"
     elif foreign_amount is not None:
         amount = foreign_amount
         source_currency = foreign_currency
