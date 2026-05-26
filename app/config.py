@@ -46,13 +46,6 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     JWT_SECRET: str = ""  # Required for JWT auth — set in .env
 
-    @field_validator("JWT_SECRET", mode="after")
-    @classmethod
-    def validate_jwt_secret(cls, v: str) -> str:
-        if v and len(v) < 32:
-            raise ValueError("JWT_SECRET must be at least 32 characters long")
-        return v
-
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
@@ -60,13 +53,6 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must not be empty")
         if v == "change-me-in-production":
             raise ValueError("SECRET_KEY must not be the default value")
-        return v
-
-    @field_validator("FERNET_KEY", mode="after")
-    @classmethod
-    def validate_fernet_key(cls, v: str) -> str:
-        if v and len(v) < 16:
-            raise ValueError("FERNET_KEY must be at least 16 characters long")
         return v
 
     FERNET_KEY: str = ""  # base64 Fernet key; if empty, tokens stored plaintext
