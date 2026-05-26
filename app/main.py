@@ -87,8 +87,8 @@ async def lifespan(app: FastAPI):
             "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
         )
     if not settings.JWT_SECRET and not os.getenv("TESTING"):
-        raise RuntimeError(
-            "JWT_SECRET is not configured. Set a secure random value in .env before starting the server."
+        logging.getLogger(__name__).warning(
+            "JWT_SECRET is not configured. Bearer JWT authentication will be unavailable; session-based auth still works."
         )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
