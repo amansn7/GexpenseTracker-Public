@@ -106,7 +106,7 @@ Body: {body_snippet}
 Available categories: {categories}
 
 # AMOUNT EXTRACTION
-CRITICAL: If PRE-EXTRACTED FACTS above shows an Amount, you MUST use that exact value. Do NOT invent, estimate, or substitute a different number. The pre-extracted amount is ground truth from regex parsing of the email.
+CRITICAL: If PRE-EXTRACTED FACTS above shows an Amount, you MUST use that exact value. Do NOT invent, estimate, or substitute a different number — even if the email text contains other numbers that seem related. The pre-extracted amount is ground truth from deterministic regex parsing of the email body and is ALWAYS correct. Your job for the amount field is to copy it verbatim, nothing else.
 Extract amount as a pure number (no symbols, no commas) in whatever currency is shown in the email.
 "Rs.499.00" → amount=499, source_currency="INR"
 "INR 1,200.50" → amount=1200.5, source_currency="INR"

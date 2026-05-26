@@ -297,6 +297,11 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
         if source_currency and source_currency not in SUPPORTED_CURRENCIES:
             source_currency = None
 
+        # Override LLM amount with pre-extraction (regex is more reliable for amounts)
+        if pre_extraction.get("amount") is not None:
+            amount = pre_extraction["amount"]
+            source_currency = pre_extraction.get("source_currency") or source_currency or "INR"
+
         # Currency conversion: if source currency differs from user's default, convert
         if amount is not None and source_currency and source_currency != default_currency:
             try:

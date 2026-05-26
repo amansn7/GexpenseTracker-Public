@@ -52,7 +52,7 @@ async def test_classify_email_default_currency_inr():
             )
         )
     assert result.currency == "INR"
-    assert result.source_currency is None
+    assert result.source_currency == "INR"  # pre-extraction overrides LLM with regex amount + INR
 
 
 @pytest.mark.asyncio
