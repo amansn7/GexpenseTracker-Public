@@ -126,7 +126,7 @@ _BOILERPLATE_PATTERNS = [
         r"do not reply",
         r"this is an auto[\- ]generated",
         r"for (?:any\s+)?queries",
-        r"thank you for (?:being|choosing)",
+        r"thank you for (?:being a valued|choosing to bank|reaching out)",
         r"to (?:unsubscribe|manage preferences)",
         r"to check your available balance",
     ]
