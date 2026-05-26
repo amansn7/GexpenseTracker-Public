@@ -5,6 +5,8 @@ import time
 from dataclasses import dataclass, field
 from datetime import date
 
+from decimal import Decimal
+
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -137,7 +139,7 @@ async def record_llm_spend(
             row.calls += 1
             row.tokens_in += tokens_in
             row.tokens_out += tokens_out
-            row.estimated_cost += estimated_cost
+            row.estimated_cost += Decimal(str(estimated_cost))
         else:
             session.add(
                 LLMSpendTracker(
@@ -148,7 +150,7 @@ async def record_llm_spend(
                     calls=1,
                     tokens_in=tokens_in,
                     tokens_out=tokens_out,
-                    estimated_cost=estimated_cost,
+                    estimated_cost=Decimal(str(estimated_cost)),
                 )
             )
         await session.flush()
