@@ -27,7 +27,9 @@ from app.services.currency import (
 _AMOUNT_RE = re.compile(
     r"(?:Rs\.?\s*|INR\s*|₹\s*)(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)"  # prefix: Rs. 2754, INR 2754, ₹2754
     r"|"
-    r"(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)",  # suffix: 2754 INR, 2754 Rs, 2754₹
+    r"(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)"  # suffix: 2754 INR, 2754 Rs, 2754₹
+    r"|"
+    r"\b(?:Amount|Total|Payment)\s*:?\s*(\d{1,6}(?:,\d{3})*(?:\.\d{1,2})?)",  # keyword prefix: Amount 5000, Total: 5000.00
     re.IGNORECASE,
 )
 
@@ -458,7 +460,7 @@ def _rules_fallback_result(
 def _extract_amount(text: str) -> float | None:
     m = _AMOUNT_RE.search(text)
     if m:
-        raw = m.group(1) or m.group(2)
+        raw = m.group(1) or m.group(2) or m.group(3)
         if raw:
             raw = raw.replace(",", "")
             try:

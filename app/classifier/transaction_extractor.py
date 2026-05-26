@@ -13,7 +13,9 @@ from app.services.currency import SUPPORTED_CURRENCIES
 _AMOUNT_RE = re.compile(
     r"(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)"  # prefix: ₹2754, Rs. 2754, INR 2754
     r"|"
-    r"([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)",  # suffix: 2754 INR, 2754 Rs, 2754₹
+    r"([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR|₹)"  # suffix: 2754 INR, 2754 Rs, 2754₹
+    r"|"
+    r"\b(?:Amount|Total|Payment)\s*:?\s*([\d,]+(?:\.\d{1,2})?)",  # keyword prefix: Amount 5000, Total: 5000.00
     re.IGNORECASE,
 )
 

@@ -27,8 +27,10 @@ def test_extract_amount_rupee_symbol():
     assert _extract_amount("₹ 349 paid") == 349.0
 
 
-def test_extract_amount_bare_number_requires_prefix():
-    assert _extract_amount("amount 500.00") is None
+def test_extract_amount_keyword_prefix():
+    assert _extract_amount("Amount 500.00") == 500.0
+    assert _extract_amount("Total: 1,200.50") == 1200.5
+    assert _extract_amount("Payment 99.99") == 99.99
 
 
 def test_extract_amount_zero():

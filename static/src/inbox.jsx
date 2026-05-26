@@ -210,7 +210,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const isIncome = tx.amount > 0;
   const sign = isIncome ? "+" : "−";
   const { isMobile } = useViewport();
-  const [fetchBodyOn, setFetchBodyOn] = React.useState(false);
+
   const [fetchedBody, setFetchedBody] = React.useState(null);
   const [reclassMethod, setReclassMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
 
@@ -220,7 +220,6 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setEditingAmt(false);
     setReclass("idle");
     setReclassResult(null);
-    setFetchBodyOn(false);
     setFetchedBody(null);
   }, [tx.id]);
 
@@ -245,7 +244,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const handlePreview = async () => {
     setReclass("previewing");
     try {
-      if (fetchBodyOn) await handleFetchBody();
+      await handleFetchBody();
       const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview?method=${reclassMethod}`);
       setReclassResult(result);
       setReclass("preview");
@@ -257,7 +256,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const handleConfirm = async () => {
     setReclass("saving");
     try {
-      if (fetchBodyOn) await handleFetchBody();
+      await handleFetchBody();
       const result = await API.post(`/api/transactions/${tx.id}/reclassify?method=${reclassMethod}`);
       setReclassResult(result);
       setReclass("done");
@@ -421,10 +420,6 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             tx.snippet || <span style={{ color: "var(--ink-4)", fontStyle: "italic" }}>No preview available</span>
           )}
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "var(--ink-3)", cursor: "pointer" }}>
-          <input type="checkbox" checked={fetchBodyOn} onChange={e => setFetchBodyOn(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
-          Refresh body before recategorizing
-        </label>
       </div>
 
       <div style={inboxStyles.panelSection}>

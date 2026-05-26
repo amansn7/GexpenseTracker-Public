@@ -106,7 +106,7 @@ def _strip_html(html: str) -> str:
 
 _INVISIBLE_CHARS_RE = re.compile(r"[\u200b-\u200f\u2028-\u202f\u205f\u2060-\u2064\ufeff\u034f\u00ad\u200c\u200d]")
 
-_AMOUNT_PRESENT_RE = re.compile(r"(?:Rs\.?|INR|₹)\s*\d", re.IGNORECASE)
+_AMOUNT_PRESENT_RE = re.compile(r"(?:Rs\.?|INR|₹|Amount|Total|Payment)\s*\d", re.IGNORECASE)
 
 _BOILERPLATE_PATTERNS = [
     re.compile(r, re.IGNORECASE)
