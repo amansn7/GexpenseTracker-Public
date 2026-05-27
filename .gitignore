@@ -30,6 +30,8 @@ graphify-out/
 .planning/
 skills-lock.json
 
+*.db
+
 # test artifacts
 test-results/
 test_e2e.db
