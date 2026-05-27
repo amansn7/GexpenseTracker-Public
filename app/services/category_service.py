@@ -104,6 +104,10 @@ _CANONICAL_MAP: dict[str, str] = {
     "other": "other",
 }
 
+# Reverse map: canonical key → set of all raw aliases (for filtering)
+_CANONICAL_REVERSE: dict[str, set[str]] = {}
+for _alias, _canonical in _CANONICAL_MAP.items():
+    _CANONICAL_REVERSE.setdefault(_canonical, set()).add(_alias)
 
 def get_canonical_map() -> dict[str, str]:
     """Return a copy of the canonical category alias map.
@@ -194,3 +198,12 @@ class CategoryService:
             .all()
         )
         return [_category_dict(c) for c in rows]
+
+    @staticmethod
+    def filter_aliases(canonical_key: str) -> set[str]:
+        """Return all DB-level values that map to this canonical key.
+
+        Used by filter queries so that filtering by e.g. 'card' also
+        matches transactions stored as 'CC Payment', 'Credit Card', etc.
+        """
+        return _CANONICAL_REVERSE.get(canonical_key, {canonical_key})

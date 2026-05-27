@@ -230,6 +230,14 @@ async def create_category(
 ):
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
+    existing = await db.execute(
+        select(UserCategory).where(
+            UserCategory.user_id == user.id,
+            func.lower(UserCategory.name) == body.name.strip().lower(),
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Category already exists")
     category = UserCategory(
         user_id=user.id,
         name=body.name.strip(),
@@ -380,6 +388,15 @@ async def update_category(
             value = value.strip()
             if not value:
                 raise HTTPException(status_code=422, detail="name is required")
+            dup = await db.execute(
+                select(UserCategory).where(
+                    UserCategory.user_id == user.id,
+                    UserCategory.id != category.id,
+                    func.lower(UserCategory.name) == value.lower(),
+                )
+            )
+            if dup.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="Category already exists")
         setattr(category, key, value)
     try:
         await db.commit()

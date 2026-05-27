@@ -421,9 +421,10 @@ const CategoryService = {
         seen.add(key);
       }
     }
+    const builtinLabels = new Set(Object.values(CATEGORIES).map(c => c.label.toLowerCase()));
     for (const uc of this._userCats) {
       const lower = uc.name.toLowerCase().trim();
-      if (seen.has(lower) || lower === "income" || lower === "other") continue;
+      if (seen.has(lower) || builtinLabels.has(lower) || lower === "income" || lower === "other") continue;
       items.push({ key: lower, label: uc.name, bg: uc.color, ink: "var(--ink-3)", group: null, isUser: true });
       seen.add(lower);
     }

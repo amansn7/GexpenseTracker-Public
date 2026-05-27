@@ -293,6 +293,7 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             label = Label.ignore
         amount = llm_result.amount
         category = llm_result.category
+        category = CategoryService.resolve(category)
         confidence = llm_result.confidence
         txn_date = _parse_date(llm_result.txn_date)
         source_currency = llm_result.source_currency
@@ -361,6 +362,7 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
                 result_warnings.append(f"Currency conversion from {source_currency} failed: {exc}")
                 source_currency = None
         category = rule_result.category or merchant_category
+        category = CategoryService.resolve(category)
         confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
         txn_date = None
 
