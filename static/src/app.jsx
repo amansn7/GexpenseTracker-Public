@@ -51,6 +51,7 @@ const App = () => {
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
+  useEffect(() => { if (view !== "flow") return; setCategoryFilter(null); }, [view]);
   useEffect(() => {
     window._goSettings = () => setView("settings");
     window._goRecurring = () => setView("recurring");
