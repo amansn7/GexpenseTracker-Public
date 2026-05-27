@@ -511,14 +511,14 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
 
       {drillCategory && (
         <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
-          role="dialog" aria-modal="true" aria-label={(() => { try { return CategoryService.display(drillCategory)?.label || drillCategory; } catch(e) { console.error(e); return drillCategory; }})()}
+          role="dialog" aria-modal="true" aria-label={CategoryService.display(drillCategory)?.label || drillCategory}
           onClick={() => setDrillCategory(null)}
           onKeyDown={e => { if (e.key === 'Escape') setDrillCategory(null); }}>
           <div style={{background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px -16px var(--shadow-lg)"}}
             onClick={e => e.stopPropagation()}>
             <div style={{padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", flexShrink: 0}}>
               <span style={{fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-3)"}}>
-                {(() => { try { return CategoryService.display(drillCategory)?.label || drillCategory; } catch(e) { console.error(e); return drillCategory; }})()}
+                {CategoryService.display(drillCategory)?.label || drillCategory}
               </span>
               <span style={{marginLeft: 12, fontSize: 12, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace"}}>
                 {(() => {
@@ -539,7 +539,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
               ) : (
                 drillTxns.map((tx, i) => (
                   <div key={tx.id} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", borderBottom: i < drillTxns.length - 1 ? "1px solid var(--line)" : "none"}}>
-                    <MerchantLogo merchant={tx.merchant} size={24}/>
+                    <MerchantLogo merchant={tx.merchant || "?"} size={24}/>
                     <div style={{flex: 1, minWidth: 0}}>
                       <div style={{fontSize: 13, fontWeight: 500, color: "var(--ink)"}}>{tx.merchant || "Unknown"}</div>
                       <div style={{fontSize: 11, color: "var(--ink-4)", marginTop: 1}}>{tx.date}</div>

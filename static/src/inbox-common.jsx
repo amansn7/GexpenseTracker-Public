@@ -25,8 +25,9 @@ const dateLabel = (isoDate) => {
 };
 
 const MerchantLogo = ({ merchant, size = 26 }) => {
-  const letters = merchant.replace(/[^A-Za-z]/g,"").slice(0,2).toUpperCase();
-  const hash = [...merchant].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const safe = merchant || "";
+  const letters = safe.replace(/[^A-Za-z]/g,"").slice(0,2).toUpperCase();
+  const hash = [...safe].reduce((a,c)=>a+c.charCodeAt(0),0);
   const bgs = ["var(--cat-food)","var(--cat-rent)","var(--cat-shop)","var(--cat-travel)","var(--cat-sub)","var(--cat-util)","var(--cat-inc)"];
   const inks = ["var(--cat-food-ink)","var(--cat-rent-ink)","var(--cat-shop-ink)","var(--cat-travel-ink)","var(--cat-sub-ink)","var(--cat-util-ink)","var(--cat-inc-ink)"];
   const i = hash % bgs.length;
