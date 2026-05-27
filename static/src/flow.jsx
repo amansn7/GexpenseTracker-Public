@@ -308,7 +308,10 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     if (!drillCategory) { setDrillTxns(null); return; }
     setDrillTxns(null);
     let cancelled = false;
-    const qp = `category=${encodeURIComponent(drillCategory)}&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`;
+    const isIncome = drillCategory === "__income__";
+    const qp = isIncome
+      ? `label=income&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`
+      : `category=${encodeURIComponent(drillCategory)}&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`;
     API.get(`/api/transactions?${qp}`)
       .then(d => { if (!cancelled) setDrillTxns(d.items || []); })
       .catch(() => { if (!cancelled) setDrillTxns([]); });
@@ -345,14 +348,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const savUp = savDelta != null && parseFloat(savDelta) >= 0;
 
   const handleCategoryClick = (cat) => {
-    if (!cat || cat === "__income__") {
-      if (!onNavigateToView) return;
-      if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
-      if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
-      onNavigateToView("inbox");
-      return;
-    }
-    setDrillCategory(cat);
+    setDrillCategory(cat || "__income__");
   };
 
   return (
@@ -511,20 +507,23 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
 
       {drillCategory && (
         <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
-          role="dialog" aria-modal="true" aria-label={CategoryService.display(drillCategory)?.label || drillCategory}
+          role="dialog" aria-modal="true" aria-label={drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
           onClick={() => setDrillCategory(null)}
           onKeyDown={e => { if (e.key === 'Escape') setDrillCategory(null); }}>
           <div style={{background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px -16px var(--shadow-lg)"}}
             onClick={e => e.stopPropagation()}>
             <div style={{padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", flexShrink: 0}}>
               <span style={{fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-3)"}}>
-                {CategoryService.display(drillCategory)?.label || drillCategory}
+                {drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
               </span>
               <span style={{marginLeft: 12, fontSize: 12, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace"}}>
-                {(() => {
-                  const c = catBreakdown?.categories?.find(c => normCat(c.category, false) === drillCategory);
-                  return c ? fmtK(c.amount) : "";
-                })()}
+                {drillCategory === "__income__"
+                  ? fmtK(totalIncome)
+                  : (() => {
+                      const c = catBreakdown?.categories?.find(c => normCat(c.category, false) === drillCategory);
+                      return c ? fmtK(c.amount) : "";
+                    })()
+                }
               </span>
               <button onClick={() => setDrillCategory(null)} aria-label="Close"
                 style={{marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex"}}>
@@ -547,7 +546,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                       <div style={{fontSize: 13, fontWeight: 500, color: "var(--ink)"}}>{tx.merchant || "Unknown"}</div>
                       <div style={{fontSize: 11, color: "var(--ink-4)", marginTop: 1}}>{tx.date}</div>
                     </div>
-                    <div style={{fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--neg)"}}>
+                    <div style={{fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--pos)"}}>
                       {fmtK(Math.abs(tx.amount))}
                     </div>
                   </div>
@@ -559,8 +558,8 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 const cat = drillCategory;
                 setDrillCategory(null);
                 if (!onNavigateToView) return;
-                if (onSetCategoryFilter) onSetCategoryFilter(cat);
-                if (onSetFilter) onSetFilter("all");
+                if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
+                if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
                 if (onSetDateRange) onSetDateRange({ from: rangeFrom, to: rangeTo });
                 onNavigateToView("inbox");
               }}
