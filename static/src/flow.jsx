@@ -256,7 +256,7 @@ const skeleton = (h, w) => (
   <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
 );
 
-const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategoryFilter, onSetFilter }) => {
+const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = DateUtils.getLastNDays(29).from;
@@ -536,9 +536,12 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions</div>
               ) : drillTxns.length === 0 ? (
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
-              ) : (
-                drillTxns.map((tx, i) => (
-                  <div key={tx.id} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", borderBottom: i < drillTxns.length - 1 ? "1px solid var(--line)" : "none"}}>
+              ) : (() => {
+                const nonzero = drillTxns.filter(tx => tx.amount !== 0);
+                return nonzero.length === 0 ? (
+                  <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
+                ) : nonzero.map((tx, i) => (
+                  <div key={tx.id} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", borderBottom: i < nonzero.length - 1 ? "1px solid var(--line)" : "none"}}>
                     <MerchantLogo merchant={tx.merchant || "?"} size={24}/>
                     <div style={{flex: 1, minWidth: 0}}>
                       <div style={{fontSize: 13, fontWeight: 500, color: "var(--ink)"}}>{tx.merchant || "Unknown"}</div>
@@ -548,8 +551,8 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                       {fmtK(Math.abs(tx.amount))}
                     </div>
                   </div>
-                ))
-              )}
+                ));
+              })()}
             </div>
             <div style={{padding: "10px 20px", borderTop: "1px solid var(--line)", textAlign: "center", flexShrink: 0}}>
               <button onClick={() => {
@@ -558,6 +561,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 if (!onNavigateToView) return;
                 if (onSetCategoryFilter) onSetCategoryFilter(cat);
                 if (onSetFilter) onSetFilter("all");
+                if (onSetDateRange) onSetDateRange({ from: rangeFrom, to: rangeTo });
                 onNavigateToView("inbox");
               }}
                 style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>

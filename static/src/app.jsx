@@ -373,7 +373,7 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter}/>}
+          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange}/>}
           {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
