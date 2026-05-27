@@ -202,21 +202,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: StarletteRequest, call_next):
         path = request.url.path
+
+        # Rate limiting runs before EXEMPT short-circuit so that unauthenticated
+        # endpoints like /api/auth/callback and /api/auth/token/refresh are
+        # covered. (EXEMPT entries appearing in RATE_LIMITS were previously
+        # bypassed because the EXEMPT return happened first.)
+        if not os.getenv("TESTING"):
+            limits = _match_rate_limit(path)
+            if limits:
+                max_requests, window_seconds = limits
+                if request.headers.get("Authorization", "").startswith("Bearer "):
+                    identifier = _extract_jwt_user_id(request)
+                else:
+                    session_cookie = request.cookies.get("session")
+                    identifier = (
+                        session_cookie if session_cookie else (request.client.host if request.client else "unknown")
+                    )
+                if not rate_limiter.is_allowed(identifier, path, max_requests, window_seconds):
+                    return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
+
         if path.startswith("/static") or path in self.EXEMPT or os.getenv("TESTING"):
             return await call_next(request)
-
-        limits = _match_rate_limit(path)
-        if limits:
-            max_requests, window_seconds = limits
-            if request.headers.get("Authorization", "").startswith("Bearer "):
-                identifier = _extract_jwt_user_id(request)
-            else:
-                session_cookie = request.cookies.get("session")
-                identifier = (
-                    session_cookie if session_cookie else (request.client.host if request.client else "unknown")
-                )
-            if not rate_limiter.is_allowed(identifier, path, max_requests, window_seconds):
-                return JSONResponse({"detail": "Rate limit exceeded"}, status_code=429)
 
         # Bearer-authenticated requests — let handler validate the token, skip session/CSRF
         if request.headers.get("Authorization", "").startswith("Bearer "):

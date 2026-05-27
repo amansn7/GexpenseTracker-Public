@@ -27,7 +27,15 @@ def unauth_client():
     from app.main import app
 
     app.dependency_overrides.pop(get_current_user, None)
-    return TestClient(app)
+
+
+@pytest.fixture
+def unauth_client_ctx():
+    unauth_client()
+    from app.main import app
+
+    with TestClient(app) as client:
+        yield client
 
 
 # ── /health/ready — public, minimal ──────────────────────────────────────────

@@ -67,8 +67,40 @@ const ReportsView = () => {
         <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-4)" }}>Last 12 months</span>
       </div>
       <div style={secBody}>
+        {/* Monthly Expense Trend Bars */}
+        {(() => {
+          const maxExpense = Math.max(...months.map(m => m.expenses), 1);
+          return (
+            <div style={{ marginBottom: 24, marginTop: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 12 }}>
+                Monthly Expenses
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 80 }}>
+                {months.slice(-12).map(m => {
+                  const h = Math.max(4, Math.round((m.expenses / maxExpense) * 72));
+                  const isCurrentMonth = m.month === new Date().toISOString().slice(0, 7);
+                  return (
+                    <div key={m.month} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}
+                      title={`${m.month}: ₹${m.expenses.toLocaleString("en-IN")}`}>
+                      <div style={{
+                        width: "100%",
+                        height: h,
+                        background: isCurrentMonth ? "var(--accent)" : "var(--ink-4)",
+                        borderRadius: "3px 3px 0 0",
+                        opacity: isCurrentMonth ? 1 : 0.5
+                      }} />
+                      <span style={{ fontSize: 9, color: "var(--ink-4)", whiteSpace: "nowrap" }}>
+                        {m.month.slice(5)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 0 }}>
             <thead>
               <tr>
                 <th style={colHdrL}>Month</th>
