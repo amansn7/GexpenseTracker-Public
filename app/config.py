@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     DAILY_LLM_BUDGET: float = 10.0  # Global daily LLM budget in USD
 
     # Stats
-    CATEGORY_BREAKDOWN_LIMIT: int = 6
+    CATEGORY_BREAKDOWN_LIMIT: int = 30
 
     # Reclassify
     RECLASSIFY_METHODS: list = ["llm", "rules"]

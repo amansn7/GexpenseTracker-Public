@@ -196,15 +196,6 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
       .slice(0, 3)
       .map(([name, amt]) => ({ name, amount: Math.round(amt) }));
   }
-  // Inject CC payments and investments from stats summary (excluded from category-breakdown API)
-  if (summary?.total_cc_payments > 0) {
-    catMap["card"] = (catMap["card"] || 0) + summary.total_cc_payments;
-    txnCountMap["card"] = (txnCountMap["card"] || 0) + (summary.total_cc_payments_count || 0);
-  }
-  if (summary?.total_investments > 0) {
-    catMap["investment"] = (catMap["investment"] || 0) + summary.total_investments;
-    txnCountMap["investment"] = (txnCountMap["investment"] || 0) + (summary.total_investments_count || 0);
-  }
   const expenses = Object.entries(catMap)
     .map(([cat, amount]) => ({ cat, amount: Math.round(amount), txnCount: txnCountMap[cat] || 0, topMerchants: topMerchants[cat] || [] }))
     .sort((a, b) => b.amount - a.amount);

@@ -245,7 +245,6 @@ async def stats_category_breakdown(
     where = [
         Email.user_id == current_user.id,
         Transaction.label == "expense",
-        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
