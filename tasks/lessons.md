@@ -173,3 +173,9 @@
 6. **Service code should defensively delete orphaned children before deleting the parent**, even when the model has CASCADE. The cascade handles the DB-level constraint, but the service-side delete ensures no stale references in the session's identity map. This duplicates the protection and catches edge cases before the DB roundtrip.
 7. **Log files on Railway use `"severity":"error"` even for info-level Alembic messages.** Filter real errors by looking for traceback patterns (`ForeignKeyViolationError`, `IntegrityError`, `Traceback`), not just the `severity` field.
 8. **The Railway rate limit is 500 logs/sec.** Excessive stack trace repetition (5 crashes × ~400 lines each) can hit this limit and drop logs, making debugging harder.
+
+## 2026-05-27 — "Other" Category Data Mismatch & Drill Modal Loading State
+
+1. **Synthetic "Other" bucket in Money Flow is not a real filter value.** Both NULL categories (renamed to "Uncategorized") and 7th+ truncated categories get normalized to "other" via `_normCat()`. But `filter_aliases("other")` only returned `{"cash", "other"}`. When a category filter has a catch-all semantic, the SQL must also match NULLs and anything NOT in the known alias set — not just the explicit aliases. The `all_known_values()` helper on `CategoryService` is needed to implement the NOT IN exclusion.
+
+2. **Drill modal state should use `null` for "not yet loaded".** Initializing `drillTxns = []` and `drillLoading = false` causes a flash of "No transactions" before the effect fires `setDrillLoading(true)`. Using `null` as initial state and removing the separate loading flag means the first render correctly shows "Loading" because `drillTxns === null` is true. The API response sets it to `[]` (empty) or `[items]` (populated).
