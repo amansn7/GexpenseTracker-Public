@@ -66,7 +66,7 @@ const TxnTooltip = ({ tip, style }) => {
   );
 };
 
-const SankeyDiagram = ({ data, viewMode, txnCounts, topMerchants, onCategoryClick }) => {
+const SankeyDiagram = ({ data, viewMode, txnCounts, topMerchants, budgetMap, onCategoryClick }) => {
   const { isMobile } = useViewport();
   const [tip, setTip] = React.useState(null);
   const [tipPos, setTipPos] = React.useState({ left: 0, top: 0 });
@@ -342,6 +342,7 @@ const SankeyDiagram = ({ data, viewMode, txnCounts, topMerchants, onCategoryClic
           const pct = total > 0 ? ((Math.abs(n.amount) / total) * 100).toFixed(1) : "0";
           const txnCount = n.txnCount || 0;
           const topM = n.topMerchants || [];
+          const budgetInfo = !isSav && budgetMap ? budgetMap[clickCat] : null;
           const tipContent = isSav ? null : {
             label, amount: fmtK(n.amount), txnCount, pct,
             merchants: topM,
@@ -372,6 +373,12 @@ const SankeyDiagram = ({ data, viewMode, txnCounts, topMerchants, onCategoryClic
                 <text x={RIGHT_X + 12} y={n.y + n.h/2 + 28} fontSize="10" fill={textFill} fontFamily="'Geist', sans-serif" opacity="0.7">
                   {txnCount} txn
                 </text>
+              )}
+              {budgetInfo && n.h > 20 && (
+                <g>
+                  <rect x={RIGHT_X + 4} y={n.y + n.h - 8} width={RIGHT_W - 8} height={4} rx={2} fill="rgba(0,0,0,0.15)"/>
+                  <rect x={RIGHT_X + 4} y={n.y + n.h - 8} width={Math.min(1, budgetInfo.pct / 100) * (RIGHT_W - 8)} height={4} rx={2} fill={budgetInfo.over_budget ? "var(--neg)" : "var(--pos)"} opacity="0.8"/>
+                </g>
               )}
             </g>
           );
@@ -435,6 +442,11 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const [flowError, setFlowError] = React.useState(null);
   const [retryKey, setRetryKey] = React.useState(0);
   const [viewMode, setViewMode] = React.useState("remaining");
+  const [compareStats, setCompareStats] = React.useState(null);
+  const [budgets, setBudgets] = React.useState([]);
+  const [drillCategory, setDrillCategory] = React.useState(null);
+  const [drillTxns, setDrillTxns] = React.useState([]);
+  const [drillLoading, setDrillLoading] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -456,6 +468,41 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     return () => { cancelled = true; clearTimeout(timer); };
   }, [rangeFrom, rangeTo, categoryFilter, retryKey]);
 
+  // Compare stats for previous equivalent period
+  React.useEffect(() => {
+    if (!rangeFrom || !rangeTo) { setCompareStats(null); return; }
+    const rangeMs = new Date(rangeTo) - new Date(rangeFrom);
+    const prevFrom = new Date(new Date(rangeFrom).getTime() - rangeMs - 1).toISOString().slice(0, 10);
+    const prevTo = new Date(new Date(rangeFrom).getTime() - 1).toISOString().slice(0, 10);
+    API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
+      .then(d => setCompareStats(d))
+      .catch(() => {});
+  }, [rangeFrom, rangeTo]);
+
+  // Budgets: only when range aligns with current month
+  const firstOfMonth = todayStr.slice(0, 7) + "-01";
+  const isCurrentMonth = rangeFrom === firstOfMonth && rangeTo === todayStr;
+  React.useEffect(() => {
+    if (isCurrentMonth) {
+      API.get("/api/budgets").then(d => setBudgets(d.budgets || [])).catch(() => {});
+    } else {
+      setBudgets([]);
+    }
+  }, [isCurrentMonth]);
+
+  // Fetch transactions for drill-down modal
+  React.useEffect(() => {
+    if (!drillCategory) { setDrillTxns([]); return; }
+    let cancelled = false;
+    setDrillLoading(true);
+    const qp = `category=${encodeURIComponent(drillCategory)}&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`;
+    API.get(`/api/transactions?${qp}`)
+      .then(d => { if (!cancelled) setDrillTxns(d.items || []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setDrillLoading(false); });
+    return () => { cancelled = true; };
+  }, [drillCategory, rangeFrom, rangeTo]);
+
   const rangeTxs = !rangeFrom
     ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
     : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
@@ -472,11 +519,29 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const incomeSources = flow ? flow.income.length : 0;
   const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;
 
+  const deltaPct = (current, previous) => {
+    if (!previous || previous === 0) return null;
+    return ((current - previous) / previous * 100).toFixed(1);
+  };
+  const prevExpense = compareStats?.total_expenses ?? null;
+  const prevIncome = compareStats?.total_income ?? null;
+  const prevSavings = compareStats?.saved ?? null;
+  const expDelta = deltaPct(totalExpense, prevExpense);
+  const incDelta = deltaPct(totalIncome, prevIncome);
+  const savDelta = deltaPct(savings, prevSavings);
+  const budgetMap = Object.fromEntries((budgets || []).map(b => [b.category, b]));
+  const isBadUp = viewMode === "overspend" && savings < 0;
+  const savUp = savDelta != null && parseFloat(savDelta) >= 0;
+
   const handleCategoryClick = (cat) => {
-    if (!onNavigateToView) return;
-    if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
-    if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
-    onNavigateToView("inbox");
+    if (!cat || cat === "__income__") {
+      if (!onNavigateToView) return;
+      if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
+      if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
+      onNavigateToView("inbox");
+      return;
+    }
+    setDrillCategory(cat);
   };
 
   const txnCountMap = {};
@@ -523,24 +588,24 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>{viewMode === "overspend" && savings < 0 ? "Overspend" : "Remaining"}</div>
                   <div style={{ ...flowStyles.kpiValue, color: viewMode === "overspend" && savings < 0 ? "var(--neg)" : "var(--pos)" }} title={`₹${savings.toLocaleString("en-IN")}`}>{fmtK(savings)}</div>
-                  <div style={flowStyles.kpiSub}>{viewMode === "overspend" && savings < 0 ? `${Math.abs(parseFloat(savingsRate))}% overspend` : `${savingsRate}% savings rate`}</div>
+                  <div style={flowStyles.kpiSub}>{viewMode === "overspend" && savings < 0 ? `${Math.abs(parseFloat(savingsRate))}% overspend` : `${savingsRate}% savings rate`}{savDelta != null && <span style={{color: savUp !== isBadUp ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}>{savUp ? "↑" : "↓"}{Math.abs(savDelta)}%</span>}</div>
                 </div>
                 <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Income</div>
                   <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}{incDelta != null && <span style={{color: parseFloat(incDelta) >= 0 ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}>{parseFloat(incDelta) >= 0 ? "↑" : "↓"}{Math.abs(incDelta)}%</span>}</div>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Spent</div>
                   <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income</div>
+                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income{expDelta != null && <span style={{color: parseFloat(expDelta) >= 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4, fontSize: 11}}>{parseFloat(expDelta) >= 0 ? "↑" : "↓"}{Math.abs(expDelta)}%</span>}</div>
                 </div>
                 <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
                   <div style={flowStyles.kpiLabel}>Daily burn</div>
                   <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
-                  <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}</div>
+                  <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}{expDelta != null && <span style={{fontSize: 11, color: "var(--ink-3)", marginLeft: 4}}>vs prev {parseFloat(expDelta) >= 0 ? "↑" : "↓"}{Math.abs(expDelta)}%</span>}</div>
                 </div>
               </div>
             </>
@@ -582,7 +647,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
             ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow
               ? <>
-                  <SankeyDiagram data={flow} viewMode={viewMode} txnCounts={txnCountMap} topMerchants={topMerchantMap} onCategoryClick={handleCategoryClick}/>
+                  <SankeyDiagram data={flow} viewMode={viewMode} txnCounts={txnCountMap} topMerchants={topMerchantMap} budgetMap={budgetMap} onCategoryClick={handleCategoryClick}/>
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                       <span style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Timeline</span>
@@ -642,6 +707,62 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
         </div>
       </div>
 
+      {drillCategory && (
+        <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
+          onClick={() => setDrillCategory(null)}>
+          <div style={{background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px -16px var(--shadow-lg)"}}
+            onClick={e => e.stopPropagation()}>
+            <div style={{padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", flexShrink: 0}}>
+              <span style={{fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-3)"}}>
+                {CategoryService.display(drillCategory).label}
+              </span>
+              <span style={{marginLeft: 12, fontSize: 12, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace"}}>
+                {(() => {
+                  const c = catBreakdown?.categories?.find(c => normCat(c.category, false) === drillCategory);
+                  return c ? fmtK(c.amount) : "";
+                })()}
+              </span>
+              <button onClick={() => setDrillCategory(null)}
+                style={{marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex"}}>
+                <Icon name="x" size={16}/>
+              </button>
+            </div>
+            <div style={{overflowY: "auto", padding: "8px 0", flex: 1}}>
+              {drillLoading ? (
+                <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions…</div>
+              ) : drillTxns.length === 0 ? (
+                <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
+              ) : (
+                drillTxns.map((tx, i) => (
+                  <div key={tx.id} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", borderBottom: i < drillTxns.length - 1 ? "1px solid var(--line)" : "none"}}>
+                    <MerchantLogo merchant={tx.merchant} size={24}/>
+                    <div style={{flex: 1, minWidth: 0}}>
+                      <div style={{fontSize: 13, fontWeight: 500, color: "var(--ink)"}}>{tx.merchant || "Unknown"}</div>
+                      <div style={{fontSize: 11, color: "var(--ink-4)", marginTop: 1}}>{tx.date}</div>
+                    </div>
+                    <div style={{fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--neg)"}}>
+                      {fmtK(Math.abs(tx.amount))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{padding: "10px 20px", borderTop: "1px solid var(--line)", textAlign: "center", flexShrink: 0}}>
+              <button onClick={() => {
+                const cat = drillCategory;
+                setDrillCategory(null);
+                if (!onNavigateToView) return;
+                if (onSetCategoryFilter) onSetCategoryFilter(cat);
+                if (onSetFilter) onSetFilter("all");
+                onNavigateToView("inbox");
+              }}
+                style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>
+                View all in inbox →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
