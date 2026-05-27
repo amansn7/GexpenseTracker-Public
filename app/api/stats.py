@@ -241,7 +241,11 @@ async def stats_category_breakdown(
 
     rows = (
         await db.execute(
-            select(Transaction.category, func.sum(Transaction.amount).label("total"))
+            select(
+                Transaction.category,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("txn_count"),
+            )
             .join(Email, Transaction.email_id == Email.id)
             .where(*where)
             .group_by(Transaction.category)
@@ -255,18 +259,21 @@ async def stats_category_breakdown(
             "category": r.category or "Uncategorized",
             "amount": round(float(r.total or 0), 2),
             "pct": round(float(r.total or 0) / total * 100, 1) if total > 0 else 0.0,
+            "txn_count": r.txn_count,
         }
         for r in rows
     ]
 
     if len(categories) > settings.CATEGORY_BREAKDOWN_LIMIT:
         other_amount = sum(c["amount"] for c in categories[settings.CATEGORY_BREAKDOWN_LIMIT :])
+        other_count = sum(c["txn_count"] for c in categories[settings.CATEGORY_BREAKDOWN_LIMIT :])
         categories = categories[: settings.CATEGORY_BREAKDOWN_LIMIT]
         categories.append(
             {
                 "category": "Other",
                 "amount": round(other_amount, 2),
                 "pct": round(other_amount / total * 100, 1) if total > 0 else 0.0,
+                "txn_count": other_count,
             }
         )
 

@@ -162,21 +162,17 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
     income.push({ label: "Income", amount: Math.round(summary.total_income) });
   }
 
-  // Expenses per category from DB breakdown
+  // Expenses per category from DB breakdown (authoritative amounts + counts)
   const catMap = {};
   const txnCountMap = {};
   for (const c of (catBreakdown?.categories || [])) {
     const key = _normCat(c.category, false);
-    if (key !== "income") catMap[key] = (catMap[key] || 0) + c.amount;
-  }
-  // Transaction counts per category from local transactions
-  for (const t of transactions) {
-    if (t.amount < 0) {
-      const key = t.cat || "other";
-      txnCountMap[key] = (txnCountMap[key] || 0) + 1;
+    if (key !== "income") {
+      catMap[key] = (catMap[key] || 0) + c.amount;
+      txnCountMap[key] = (txnCountMap[key] || 0) + (c.txn_count || 0);
     }
   }
-  // Top merchants per category
+  // Top merchants per category (from local transactions — no backend endpoint yet)
   const merchantMap = {};
   for (const t of transactions) {
     if (t.amount < 0 && t.merchant) {
