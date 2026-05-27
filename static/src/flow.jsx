@@ -272,8 +272,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const [viewMode, setViewMode] = React.useState("remaining");
   const [compareStats, setCompareStats] = React.useState(null);
   const [drillCategory, setDrillCategory] = React.useState(null);
-  const [drillTxns, setDrillTxns] = React.useState([]);
-  const [drillLoading, setDrillLoading] = React.useState(false);
+  const [drillTxns, setDrillTxns] = React.useState(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -306,14 +305,13 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   }, [rangeFrom, rangeTo]);
 
   React.useEffect(() => {
-    if (!drillCategory) { setDrillTxns([]); return; }
+    if (!drillCategory) { setDrillTxns(null); return; }
+    setDrillTxns(null);
     let cancelled = false;
-    setDrillLoading(true);
     const qp = `category=${encodeURIComponent(drillCategory)}&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`;
     API.get(`/api/transactions?${qp}`)
       .then(d => { if (!cancelled) setDrillTxns(d.items || []); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setDrillLoading(false); });
+      .catch(() => { if (!cancelled) setDrillTxns([]); });
     return () => { cancelled = true; };
   }, [drillCategory, rangeFrom, rangeTo]);
 
@@ -534,7 +532,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
               </button>
             </div>
             <div style={{overflowY: "auto", padding: "8px 0", flex: 1}}>
-              {drillLoading ? (
+              {drillTxns === null ? (
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions</div>
               ) : drillTxns.length === 0 ? (
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>

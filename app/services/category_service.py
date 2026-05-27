@@ -207,3 +207,15 @@ class CategoryService:
         matches transactions stored as 'CC Payment', 'Credit Card', etc.
         """
         return _CANONICAL_REVERSE.get(canonical_key, {canonical_key})
+
+    @staticmethod
+    def all_known_values() -> set[str]:
+        """Return every raw DB category value that maps to any canonical key.
+
+        Used when filtering by 'other' — we need to exclude everything that
+        maps to a known category so the catch-all bucket matches only:
+          - NULL categories
+          - values explicitly mapped to 'other' (cash, other)
+          - any raw value not in the canonical map at all
+        """
+        return set(_CANONICAL_MAP.keys())

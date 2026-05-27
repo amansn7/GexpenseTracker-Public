@@ -241,8 +241,19 @@ async def list_transactions(
         conditions.append(Transaction.txn_date <= date_to)
     if category:
         from app.services.category_service import CategoryService
-        aliases = CategoryService.filter_aliases(category)
-        conditions.append(func.lower(Transaction.category).in_(aliases))
+        if category == "other":
+            other_aliases = CategoryService.filter_aliases("other")
+            all_known = CategoryService.all_known_values()
+            conditions.append(
+                or_(
+                    Transaction.category.is_(None),
+                    func.lower(Transaction.category).in_(other_aliases),
+                    ~func.lower(Transaction.category).in_(all_known),
+                )
+            )
+        else:
+            aliases = CategoryService.filter_aliases(category)
+            conditions.append(func.lower(Transaction.category).in_(aliases))
 
     count_q = select(func.count(Transaction.id)).join(Email, Transaction.email_id == Email.id).where(*conditions)
     data_q = (
