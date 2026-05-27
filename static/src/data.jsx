@@ -164,15 +164,45 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
 
   // Expenses per category from DB breakdown
   const catMap = {};
+  const txnCountMap = {};
   for (const c of (catBreakdown?.categories || [])) {
     const key = _normCat(c.category, false);
     if (key !== "income") catMap[key] = (catMap[key] || 0) + c.amount;
   }
+  // Transaction counts per category from local transactions
+  for (const t of transactions) {
+    if (t.amount < 0) {
+      const key = t.cat || "other";
+      txnCountMap[key] = (txnCountMap[key] || 0) + 1;
+    }
+  }
+  // Top merchants per category
+  const merchantMap = {};
+  for (const t of transactions) {
+    if (t.amount < 0 && t.merchant) {
+      const key = t.cat || "other";
+      if (!merchantMap[key]) merchantMap[key] = {};
+      merchantMap[key][t.merchant] = (merchantMap[key][t.merchant] || 0) + Math.abs(t.amount);
+    }
+  }
+  const topMerchants = {};
+  for (const [cat, merchants] of Object.entries(merchantMap)) {
+    topMerchants[cat] = Object.entries(merchants)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, amt]) => ({ name, amount: Math.round(amt) }));
+  }
   // Inject CC payments and investments from stats summary (excluded from category-breakdown API)
-  if (summary?.total_cc_payments > 0) catMap["card"] = (catMap["card"] || 0) + summary.total_cc_payments;
-  if (summary?.total_investments > 0) catMap["investment"] = (catMap["investment"] || 0) + summary.total_investments;
+  if (summary?.total_cc_payments > 0) {
+    catMap["card"] = (catMap["card"] || 0) + summary.total_cc_payments;
+    txnCountMap["card"] = (txnCountMap["card"] || 0) + 1;
+  }
+  if (summary?.total_investments > 0) {
+    catMap["investment"] = (catMap["investment"] || 0) + summary.total_investments;
+    txnCountMap["investment"] = (txnCountMap["investment"] || 0) + 1;
+  }
   const expenses = Object.entries(catMap)
-    .map(([cat, amount]) => ({ cat, amount: Math.round(amount) }))
+    .map(([cat, amount]) => ({ cat, amount: Math.round(amount), txnCount: txnCountMap[cat] || 0, topMerchants: topMerchants[cat] || [] }))
     .sort((a, b) => b.amount - a.amount);
 
   // Weekly burn — divide range into 4 segments

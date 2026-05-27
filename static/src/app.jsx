@@ -246,6 +246,8 @@ const App = () => {
     reports:   { title: "Reports",        sub: "month-by-month" },
     recurring: { title: "Recurring",      sub: "subscriptions & fixed expenses" },
     debt:      { title: "Debt Reduction", sub: "track payoff progress" },
+    goals:     { title: "Goals",          sub: "track savings progress" },
+    budgets:   { title: "Budgets",        sub: "monthly spend limits by category" },
     profile:   { title: "Profile",        sub: "your account" },
     settings:  { title: "Settings",       sub: "preferences & integrations" },
     admin:     { title: "Admin",          sub: "service testing & diagnostics" },
@@ -370,12 +372,14 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter}/>}
           {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
           {view === "recurring" && <RecurringView userCategories={account?.categories || []}/>}
           {view === "debt"      && <DebtView />}
+          {view === "goals"     && <GoalsView />}
+          {view === "budgets"   && <BudgetsView />}
           {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
           {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
           {/* "new" mode nav aliases — route to nearest functional equivalent */}
