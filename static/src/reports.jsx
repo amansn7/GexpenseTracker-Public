@@ -30,7 +30,7 @@ const ReportsView = () => {
   };
 
   const secBand = { borderBottom: "1px solid var(--line)", padding: "10px 28px", background: "var(--paper-2)", display: "flex", alignItems: "center", gap: 10 };
-  const secTitle = { fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 500, color: "var(--ink-2)", letterSpacing: "0.01em" };
+  const secTitle = { fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 500, color: "var(--ink-2)", letterSpacing: "0.01em" };
   const secBody = { padding: "0 28px 32px" };
 
   if (loading) return (
@@ -82,7 +82,7 @@ const ReportsView = () => {
               {months.map((m, i) => (
                 <tr key={m.month} className="report-row"
                   style={{ background: i % 2 === 0 ? "var(--card)" : "var(--paper-2)" }}>
-                  <td style={{ ...cell(null, {}), textAlign: "left", fontFamily: "'Fraunces', serif", fontWeight: 500, color: "var(--ink)", fontSize: 14 }}>{m.label}</td>
+                  <td style={{ ...cell(null, {}), textAlign: "left", fontFamily: "'Geist', sans-serif", fontWeight: 500, color: "var(--ink)", fontSize: 14 }}>{m.label}</td>
                   <td style={cell(null, { color: "var(--pos)" })}>{fmtAmt(m.income)}</td>
                   <td style={cell(null, { color: "var(--neg)" })}>{fmtAmt(m.expenses)}</td>
                   <td style={cell(null, { color: m.net >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 })}>{fmtAmt(m.net, true)}</td>
@@ -92,7 +92,7 @@ const ReportsView = () => {
             </tbody>
             <tfoot>
               <tr style={{ background: "var(--paper-2)", borderTop: "2px solid var(--line)" }}>
-                <td style={{ padding: "12px 12px", fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 13, color: "var(--ink)" }}>Total</td>
+                <td style={{ padding: "12px 12px", fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13, color: "var(--ink)" }}>Total</td>
                 <td style={{ padding: "12px 12px", fontFamily: "'Geist Mono', monospace", fontSize: 13, textAlign: "right", color: "var(--pos)", fontWeight: 600 }}>{fmtAmt(totalIncome)}</td>
                 <td style={{ padding: "12px 12px", fontFamily: "'Geist Mono', monospace", fontSize: 13, textAlign: "right", color: "var(--neg)", fontWeight: 600 }}>{fmtAmt(totalExpenses)}</td>
                 <td style={{ padding: "12px 12px", fontFamily: "'Geist Mono', monospace", fontSize: 13, textAlign: "right", color: totalNet >= 0 ? "var(--pos)" : "var(--neg)", fontWeight: 600 }}>{fmtAmt(totalNet, true)}</td>

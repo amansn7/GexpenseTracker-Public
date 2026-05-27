@@ -5,7 +5,7 @@ const flowStyles = {
   kpis: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 28 },
   kpi: { padding: "18px 20px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)", minWidth: 0, overflow: "hidden" },
   kpiLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 },
-  kpiValue: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 6, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  kpiValue: { fontFamily: "'Geist Mono', monospace", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 6, lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
   kpiSub: { fontSize: 12, color: "var(--ink-3)", marginTop: 6, display: "flex", alignItems: "center", gap: 4 },
   // Section band system
   secWrap: { marginTop: 28 },
@@ -102,8 +102,8 @@ const SankeyDiagram = ({ data, viewMode = "remaining" }) => {
 
         {/* Hub */}
         <rect x={MID_X} y={hubY} width={MID_W} height={hubH} fill="var(--paper-2)" stroke="var(--line)" rx="4"/>
-        <text x={MID_X + MID_W/2} y={hubY + hubH/2 - 8} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="13" fill="var(--ink-3)" letterSpacing="0.08em">{hubLabel}</text>
-        <text x={MID_X + MID_W/2} y={hubY + hubH/2 + 18} textAnchor="middle" fontFamily="'Fraunces', serif" fontSize="28" fill="var(--ink)">₹{(hubAmount/1000).toFixed(0)}K</text>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 - 8} textAnchor="middle" fontFamily="'Geist', sans-serif" fontSize="13" fill="var(--ink-3)" letterSpacing="0.08em">{hubLabel}</text>
+        <text x={MID_X + MID_W/2} y={hubY + hubH/2 + 18} textAnchor="middle" fontFamily="'Geist Mono', monospace" fontSize="28" fill="var(--ink)">₹{(hubAmount/1000).toFixed(0)}K</text>
 
         {/* Income → Hub flows */}
         {hasIncome && incomeNodes.map((n, idx) => {

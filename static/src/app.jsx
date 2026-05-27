@@ -323,13 +323,13 @@ const App = () => {
 
         {error ? (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)" }}>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Could not load data</div>
+            <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, color:"var(--neg)" }}>Could not load data</div>
             <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{error}</div>
             <button onClick={loadData} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Retry</button>
           </div>
         ) : renderError ? (
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)" }}>
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
+            <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
             <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
             <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Reload</button>
           </div>
@@ -337,7 +337,7 @@ const App = () => {
           <div className="view-enter" key={view}>
           {view === "inbox" && !loading && transactions.length === 0 && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)", textAlign:"center" }}>
-              <div style={{ fontFamily:"'Fraunces',serif", fontSize:22, color:"var(--ink)" }}>
+              <div style={{ fontFamily:"'Geist',sans-serif", fontSize:22, color:"var(--ink)" }}>
                 {totalTransactions > 0 ? `No ${inboxFilter === "all" ? "" : inboxFilter + " "}transactions found` : "Your inbox is quiet"}
               </div>
               <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:320 }}>
@@ -405,7 +405,7 @@ const App = () => {
       {showSeedModal && (
   <div style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
     <div style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
-      <div style={{ fontFamily:"'Fraunces',serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
+      <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
       <div style={{ fontSize:14, color:"var(--ink-3)", lineHeight:1.6, marginBottom:24 }}>
         We found existing transaction data from a previous setup. Import it into your account?
       </div>
@@ -433,7 +433,7 @@ const App = () => {
 
       {tweaksOn && (
         <div className="tweaks-panel">
-          <div style={{ fontFamily:"'Fraunces',serif", fontSize:14, fontWeight:500, marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{ fontFamily:"'Geist',sans-serif", fontSize:14, fontWeight:500, marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
             <Icon name="sparkle" size={12} stroke="var(--accent)"/> Tweaks
           </div>
           <div style={{ fontSize:10, textTransform:"uppercase", color:"var(--ink-3)", letterSpacing:"0.1em", marginBottom:6 }}>Theme</div>

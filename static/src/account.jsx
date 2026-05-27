@@ -6,9 +6,9 @@ const accountStyles = {
   inner: { padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) 80px", maxWidth: 920, margin: "0 auto" },
   header: { marginBottom: 20 },
   kicker: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
-  h1: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0" },
+  h1: { fontFamily: "'Geist', sans-serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0" },
   section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 16 },
-  sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
+  sectionTitle: { fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
   sectionSub: { color: "var(--ink-3)", fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, marginBottom: 18 },
   row: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, alignItems: "center", padding: "14px 0", borderBottom: "1px dashed var(--line)" },
   rowLast: { borderBottom: "none" },
@@ -144,9 +144,9 @@ const ProfileView = ({ transactions, account, setAccount }) => {
 
       <div style={accountStyles.section}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ width: 72, height: 72, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 26, fontWeight: 600, fontFamily: "'Fraunces', serif" }}>{initials}</div>
+          <div style={{ width: 72, height: 72, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 26, fontWeight: 600, fontFamily: "'Geist', sans-serif" }}>{initials}</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>{form.display_name || form.full_name || "Unnamed user"}</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>{form.display_name || form.full_name || "Unnamed user"}</div>
             <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 2 }}>{user.email}{form.location ? ` · ${form.location}` : ""}</div>
             <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 6, fontFamily: "'Geist Mono', monospace" }}>Member since {memberSince} · Role: <span style={{ color: "var(--accent)", fontWeight: 600 }}>{user.role || "member"}</span></div>
           </div>
@@ -165,7 +165,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
           ].map((k,i)=>(
             <div key={i} style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>{k.label}</div>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 400, marginTop: 4, color: k.color || "var(--ink)" }}>{k.value}</div>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 24, fontWeight: 400, marginTop: 4, color: k.color || "var(--ink)" }}>{k.value}</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{k.sub}</div>
             </div>
           ))}
@@ -232,7 +232,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
         <h3 style={accountStyles.sectionTitle}>Plan & billing</h3>
         <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "16px 18px", background: "var(--accent-soft)", borderRadius: 6, marginTop: 10, flexWrap: "wrap" }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, color: "var(--accent)" }}>Moneyflow Pro</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--accent)" }}>Moneyflow Pro</div>
             <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>Unlimited inbox parsing, multi-account Sankey, daily digest · ₹499/month</div>
           </div>
           <button style={accountStyles.btn}>Manage plan</button>
@@ -746,7 +746,7 @@ const AdminClassifySection = () => {
         <div style={{ marginTop: 16, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
             <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 12px", borderRadius: 5, fontSize: 13, fontWeight: 600, ...labelBadge(result.label) }}>{result.label.toUpperCase()}</span>
-            {result.amount != null && <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 400 }}>₹{result.amount.toLocaleString("en-IN")}</span>}
+            {result.amount != null && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 400 }}>₹{result.amount.toLocaleString("en-IN")}</span>}
             <span style={{ fontSize: 12, color: "var(--ink-3)" }}>conf: <span style={{ fontWeight: 600, color: confColor(result.confidence) }}>{(result.confidence * 100).toFixed(0)}%</span></span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
@@ -1063,7 +1063,7 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480 }}>
-        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>
           {isCreate ? `New ${RULE_TYPES[ruleType].label}` : `Edit ${RULE_TYPES[ruleType].label}`}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1700,7 +1700,7 @@ const RulesTab = ({ account, categories }) => {
       </>)}
       {!isOwner && (
         <div style={{ padding: "16px 20px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", marginTop: 8 }}>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 400, marginBottom: 4 }}>Advanced rules</div>
+          <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 400, marginBottom: 4 }}>Advanced rules</div>
           <div style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.5 }}>
             Pattern rules, merchant aliases, and email filter rules are available to workspace owners.
           </div>
@@ -2195,7 +2195,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       {showDeleteModal && (
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
             <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
               This permanently deletes all your transactions, categories, budgets, and Gmail connection. There is no undo.
             </div>

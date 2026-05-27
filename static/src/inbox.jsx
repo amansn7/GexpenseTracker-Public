@@ -1,974 +1,3 @@
-// Inbox view — Gmail-style transaction list + detail panel
-
-const inboxStyles = {
-  wrap: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 420px", gap: 0, height: "calc(100dvh - 72px)", minHeight: 0 },
-  wrapNoPanel: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "calc(100dvh - 72px)" },
-  list: { overflowY: "auto", borderRight: "1px solid var(--line)" },
-  toolbar: { display: "flex", alignItems: "center", gap: 4, padding: "10px 32px", borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--paper)", zIndex: 5, fontSize: 12, color: "var(--ink-3)" },
-  chip: { padding: "5px 12px", borderRadius: 20, border: "1px solid transparent", background: "transparent", fontSize: 12, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 500, cursor: "pointer", transition: "all 120ms ease", lineHeight: 1.2 },
-  chipHover: { background: "var(--paper-2)" },
-  chipActive: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)" },
-  chipDivider: { width: 1, height: 16, background: "var(--line)", margin: "0 4px", flexShrink: 0 },
-  chipCount: { opacity: 0.5, fontFamily: "'Geist Mono', monospace", fontSize: 11, fontVariantNumeric: "tabular-nums" },
-  chipIcon: { opacity: 0.7 },
-
-  dayLabel: { padding: "20px 32px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, background: "var(--paper)", position: "sticky", top: 41, zIndex: 3, display: "flex", alignItems: "baseline", gap: 12 },
-  dayTotal: { fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", textTransform: "none", letterSpacing: 0 },
-
-  row: { display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "13px 28px", borderBottom: "1px solid var(--line)", cursor: "pointer", transition: "background 120ms", position: "relative" },
-  rowSelected: { background: "var(--paper-2)" },
-  rowUnread: { background: "var(--card)" },
-
-  merchantLogo: { width: 26, height: 26, borderRadius: 6, background: "var(--paper-2)", display: "grid", placeItems: "center", fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 11, color: "var(--ink-2)", border: "1px solid var(--line)" },
-  merchantName: { fontWeight: 600, color: "var(--ink)", fontSize: 13 },
-  merchantNameUnread: { fontWeight: 700 },
-  subject: { color: "var(--ink-3)", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-
-  amount: { fontFamily: "'Geist Mono', monospace", fontVariantNumeric: "tabular-nums", fontWeight: 600, fontSize: 14, textAlign: "right" },
-  amountPos: { color: "var(--pos)" },
-  amountNeg: { color: "var(--ink)" },
-
-  catChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 500, whiteSpace: "nowrap" },
-  tagDot: { width: 6, height: 6, borderRadius: 999 },
-  tagLabel: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 },
-
-  confBar: { height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden", width: 56 },
-  confFill: { height: "100%", background: "var(--pos)", borderRadius: 2, transition: "transform 200ms", transformOrigin: "left" },
-  confLow: { background: "var(--accent)" },
-  time: { fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" },
-
-  /* Detail panel */
-  panel: { overflowY: "auto", padding: "28px 28px 0", background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" },
-  panelBody: { flex: 1, paddingBottom: 16 },
-  panelFooter: { position: "sticky", bottom: 0, background: "var(--card)", borderTop: "1px solid var(--line)", padding: "12px 0 16px", marginTop: "auto" },
-  panelHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 },
-  bigAmount: { fontFamily: "'Fraunces', serif", fontSize: 54, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1, margin: "8px 0 4px" },
-  panelSection: { padding: "16px 0", borderBottom: "1px dashed var(--line)" },
-  field: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", fontSize: 13 },
-  fieldLabel: { color: "var(--ink-3)", fontSize: 12 },
-  fieldVal: { color: "var(--ink)", fontWeight: 500 },
-};
-
-const fmtMoney = (n, showSign = false) => {
-  const sign = n > 0 ? "+" : n < 0 ? "−" : "";
-  const abs = Math.abs(n).toLocaleString("en-IN");
-  return (showSign ? sign : "") + "₹" + abs;
-};
-
-const groupByDate = (txs) => {
-  const groups = {};
-  for (const t of txs) {
-    if (!groups[t.date]) groups[t.date] = [];
-    groups[t.date].push(t);
-  }
-  return Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0]));
-};
-
-const dateLabel = (isoDate) => {
-  if (!isoDate) return "Unknown date";
-  const d = new Date(isoDate + "T00:00:00"); // local timezone, not UTC
-  if (isNaN(d.getTime())) return "Unknown date";
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.round((today - d) / (24*60*60*1000));
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return d.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
-};
-
-const MerchantLogo = ({ merchant, size = 26 }) => {
-  const letters = merchant.replace(/[^A-Za-z]/g,"").slice(0,2).toUpperCase();
-  // deterministic bg based on merchant
-  const hash = [...merchant].reduce((a,c)=>a+c.charCodeAt(0),0);
-  const bgs = ["var(--cat-food)","var(--cat-rent)","var(--cat-shop)","var(--cat-travel)","var(--cat-sub)","var(--cat-util)","var(--cat-inc)"];
-  const inks = ["var(--cat-food-ink)","var(--cat-rent-ink)","var(--cat-shop-ink)","var(--cat-travel-ink)","var(--cat-sub-ink)","var(--cat-util-ink)","var(--cat-inc-ink)"];
-  const i = hash % bgs.length;
-  return <div style={{ ...inboxStyles.merchantLogo, width: size, height: size, background: bgs[i], color: inks[i], borderColor: "transparent" }}>{letters}</div>;
-};
-
-const CategoryChip = ({ cat, onClick, editable }) => {
-  const c = catDisplay(cat);
-  return (
-    <span style={{ ...inboxStyles.catChip, background: c.bg, color: c.ink, cursor: editable ? "pointer" : "default" }} onClick={onClick}>
-      <span style={{ width: 5, height: 5, borderRadius: 999, background: c.ink, opacity: 0.7 }}/>
-      {c.label}
-      {editable && <Icon name="arrow-d" size={10} />}
-    </span>
-  );
-};
-
-const Confidence = ({ value }) => {
-  const low = value < 0.7;
-  const pct = Math.round(value * 100);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }} title={`AI confidence ${pct}%`}>
-      <div style={inboxStyles.confBar}>
-        <div style={{ ...inboxStyles.confFill, width: `${pct}%`, ...(low ? inboxStyles.confLow : {}) }} />
-      </div>
-      <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: low ? "var(--accent)" : "var(--ink-4)", minWidth: 26 }}>{pct}%</span>
-    </div>
-  );
-};
-
-const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) => {
-  const tag = TAGS[tx.tag];
-  const isIncome = tx.amount > 0;
-  const [hovered, setHovered] = React.useState(false);
-  const { isMobile } = useViewport();
-  const rowStyle = isMobile
-    ? { ...inboxStyles.row, gridTemplateColumns: "24px 30px minmax(0, 1fr) auto", gap: 10, padding: "13px 14px", alignItems: "start" }
-    : inboxStyles.row;
-  return (
-    <div
-      onClick={onRowClick}
-      className="anim-row-spring"
-      style={{ ...rowStyle, ...((selected || hovered) ? inboxStyles.rowSelected : {}), ...(!selected && !hovered && !tx.read ? inboxStyles.rowUnread : {}) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div
-        style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: 20, justifyContent: "center" }}
-        onClick={e => { e.stopPropagation(); onCheckbox(); }}
-        title="Select"
-      >
-        {selectMode ? (
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={e => { e.stopPropagation(); onCheckbox(); }}
-            onClick={e => e.stopPropagation()}
-            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)", pointerEvents: "none" }}
-          />
-        ) : hovered ? (
-          <span style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid var(--ink-4)", display: "inline-block", boxSizing: "border-box" }}/>
-        ) : (
-          <>
-            {!tx.read && <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
-            {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
-          </>
-        )}
-      </div>
-      {!isMobile && <div style={{ display: "flex", alignItems: "center" }}>
-        <span style={{ ...inboxStyles.tagDot, background: tag.dot }}/>
-      </div>}
-      <MerchantLogo merchant={tx.merchant}/>
-      <div style={{ minWidth: 0, display: "flex", alignItems: isMobile ? "flex-start" : "baseline", gap: isMobile ? 5 : 12, flexDirection: isMobile ? "column" : "row" }}>
-        <span style={{ ...inboxStyles.merchantName, ...(!tx.read ? inboxStyles.merchantNameUnread : {}), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{tx.merchant}</span>
-        <span style={inboxStyles.subject}>{tx.subject}</span>
-        {isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }} onClick={(e)=>e.stopPropagation()}>
-          <CategoryChip cat={tx.cat} editable onClick={onEditCat} />
-          <span style={inboxStyles.time}>{tx.time}</span>
-        </div>}
-      </div>
-      {!isMobile && <div onClick={(e)=>{e.stopPropagation(); onEditCat&&onEditCat();}}>
-        <CategoryChip cat={tx.cat} editable />
-      </div>}
-      {!isMobile && <Confidence value={tx.conf} />}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "flex-end", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
-        {!isMobile && <span style={inboxStyles.time}>{tx.time}</span>}
-        <span style={{ ...inboxStyles.amount, ...(isIncome ? inboxStyles.amountPos : inboxStyles.amountNeg) }}>
-          {tx.amount === 0 ? "—" : `${isIncome ? "+" : "−"}₹${Math.abs(tx.amount).toLocaleString("en-IN")}`}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-const CategoryPicker = ({ current, onPick, onClose }) => {
-  const { isMobile } = useViewport();
-
-  const groups = CategoryService.grouped();
-
-  return (
-  <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
-      <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
-        <Icon name="sparkle" size={12} stroke="var(--accent)"/> Recategorize — teaches the model
-      </div>
-      {groups.map(g => (
-        <div key={g.key}>
-          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", padding: "6px 10px 2px", fontWeight: 500, borderTop: g.key !== "essentials" ? "1px solid var(--line)" : "none", marginTop: g.key !== "essentials" ? 4 : 0 }}>{g.label}</div>
-          {g.categories.map(item => (
-            <button key={item.key} onClick={()=>onPick(item.key)} className="fade-in hover-lift" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 6, border: "none", background: current===item.key ? "var(--paper-2)" : "transparent", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)", fontSize: 13 }}>
-              <span style={{ width: 14, height: 14, borderRadius: 4, background: item.bg, border: `1px solid ${item.ink}22`, flexShrink: 0 }} />
-              <span style={{ fontWeight: 500 }}>{item.label}</span>
-              {current===item.key && <Icon name="check" size={14} stroke="var(--accent)" style={{ marginLeft: "auto" }}/>}
-            </button>
-          ))}
-        </div>
-      ))}
-    </div>
-  </div>
-);
-};
-
-const DetailPanel = ({ tx, onClose, onUpdate }) => {
-  const [editingAmt, setEditingAmt] = React.useState(false);
-  const [amtDraft, setAmtDraft] = React.useState(Math.abs(tx.amount));
-  const [note, setNote] = React.useState(tx.note || "");
-  const [reclass, setReclass] = React.useState("idle"); // idle | previewing | preview | saving | done | error
-  const [reclassResult, setReclassResult] = React.useState(null);
-  const isIncome = tx.amount > 0;
-  const sign = isIncome ? "+" : "−";
-  const { isMobile } = useViewport();
-
-  const [fetchedBody, setFetchedBody] = React.useState(null);
-  const [reclassMethod, setReclassMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
-
-  React.useEffect(() => {
-    setAmtDraft(Math.abs(tx.amount));
-    setNote(tx.note || "");
-    setEditingAmt(false);
-    setReclass("idle");
-    setReclassResult(null);
-    setFetchedBody(null);
-  }, [tx.id]);
-
-  const handleFetchBody = async () => {
-    try {
-      const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
-      if (r?.body_text) setFetchedBody(r.body_text);
-      return r;
-    } catch (e) {
-      console.warn("fetch body failed, proceeding without body", e);
-      return null;
-    }
-  };
-
-  const switchMethod = (m) => {
-    setReclassMethod(m);
-    setReclass("idle");
-    setReclassResult(null);
-    localStorage.setItem("_reclass_method", m);
-  };
-
-  const handlePreview = async () => {
-    setReclass("previewing");
-    try {
-      await handleFetchBody();
-      const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview?method=${reclassMethod}`);
-      setReclassResult(result);
-      setReclass("preview");
-    } catch (e) {
-      setReclass("error");
-    }
-  };
-
-  const handleConfirm = async () => {
-    setReclass("saving");
-    try {
-      await handleFetchBody();
-      const result = await API.post(`/api/transactions/${tx.id}/reclassify?method=${reclassMethod}`);
-      setReclassResult(result);
-      setReclass("done");
-      // Map API _fmt response → UI tx fields via normCat, then update parent (no extra PATCH)
-      const isIgnore = result.label === "ignore";
-      const isIncome = result.label === "income";
-      const cat = normCat(result.category, isIncome);
-      const isSub = cat === "sub";
-      onUpdate({
-        _skipApi: true,
-        amount:   isIgnore ? 0 : isIncome ? (result.amount || 0) : -(result.amount || 0),
-        cat,
-        tag:      isIgnore ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense",
-        conf:     result.confidence ?? tx.conf,
-        merchant: result.merchant || tx.merchant,
-      });
-      if (result.learned_rule) {
-        showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {result.learned_rule.domain} → {result.learned_rule.label} / {result.learned_rule.category}</span>);
-      }
-    } catch (e) {
-      setReclass("error");
-    }
-  };
-
-  const [saving, setSaving] = React.useState(false);
-
-  const saveAmt = () => {
-    const n = parseFloat(amtDraft) || 0;
-    setSaving(true);
-    onUpdate({ amount: isIncome ? n : -n });
-    setEditingAmt(false);
-    setTimeout(() => setSaving(false), 600);
-  };
-
-  return (
-    <aside style={{ ...inboxStyles.panel, ...(isMobile ? { position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none" } : {}) }} className="slide-in-right" key={tx.id}>
-      <div style={inboxStyles.panelBody} className="view-enter">
-      <div style={inboxStyles.panelHeader}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <MerchantLogo merchant={tx.merchant} size={36}/>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{tx.merchant}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{tx.domain}</div>
-          </div>
-        </div>
-        <button onClick={onClose} className="focus-ring" style={{ border: "1px solid var(--line)", background: "var(--paper)", padding: 6, borderRadius: 6, color: "var(--ink-3)", cursor:"pointer" }}>
-          <Icon name="x" size={14}/>
-        </button>
-      </div>
-
-      <div style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>{isIncome ? "Money in" : "Money out"}</div>
-        {editingAmt ? (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
-            <span className="serif" style={{ fontSize: isMobile ? 40 : 54, color: isIncome ? "var(--pos)" : "var(--ink)", lineHeight: 1 }}>{sign}₹</span>
-            <input
-              autoFocus
-              value={amtDraft}
-              onChange={(e)=>setAmtDraft(e.target.value.replace(/[^\d.]/g,""))}
-              onBlur={saveAmt}
-              onKeyDown={(e)=>{ if(e.key==="Enter") saveAmt(); if(e.key==="Escape") { setAmtDraft(Math.abs(tx.amount)); setEditingAmt(false); } }}
-              className="serif focus-ring"
-              style={{ fontSize: isMobile ? 40 : 54, fontWeight: 400, letterSpacing: "-0.03em", lineHeight: 1, width: isMobile ? 160 : 240, border: "none", background: "transparent", color: isIncome ? "var(--pos)" : "var(--ink)", outline: "none", borderBottom: "2px solid var(--accent)", padding: 0 }}
-            />
-          </div>
-        ) : (
-          <div onClick={()=>setEditingAmt(true)} className="hover-border-bottom" style={{ cursor: "text", display: "inline-block" }}>
-            <div style={{ ...inboxStyles.bigAmount, ...(isMobile ? { fontSize: 40 } : {}), color: isIncome ? "var(--pos)" : "var(--ink)" }}>
-              {sign}₹{Math.abs(tx.amount).toLocaleString("en-IN")}
-            </div>
-          </div>
-        )}
-        <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-          {dateLabel(tx.date)} · {tx.time}
-          {saving && (
-            <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
-              <span className="spinner-xs" />
-              Saving…
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={inboxStyles.panelSection}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--ink-3)", marginBottom: 10, padding: "10px 12px", background: tx.conf < 0.7 ? "var(--accent-soft)" : "var(--paper-2)", borderRadius: 6 }}>
-          <Icon name="sparkle" size={14} stroke={tx.conf < 0.7 ? "var(--accent)" : "var(--ink-3)"}/>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "var(--ink)", fontWeight: 500, fontSize: 12 }}>
-              {tx.conf < 0.7 ? "Low confidence — review suggested" : "Auto-parsed by Moneyflow AI"}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-              {tx.conf >= 0.9 ? "Merchant, amount and category all matched high-signal heuristics." : tx.conf >= 0.7 ? "Some fields inferred — tap to verify." : "New or unusual merchant. Please confirm category."}
-            </div>
-          </div>
-          <Confidence value={tx.conf} />
-        </div>
-      </div>
-
-      <div style={inboxStyles.panelSection}>
-        <div style={inboxStyles.field}>
-          <span style={inboxStyles.fieldLabel}>Category</span>
-          <CategoryChip cat={tx.cat} editable onClick={()=>onUpdate({ _openPicker: true })} />
-        </div>
-        <div style={inboxStyles.field}>
-          <span style={inboxStyles.fieldLabel}>Type</span>
-          <span
-            onClick={() => {
-              const order = ["expense", "income", "ignore"];
-              const idx = order.indexOf(tx.tag);
-              onUpdate({ tag: order[(idx + 1) % order.length] });
-            }}
-            style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
-            title="Click to cycle: expense → income → ignore"
-          >
-            <span style={{ ...inboxStyles.tagDot, background: TAGS[tx.tag].dot }}/>
-            <span style={inboxStyles.fieldVal}>{TAGS[tx.tag].label}</span>
-          </span>
-        </div>
-        <div style={inboxStyles.field}>
-          <span style={inboxStyles.fieldLabel}>Source</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-3)", fontSize: 12 }}>
-            <Icon name="mail" size={12}/>
-            {tx.domain}
-          </span>
-        </div>
-        {tx.method && (
-          <div style={inboxStyles.field}>
-            <span style={inboxStyles.fieldLabel}>Method</span>
-            <span style={{ 
-              display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 4, 
-              fontSize: 11, fontWeight: 600,
-              background: tx.method === "llm" ? "var(--accent-soft)" : "var(--paper-2)",
-              color: tx.method === "llm" ? "var(--accent)" : "var(--ink-3)",
-              textTransform: "uppercase",
-            }}>
-              {tx.method === "llm" && <Icon name="sparkle" size={10} stroke="var(--accent)"/>}
-              {tx.method === "rule" && <Icon name="check" size={10} stroke="var(--ink-3)"/>}
-              {tx.method}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div style={inboxStyles.panelSection}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email excerpt</div>
-          <button onClick={handleFetchBody} style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}>
-            Fetch body
-          </button>
-        </div>
-        <div style={{ padding: 14, background: "var(--paper-2)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", lineHeight: 1.5, border: "1px solid var(--line)" }}>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, color: "var(--ink-4)", marginBottom: 6 }}>{tx.subject}</div>
-          {fetchedBody ? (
-            <>
-              <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                <Icon name="check" size={10} stroke="var(--pos)"/> Body refreshed ({fetchedBody.length} chars)
-              </div>
-              <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
-            </>
-          ) : (
-            tx.snippet || <span style={{ color: "var(--ink-4)", fontStyle: "italic" }}>No preview available</span>
-          )}
-        </div>
-      </div>
-
-      <div style={inboxStyles.panelSection}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Note</div>
-          {saving && (
-            <span style={{ fontSize: 10, color: "var(--ink-4)", display: "flex", alignItems: "center", gap: 4 }}>
-              <span className="spinner-xs" />
-              Saving…
-            </span>
-          )}
-        </div>
-        <textarea
-          value={note}
-          onChange={(e)=>setNote(e.target.value)}
-          onBlur={()=>{ setSaving(true); onUpdate({ note }); setTimeout(()=>setSaving(false), 600); }}
-          placeholder="Add context for yourself…"
-          className="focus-ring"
-          style={{ width: "100%", minHeight: 60, border: "1px solid var(--line)", borderRadius: 6, padding: 10, background: "var(--paper)", color: "var(--ink)", fontSize: 12, resize: "vertical", outline: "none", fontFamily: "inherit" }}
-        />
-      </div>
-
-      </div>{/* end panelBody */}
-
-      <div style={inboxStyles.panelFooter}>
-        {reclass === "preview" && reclassResult && (
-          <div className="fade-in" style={{ marginBottom: 10, padding: 14, background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", fontSize: 12 }}>
-            <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon name={reclassMethod === "rules" ? "check" : "sparkle"} size={13} stroke="var(--accent)"/> {reclassMethod === "rules" ? "Rules found" : "AI found"} — does this look right?
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
-              {[
-                ["Label",    reclassResult.label || "—"],
-                ["Amount",   reclassResult.amount != null ? `₹${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "—"],
-                ["Merchant", reclassResult.merchant || "—"],
-                ["Category", reclassResult.category || "—"],
-                ["Confidence", `${Math.round((reclassResult.confidence ?? 0) * 100)}%`],
-                ["Date",     reclassResult.txn_date || "—"],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{k}</div>
-                  <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "8px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Discard</button>
-              <button onClick={handleConfirm} style={{ flex: 2, padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply changes</button>
-            </div>
-          </div>
-        )}
-
-        {reclass === "saving" && (
-          <div style={{ marginBottom: 10, padding: 10, background: "var(--paper-2)", borderRadius: 8, fontSize: 12, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="spinner-sm" />
-            Saving…
-          </div>
-        )}
-
-        {reclass === "done" && reclassResult && (
-          <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--pos-soft)", borderRadius: 8, border: "1px solid var(--pos)", fontSize: 12, color: "var(--pos)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Icon name="check" size={14} stroke="var(--pos)"/>
-            Saved · {reclassResult.label} · {reclassResult.amount != null ? `₹${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "no amount"} · {Math.round((reclassResult.confidence ?? 0) * 100)}% confidence
-          </div>
-        )}
-
-        {reclass === "error" && (
-          <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--neg-soft)", borderRadius: 8, border: "1px solid var(--neg)", fontSize: 12, color: "var(--neg)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Icon name="x" size={14} stroke="var(--neg)"/> Recategorization failed — check server logs
-          </div>
-        )}
-
-        <div onClick={() => switchMethod(reclassMethod === "llm" ? "rules" : "llm")}
-          style={{ position: "relative", display: "flex", background: "var(--paper-2)", borderRadius: 6, padding: 2, cursor: "pointer", marginBottom: 8 }}>
-          <div style={{
-            position: "absolute", top: 2, left: 2, width: "50%", height: "calc(100% - 4px)",
-            background: "var(--ink)", borderRadius: 4, transition: "transform 200ms var(--ease-out-smooth)",
-            transform: `translateX(${reclassMethod === "llm" ? "0%" : "100%"})`,
-          }} />
-          <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "llm" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>LLM</div>
-          <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "rules" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>Rules</div>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
-          <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
-            {tx.flag ? "Flagged" : "Flag"}
-          </button>
-          <button
-            className="focus-ring"
-            onClick={()=>{ if(reclass==="idle"||reclass==="done"||reclass==="error") handlePreview(); }}
-            disabled={reclass==="previewing"||reclass==="saving"||reclass==="preview"}
-            style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "var(--paper)", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
-            <Icon name={reclassMethod === "rules" ? "check" : "sparkle"} size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
-            {reclass === "previewing" ? "Classifying…" : "Recategorize"}
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
-};
-
-const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
-  const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
-  const [fetchedBody, setFetchedBody] = React.useState(null);
-  const [fetching, setFetching] = React.useState(false);
-
-  const handleFetchBody = async () => {
-    if (fetching) return;
-    setFetching(true);
-    try {
-      const r = await API.post(`/api/transactions/${tx.id}/fetch-body`);
-      if (r?.body_text) setFetchedBody(r.body_text);
-    } catch (_) {}
-    setFetching(false);
-  };
-
-  return (
-    <div style={{ flex: 1, borderRadius: 8, border: `${isPrimary ? "2px" : "1px"} solid ${isPrimary ? "var(--accent)" : "var(--line)"}`, background: isPrimary ? "var(--card)" : "var(--paper-2)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid var(--line)" }}>
-        {isPrimary && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 8 }}>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }}/>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Suggested primary</span>
-          </div>
-        )}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-          <MerchantLogo merchant={tx.merchant || "?"} size={30}/>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.merchant || "Unknown"}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 1 }}>{tx.email?.sender_domain || ""}</div>
-          </div>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--neg)", flexShrink: 0 }}>{fmtAmt(tx.amount)}</div>
-        </div>
-      </div>
-
-      <div style={{ padding: "10px 14px", flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-        {tx.txn_date && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Date</span>
-            <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>{tx.txn_date}</span>
-          </div>
-        )}
-        {tx.email?.subject && (
-          <div style={{ fontSize: 11, color: "var(--ink-4)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.email.subject}</div>
-        )}
-        {(tx.email?.body_snippet || fetchedBody) && (
-          <div style={{ marginTop: 2, padding: "8px 10px", background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)" }}>
-            {fetchedBody ? (
-              <>
-                <div style={{ fontSize: 10, color: "var(--pos)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                  <Icon name="check" size={10} stroke="var(--pos)"/> Body loaded
-                </div>
-                <div style={{ fontSize: 11, color: "var(--ink-2)", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 160, overflowY: "auto" }}>{fetchedBody.slice(0, 2000)}{fetchedBody.length > 2000 ? "…" : ""}</div>
-              </>
-            ) : (
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                <div style={{ fontSize: 11, color: "var(--ink-4)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{tx.email?.body_snippet}</div>
-                <button onClick={handleFetchBody} disabled={fetching} className="focus-ring" style={{ flexShrink: 0, fontSize: 10, padding: "2px 7px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
-                  {fetching ? "…" : "Full"}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div style={{ padding: "0 14px 12px" }}>
-        <button
-          onClick={async () => { if (resolving) return; await onResolve(pairId, "confirmed", tx.id); }}
-          disabled={resolving}
-          className="focus-ring"
-          style={{ width: "100%", padding: "7px 0", borderRadius: 6, border: isPrimary ? "none" : "1px solid var(--line)", background: isPrimary ? "var(--ink)" : "transparent", color: isPrimary ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 600, cursor: resolving ? "default" : "pointer", opacity: resolving ? 0.5 : 1 }}>
-          Keep this
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const DuplicatePairCard = ({ pair, onResolve, isNew }) => {
-  const [resolving, setResolving] = React.useState(false);
-  const { isMobile } = useViewport();
-  const confidence = pair.confidence || 0;
-  const reasonLabel = pair.rule_source === "domain_pair"
-    ? "Known sender pair"
-    : pair.rule_source === "investment_flow"
-    ? "Investment flow — order + confirmation"
-    : pair.rule_source === "merchant_alias"
-    ? "Same merchant, different domain"
-    : pair.rule_source === "same_domain_exact"
-    ? "Same sender, same amount"
-    : "Same amount, same date window";
-  const wrap = async (...args) => { setResolving(true); await onResolve(...args); setResolving(false); };
-  return (
-    <div className="fade-in" style={{ padding: isMobile ? "16px 14px" : "18px 24px", borderBottom: "1px solid var(--line)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>{reasonLabel}{isNew && <span style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", background: "var(--accent)", color: "white", borderRadius: 3, padding: "1px 5px 1px 5px", lineHeight: "14px" }}>New</span>}</span>
-        {confidence > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <div style={{ width: 44, height: 3, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${Math.round(confidence * 100)}%`, background: confidence >= 0.7 ? "var(--pos)" : "var(--accent)", borderRadius: 2 }}/>
-            </div>
-            <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{Math.round(confidence * 100)}%</span>
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
-        <TxCard tx={pair.primary} isPrimary resolving={resolving} onResolve={wrap} pairId={pair.id} />
-        <TxCard tx={pair.duplicate} isPrimary={false} resolving={resolving} onResolve={wrap} pairId={pair.id} />
-      </div>
-      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={async () => { if (resolving) return; setResolving(true); await onResolve(pair.id, "dismissed", pair.primary.id); setResolving(false); }}
-          disabled={resolving}
-          className="focus-ring"
-          style={{ padding: "6px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 12, cursor: resolving ? "default" : "pointer" }}>
-          Not a duplicate
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const IncomeRow = ({ tx, onUpdate }) => {
-  const [toggling, setToggling] = React.useState(false);
-  const { isMobile } = useViewport();
-  const isPaid = tx.status === "confirmed";
-  const monthLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" }) : "—";
-  const dateLabel = tx.date ? new Date(tx.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—";
-
-  const togglePaid = async () => {
-    if (toggling) return;
-    setToggling(true);
-    const newStatus = isPaid ? "needs_review" : "confirmed";
-    onUpdate(tx.id, { status: newStatus, _skipApi: true });
-    try {
-      await API.patch(`/api/transactions/${tx.id}`, { status: newStatus });
-    } catch (_) {
-      onUpdate(tx.id, { status: tx.status, _skipApi: true });
-    }
-    setToggling(false);
-  };
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
-      <div style={{ display: "flex", justifyContent: "center" }}>
-        <input type="checkbox" checked={isPaid} onChange={togglePaid} disabled={toggling}
-          style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--pos)" }}/>
-      </div>
-      <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
-        <MerchantLogo merchant={tx.merchant} size={22}/>
-        <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.merchant}</span>
-      </div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600, fontSize: 14, color: "var(--pos)", textAlign: "right" }}>
-        +₹{tx.amount.toLocaleString("en-IN")}
-      </div>
-      {!isMobile && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dateLabel}</div>}
-      {!isMobile && <div><CategoryChip cat={tx.cat}/></div>}
-      {!isMobile && <div style={{ fontSize: 12, color: "var(--ink-4)" }}>{monthLabel}</div>}
-    </div>
-  );
-};
-
-const IncomeTableView = ({ transactions, onUpdate }) => {
-  const { isMobile } = useViewport();
-  if (transactions.length === 0) return (
-    <div style={{ padding: "40px 32px", color: "var(--ink-3)", fontSize: 13 }}>No income transactions found for this range.</div>
-  );
-
-  const grouped = {};
-  for (const t of transactions) {
-    const key = t.date ? t.date.slice(0, 7) : "unknown";
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(t);
-  }
-  const monthEntries = Object.entries(grouped).sort((a, b) => b[0].localeCompare(a[0]));
-
-  return (
-    <div style={{ padding: isMobile ? "0 14px 24px" : "0 32px 32px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "32px minmax(0,1fr) 130px 90px 150px 110px", gap: 12, padding: "12px 0 8px", borderBottom: "2px solid var(--line)", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, position: "sticky", top: 41, background: "var(--paper)", zIndex: 4 }}>
-        <span title="Received"><Icon name="check" size={10} stroke="var(--ink-4)"/></span>
-        <span>Source</span>
-        <span style={{ textAlign: "right" }}>Amount</span>
-        {!isMobile && <span>Date</span>}
-        {!isMobile && <span>Category</span>}
-        {!isMobile && <span>Month</span>}
-      </div>
-      {monthEntries.map(([monthKey, txs]) => {
-        const monthTotal = txs.reduce((a, t) => a + t.amount, 0);
-        const monthLabel = new Date(monthKey + "-01T00:00:00").toLocaleString("en-US", { month: "long", year: "numeric" });
-        return (
-          <div key={monthKey}>
-            <div style={{ padding: "14px 0 6px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-3)", fontWeight: 600 }}>{monthLabel}</span>
-              <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--pos)", fontWeight: 600 }}>+₹{monthTotal.toLocaleString("en-IN")}</span>
-            </div>
-            {txs.map(tx => <IncomeRow key={tx.id} tx={tx} onUpdate={onUpdate}/>)}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const _looksLikeTx = (email) => {
-  const text = `${email.subject || ""} ${email.body_snippet || ""}`;
-  return /Rs\.?\s*[\d,]+|INR\s*[\d,]+|₹\s*[\d,]+|debited|credited|spent|purchased?|paid|refund|cashback|received.*(?:payment|amount|rupees)/i.test(text);
-};
-
-const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFocus, onToggleSelect, previewId, onTogglePreview }) => {
-  const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
-  const rowRef = React.useRef(null);
-  const [hovered, setHovered] = React.useState(false);
-
-  React.useEffect(() => {
-    if (isFocused && rowRef.current) rowRef.current.focus();
-  }, [isFocused]);
-
-  const confidenceDots = React.useMemo(() => {
-    if (email.confidence == null) return null;
-    const dots = email.confidence >= 0.8 ? 3 : email.confidence >= 0.5 ? 2 : 1;
-    return (
-      <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }} title={`${Math.round(email.confidence * 100)}% confidence`}>
-        {[1, 2, 3].map(i => (
-          <span key={i} style={{
-            width: 5, height: 5, borderRadius: "50%",
-            background: i <= dots ? "var(--accent)" : "var(--line)",
-            display: "inline-block",
-          }}/>
-        ))}
-      </span>
-    );
-  }, [email.confidence]);
-
-  return (
-    <div ref={rowRef} tabIndex={0}
-      onClick={() => { onFocus(); onTogglePreview(); }}
-      onKeyDown={e => { if (e.key === "Enter") { onFocus(); onTogglePreview(); } }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px",
-        borderBottom: "1px solid var(--line)", cursor: "pointer",
-        background: isSelected ? "var(--paper-2)" : hovered ? "var(--paper-2)" : "transparent",
-        borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
-        transition: "background 80ms ease, border-left-color 120ms ease",
-      }}>
-      <input type="checkbox" checked={isSelected} onChange={e => { e.stopPropagation(); onToggleSelect(); }} onClick={e => e.stopPropagation()}
-        style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
-      <span style={{ fontSize: 10, fontWeight: 600, color: looksLikeTx ? "var(--amber)" : "var(--ink-4)", background: looksLikeTx ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--paper-2)", border: `1px solid ${looksLikeTx ? "color-mix(in srgb, var(--amber) 40%, transparent)" : "var(--line)"}`, borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.03em", flexShrink: 0 }}>
-        {looksLikeTx ? "Tx" : "Noise"}
-      </span>
-      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email.subject || "(no subject)"}</span>
-      <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", flexShrink: 0, marginRight: 4 }}>{email.sender_domain || ""}</span>
-      {confidenceDots}
-      <span style={{ color: "var(--ink-4)", display: "flex", marginLeft: 2 }}>
-        <Icon name="arrow-r" size={12} stroke="currentColor" />
-      </span>
-    </div>
-  );
-};
-
-const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: forceCollapsed, selectedIds, onToggleSelect, onSelectAll, onClearSelect, previewId, onTogglePreview, focusIdx, idxMap }) => {
-  const [collapsed, setCollapsed] = React.useState(!!forceCollapsed);
-  const [busy, setBusy] = React.useState(false);
-  const [confirmDiscard, setConfirmDiscard] = React.useState(false);
-
-  React.useEffect(() => { setCollapsed(!!forceCollapsed); }, [forceCollapsed]);
-
-  const handleDiscardAll = async () => {
-    setBusy(true);
-    for (const e of emails) {
-      try { await API.post(`/api/emails/${e.id}/review`, { action: "discard" }); } catch (_) {}
-      onDiscard(e.id);
-    }
-    setBusy(false);
-    setConfirmDiscard(false);
-  };
-
-  const handleKeepAll = async () => {
-    setBusy(true);
-    for (const e of emails) {
-      try { await API.post(`/api/emails/${e.id}/review`, { action: "keep" }); } catch (_) {}
-      onKeep(e.id);
-    }
-    setBusy(false);
-  };
-
-  const allSelected = emails.every(e => selectedIds?.has(e.id));
-  const emailIds = emails.map(e => e.id);
-
-  return (
-    <div style={{ border: "1px solid var(--line)", borderRadius: 12, marginBottom: 10, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "var(--paper-2)", borderBottom: collapsed ? "none" : "1px solid var(--line)", cursor: "pointer", userSelect: "none" }} onClick={() => setCollapsed(!collapsed)}>
-        <span style={{ fontSize: 10, color: "var(--ink-4)", transition: "transform 120ms", transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}>▼</span>
-        <input type="checkbox" checked={allSelected} onChange={e => { e.stopPropagation(); allSelected ? onClearSelect(emailIds) : onSelectAll(emailIds); }} onClick={e => e.stopPropagation()}
-          style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", flex: 1, fontFamily: "'Geist Mono', monospace" }}>{domain}</span>
-        <span style={{ fontSize: 10, color: "var(--ink-4)", padding: "1px 6px", borderRadius: 6, background: "var(--card)" }}>{emails.length}</span>
-        {(() => { const c = [...selectedIds].filter(id => emails.some(e => e.id === id)).length; if (c === 0) return null; return <span style={{ fontSize: 10, color: "var(--accent)", fontFamily: "'Geist Mono', monospace", fontWeight: 600 }}>({c})</span>; })()}
-        <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 6, background: hasTxs ? "var(--accent-soft)" : "var(--paper-2)", color: hasTxs ? "var(--accent)" : "var(--ink-4)" }}>{hasTxs ? `${emails.filter(e => _looksLikeTx(e)).length} tx` : "noise"}</span>
-        <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
-          <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--accent)", color: "var(--paper)", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
-          {!confirmDiscard ? (
-            <button onClick={() => setConfirmDiscard(true)} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
-          ) : (
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              {hasTxs ? (
-                <span style={{ fontSize: 10, color: "var(--neg)", maxWidth: 180, lineHeight: 1.3 }}>{emails.filter(e => _looksLikeTx(e)).length} look like transactions. Discard anyway?</span>
-              ) : (
-                <span style={{ fontSize: 10, color: "var(--ink-3)", maxWidth: 180, lineHeight: 1.3 }}>Discard {emails.length} email{emails.length > 1 ? "s" : ""}?</span>
-              )}
-              <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 6, background: "var(--neg)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>Yes</button>
-              <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
-            </div>
-          )}
-        </div>
-      </div>
-      {!collapsed && emails.map((e, i) => {
-        const globalIdx = idxMap?.[e.id] ?? -1;
-        return (
-          <ReviewEmailRow key={e.id} email={e}
-            onKeep={onKeep} onDiscard={onDiscard}
-            isFocused={globalIdx === focusIdx}
-            isSelected={selectedIds?.has(e.id) || false}
-            onFocus={() => {}}
-            onToggleSelect={() => onToggleSelect(e.id)}
-            previewId={previewId}
-            onTogglePreview={() => onTogglePreview(e.id)}
-          />
-        );
-      })}
-    </div>
-  );
-};
-
-const FilterChip = ({ label, icon, count, active, onClick }) => {
-  const [hovered, setHovered] = React.useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        ...inboxStyles.chip,
-        ...(active ? inboxStyles.chipActive : {}),
-        ...(!active && hovered ? inboxStyles.chipHover : {}),
-      }}
-    >
-      {icon && <Icon name={icon} size={13} stroke={active ? "currentColor" : "var(--ink-4)"} style={inboxStyles.chipIcon} />}
-      {label}
-      {count != null && <span style={inboxStyles.chipCount}>{count}</span>}
-    </button>
-  );
-};
-
-const ReviewDetailPanel = ({ email, onKeep, onDiscard, onClose }) => {
-  const [loading, setLoading] = React.useState(false);
-  const [fullBody, setFullBody] = React.useState(null);
-  const [fetchingBody, setFetchingBody] = React.useState(false);
-  const [learned, setLearned] = React.useState(null);
-
-  const handleAction = async (action) => {
-    setLoading(true);
-    setLearned(null);
-    try {
-      await API.post(`/api/emails/${email.id}/review`, { action });
-      if (action === "keep") { onKeep(email.id); setLearned("allowlisted"); }
-      else { onDiscard(email.id); setLearned("blocklisted"); }
-    } catch(e) {
-      console.error("Review action failed", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFetchBody = async () => {
-    if (fetchingBody || fullBody) return;
-    setFetchingBody(true);
-    try {
-      const r = await API.post(`/api/emails/${email.id}/fetch-body`);
-      if (r?.body_text) setFullBody(r.body_text);
-    } catch (_) {}
-    setFetchingBody(false);
-  };
-
-  const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-        <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}>
-          <Icon name="x" size={16} stroke="currentColor"/>
-        </button>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>{email.sender || email.sender_domain || "—"}</div>
-        {email.received_at && (
-          <div style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
-            {new Date(email.received_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-          </div>
-        )}
-      </div>
-
-      <div style={{ fontSize: 15, fontWeight: 500, color: "var(--ink)", marginBottom: 16, fontFamily: "'Fraunces', serif", lineHeight: 1.3 }}>
-        {email.subject || "(no subject)"}
-      </div>
-
-      <div style={{ padding: "10px 14px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)", marginBottom: 16, display: "flex", alignItems: "flex-start", gap: 8 }}>
-        <Icon name="alert-circle" size={12} stroke="var(--ink-3)" style={{ flexShrink: 0, marginTop: 1 }}/>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-2)", marginBottom: 2 }}>Why pending</div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.5 }}>
-            AI classifier confidence below threshold. This email did not match known transaction patterns strongly enough to auto-classify.
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        {fullBody ? (
-          <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 300, overflowY: "auto" }}>
-            {fullBody.slice(0, 3000)}{fullBody.length > 3000 ? "…" : ""}
-          </div>
-        ) : (
-          <div style={{ padding: 12, background: "var(--paper)", borderRadius: 6, border: "1px solid var(--line)", fontSize: 12, color: "var(--ink-4)", lineHeight: 1.5 }}>
-            {email.body_snippet || "No preview available"}
-            {!fullBody && (
-              <button onClick={handleFetchBody} disabled={fetchingBody} style={{ marginLeft: 8, fontSize: 10, padding: "2px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetchingBody ? "default" : "pointer" }}>
-                {fetchingBody ? "Loading…" : "Load full body"}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: "flex", gap: 6 }}>
-        <button disabled={loading} onClick={() => handleAction("keep")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: loading ? "wait" : "pointer", fontWeight: 600, opacity: loading ? 0.6 : 1 }}>
-          Keep as transaction
-        </button>
-        <button disabled={loading} onClick={() => handleAction("discard")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>
-          Discard as noise
-        </button>
-      </div>
-      {learned && <div style={{ fontSize: 11, color: "var(--pos)", marginTop: 8 }}><Icon name="check" size={10} stroke="var(--pos)"/> {email.sender_domain} {learned}</div>}
-    </div>
-  );
-};
-
 const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, loadData = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
@@ -1077,7 +106,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     setLastSessionStats(stats);
     localStorage.setItem("mf_review_last_session", JSON.stringify(stats));
     setReviewSessionStats({ kept: 0, discarded: 0, startedAt: Date.now() });
-    showToast("Session complete — nice work!");
+    showToast("Session complete: nice work!");
   };
 
   // Date range presets
@@ -1300,7 +329,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         await API.post("/api/transactions/bulk", { ids: [], action, select_all: true });
       } catch (err) {
         console.error("bulk action failed:", err);
-        showToast(`Bulk ${action} failed — check connection and try again`);
+        showToast(`Bulk ${action} failed: check connection and try again`);
       }
     } else {
       const ids = [...selectedIds];
@@ -1310,7 +339,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         await API.post("/api/transactions/bulk", { ids, action });
       } catch (err) {
         console.error("bulk action failed:", err);
-        showToast(`Bulk ${action} failed — check connection and try again`);
+        showToast(`Bulk ${action} failed: check connection and try again`);
       }
     }
   };
@@ -1331,7 +360,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       await API.post("/api/transactions/bulk", { ids, action: "delete" });
     } catch (err) {
       console.error("bulk delete failed:", err);
-      showToast("Bulk delete failed — check connection and try again");
+      showToast("Bulk delete failed: check connection and try again");
     }
   };
 
@@ -1616,7 +645,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           if (prevSnapshot) {
             setTransactions(ts => ts.map(t => t.id === id ? { ...prevSnapshot } : t));
           }
-          showToast("Save failed — check connection and try again");
+          showToast("Save failed: check connection and try again");
         });
     }, 400);
 
@@ -1686,7 +715,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 {[
                   ["sub","Subscriptions", "repeat"],
                   ["flagged","Flagged", "star"],
-                  ["low","Low confidence", "sparkle"],
+                  ["low","Low confidence", "alert-circle"],
                   ["needs_review","Needs review", "alert-circle", transactions.filter(t => t.status === "needs_review" && t.tag !== "ignore").length],
                   ["duplicates","Duplicates", "arrow-swap"],
                   ["review","Pending", "inbox", reviewEmails.length],
@@ -1966,7 +995,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                           color: isActive ? "var(--paper)" : "var(--ink-3)",
                           fontSize: 12, fontWeight: 500, cursor: "pointer", textTransform: "capitalize",
                           display: "inline-flex", alignItems: "center", gap: 5, lineHeight: 1.2,
-                          transition: "all 120ms ease",
+                          transition: "all 120ms var(--ease-out-quart)",
                         }}>
                         {tab}{count > 0 ? ` (${count})` : ""}
                       </button>
@@ -2000,7 +1029,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       : "Scan complete: no new duplicates"
                     );
                   } catch (_) {
-                    showToast("Scan failed — check server logs");
+                    showToast("Scan failed: check server logs");
                   }
                   setDupScanning(false);
                 }} disabled={dupScanning}
@@ -2014,29 +1043,29 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               {dupBulkResult && (
                 <div style={{ margin: "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results — {dupBulkResult.checked} transactions checked</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
-                      {dupBulkResult.same_domain_exact > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain_exact}</strong></span>}
-                      {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
-                      {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
-                      {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
-                      {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
-                      {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already in DB</span>}
-                      {dupBulkResult.already_paired > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.already_paired} potential match{dupBulkResult.already_paired > 1 ? "es" : ""} already paired</span>}
-                      {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs && !dupBulkResult.already_paired) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
-                    </div>
-                  </div>
-                  <button onClick={() => setDupBulkResult(null)}
-                    style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 2, fontSize: 14, lineHeight: 1, flexShrink: 0 }}>×</button>
-                </div>
-              )}
-              {dupLoading && !dupScanning ? (
-                <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
-                  <span className="spinner-md" />
-                </div>
+<div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results: {dupBulkResult.checked} transactions checked</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
+              {dupBulkResult.same_domain_exact > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain_exact}</strong></span>}
+              {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
+              {dupBulkResult.merchant_alias > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Merchant alias: <strong>{dupBulkResult.merchant_alias}</strong></span>}
+              {dupBulkResult.investment_flow > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Investment flow: <strong>{dupBulkResult.investment_flow}</strong></span>}
+              {dupBulkResult.cross_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Cross-domain: <strong>{dupBulkResult.cross_domain}</strong></span>}
+              {dupBulkResult.existing_pairs > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.existing_pairs} pair{dupBulkResult.existing_pairs > 1 ? "s" : ""} already in DB</span>}
+              {dupBulkResult.already_paired > 0 && <span style={{ fontSize: 11, color: "var(--amber-9)" }}>{dupBulkResult.already_paired} potential match{dupBulkResult.already_paired > 1 ? "es" : ""} already paired</span>}
+              {(!dupBulkResult.same_domain_exact && !dupBulkResult.same_domain && !dupBulkResult.merchant_alias && !dupBulkResult.investment_flow && !dupBulkResult.cross_domain && !dupBulkResult.existing_pairs && !dupBulkResult.already_paired) && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>No matches found</span>}
+            </div>
+          </div>
+          <button onClick={() => setDupBulkResult(null)}
+            style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 2, fontSize: 14, lineHeight: 1, flexShrink: 0 }}>×</button>
+        </div>
+      )}
+      {dupLoading && !dupScanning ? (
+        <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
+          <SkeletonRow />
+        </div>
               ) : dupScanning ? (
                 <div style={{ padding: "56px 32px", textAlign: "center" }}>
-                  <span className="spinner-md" style={{ margin: "0 auto 12px" }} />
+                  <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 999, margin: "0 auto 12px" }} />
                   <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
                 </div>
               ) : dupPairs.length === 0 ? (
@@ -2059,9 +1088,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   </div>);
                 })
               )}
-            </>) : dupResolvedLoading ? (
+            </>            ) : dupResolvedLoading ? (
               <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
-                <span className="spinner-md" />
+                <SkeletonRow />
               </div>
             ) : dupResolved.length === 0 ? (
               <div style={{ padding: "64px 32px", textAlign: "center" }}>
@@ -2154,7 +1183,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                         border: `1.5px solid ${allSelected ? "var(--accent)" : someSelected ? "var(--ink-3)" : "var(--line)"}`,
                         background: allSelected ? "var(--accent)" : "transparent",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 120ms ease",
+                        transition: "all 120ms var(--ease-out-quart)",
                       }}>
                         {allSelected && <Icon name="check" size={10} stroke="var(--paper)" />}
                       </span>
@@ -2165,9 +1194,10 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                     {dayTotal !== 0 && (dayTotal > 0 ? <span style={{color:"var(--pos)"}}>+₹{dayTotal.toLocaleString("en-IN")}</span> : <span>−₹{Math.abs(dayTotal).toLocaleString("en-IN")}</span>)}
                   </span>
                 </div>
-                {txs.map(tx => (
+                {txs.map((tx, idx) => (
                   <Row
                     key={tx.id}
+                    style={{"--i": idx}}
                     tx={tx}
                     selected={selectMode ? selectedIds.has(tx.id) : selectedId===tx.id}
                     selectMode={selectMode}
@@ -2186,7 +1216,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           )}
           {loadingMore && (
             <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
-              <span className="spinner-md" />
+              <SkeletonRow />
             </div>
           )}
           {!loadingMore && transactions.length < totalTransactions && transactions.length > 0 && (
@@ -2273,7 +1303,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 style={{ position: "relative", display: "flex", background: "var(--paper-2)", borderRadius: 5, padding: 2, cursor: "pointer", marginTop: 8, maxWidth: 140 }}>
                 <div style={{
                   position: "absolute", top: 2, left: 2, width: "50%", height: "calc(100% - 4px)",
-                  background: "var(--ink)", borderRadius: 3, transition: "transform 200ms ease",
+                   background: "var(--ink)", borderRadius: 3, transition: "transform 200ms var(--ease-out-quart)",
                   transform: `translateX(${bulkMethod === "llm" ? "0%" : "100%"})`,
                 }} />
                 <div style={{ flex: 1, padding: "2px 8px", textAlign: "center", fontSize: 10, fontWeight: 600, color: bulkMethod === "llm" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>LLM</div>
@@ -2482,7 +1512,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"28px 32px", maxWidth:360, width:"90%" }}
             onClick={e => e.stopPropagation()}
           >
-            <div style={{ fontFamily:"'Fraunces',serif", fontSize:18, fontWeight:500, marginBottom:16 }}>Keyboard shortcuts</div>
+            <div style={{ fontFamily:"'Geist',sans-serif", fontSize:18, fontWeight:500, marginBottom:16 }}>Keyboard shortcuts</div>
             {[
               ["↑ ↓", "Navigate transactions"],
               ["Esc", "Close detail panel"],
@@ -2652,7 +1682,7 @@ const SearchView = ({ query, categoryFilter }) => {
           if (prevSnapshot) {
             setResults(rs => rs.map(t => t.id === id ? { ...prevSnapshot } : t));
           }
-          showToast("Save failed — check connection and try again");
+          showToast("Save failed: check connection and try again");
         });
   };
 
@@ -2690,13 +1720,13 @@ const SearchView = ({ query, categoryFilter }) => {
 
         {loading && (
           <div style={{ display: "flex", justifyContent: "center", padding: 56 }}>
-            <span className="spinner-lg" />
+            <div className="skeleton" style={{ width: 48, height: 48, borderRadius: 999 }} />
           </div>
         )}
 
         {!loading && results.length === 0 && (
           <div style={{ padding: "72px 32px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
             <div style={{ fontSize: 13, color: "var(--ink-4)" }}>Try a different merchant, category, or amount</div>
           </div>
         )}
@@ -2716,9 +1746,10 @@ const SearchView = ({ query, categoryFilter }) => {
             }} style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}), cursor: "pointer" }}>
               <span>{dateLabel(date)}</span>
             </div>
-            {txs.map(tx => (
+            {txs.map((tx, idx) => (
               <Row
                 key={tx.id}
+                style={{"--i": idx}}
                 tx={tx}
                 selected={selectMode ? selectedIds.has(tx.id) : selectedId === tx.id}
                 selectMode={selectMode}
@@ -2737,7 +1768,7 @@ const SearchView = ({ query, categoryFilter }) => {
       {dupBulkResult && (
         <div style={{ margin: "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results — {dupBulkResult.checked} transactions checked</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results: {dupBulkResult.checked} transactions checked</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
               {dupBulkResult.same_domain_exact > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain_exact}</strong></span>}
               {dupBulkResult.same_domain > 0 && <span style={{ fontSize: 11, color: "var(--ink-2)" }}>Same sender: <strong>{dupBulkResult.same_domain}</strong></span>}
@@ -2783,4 +1814,5 @@ const SearchView = ({ query, categoryFilter }) => {
   );
 };
 
-Object.assign(window, { InboxView, SearchView, fmtMoney, MerchantLogo, CategoryChip, Confidence, dateLabel });
+window.InboxView = InboxView;
+window.SearchView = SearchView;

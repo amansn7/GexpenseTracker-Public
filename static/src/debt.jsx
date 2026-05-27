@@ -58,7 +58,7 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Debt" : "Add Debt"}</span>
+          <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Debt" : "Add Debt"}</span>
           <button onClick={onClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
         </div>
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -147,7 +147,7 @@ const DebtView = () => {
 
   const fmt = (v) => `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   const secBand = { borderBottom: "1px solid var(--line)", padding: "10px 28px", background: "var(--paper-2)", display: "flex", alignItems: "center", gap: 10 };
-  const secTitle = { fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 500, color: "var(--ink-2)" };
+  const secTitle = { fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 500, color: "var(--ink-2)" };
   const today = new Date().toISOString().slice(0, 10);
 
   if (loading) return (
@@ -207,7 +207,7 @@ const DebtView = () => {
                   <Icon name="edit" size={14} />
                 </button>
               </div>
-              <span style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 16, color: "var(--ink)", paddingRight: 40 }}>{debt.name}</span>
+              <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 16, color: "var(--ink)", paddingRight: 40 }}>{debt.name}</span>
               <div>
                 <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 700, color: "var(--neg)" }}>{fmt(debt.remaining)}</div>
                 <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>{fmt(debt.paid_amount)} of {fmt(debt.total_amount)}</div>

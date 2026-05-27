@@ -7,14 +7,14 @@
 <title>MoneyFlow — Inbox for your money</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/styles.css?v=14">
 <style nonce="{{ request.state.nonce }}">
   /* cat-* colors now live in styles.css per theme */
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', 'Geist', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
-  .serif { font-family: 'Fraunces', serif; font-optical-sizing: auto; letter-spacing: -0.01em; }
+  .ui-heading { font-family: 'Geist', sans-serif; font-optical-sizing: auto; letter-spacing: -0.01em; }
   .italic-serif { font-family: 'Instrument Serif', serif; font-style: italic; }
   .mono { font-family: 'JetBrains Mono', 'Geist Mono', monospace; font-variant-numeric: tabular-nums; }
   .tnum { font-variant-numeric: tabular-nums; }
@@ -164,19 +164,23 @@
   <script src="/static/dist/date-utils.js?v=ecd987f2"></script>
   <script src="/static/dist/data.js?v=3ef301b8"></script>
   <script src="/static/dist/icons.js?v=e2cc3902"></script>
-  <script src="/static/dist/shell.js?v=836d3983"></script>
+  <script src="/static/dist/shell.js?v=88ab9ac6"></script>
   <script src="/static/dist/keyboard-hint.js?v=4d46c1bf"></script>
-  <script src="/static/dist/inbox.js?v=14aa3efd"></script>
-  <script src="/static/dist/flow.js?v=7939bb37"></script>
-  <script src="/static/dist/health.js?v=d5a51287"></script>
-  <script src="/static/dist/dashboard.js?v=da6ec7af"></script>
-  <script src="/static/dist/reports.js?v=041e5e8e"></script>
-  <script src="/static/dist/recurring.js?v=e29080e1"></script>
-  <script src="/static/dist/debt.js?v=02363324"></script>
-  <script src="/static/dist/onboarding.js?v=5b6652b3"></script>
-  <script src="/static/dist/account.js?v=918def80"></script>
-  <script src="/static/dist/sync-progress.js?v=84145583"></script>
-  <script src="/static/dist/admin.js?v=64b8cacc"></script>
-  <script src="/static/dist/app.js?v=09dee2e5"></script>
+  <script src="/static/dist/inbox-styles.js?v=3c5be22d"></script>
+  <script src="/static/dist/inbox-common.js?v=e1b5c227"></script>
+  <script src="/static/dist/inbox-detail.js?v=f4fbab34"></script>
+  <script src="/static/dist/inbox-panels.js?v=68f77e47"></script>
+  <script src="/static/dist/inbox.js?v=970a72d3"></script>
+  <script src="/static/dist/flow.js?v=647cb6bc"></script>
+  <script src="/static/dist/health.js?v=a06d864b"></script>
+  <script src="/static/dist/dashboard.js?v=24b25c44"></script>
+  <script src="/static/dist/reports.js?v=e1af3f3b"></script>
+  <script src="/static/dist/recurring.js?v=39b222cc"></script>
+  <script src="/static/dist/debt.js?v=6c2b1ac0"></script>
+  <script src="/static/dist/onboarding.js?v=05794db6"></script>
+  <script src="/static/dist/account.js?v=319fb652"></script>
+  <script src="/static/dist/sync-progress.js?v=78563099"></script>
+  <script src="/static/dist/admin.js?v=d4e158ab"></script>
+  <script src="/static/dist/app.js?v=43ccce9b"></script>
 </body>
 </html>

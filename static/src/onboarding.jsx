@@ -219,7 +219,7 @@ const S = {
   success: { padding: "10px 12px", background: "var(--pos-soft)", color: "var(--pos)", borderRadius: 6, fontSize: 13, marginBottom: 16 },
   fieldWrap: { marginBottom: 14 },
   row: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
-  h2: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", margin: "0 0 6px", color: "var(--ink)" },
+  h2: { fontFamily: "'Geist', sans-serif", fontSize: 26, fontWeight: 400, letterSpacing: "-0.02em", margin: "0 0 6px", color: "var(--ink)" },
   sub: { fontSize: 13, color: "var(--ink-3)", marginBottom: 24, lineHeight: 1.5 },
 };
 
@@ -683,11 +683,11 @@ const StepDone = ({ stepData }) => {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28, marginTop: 20 }}>
         <div style={{ padding: "16px", background: "var(--paper-2)", borderRadius: 8 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Transactions found</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, color: "var(--ink)" }}>{txCount}</div>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 28, fontWeight: 400, color: "var(--ink)" }}>{txCount}</div>
         </div>
         <div style={{ padding: "16px", background: "var(--paper-2)", borderRadius: 8 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>AI provider</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 400, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aiProvider}</div>
+          <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, fontWeight: 400, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aiProvider}</div>
         </div>
       </div>
 

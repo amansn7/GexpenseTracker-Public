@@ -7,8 +7,8 @@ const S = {
   section: { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "clamp(16px, 4vw, 24px) clamp(14px, 4vw, 28px)", marginBottom: 16 },
   header: { marginBottom: 28 },
   kicker: { fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 },
-  h1: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0", color: "var(--ink)" },
-  sectionTitle: { fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
+  h1: { fontFamily: "'Geist', sans-serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em", margin: "2px 0 0", color: "var(--ink)" },
+  sectionTitle: { fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, margin: "0 0 4px" },
   sectionSub: { fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 14, color: "var(--ink-3)", marginBottom: 18 },
   row: { display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 },
   label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6, display: "block" },
@@ -304,7 +304,7 @@ const ClassifyTestSection = () => {
               {result.label.toUpperCase()}
             </span>
             {result.amount != null && (
-              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 400 }}>
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 22, fontWeight: 400 }}>
                 ₹{result.amount.toLocaleString("en-IN")}
               </span>
             )}

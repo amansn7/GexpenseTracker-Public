@@ -41,7 +41,7 @@ const HealthView = () => {
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Savings Rate</div>
           {loading ? skeleton(40) : (
             <>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1, color: (data?.savings_rate || 0) >= 0 ? "var(--pos)" : "var(--neg)" }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1, color: (data?.savings_rate || 0) >= 0 ? "var(--pos)" : "var(--neg)" }}>
                 {data != null ? `${data.savings_rate}%` : "—"}
               </div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 6 }}>
@@ -56,7 +56,7 @@ const HealthView = () => {
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Runway</div>
           {loading ? skeleton(40) : (
             <>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 }}>
                 {data?.runway_months != null
                   ? <>{data.runway_months}<span style={{ fontSize: 16, fontFamily: "'Geist', sans-serif", color: "var(--ink-3)", fontWeight: 400 }}> mo</span></>
                   : "—"}
@@ -74,7 +74,7 @@ const HealthView = () => {
         <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>Current Balance</div>
         {loading ? skeleton(28, "50%") : (
           <>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em" }}>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em" }}>
               {fmt(data?.current_balance)}
             </div>
             <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4 }}>

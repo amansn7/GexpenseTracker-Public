@@ -4,13 +4,13 @@ const dashStyles = {
   wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 1300, margin: "0 auto" },
   hero: { padding: "36px 40px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 24, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 40, alignItems: "center" },
   heroLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 6 },
-  heroAmount: { fontFamily: "'Fraunces', serif", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },
+  heroAmount: { fontFamily: "'Geist Mono', monospace", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },
   heroSub: { fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 16, color: "var(--ink-3)" },
   barSplit: { display: "flex", height: 12, borderRadius: 20, overflow: "hidden", border: "1px solid var(--line)", background: "var(--paper-2)", marginTop: 12 },
   grid3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 },
   card: { padding: "22px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 },
   cardH: { fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" },
-  cardBig: { fontFamily: "'Fraunces', serif", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 },
+  cardBig: { fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 },
   grid2: { display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 },
   // Section band system — editorial dark header + card body
   secHead: { borderRadius: "8px 8px 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
@@ -142,7 +142,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{rangeFrom} → {rangeTo} · Snapshot</div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: isMobile ? 28 : 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
+          <h2 style={{ fontFamily: "'Geist', sans-serif", fontSize: isMobile ? 28 : 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
             You're <span className="italic-serif" style={{ color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</span> ahead.
           </h2>
         </div>
@@ -232,7 +232,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           </div>
           <div style={{ ...dashStyles.secBody, display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "12px 24px" }}>
             <div>
-              <div style={{ fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 400, letterSpacing: "-0.025em", color: health.current_balance >= 0 ? "var(--pos)" : "var(--neg)" }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 36, fontWeight: 400, letterSpacing: "-0.025em", color: health.current_balance >= 0 ? "var(--pos)" : "var(--neg)" }}>
                 ₹{health.current_balance.toLocaleString("en-IN")}
               </div>
               <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 4 }}>

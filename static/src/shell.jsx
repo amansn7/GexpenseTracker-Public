@@ -58,7 +58,7 @@ const shellStyles = {
   app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100dvh", position: "relative", zIndex: 2 },
   side: { borderRight: "1px solid var(--line)", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 1, position: "sticky", top: 0, height: "100dvh", background: "var(--paper)", overflowY: "auto" },
   brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 4px 24px" },
-  brandMark: { fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
+  brandMark: { fontFamily: "'Geist', sans-serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
   brandSlash: { color: "var(--accent)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 20 },
   navItem: { display: "flex", alignItems: "center", gap: 8, padding: "5px 10px 5px 8px", borderRadius: 6, color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", textAlign: "left", width: "100%" },
   navItemActive: { background: "var(--paper-2)", color: "var(--ink)" },

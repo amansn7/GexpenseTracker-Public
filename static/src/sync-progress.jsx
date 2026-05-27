@@ -80,7 +80,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
         )}
         {isDone && <span className="check-pop" style={{display:"inline-flex"}}><Icon name="check" size={16} stroke="var(--pos)"/></span>}
         {isError && <Icon name="x" size={16} stroke="var(--neg)"/>}
-        <span style={{ fontFamily:"'Fraunces',serif", fontSize:14, fontWeight:500, flex:1 }}>
+        <span style={{ fontFamily:"'Geist',sans-serif", fontSize:14, fontWeight:500, flex:1 }}>
           {isDone ? "Sync Complete" : isError ? "Sync Failed" : "Syncing Gmail"}
         </span>
         <button onClick={() => setMinimized(true)} style={{ background:"none", border:"none", color:"var(--ink-3)", cursor:"pointer", padding:4, display:"flex" }}>
