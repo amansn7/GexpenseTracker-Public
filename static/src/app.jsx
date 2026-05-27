@@ -11,7 +11,7 @@ const App = () => {
   const [renderError, setRenderError] = useState(null);
 
   React.useEffect(() => {
-    const onError = (e) => { setRenderError(e.error?.message || "Something went wrong"); };
+    const onError = (e) => { console.error("Caught:", e.error || e); setRenderError(e.error?.message || e.message || "Something went wrong"); };
     window.addEventListener("error", onError);
     return () => window.removeEventListener("error", onError);
   }, []);
