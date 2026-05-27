@@ -498,6 +498,33 @@ const AccessSection = ({ account }) => {
 
 // ── Admin sections (inline, use accountStyles directly) ────────────────────────
 
+const AdminBackfillBodiesSection = () => {
+  const { progress, running, start, dismiss } = useBackgroundJob();
+  const [result, setResult] = React.useState(null);
+
+  React.useEffect(() => {
+    if (progress?.result) setResult(progress.result);
+  }, [progress]);
+
+  const run = () => start("/api/sync/trigger-backfill-bodies");
+
+  return (
+    <div style={accountStyles.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={accountStyles.sectionTitle}>Backfill Email Bodies</h3>
+        <button onClick={run} disabled={running} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: running ? 0.65 : 1 }}>
+          {running ? "Backfilling\u2026" : "Backfill bodies"}
+        </button>
+      </div>
+      <div style={accountStyles.sectionSub}>— fetch body text for emails that are missing it. Processes in batches so you can watch live progress.</div>
+      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>
+        <Icon name="check" size={12} stroke="var(--pos)"/> Updated {result.updated} · Errors {result.errors} · Total {result.total}
+      </div>}
+      {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
+    </div>
+  );
+};
+
 const AdminFetchRangeSection = () => {
   const { progress, running, start, dismiss } = useBackgroundJob();
   const today = new Date().toISOString().slice(0, 10);
@@ -2253,6 +2280,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             // Admin — Owner Only
           </div>
           <AdminLLMSection account={account} settings={settings} />
+          <AdminBackfillBodiesSection />
           <AdminFetchRangeSection />
           <AdminSyncSection />
           <AdminFetchPreviewSection />
@@ -2390,4 +2418,4 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   );
 };
 
-Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, AccessSection });
+Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, AccessSection, AdminBackfillBodiesSection });

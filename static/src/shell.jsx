@@ -181,7 +181,9 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       <NavItem icon="inbox"  label="Review"    count={counts?.unread > 0 ? counts.unread : null} active={view==="review"} onClick={()=>navigate(()=>setView("review"))} />
       <NavItem icon="chart"  label="Picture"   active={view==="picture"}   onClick={()=>navigate(()=>setView("picture"))} />
       <NavItem icon="repeat" label="Recurring" active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
-      <NavItem icon="trending-down" label="Debt" active={view==="debt"}    onClick={()=>navigate(()=>setView("debt"))} />
+      <NavItem icon="trending-down" label="Debt"    active={view==="debt"}    onClick={()=>navigate(()=>setView("debt"))} />
+      <NavItem icon="star"          label="Goals"   active={view==="goals"}   onClick={()=>navigate(()=>setView("goals"))} />
+      <NavItem icon="grid"          label="Budgets" active={view==="budgets"} onClick={()=>navigate(()=>setView("budgets"))} />
 
       {/* Mode toggle */}
       <div style={{ marginTop: "auto", padding: "12px 8px", borderTop: "1px solid var(--line)" }}>
@@ -226,6 +228,8 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     <NavItem icon="chart"   label="Reports"                             active={view==="reports"}   onClick={()=>navigate(()=>setView("reports"))} />
     <NavItem icon="repeat"  label="Recurring"                           active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
     <NavItem icon="trending-down" label="Debt"                          active={view==="debt"}      onClick={()=>navigate(()=>setView("debt"))} />
+    <NavItem icon="star"          label="Goals"                          active={view==="goals"}     onClick={()=>navigate(()=>setView("goals"))} />
+    <NavItem icon="grid"          label="Budgets"                        active={view==="budgets"}   onClick={()=>navigate(()=>setView("budgets"))} />
     </>}
 
     <div onClick={() => { const n = !filtersOpen; setFiltersOpen(n); localStorage.setItem("_nav_filters", n ? "1" : "0"); }}
@@ -390,7 +394,7 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
           <div style={{ padding: "6px 12px 4px", fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>Results</div>
             {results.map((tx, i) => (
             <button key={tx.id} className="hover-row fade-in" onClick={() => handleSelect(tx)}
-              style={{ "--i": i, display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 14px", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)", textAlign: "left", cursor: "pointer" }}>
+              style={{ "--i": i, background: "transparent", display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "9px 14px", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)", textAlign: "left", cursor: "pointer" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {tx.merchant || tx.email?.subject || "(no merchant)"}

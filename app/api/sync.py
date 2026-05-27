@@ -105,6 +105,7 @@ async def backfill_bodies(
     from app.gmail.auth import get_credentials_for_user
     from app.gmail.client import _build_service, _extract_body_text
     from app.models import Email
+    from app.sync.progress import _log_event, _reset_progress, _user_progress
 
     if payload.email_ids:
         result = await db.execute(
@@ -114,8 +115,18 @@ async def backfill_bodies(
         if not emails:
             return {"updated": 0, "message": "No matching emails found"}
 
+        uid = f"user_{current_user.id}"
+        _reset_progress(uid)
+        prog = _user_progress(uid)
+        prog["phase"] = "backfilling"
+        prog["running"] = True
+        prog["phase_detail"] = f"Backfilling {len(emails)} specific emails..."
+        _log_event(uid, "Starting backfill-bodies for specific emails...")
+
         creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
         if not creds:
+            prog.update({"phase": "error", "running": False, "error": "Gmail not authenticated"})
+            _log_event(uid, "Gmail not authenticated", "error")
             raise HTTPException(status_code=503, detail="Gmail not authenticated. Visit /api/auth/google")
         service = await asyncio.to_thread(_build_service, creds)
 
@@ -123,7 +134,12 @@ async def backfill_bodies(
         total_errors = 0
         total_scanned = len(emails)
 
-        for email in emails:
+        for idx, email in enumerate(emails):
+            prog["current"] = idx + 1
+            prog["current_email"] = {
+                "subject": (email.subject or "(no subject)")[:60],
+                "sender": (email.sender or email.sender_domain or "")[:48],
+            }
             try:
                 msg = await asyncio.to_thread(
                     lambda eid=email.gmail_id: (
@@ -139,8 +155,11 @@ async def backfill_bodies(
                 total_errors += 1
 
         await db.commit()
+        result = {"updated": total_updated, "errors": total_errors, "total": total_scanned}
+        prog.update({"running": False, "phase": "done", "result": result, "current_email": None})
+        _log_event(uid, f"Backfill complete: {total_updated} updated, {total_errors} errors", "success")
         logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
-        return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
+        return result
 
     from sqlalchemy import func
 
@@ -154,13 +173,24 @@ async def backfill_bodies(
     if not count:
         return {"updated": 0, "errors": 0, "total": 0}
 
-    batch_size = 100
+    uid = f"user_{current_user.id}"
+    _reset_progress(uid)
+    prog = _user_progress(uid)
+    prog["phase"] = "backfilling"
+    prog["running"] = True
+    prog["total"] = count
+    prog["phase_detail"] = f"Backfilling {count} emails..."
+    _log_event(uid, f"Starting backfill-bodies: {count} emails to process")
+
+    batch_size = 50
     total_updated = 0
     total_errors = 0
     total_scanned = 0
 
     creds = await get_credentials_for_user(db, getattr(current_user, "id", None))
     if not creds:
+        prog.update({"phase": "error", "running": False, "error": "Gmail not authenticated"})
+        _log_event(uid, "Gmail not authenticated", "error")
         raise HTTPException(status_code=503, detail="Gmail not authenticated. Visit /api/auth/google")
     service = await asyncio.to_thread(_build_service, creds)
 
@@ -183,6 +213,11 @@ async def backfill_bodies(
         batch_updated = 0
         for email in batch:
             total_scanned += 1
+            prog["current"] = total_scanned
+            prog["current_email"] = {
+                "subject": (email.subject or "(no subject)")[:60],
+                "sender": (email.sender or email.sender_domain or "")[:48],
+            }
             try:
                 msg = await asyncio.to_thread(
                     lambda eid=email.gmail_id: (
@@ -199,12 +234,115 @@ async def backfill_bodies(
                 total_errors += 1
 
         await db.commit()
+        _log_event(uid, f"Backfilled {total_scanned}/{count} ({total_updated} updated, {total_errors} errors)")
         if batch_updated == 0:
             logger.warning("backfill: no progress in batch, stopping")
             break
 
+    result = {"updated": total_updated, "errors": total_errors, "total": total_scanned}
+    prog.update({"running": False, "phase": "done", "result": result, "current_email": None, "phase_detail": f"Done: {total_updated} updated, {total_errors} errors"})
+    _log_event(uid, f"Backfill complete: {total_updated} updated, {total_errors} errors", "success")
     logger.info("backfill-bodies: updated=%d errors=%d", total_updated, total_errors)
-    return {"updated": total_updated, "errors": total_errors, "total": total_scanned}
+    return result
+
+
+async def _run_backfill_background(user_id: str, email_ids: list[str] | None = None):
+    """Run backfill-bodies as a background task with progress reporting."""
+    from app.database import AsyncSessionLocal
+    from sqlalchemy import or_, select, func
+
+    from app.gmail.auth import get_credentials_for_user
+    from app.gmail.client import _build_service, _extract_body_text
+    from app.models import Email
+    from app.sync.progress import _log_event, _reset_progress, _user_progress
+
+    uid = f"user_{user_id}"
+    _reset_progress(uid)
+    prog = _user_progress(uid)
+    prog["phase"] = "backfilling"
+    prog["running"] = True
+    _log_event(uid, "Starting backfill-bodies...")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            if email_ids:
+                result = await db.execute(
+                    select(Email).where(Email.id.in_(email_ids), Email.user_id == user_id)
+                )
+                emails = result.scalars().all()
+            else:
+                result = await db.execute(
+                    select(Email).where(
+                        Email.user_id == user_id,
+                        or_(Email.body_text.is_(None), Email.body_text == "")
+                    ).order_by(Email.id)
+                )
+                emails = result.scalars().all()
+
+            if not emails:
+                prog.update({"running": False, "phase": "done", "result": {"updated": 0, "errors": 0, "total": 0}})
+                _log_event(uid, "No emails to backfill", "success")
+                return
+
+            creds = await get_credentials_for_user(db, user_id)
+            if not creds:
+                prog.update({"phase": "error", "running": False, "error": "Gmail not authenticated"})
+                _log_event(uid, "Gmail not authenticated", "error")
+                return
+            service = await asyncio.to_thread(_build_service, creds)
+
+            total = len(emails)
+            prog["total"] = total
+            prog["phase_detail"] = f"Backfilling {total} emails..."
+
+            total_updated = 0
+            total_errors = 0
+
+            for idx, email in enumerate(emails):
+                prog["current"] = idx + 1
+                prog["current_email"] = {
+                    "subject": (email.subject or "(no subject)")[:60],
+                    "sender": (email.sender or email.sender_domain or "")[:48],
+                }
+                try:
+                    msg = await asyncio.to_thread(
+                        lambda eid=email.gmail_id: (
+                            service.users().messages().get(userId="me", id=eid, format="full").execute()
+                        )
+                    )
+                    body = _extract_body_text(msg.get("payload", {}))
+                    if body:
+                        email.body_text = body
+                        total_updated += 1
+                except Exception as exc:
+                    logger.warning("backfill: failed for %s: %s", email.gmail_id, exc)
+                    total_errors += 1
+
+                if (idx + 1) % 50 == 0 or idx == total - 1:
+                    await db.commit()
+                    _log_event(uid, f"Backfilled {idx + 1}/{total} ({total_updated} updated, {total_errors} errors)")
+
+            result = {"updated": total_updated, "errors": total_errors, "total": total}
+            prog.update({"running": False, "phase": "done", "result": result, "phase_detail": f"Done: {total_updated} updated, {total_errors} errors"})
+            _log_event(uid, f"Backfill complete: {total_updated} updated, {total_errors} errors", "success")
+
+        except Exception as exc:
+            logger.error("backfill: background task failed: %s", exc, exc_info=True)
+            prog.update({"phase": "error", "running": False, "error": str(exc)})
+            _log_event(uid, f"Backfill failed: {exc}", "error")
+
+
+@router.post("/sync/trigger-backfill-bodies")
+async def trigger_backfill_bodies(
+    payload: BackfillBody = BackfillBody(),
+    current_user: User = Depends(get_current_user),
+):
+    if not is_owner(current_user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    task = asyncio.create_task(_run_backfill_background(current_user.id, payload.email_ids))
+    _background_tasks.add(task)
+    task.add_done_callback(_log_task_result)
+    return {"message": "Backfill started"}
 
 
 _DIRTY_BODY_RE = re.compile(r"&[a-zA-Z#][\w#]*;|[\u200b-\u200f\u200c\u200d\ufeff\u034f\u00ad\u2028-\u202f]")

@@ -46,6 +46,7 @@ RATE_LIMITS = {
     "/api/transactions/bulk": (10, 60),
     "/api/auth/logout": (5, 60),
     "/api/sync/backfill-bodies": (5, 300),
+    "/api/sync/trigger-backfill-bodies": (5, 300),
     "/api/admin/reset-my-data": (3, 3600),
     "/api/account/schedule-deletion": (3, 3600),
     "/api/review/reprocess-all": (5, 300),

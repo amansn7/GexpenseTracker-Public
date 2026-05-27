@@ -904,6 +904,35 @@ const RuleEngineSection = () => {
   );
 };
 
+// ── Section: Backfill Email Bodies ────────────────────────────────────────────
+
+const BackfillBodiesSection = () => {
+  const { progress, running, start, dismiss } = useBackgroundJob();
+  const [result, setResult] = React.useState(null);
+
+  React.useEffect(() => {
+    if (progress?.result) setResult(progress.result);
+  }, [progress]);
+
+  const run = () => start("/api/sync/trigger-backfill-bodies");
+
+  return (
+    <>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <h3 style={S.sectionTitle}>Backfill Email Bodies</h3>
+        <button onClick={run} disabled={running} style={{ ...S.btn, ...S.btnPrimary, opacity: running ? 0.65 : 1 }}>
+          {running ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Backfilling\u2026</span> : "Backfill bodies"}
+        </button>
+      </div>
+      <div style={S.sectionSub}>— fetch body text for emails that are missing it. Processes in batches so you can watch live progress.</div>
+      {result && !progress && <div style={{ marginTop: 10, padding: "10px 14px", background: "var(--pos-soft)", borderRadius: 6, fontSize: 13, color: "var(--pos)" }}>
+        <Icon name="check" size={12} stroke="var(--pos)"/> Updated {result.updated} · Errors {result.errors} · Total {result.total}
+      </div>}
+      {progress && window.SyncProgressOverlay && (() => { const O = window.SyncProgressOverlay; return <O progress={progress} syncing={running} onClose={dismiss} position="bottom-right" />; })()}
+    </>
+  );
+};
+
 // ── Section: Clean Email Bodies ──────────────────────────────────────────────
 
 const CleanBodiesSection = () => {
@@ -945,6 +974,7 @@ const AdminView = () => (
     <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
     <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
     <div style={S.section}><RuleEngineSection /></div>
+    <div style={S.section}><BackfillBodiesSection /></div>
     <div style={S.section}><CleanBodiesSection /></div>
     <div style={S.section}><FetchRangeSection /></div>
     <div style={S.section}><FilterRulesSection /></div>
@@ -952,4 +982,4 @@ const AdminView = () => (
   </div>
 );
 
-Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection, CleanBodiesSection });
+Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection, CleanBodiesSection, BackfillBodiesSection });

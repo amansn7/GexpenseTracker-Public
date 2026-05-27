@@ -28,6 +28,7 @@ PROTECTED = [
     ("GET", "/api/sync/status"),
     ("PATCH", "/api/sync/settings"),
     ("POST", "/api/sync/backfill-bodies"),
+    ("POST", "/api/sync/trigger-backfill-bodies"),
     ("POST", "/api/alerts/clear"),
     # emails
     ("GET", "/api/emails"),
