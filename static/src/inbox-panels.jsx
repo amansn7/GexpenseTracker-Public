@@ -156,7 +156,7 @@ const IncomeRow = ({ tx, onUpdate }) => {
         <span style={{ fontWeight: 600, fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.merchant}</span>
       </div>
       <div style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600, fontSize: 14, color: "var(--pos)", textAlign: "right" }}>
-        +\u20B9{tx.amount.toLocaleString("en-IN")}
+        +₹{tx.amount.toLocaleString("en-IN")}
       </div>
       {!isMobile && <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{dateLabel}</div>}
       {!isMobile && <div><CategoryChip cat={tx.cat}/></div>}
@@ -196,7 +196,7 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
           <div key={monthKey}>
             <div style={{ padding: "14px 0 6px", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-3)", fontWeight: 600 }}>{monthLabel}</span>
-              <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--pos)", fontWeight: 600 }}>+\u20B9{monthTotal.toLocaleString("en-IN")}</span>
+              <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--pos)", fontWeight: 600 }}>+₹{monthTotal.toLocaleString("en-IN")}</span>
             </div>
             {txs.map(tx => <IncomeRow key={tx.id} tx={tx} onUpdate={onUpdate}/>)}
           </div>

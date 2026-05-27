@@ -196,7 +196,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500 }}>{isIncome ? "Money in" : "Money out"}</div>
         {editingAmt ? (
           <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
-            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 40 : 54, color: isIncome ? "var(--pos)" : "var(--ink)", lineHeight: 1 }}>{sign}\u20B9</span>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 40 : 54, color: isIncome ? "var(--pos)" : "var(--ink)", lineHeight: 1 }}>{sign}₹</span>
             <input
               autoFocus
               value={amtDraft}
@@ -209,7 +209,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         ) : (
           <div onClick={()=>setEditingAmt(true)} className="hover-border-bottom" style={{ cursor: "text", display: "inline-block" }}>
             <div style={{ ...inboxStyles.bigAmount, ...(isMobile ? { fontSize: 40 } : {}), color: isIncome ? "var(--pos)" : "var(--ink)" }}>
-              {sign}\u20B9{Math.abs(tx.amount).toLocaleString("en-IN")}
+              {sign}₹{Math.abs(tx.amount).toLocaleString("en-IN")}
             </div>
           </div>
         )}
