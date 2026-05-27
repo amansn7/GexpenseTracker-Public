@@ -33,6 +33,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     try { return JSON.parse(localStorage.getItem("mf_review_last_session")); } catch (_) { return null; }
   });
   const [needsReviewCount, setNeedsReviewCount] = React.useState(null);
+  const [needsReviewItems, setNeedsReviewItems] = React.useState([]);
+  const [needsReviewLoading, setNeedsReviewLoading] = React.useState(false);
   const listRef = React.useRef(null);
 
   const handleReviewAction = async (id, action) => {
@@ -248,12 +250,25 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     return () => clearInterval(interval);
   }, [filter, reviewAutoRefresh]);
 
-  // Fetch needs_review count from legacy review queue
+  // Fetch needs_review count on mount and when filter lands on needs_review
   React.useEffect(() => {
     API.get("/api/review?count=true")
       .then(data => setNeedsReviewCount(data?.count ?? null))
       .catch(() => {});
-  }, [transactions]);
+  }, [filter]);
+
+  // Fetch needs_review items when tab is active
+  React.useEffect(() => {
+    if (filter !== "needs_review") return;
+    setNeedsReviewLoading(true);
+    API.get("/api/review")
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        setNeedsReviewItems(data.map(t => transformTransaction({ ...t, status: "needs_review" })));
+      })
+      .catch(() => {})
+      .finally(() => setNeedsReviewLoading(false));
+  }, [filter]);
 
   // Persist review session stats to localStorage
   React.useEffect(() => {
@@ -563,7 +578,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     setDupBulkResolving(false);
   };
 
-  const filtered = transactions.filter(t => {
+  const sourceItems = filter === "needs_review" ? needsReviewItems : transactions;
+  const filtered = sourceItems.filter(t => {
     if (t.tag === "ignore") return false;
     if (filter === "all") return true;
     if (filter === "expenses") return t.amount < 0 && t.tag !== "subscription";
@@ -578,7 +594,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   });
 
   const grouped = groupByDate(filtered);
-  const selected = transactions.find(t => t.id === selectedId);
+  const selected = transactions.find(t => t.id === selectedId) || needsReviewItems.find(t => t.id === selectedId);
 
   // Dismiss first-visit hint on first interaction
   React.useEffect(() => { if (selectedId && showFirstHint) { setShowFirstHint(false); localStorage.setItem("mf_hint_dismissed", "1"); } }, [selectedId]);
@@ -587,7 +603,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   // more data exists — capped at 3 attempts per tab to avoid chain-fetching
   // sparse tabs (e.g. income) that would exhaust all transactions.
   React.useEffect(() => {
-    if (filter === "all" || filter === "duplicates") return;
+    if (filter === "all" || filter === "duplicates" || filter === "needs_review") return;
     if (transactions.length >= totalTransactions) return;
     if (filtered.length >= 10) return;
     if (loadingMore) return;
@@ -693,7 +709,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <span style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 500 }}>
                   {selectAllFlag ? totalTransactions : selectedIds.size} selected
                 </span>
-                {!selectAllFlag && selectedIds.size === filtered.length && filtered.length > 0 && transactions.length < totalTransactions && (
+                {!selectAllFlag && filter !== "needs_review" && selectedIds.size === filtered.length && filtered.length > 0 && transactions.length < totalTransactions && (
                   <button
                     onClick={() => setSelectAllFlag(true)}
                     style={{ fontSize: 11, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", fontWeight: 500 }}
@@ -1214,12 +1230,17 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           })}
             </>
           )}
+          {needsReviewLoading && (
+            <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
+              <SkeletonRow />
+            </div>
+          )}
           {loadingMore && (
             <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
               <SkeletonRow />
             </div>
           )}
-          {!loadingMore && transactions.length < totalTransactions && transactions.length > 0 && (
+          {!loadingMore && filter !== "needs_review" && transactions.length < totalTransactions && transactions.length > 0 && (
             <div style={{ padding: "16px 32px", textAlign: "center", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
               {transactions.length} of {totalTransactions} · scroll for more
             </div>
