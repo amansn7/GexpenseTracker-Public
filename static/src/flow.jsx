@@ -1,4 +1,4 @@
-// Money Flow view — Sankey + weekly timeline
+// Money Flow view — vertical breakdown
 
 const flowStyles = {
   wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
@@ -16,380 +16,207 @@ const flowStyles = {
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
-const TxnTooltip = ({ tip, style }) => {
-  if (!tip) return null;
-  return (
-    <div className="fade-in" style={{
-      position: "fixed", zIndex: 9999, pointerEvents: "none",
-      background: "var(--ink)", color: "var(--paper)", borderRadius: 8,
-      padding: "10px 14px", fontSize: 12, lineHeight: 1.5,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-      maxWidth: 260,
-      left: style.left, top: style.top,
-      transform: "translate(-50%, -100%)",
-      marginTop: -10,
-    }}>
-      <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>{tip.label}</div>
-      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 15, color: tip.color || "var(--paper)", marginBottom: 6 }}>
-        {tip.amount}
-      </div>
-      {tip.txnCount != null && (
-        <div style={{ color: "var(--ink-4)", fontSize: 11 }}>
-          {tip.txnCount} transaction{tip.txnCount !== 1 ? "s" : ""}
-          {tip.pct != null ? ` · ${tip.pct}% of total` : ""}
-        </div>
-      )}
-      {tip.merchants && tip.merchants.length > 0 && (
-        <div style={{ marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 6 }}>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", marginBottom: 3 }}>Top merchants</div>
-          {tip.merchants.map((m, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--ink-3)" }}>
-              <span>{m.name}</span>
-              <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--paper)" }}>{fmtK(m.amount)}</span>
+const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments, totalInvestments, savings, incomeSources, pctOfIncome, onCategoryClick, viewMode }) => {
+  const { isMobile } = useViewport();
+
+  const regularExpenses = data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment");
+  const sortedExpenses = [...regularExpenses].sort((a, b) => b.amount - a.amount);
+
+  const cardExpenses = data.expenses.filter(e => e.cat === "card");
+  const invExpenses = data.expenses.filter(e => e.cat === "investment");
+  const cardAmt = totalCCPayments;
+  const invAmt = totalInvestments;
+  const cardTxn = cardExpenses.reduce((a, e) => a + (e.txnCount || 0), 0);
+  const invTxn = invExpenses.reduce((a, e) => a + (e.txnCount || 0), 0);
+
+  const hasCommitments = cardAmt > 0 || invAmt > 0;
+  const totalSpent = totalExpenseNumber + totalCCPayments + totalInvestments;
+  const totalSpentPct = totalIncome > 0 ? ((totalSpent / totalIncome) * 100).toFixed(1) : "0.0";
+
+  const maxAmount = Math.max(...sortedExpenses.map(e => e.amount), cardAmt > 0 ? cardAmt : 0, invAmt > 0 ? invAmt : 0, 1);
+
+  const isOverspend = savings < 0 && viewMode === "overspend";
+  const remainingLabel = isOverspend ? "Overspend" : "Remaining";
+  const savingsAbs = Math.abs(savings);
+  const savingsPct = totalIncome > 0 ? ((savingsAbs / totalIncome) * 100).toFixed(1) : "0.0";
+
+  const Dot = ({ cat }) => (
+    <span style={{
+      display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+      background: cat ? CategoryService.colorInk(cat) : "var(--ink-3)",
+      flexShrink: 0,
+    }}/>
+  );
+
+  const BreakdownRow = ({ label, amount, pct, cat, onClick, txnCount }) => {
+    const barW = isMobile ? 0 : Math.max(4, (amount / maxAmount) * 160);
+    const clickable = !!onClick;
+    return (
+      <div onClick={onClick}
+        style={{
+          display: "flex", alignItems: "center", gap: isMobile ? 6 : 10,
+          padding: isMobile ? "7px 0" : "9px 0",
+          cursor: clickable ? "pointer" : "default",
+          borderBottom: "1px solid var(--line)",
+          transition: "background 80ms",
+        }}
+        onMouseEnter={e => { if (clickable) e.currentTarget.style.background = "var(--paper-2)"; }}
+        onMouseLeave={e => { if (clickable) e.currentTarget.style.background = "transparent"; }}
+      >
+        <Dot cat={cat}/>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
+          <span style={{
+            fontSize: isMobile ? 12 : 13, color: "var(--ink)", fontWeight: 500,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            maxWidth: isMobile ? 80 : 140,
+          }}>
+            {label}
+          </span>
+          {txnCount > 0 && (
+            <span style={{ fontSize: 10, color: "var(--ink-4)", whiteSpace: "nowrap" }}>
+              {txnCount} txn
+            </span>
+          )}
+          {barW > 0 && (
+            <div style={{
+              height: 6, borderRadius: 3, background: "var(--line)", overflow: "hidden",
+              width: barW, minWidth: 4, flexShrink: 0,
+            }}>
+              <div style={{
+                height: "100%", width: "100%", borderRadius: 3,
+                background: CategoryService.colorInk(cat), opacity: 0.3,
+              }}/>
             </div>
-          ))}
+          )}
         </div>
-      )}
-      {tip.committed != null && (
-        <div style={{ marginTop: 6, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 6, fontSize: 11 }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--ink-4)" }}>Committed</span>
-            <span style={{ fontFamily: "'Geist Mono', monospace" }}>{tip.committed}</span>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{
+            fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 12 : 13,
+            color: cat === "inc" ? "var(--pos)" : "var(--neg)", fontWeight: 500,
+          }}>
+            {fmtK(amount)}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "var(--ink-4)" }}>Free to spend</span>
-            <span style={{ fontFamily: "'Geist Mono', monospace" }}>{tip.free}</span>
+          <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 1 }}>
+            {pct}%
           </div>
         </div>
+      </div>
+    );
+  };
+
+  const SectionHeader = ({ label, amount, color }) => (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: isMobile ? "10px 0 6px" : "12px 0 8px",
+      marginTop: isMobile ? 4 : 8,
+    }}>
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: "var(--ink-3)",
+        textTransform: "uppercase", letterSpacing: "0.08em",
+      }}>
+        {label}
+      </span>
+      {amount != null && (
+        <span style={{
+          fontFamily: "'Geist Mono', monospace", fontSize: 12,
+          color: color || "var(--ink-2)", fontWeight: 500,
+        }}>
+          {amount}
+        </span>
       )}
     </div>
   );
-};
 
-const SankeyDiagram = ({ data, viewMode, txnCounts, topMerchants, budgetMap, onCategoryClick }) => {
-  const { isMobile } = useViewport();
-  const [tip, setTip] = React.useState(null);
-  const [tipPos, setTipPos] = React.useState({ left: 0, top: 0 });
-  const svgRef = React.useRef(null);
-  const W = 1120, H = 520;
-  const LEFT_X = 30, LEFT_W = 160;
-  const MID_X = 480, MID_W = 180;
-  const RIGHT_X = 910, RIGHT_W = 180;
-  const PAD_Y = 40;
-
-  const totalIncome = data.income.reduce((a,i)=>a+i.amount, 0);
-  const totalExpense = data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a,e)=>a+e.amount, 0);
-  const totalCCPayments = data.expenses.filter(e => e.cat === "card").reduce((a,e)=>a+e.amount, 0);
-  const totalInvestments = data.expenses.filter(e => e.cat === "investment").reduce((a,e)=>a+e.amount, 0);
-  const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
-  const USABLE_H = H - PAD_Y * 2;
-
-  const poolTotal = Math.max(totalIncome, totalExpense + totalCCPayments + totalInvestments, 1);
-  const scale = USABLE_H / poolTotal;
-  const hasIncome = totalIncome > 0;
-  const hasExpenses = totalExpense + totalCCPayments + totalInvestments > 0;
-
-  let yi = PAD_Y;
-  const incomeNodes = data.income.map(i => {
-    const h = Math.max(6, i.amount * scale);
-    const node = { ...i, y: yi, h };
-    yi += h + 10;
-    return node;
-  });
-
-  const incomeRatio = hasIncome ? totalIncome / poolTotal : 0;
-  const hubH = Math.max(USABLE_H * incomeRatio, hasExpenses && !hasIncome ? USABLE_H : 60);
-  const hubY = PAD_Y + (USABLE_H - hubH) / 2;
-
-  let yo = PAD_Y;
-  const rightNodes = [
-    ...data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").map(e => {
-      const h = Math.max(6, e.amount * scale);
-      const node = { ...e, y: yo, h, kind: "exp" };
-      yo += h + 10;
-      return node;
-    }),
-    ...(totalCCPayments > 0 ? [{
-      label: "CC Payments", amount: totalCCPayments, cat: "card",
-      y: yo, h: Math.max(6, totalCCPayments * scale), kind: "cc",
-      txnCount: txnCounts?.card || 0, topMerchants: [],
-    }].map(n => { yo += n.h + 10; return n; }) : []),
-    ...(totalInvestments > 0 ? [{
-      label: "Investments", amount: totalInvestments, cat: "investment",
-      y: yo, h: Math.max(6, totalInvestments * scale), kind: "inv",
-      txnCount: txnCounts?.investment || 0, topMerchants: [],
-    }].map(n => { yo += n.h + 10; return n; }) : []),
-    (() => {
-      const h = Math.max(6, Math.abs(savings) * scale);
-      const isOverspend = savings < 0 && viewMode === "overspend";
-      const node = { label: isOverspend ? "Overspend" : "Remaining", amount: savings, y: yo, h, kind: "sav" };
-      yo += h + 10;
-      return node;
-    })(),
-  ];
-
-  let hubInOff = 0;
-  const totalRightHeight = rightNodes.reduce((sum, n) => sum + n.h, 0) + (rightNodes.length - 1) * 10;
-  const flowY = hubY + Math.max(0, hubH - totalRightHeight);
-
-  const buildPath = (x1, y1, h1, x2, y2, h2) => {
-    const cx1 = x1 + (x2 - x1) * 0.5;
-    const cx2 = x1 + (x2 - x1) * 0.5;
-    return `M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2} L${x2},${y2+h2} C${cx2},${y2+h2} ${cx1},${y1+h1} ${x1},${y1+h1} Z`;
-  };
-
-  const hubLabel = hasIncome ? "TOTAL INFLOW" : "OUTFLOW";
-  const hubAmount = hasIncome ? totalIncome : totalExpense + totalCCPayments + totalInvestments;
-
-  const showTooltip = (e, content) => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setTip(content);
-    setTipPos({ left: e.clientX, top: e.clientY - 8 });
-  };
-  const hideTooltip = () => setTip(null);
-
-  const handleClick = (cat) => {
-    if (onCategoryClick) onCategoryClick(cat);
-  };
-
-  if (isMobile) {
-    const isOverspend = savings < 0 && viewMode === "overspend";
-    const incomeItems = data.income.map(i => ({ ...i, kind: "inc" }));
-    const expenseItems = [
-      ...data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").map(e => ({ ...e, kind: "exp" })),
-      ...(totalCCPayments > 0 ? [{ label: "CC Payments", amount: totalCCPayments, cat: "card", kind: "cc", txnCount: 0 }] : []),
-      ...(totalInvestments > 0 ? [{ label: "Investments", amount: totalInvestments, cat: "investment", kind: "inv", txnCount: 0 }] : []),
-      { label: isOverspend ? "Overspend" : "Remaining", amount: Math.abs(savings), cat: "sav", kind: "sav", txnCount: 0 },
-    ];
-    const maxInc = incomeItems.length > 0 ? Math.max(...incomeItems.map(i => i.amount)) : 0;
-    const maxExp = Math.max(...expenseItems.map(e => e.amount), 1);
-    return (
-      <div style={{ padding: "0 0 12px" }}>
-        {incomeItems.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 8 }}>Income</div>
-            {incomeItems.map((i, idx) => {
-              const pct = maxInc > 0 ? (i.amount / maxInc) * 100 : 0;
-              return (
-                <div key={idx} onClick={() => handleClick("__income__")} style={{ cursor: "pointer", marginBottom: 6 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                    <span style={{ color: "var(--ink-2)", fontWeight: 500 }}>{i.label}</span>
-                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--pos)" }}>{fmtK(i.amount)}</span>
-                  </div>
-                  <div style={{ height: 6, background: "var(--line)", borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: "var(--pos)", borderRadius: 3, opacity: 0.7, transition: "width 300ms ease" }}/>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+  const SummaryLine = ({ label, amount, pct, color }) => (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "10px 0", borderTop: "1px solid var(--line)", marginTop: 4,
+    }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", letterSpacing: "0.02em" }}>
+        {label}
+      </span>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{
+          fontFamily: "'Geist Mono', monospace", fontSize: 14,
+          color: color || "var(--ink)", fontWeight: 600,
+        }}>
+          {fmtK(amount)}
+        </span>
+        {pct != null && (
+          <span style={{
+            fontFamily: "'Geist Mono', monospace", fontSize: 11,
+            color: "var(--ink-3)",
+          }}>
+            {pct}%
+          </span>
         )}
-        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 8 }}>Spending</div>
-        {expenseItems.map((e, idx) => {
-          const pct = (e.amount / maxExp) * 100;
-          const catColor = e.kind === "sav" ? (savings < 0 && viewMode === "overspend" ? "var(--neg)" : "var(--pos)")
-            : e.kind === "cc" ? "var(--cat-card-ink)"
-            : e.kind === "inv" ? "var(--cat-investment-ink)"
-            : e.kind === "exp" ? CategoryService.colorInk(e.cat)
-            : "var(--ink-3)";
-          return (
-            <div key={idx} onClick={() => e.kind !== "sav" && handleClick(e.cat === "sav" ? null : e.cat === "__income__" ? "income" : e.cat)}
-              style={{ cursor: e.kind === "sav" ? "default" : "pointer", marginBottom: 6, opacity: e.kind === "sav" ? 0.7 : 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                <span style={{ color: "var(--ink-2)", fontWeight: e.kind === "sav" ? 600 : 400 }}>
-                  {e.label}
-                  {e.txnCount > 0 && <span style={{ color: "var(--ink-4)", fontSize: 10, marginLeft: 4 }}>({e.txnCount})</span>}
-                </span>
-                <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: e.kind === "sav" ? (isOverspend ? "var(--neg)" : "var(--pos)") : "var(--neg)" }}>{fmtK(e.amount)}</span>
-              </div>
-              <div style={{ height: 6, background: "var(--line)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${Math.max(2, pct)}%`, background: catColor, borderRadius: 3, opacity: e.kind === "sav" ? 0.5 : 0.7, transition: "width 300ms ease" }}/>
-              </div>
-            </div>
-          );
-        })}
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div style={{ overflowX: "visible", position: "relative" }}>
-      <TxnTooltip tip={tip} style={tipPos} />
-      <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: "block", maxHeight: 560 }}>
-        <defs>
-          <pattern id="diag" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="4" stroke="var(--line)" strokeWidth="1"/>
-          </pattern>
-        </defs>
+    <div>
+      <SectionHeader label="Total Income" amount={fmtK(totalIncome)} color="var(--pos)"/>
 
-        {/* Hub — informative pool column */}
-        <rect x={MID_X} y={hubY} width={MID_W} height={hubH} fill="var(--paper-2)" stroke="var(--line)" rx="4"/>
-        <text x={MID_X + MID_W/2} y={hubY + 28} textAnchor="middle" fontFamily="'Geist', sans-serif" fontSize="12" fill="var(--ink-3)" letterSpacing="0.08em">{hubLabel}</text>
-        <text x={MID_X + MID_W/2} y={hubY + 56} textAnchor="middle" fontFamily="'Geist Mono', monospace" fontSize="26" fill="var(--ink)">{fmtK(hubAmount)}</text>
-        {hasIncome && hasExpenses && (() => {
-          const usedPct = Math.min(100, Math.round((totalExpense / totalIncome) * 100));
-          const barH = 6;
-          const barW = MID_W - 32;
-          const barY = hubY + 74;
-          return (
-            <g>
-              <text x={MID_X + MID_W/2} y={barY + 14} textAnchor="middle" fontFamily="'Geist', sans-serif" fontSize="10" fill="var(--ink-4)">
-                {usedPct}% of income spent
-              </text>
-              <rect x={MID_X + 16} y={barY + 22} width={barW} height={barH} rx={3} fill="var(--line)"/>
-              <rect x={MID_X + 16} y={barY + 22} width={Math.max(barH, (barW * usedPct) / 100)} height={barH} rx={3} fill={usedPct > 80 ? "var(--neg)" : usedPct > 60 ? "var(--accent)" : "var(--pos)"} opacity="0.8"/>
-            </g>
-          );
-        })()}
-        {hasIncome && hasExpenses && (() => {
-          const committed = (totalCCPayments + totalInvestments);
-          const free = totalIncome - totalExpense - committed;
-          const detailsY = hubY + hubH - 50;
-          return (
-            <g>
-              <text x={MID_X + 16} y={detailsY} fontFamily="'Geist', sans-serif" fontSize="9" fill="var(--ink-4)" letterSpacing="0.06em">
-                COMMITTED
-              </text>
-              <text x={MID_X + MID_W - 16} y={detailsY} textAnchor="end" fontFamily="'Geist Mono', monospace" fontSize="11" fill="var(--ink-3)">
-                {fmtK(committed)}
-              </text>
-              <text x={MID_X + 16} y={detailsY + 18} fontFamily="'Geist', sans-serif" fontSize="9" fill="var(--ink-4)" letterSpacing="0.06em">
-                FREE TO SPEND
-              </text>
-              <text x={MID_X + MID_W - 16} y={detailsY + 18} textAnchor="end" fontFamily="'Geist Mono', monospace" fontSize="11" fill={free > 0 ? "var(--pos)" : "var(--neg)"}>
-                {fmtK(Math.max(0, free))}
-              </text>
-            </g>
-          );
-        })()}
+      {data.income.map((inc, idx) => (
+        <BreakdownRow
+          key={idx}
+          label={inc.label}
+          amount={inc.amount}
+          pct={totalIncome > 0 ? ((inc.amount / totalIncome) * 100).toFixed(1) : "0.0"}
+          cat="inc"
+          onClick={() => onCategoryClick("__income__")}
+        />
+      ))}
 
-        {/* Income → Hub flows */}
-        {hasIncome && incomeNodes.map((n, idx) => {
-          const p = buildPath(LEFT_X + LEFT_W, n.y, n.h, MID_X, hubY + hubInOff, n.h);
-          hubInOff += n.h + 10;
-          return (
-            <g key={`in-${idx}`}>
-              <path d={p} fill="var(--pos)" fillOpacity="0.18" stroke="none">
-                <animate attributeName="fill-opacity" from="0" to="0.18" dur="600ms" fill="freeze"/>
-              </path>
-            </g>
-          );
-        })}
+      <SectionHeader label={`Expenses · ${pctOfIncome}% of income`}/>
 
-        {/* Income nodes */}
-        {hasIncome && incomeNodes.map((n, idx) => {
-          const pct = totalIncome > 0 ? ((n.amount / totalIncome) * 100).toFixed(1) : "0";
-          const tipContent = {
-            label: n.label, amount: fmtK(n.amount), color: "var(--pos)",
-            pct, txnCount: 1,
-          };
-          return (
-            <g key={`ni-${idx}`}>
-              <rect x={LEFT_X} y={n.y} width={LEFT_W} height={n.h} fill="var(--pos)" fillOpacity="0.88" rx="3"
-                style={{ cursor: "pointer", transition: "filter 120ms" }}
-                onClick={() => handleClick("__income__")}
-                onMouseEnter={(e) => showTooltip(e, tipContent)}
-                onMouseMove={(e) => setTipPos({ left: e.clientX, top: e.clientY - 8 })}
-                onMouseLeave={hideTooltip}
-              />
-              <text x={LEFT_X + 10} y={n.y + n.h/2 - 2} fontSize="12" fill="white" fontWeight="600" fontFamily="'Geist', sans-serif">{n.label.split(" · ")[0]}</text>
-              <text x={LEFT_X + 10} y={n.y + n.h/2 + 14} fontSize="12" fill="white" fontFamily="'Geist Mono', monospace" opacity="0.9">{fmtK(n.amount)} · {pct}%</text>
-            </g>
-          );
-        })}
+      {sortedExpenses.length === 0 ? (
+        <div style={{ padding: "20px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 12 }}>
+          No expenses in this period
+        </div>
+      ) : (
+        sortedExpenses.map((e, idx) => (
+          <BreakdownRow
+            key={idx}
+            label={CategoryService.display(e.cat).label}
+            amount={e.amount}
+            pct={totalIncome > 0 ? ((e.amount / totalIncome) * 100).toFixed(1) : "0.0"}
+            cat={e.cat}
+            txnCount={e.txnCount || 0}
+            onClick={() => onCategoryClick(e.cat)}
+          />
+        ))
+      )}
 
-        {/* Hub → Right flows */}
-        {(() => {
-          let off = 0;
-          return rightNodes.map((n, idx) => {
-            const flowColor = n.kind === "sav"
-              ? (savings < 0 && viewMode === "overspend" ? "var(--neg)" : "var(--pos)")
-              : n.kind === "cc" ? "var(--cat-card-ink)"
-              : n.kind === "inv" ? "var(--cat-investment-ink)"
-              : CategoryService.colorVar(n.cat);
-            const flowOpacity = n.kind === "sav" ? (savings < 0 && viewMode === "overspend" ? 0.4 : 0.35) : 0.55;
-            const p = buildPath(MID_X + MID_W, flowY + off, n.h, RIGHT_X, n.y, n.h);
-            off += n.h + 10;
-            return (
-              <g key={`out-${idx}`} style={{ animation: "fadeSlideUp 300ms var(--ease-out-expo) both", animationDelay: `${idx * 40}ms` }}>
-                <path d={p} fill={flowColor} fillOpacity={flowOpacity} stroke="none" className="sankey-flow" data-kind={n.kind === "sav" ? "sav" : "exp"}/>
-              </g>
-            );
-          });
-        })()}
+      {hasCommitments && (
+        <>
+          <SectionHeader label="Commitments"/>
+          {cardAmt > 0 && (
+            <BreakdownRow
+              label="CC Payments"
+              amount={cardAmt}
+              pct={totalIncome > 0 ? ((cardAmt / totalIncome) * 100).toFixed(1) : "0.0"}
+              cat="card"
+              txnCount={cardTxn}
+              onClick={() => onCategoryClick("card")}
+            />
+          )}
+          {invAmt > 0 && (
+            <BreakdownRow
+              label="Investments"
+              amount={invAmt}
+              pct={totalIncome > 0 ? ((invAmt / totalIncome) * 100).toFixed(1) : "0.0"}
+              cat="investment"
+              txnCount={invTxn}
+              onClick={() => onCategoryClick("investment")}
+            />
+          )}
+        </>
+      )}
 
-        {/* Right nodes */}
-        {rightNodes.map((n, idx) => {
-          const isSav = n.kind === "sav";
-          const isCC = n.kind === "cc";
-          const isInv = n.kind === "inv";
-          const canClick = !isSav;
-          const catInfo = (!isSav && !isCC && !isInv) ? CategoryService.display(n.cat) : null;
-          const fill = isSav
-            ? (n.amount < 0 && viewMode === "overspend" ? "var(--neg)" : "var(--pos)")
-            : isCC ? "var(--cat-card-ink)"
-            : isInv ? "var(--cat-investment-ink)"
-            : CategoryService.colorInk(n.cat);
-          const label = isSav
-            ? (n.amount < 0 && viewMode === "overspend" ? "Overspend" : "Remaining")
-            : isCC ? "CC Payments"
-            : isInv ? "Investments"
-            : catInfo.label;
-          const textFill = isSav ? "white" : "var(--ink)";
-          const clickCat = isSav ? null : isCC ? "card" : isInv ? "investment" : n.cat;
-          const total = isSav ? totalIncome : (totalExpense + totalCCPayments + totalInvestments);
-          const pct = total > 0 ? ((Math.abs(n.amount) / total) * 100).toFixed(1) : "0";
-          const txnCount = n.txnCount || 0;
-          const topM = n.topMerchants || [];
-          const budgetInfo = !isSav && budgetMap ? budgetMap[clickCat] : null;
-          const tipContent = isSav ? null : {
-            label, amount: fmtK(n.amount), txnCount, pct,
-            merchants: topM,
-            color: isCC ? "var(--cat-card)" : isInv ? "var(--cat-investment)" : CategoryService.colorVar(n.cat),
-          };
-
-          return (
-            <g key={`nr-${idx}`}>
-              <rect x={RIGHT_X} y={n.y} width={RIGHT_W} height={n.h} fill={fill} rx="3"
-                style={{
-                  cursor: canClick ? "pointer" : "default",
-                  transition: "filter 120ms",
-                }}
-                onClick={() => canClick && handleClick(clickCat)}
-                onMouseEnter={(e) => tipContent && showTooltip(e, tipContent)}
-                onMouseMove={(e) => tipContent && setTipPos({ left: e.clientX, top: e.clientY - 8 })}
-                onMouseLeave={hideTooltip}
-              />
-              <text x={RIGHT_X + 12} y={n.y + Math.min(16, n.h/2 + 4)} fontSize="12" fill={textFill} fontWeight="600" fontFamily="'Geist', sans-serif">
-                {label}
-              </text>
-              {n.h > 16 && (
-                <text x={RIGHT_X + 12} y={n.y + n.h/2 + 14} fontSize="11" fill={textFill} fontFamily="'Geist Mono', monospace" opacity="0.9">
-                  {fmtK(n.amount)}
-                </text>
-              )}
-              {n.h > 16 && txnCount > 0 && (
-                <text x={RIGHT_X + 12} y={n.y + n.h/2 + 28} fontSize="10" fill={textFill} fontFamily="'Geist', sans-serif" opacity="0.7">
-                  {txnCount} txn
-                </text>
-              )}
-              {budgetInfo && n.h > 20 && (
-                <g>
-                  <rect x={RIGHT_X + 4} y={n.y + n.h - 8} width={RIGHT_W - 8} height={4} rx={2} fill="rgba(0,0,0,0.15)"/>
-                  <rect x={RIGHT_X + 4} y={n.y + n.h - 8} width={Math.min(1, budgetInfo.pct / 100) * (RIGHT_W - 8)} height={4} rx={2} fill={budgetInfo.over_budget ? "var(--neg)" : "var(--pos)"} opacity="0.8"/>
-                </g>
-              )}
-            </g>
-          );
-        })}
-
-        {/* column labels */}
-        {hasIncome && <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">INCOME SOURCES</text>}
-        {!hasIncome && <text x={LEFT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500" opacity="0.4">—</text>}
-        <text x={MID_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">POOL</text>
-        <text x={RIGHT_X} y={20} fontSize="10" fill="var(--ink-4)" letterSpacing="0.12em" fontWeight="500">WHERE IT WENT</text>
-      </svg>
+      <SummaryLine label="Total Spent" amount={totalSpent} pct={totalSpentPct} color="var(--neg)"/>
+      <SummaryLine label={remainingLabel} amount={savingsAbs} pct={savingsPct} color={isOverspend ? "var(--neg)" : "var(--pos)"}/>
     </div>
   );
 };
@@ -443,7 +270,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const [retryKey, setRetryKey] = React.useState(0);
   const [viewMode, setViewMode] = React.useState("remaining");
   const [compareStats, setCompareStats] = React.useState(null);
-  const [budgets, setBudgets] = React.useState([]);
   const [drillCategory, setDrillCategory] = React.useState(null);
   const [drillTxns, setDrillTxns] = React.useState([]);
   const [drillLoading, setDrillLoading] = React.useState(false);
@@ -468,7 +294,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     return () => { cancelled = true; clearTimeout(timer); };
   }, [rangeFrom, rangeTo, categoryFilter, retryKey]);
 
-  // Compare stats for previous equivalent period
   React.useEffect(() => {
     if (!rangeFrom || !rangeTo) { setCompareStats(null); return; }
     const rangeMs = new Date(rangeTo) - new Date(rangeFrom);
@@ -479,18 +304,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
       .catch(() => {});
   }, [rangeFrom, rangeTo]);
 
-  // Budgets: only when range aligns with current month
-  const firstOfMonth = todayStr.slice(0, 7) + "-01";
-  const isCurrentMonth = rangeFrom === firstOfMonth && rangeTo === todayStr;
-  React.useEffect(() => {
-    if (isCurrentMonth) {
-      API.get("/api/budgets").then(d => setBudgets(d.budgets || [])).catch(() => {});
-    } else {
-      setBudgets([]);
-    }
-  }, [isCurrentMonth]);
-
-  // Fetch transactions for drill-down modal
   React.useEffect(() => {
     if (!drillCategory) { setDrillTxns([]); return; }
     let cancelled = false;
@@ -529,7 +342,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const expDelta = deltaPct(totalExpense, prevExpense);
   const incDelta = deltaPct(totalIncome, prevIncome);
   const savDelta = deltaPct(savings, prevSavings);
-  const budgetMap = Object.fromEntries((budgets || []).map(b => [b.category, b]));
   const isBadUp = viewMode === "overspend" && savings < 0;
   const savUp = savDelta != null && parseFloat(savDelta) >= 0;
 
@@ -543,15 +355,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     }
     setDrillCategory(cat);
   };
-
-  const txnCountMap = {};
-  const topMerchantMap = {};
-  if (flow) {
-    for (const e of flow.expenses) {
-      txnCountMap[e.cat] = e.txnCount || 0;
-      topMerchantMap[e.cat] = e.topMerchants || [];
-    }
-  }
 
   return (
     <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
@@ -647,7 +450,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
             ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow
               ? <>
-                  <SankeyDiagram data={flow} viewMode={viewMode} txnCounts={txnCountMap} topMerchants={topMerchantMap} budgetMap={budgetMap} onCategoryClick={handleCategoryClick}/>
+                  <FlowBreakdown data={flow} totalIncome={totalIncome} totalExpenseNumber={totalExpense} totalCCPayments={totalCCPayments} totalInvestments={totalInvestments} savings={savings} incomeSources={incomeSources} pctOfIncome={pctOfIncome} onCategoryClick={handleCategoryClick} viewMode={viewMode}/>
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
                       <span style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Timeline</span>
@@ -672,7 +475,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                         return [
                           { label: "Saved", value: `${sr}%`, color: "var(--pos)" },
                           { label: "Daily", value: fmtK(daily), color: "var(--ink)" },
-                          { label: "Top", value: topCat ? (CategoryService.display(topCat.cat).label || topCat.cat) : "—", color: "var(--accent)" },
+                          { label: "Top", value: topCat ? (CategoryService.display(topCat.cat).label || topCat.cat) : "\u2014", color: "var(--accent)" },
                         ].map((pill, i) => (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "var(--paper-2)", borderRadius: 6, fontSize: 11, whiteSpace: "nowrap" }}>
                             <span style={{ color: "var(--ink-4)", fontWeight: 500 }}>{pill.label}</span>
@@ -729,7 +532,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
             </div>
             <div style={{overflowY: "auto", padding: "8px 0", flex: 1}}>
               {drillLoading ? (
-                <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions…</div>
+                <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions</div>
               ) : drillTxns.length === 0 ? (
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
               ) : (
@@ -757,7 +560,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 onNavigateToView("inbox");
               }}
                 style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>
-                View all in inbox →
+                View all in inbox
               </button>
             </div>
           </div>
