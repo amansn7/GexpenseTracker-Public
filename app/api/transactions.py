@@ -242,7 +242,7 @@ async def list_transactions(
     if category:
         from app.services.category_service import CategoryService
         aliases = CategoryService.filter_aliases(category)
-        conditions.append(Transaction.category.in_(aliases))
+        conditions.append(func.lower(Transaction.category).in_(aliases))
 
     count_q = select(func.count(Transaction.id)).join(Email, Transaction.email_id == Email.id).where(*conditions)
     data_q = (

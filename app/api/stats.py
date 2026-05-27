@@ -105,7 +105,7 @@ async def stats_summary(
     if category:
         from app.services.category_service import CategoryService
         aliases = CategoryService.filter_aliases(category)
-        expense_where.append(Transaction.category.in_(aliases))
+        expense_where.append(func.lower(Transaction.category).in_(aliases))
 
     total_expenses = float(
         (
@@ -237,7 +237,7 @@ async def stats_category_breakdown(
     if category:
         from app.services.category_service import CategoryService
         aliases = CategoryService.filter_aliases(category)
-        where.append(Transaction.category.in_(aliases))
+        where.append(func.lower(Transaction.category).in_(aliases))
 
     rows = (
         await db.execute(
