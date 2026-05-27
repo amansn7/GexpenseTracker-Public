@@ -1,5 +1,6 @@
 """Goals service router — CRUD for savings goals and contributions."""
 
+import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Goal, GoalContribution, User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -101,7 +104,7 @@ def _build_response(goal: Goal, current_amount: float) -> dict:
         "category": goal.category,
         "notes": goal.notes,
         "active": goal.active,
-        "created_at": goal.created_at.isoformat(),
+        "created_at": goal.created_at.isoformat() if goal.created_at else None,
     }
 
 
@@ -131,8 +134,12 @@ async def list_goals(
 
     result = []
     for g in goals:
-        current = await _compute_current_amount(db, g.id)
-        result.append(_build_response(g, current))
+        try:
+            current = await _compute_current_amount(db, g.id)
+            result.append(_build_response(g, current))
+        except Exception as exc:
+            logger.exception("Failed to build response for goal %s: %s", g.id, exc)
+            raise
     return {"goals": result}
 
 

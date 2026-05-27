@@ -98,3 +98,8 @@
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.
 2. When removing inline hover handlers, verify CSS classes provide the default styles. Browser defaults for button backgrounds differ from explicit `background: transparent`.
+
+## CSP & Security
+
+1. React/SPA apps that use `style={{...}}` props generate inline `style` attributes on DOM elements. These require `'unsafe-inline'` in `style-src`. The nonce mechanism only protects `<style>` blocks, not `style` attributes. Removing `'unsafe-inline'` breaks all component styling in modern browsers.
+2. CSP `'unsafe-inline'` in `style-src` is standard for React SPAs — the security tradeoff accepts inline style attributes in exchange for the app being functional. If stricter CSP is desired, the entire app must be refactored to use CSS classes exclusively. Apply this knowledge before ever modifying the CSP policy.
