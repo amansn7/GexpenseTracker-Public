@@ -320,7 +320,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
   const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
 
-  const totalIncome = flow ? flow.income.reduce((a, i) => a + i.amount, 0) : 0;
+  const totalIncome = flow ? flow.totalIncome : 0;
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
   const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
   const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
@@ -537,7 +537,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
               ) : drillTxns.length === 0 ? (
                 <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
               ) : (() => {
-                const nonzero = drillTxns.filter(tx => tx.amount !== 0);
+                const nonzero = drillTxns.filter(tx => tx.amount != null && tx.amount !== 0);
                 return nonzero.length === 0 ? (
                   <div style={{padding: "40px 20px", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
                 ) : nonzero.map((tx, i) => (

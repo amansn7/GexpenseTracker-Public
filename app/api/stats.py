@@ -149,41 +149,45 @@ async def stats_summary(
         if start <= _effective_month(r.txn_date, "income", r.sender) <= this_month
     )
 
-    total_cc_payments = float(
-        (
-            await db.execute(
-                select(func.sum(Transaction.amount))
-                .join(Email, Transaction.email_id == Email.id)
-                .where(
-                    Email.user_id == current_user.id,
-                    Transaction.transaction_type == "cc_payment",
-                    Transaction.txn_date >= start,
-                    Transaction.txn_date <= end,
-                    Transaction.txn_date.isnot(None),
-                    Transaction.status != "needs_review",
-                )
+    cc_row = (
+        await db.execute(
+            select(
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("count"),
             )
-        ).scalar_one()
-        or 0
-    )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.transaction_type == "cc_payment",
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+            )
+        )
+    ).one()
+    total_cc_payments = float(cc_row.total or 0)
+    total_cc_payments_count = cc_row.count
 
-    total_investments = float(
-        (
-            await db.execute(
-                select(func.sum(Transaction.amount))
-                .join(Email, Transaction.email_id == Email.id)
-                .where(
-                    Email.user_id == current_user.id,
-                    Transaction.transaction_type == "investment",
-                    Transaction.txn_date >= start,
-                    Transaction.txn_date <= end,
-                    Transaction.txn_date.isnot(None),
-                    Transaction.status != "needs_review",
-                )
+    inv_row = (
+        await db.execute(
+            select(
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("count"),
             )
-        ).scalar_one()
-        or 0
-    )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == current_user.id,
+                Transaction.transaction_type == "investment",
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+            )
+        )
+    ).one()
+    total_investments = float(inv_row.total or 0)
+    total_investments_count = inv_row.count
 
     saved = total_income - total_expenses - total_cc_payments - total_investments
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
@@ -210,7 +214,9 @@ async def stats_summary(
         "total_expenses": round(total_expenses, 2),
         "total_income": round(total_income, 2),
         "total_cc_payments": round(total_cc_payments, 2),
+        "total_cc_payments_count": total_cc_payments_count,
         "total_investments": round(total_investments, 2),
+        "total_investments_count": total_investments_count,
         "saved": round(saved, 2),
         "savings_rate": savings_rate,
         "needs_review_count": needs_review_count,

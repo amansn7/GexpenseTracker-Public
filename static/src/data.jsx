@@ -155,11 +155,19 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
     .map(([label, amount]) => ({ label, amount: Math.round(amount) }))
     .sort((a, b) => b.amount - a.amount);
 
-  // If no merchant-level income in loaded transactions but summary has total_income,
-  // use the aggregated total (common when income is paginated out of the 50-item batch)
-  // category-breakdown API filters to label=="expense" so we use summary here
-  if (income.length === 0 && summary?.total_income > 0) {
-    income.push({ label: "Income", amount: Math.round(summary.total_income) });
+  if (summary?.total_income > 0) {
+    const summaryTotal = Math.round(summary.total_income);
+    const loadedTotal = income.reduce((a, i) => a + i.amount, 0);
+    if (income.length === 0) {
+      income.push({ label: "Income", amount: summaryTotal });
+    } else {
+      const diff = summaryTotal - loadedTotal;
+      if (diff > 100) {
+        income.push({ label: "Other income", amount: diff });
+      } else if (diff < -100) {
+        income[0].amount += diff;
+      }
+    }
   }
 
   // Expenses per category from DB breakdown (authoritative amounts + counts)
@@ -191,11 +199,11 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
   // Inject CC payments and investments from stats summary (excluded from category-breakdown API)
   if (summary?.total_cc_payments > 0) {
     catMap["card"] = (catMap["card"] || 0) + summary.total_cc_payments;
-    txnCountMap["card"] = (txnCountMap["card"] || 0) + 1;
+    txnCountMap["card"] = (txnCountMap["card"] || 0) + (summary.total_cc_payments_count || 0);
   }
   if (summary?.total_investments > 0) {
     catMap["investment"] = (catMap["investment"] || 0) + summary.total_investments;
-    txnCountMap["investment"] = (txnCountMap["investment"] || 0) + 1;
+    txnCountMap["investment"] = (txnCountMap["investment"] || 0) + (summary.total_investments_count || 0);
   }
   const expenses = Object.entries(catMap)
     .map(([cat, amount]) => ({ cat, amount: Math.round(amount), txnCount: txnCountMap[cat] || 0, topMerchants: topMerchants[cat] || [] }))
@@ -229,11 +237,11 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
       ? ` – ${rangeEnd.toLocaleString("en-US", { month: "long", year: "numeric" })}`
       : "");
 
-  const totalIncome = income.reduce((a, i) => a + i.amount, 0);
+  const totalIncome = summary?.total_income ? Math.round(summary.total_income) : income.reduce((a, i) => a + i.amount, 0);
   const totalExpenses = expenses.reduce((a, e) => a + e.amount, 0);
   const saved = summary?.saved ?? (totalIncome - totalExpenses);
 
-  return { month: monthLabel, income, expenses, weeklyBurn, savings: Math.round(saved) };
+  return { month: monthLabel, income, expenses, weeklyBurn, savings: Math.round(saved), totalIncome };
 };
 
 // Thin fetch wrappers
