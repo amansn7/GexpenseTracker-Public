@@ -9,7 +9,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.models import DomainPairRule, DuplicatePair, Email, Transaction
+from app.models import DomainPairRule, DuplicatePair, Email, Transaction, TransactionCorrection
 
 logger = logging.getLogger(__name__)
 
@@ -970,6 +970,14 @@ async def resolve_duplicate(
         )
         for p in referencing_pairs:
             await db.delete(p)
+
+        corrections = (
+            (await db.execute(select(TransactionCorrection).where(TransactionCorrection.transaction_id == discard_tx_id)))
+            .scalars()
+            .all()
+        )
+        for c in corrections:
+            await db.delete(c)
 
         discard_tx = (await db.execute(select(Transaction).where(Transaction.id == discard_tx_id))).scalar_one_or_none()
         if discard_tx:

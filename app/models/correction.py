@@ -8,7 +8,7 @@ class TransactionCorrection(Base):
     __tablename__ = "transaction_corrections"
 
     id: Mapped[str] = _uuid_col()
-    transaction_id: Mapped[str] = mapped_column(String(36), ForeignKey("transactions.id"), nullable=False)
+    transaction_id: Mapped[str] = mapped_column(String(36), ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False)
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     old_label: Mapped[str | None] = mapped_column(String(20))
     new_label: Mapped[str | None] = mapped_column(String(20))

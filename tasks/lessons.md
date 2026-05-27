@@ -159,3 +159,17 @@
 
 ### Reclassify Flow
 7. **Reclassify always fetches body before calling the API.** `handlePreview()` and `handleConfirm()` both call `handleFetchBody()` internally. The manual "Fetch body" button is optional — just for viewing in the excerpt section. The reclassify works fine without it.
+
+## 2026-05-27 — Inbox JSX Split + Unicode Escape Bug + Duplicate FK Cascade Fix
+
+### esbuild Unicode Escape in JSX Text Content
+1. **esbuild's JSX transform (`jsx: "transform"`) double-escapes `\\uXXXX` escapes in JSX text content** (text between tags, outside `{}`). `\u20B9` in `<span>{sign}\u20B9</span>` becomes `React.createElement("span", null, sign, "\\\\u20B9")` — the compiled string has `\\u20B9` which evaluates to literal `\u20B9` instead of ₹. Use the actual literal character `₹` instead of the `\u20B9` escape in JSX text content. Inside JavaScript expressions (`{...}`), template literals, and regular string literals, `\u20B9` is processed correctly.
+2. **To find similar issues, check compiled dist output for `\\\\u20B9` (double backslash) patterns.** These indicate the unicode escape was not resolved during transpilation and will render as literal text in the browser.
+3. **Use `node -e` with esbuild's `transformSync` to verify how unicode escapes in JSX text content compile.** Compare the output string — a single `\u20B9` in the compiled output is correct (evalutes to ₹); `\\u20B9` (double) is not.
+
+### Duplicate Resolution Production Crash (ForeignKeyViolation)
+4. **`transaction_corrections.transaction_id` FK was created without `ondelete="CASCADE"`** in migration 0030. When `resolve_duplicate` deletes a transaction during duplicate resolution, PostgreSQL blocks it if the transaction has correction records. The model already had `ondelete="CASCADE"` on `user_id` but not on `transaction_id` — a schema drift from the migration.
+5. **Always add `ondelete="CASCADE"` to FKs where the child record should not outlive the parent.** In SQLAlchemy: `ForeignKey("parent.id", ondelete="CASCADE")`. Forgetting this causes hard-to-reproduce crashes that only surface in production when users interact with the feature.
+6. **Service code should defensively delete orphaned children before deleting the parent**, even when the model has CASCADE. The cascade handles the DB-level constraint, but the service-side delete ensures no stale references in the session's identity map. This duplicates the protection and catches edge cases before the DB roundtrip.
+7. **Log files on Railway use `"severity":"error"` even for info-level Alembic messages.** Filter real errors by looking for traceback patterns (`ForeignKeyViolationError`, `IntegrityError`, `Traceback`), not just the `severity` field.
+8. **The Railway rate limit is 500 logs/sec.** Excessive stack trace repetition (5 crashes × ~400 lines each) can hit this limit and drop logs, making debugging harder.
