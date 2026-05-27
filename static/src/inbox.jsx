@@ -253,7 +253,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     API.get("/api/review?count=true")
       .then(data => setNeedsReviewCount(data?.count ?? null))
       .catch(() => {});
-  }, []);
+  }, [transactions]);
 
   // Persist review session stats to localStorage
   React.useEffect(() => {
@@ -716,7 +716,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   ["sub","Subscriptions", "repeat"],
                   ["flagged","Flagged", "star"],
                   ["low","Low confidence", "alert-circle"],
-                  ["needs_review","Needs review", "alert-circle", transactions.filter(t => t.status === "needs_review" && t.tag !== "ignore").length],
+                  ["needs_review","Needs review", "alert-circle", needsReviewCount],
                   ["duplicates","Duplicates", "arrow-swap"],
                   ["review","Pending", "inbox", reviewEmails.length],
                 ].map(([k,label,icon,count]) => (

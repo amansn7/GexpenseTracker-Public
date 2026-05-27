@@ -30,6 +30,20 @@ const App = () => {
       .then(data => setReviewEmails(data))
       .catch(() => {});
   }, [inboxFilter]);
+
+  React.useEffect(() => {
+    if (inboxFilter !== "needs_review") return;
+    API.get("/api/review")
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        const items = data.map(t => transformTransaction({ ...t, status: "needs_review" }));
+        setTransactions(prev => {
+          const seen = new Set(prev.map(x => x.id));
+          return [...prev, ...items.filter(x => !seen.has(x.id))];
+        });
+      })
+      .catch(() => {});
+  }, [inboxFilter]);
   const [tweaksOn, setTweaksOn] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
