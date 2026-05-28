@@ -1,9 +1,10 @@
 import os
+import shutil
 import subprocess
 import tempfile
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ALEMBIC = os.path.join(PROJECT_ROOT, ".venv", "bin", "alembic")
+ALEMBIC = shutil.which("alembic") or os.path.join(PROJECT_ROOT, ".venv", "bin", "alembic")
 
 
 def test_alembic_heads_are_single():

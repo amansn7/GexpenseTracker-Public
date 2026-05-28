@@ -22,20 +22,13 @@ def unauth_client():
     """Client with no auth overrides — for testing 401 responses."""
     os.environ["TESTING"] = "1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-    # Ensure no auth overrides are active
     from app.auth_deps import get_current_user
     from app.main import app
 
     app.dependency_overrides.pop(get_current_user, None)
-
-
-@pytest.fixture
-def unauth_client_ctx():
-    unauth_client()
-    from app.main import app
-
     with TestClient(app) as client:
         yield client
+
 
 
 # ── /health/ready — public, minimal ──────────────────────────────────────────
