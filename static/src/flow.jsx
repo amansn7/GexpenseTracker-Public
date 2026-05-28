@@ -10,7 +10,7 @@ const flowStyles = {
   secWrap: { marginTop: 28 },
   secHead: { borderRadius: "var(--r) var(--r) 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   secTitle: { fontSize: 11, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.1em" },
-  secSub: { fontSize: 11, fontFamily: "'Instrument Serif', serif", fontStyle: "italic", color: "var(--paper)", opacity: 0.45 },
+  secSub: { fontSize: 11, fontFamily: "'Geist', sans-serif", fontStyle: "italic", color: "var(--paper)", opacity: 0.45 },
   secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r) var(--r)", padding: "20px 16px" },
 };
 
@@ -23,24 +23,6 @@ const COLORS = {
   surplus: '#2d5a3a',
   deficit: '#c2410c',
   budget: '#3d3a33',
-};
-
-const incomeEmoji = (label) => {
-  const l = label.toLowerCase();
-  if (l.includes("salary")||l.includes("paycheck")||l.includes("pay")) return "💵";
-  if (l.includes("freelance")||l.includes("gig")||l.includes("side")) return "💰";
-  if (l.includes("interest")) return "🤑";
-  if (l.includes("dividend")) return "📈";
-  if (l.includes("cashback")||l.includes("card")||l.includes("reward")) return "💳";
-  if (l.includes("rent")||l.includes("property")) return "🏠";
-  if (l.includes("invest")||l.includes("stock")) return "📊";
-  return "💰";
-};
-
-const catEmoji = {
-  food:"🍔", groceries:"🛒", rent:"🏡", transport:"🚙", travel:"✈️",
-  shop:"🛍️", entertainment:"🎭", health:"🏥", edu:"🎓",
-  sub:"📋", util:"💡", other:"📦",
 };
 
 const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
@@ -239,7 +221,9 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       path.setAttribute("role", "graphics-symbol");
       path.setAttribute("aria-label", flowLabel);
       path.setAttribute("tabindex", "0");
-      path.style.transition = `opacity 400ms cubic-bezier(.2,.8,.2,1) ${i * 60}ms`;
+      path.style.transition = `opacity 400ms cubic-bezier(0.34,1.56,0.64,1), transform 400ms cubic-bezier(0.34,1.56,0.64,1)`;
+      path.style.transitionDelay = `${i * 60}ms`;
+      path.style.transform = `translateY(6px)`;
 
       path.addEventListener('mouseenter', () => {
         const prev = linkGroup.querySelector('[data-hovered]');
@@ -320,7 +304,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        linkGroup.querySelectorAll('path').forEach(p => p.setAttribute('opacity', '1'));
+        linkGroup.querySelectorAll('path').forEach(p => {
+          p.setAttribute('opacity', '1');
+          p.style.transform = '';
+        });
       });
     });
 
@@ -360,15 +347,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           displayName = displayName.substring(0, 10) + "..";
         }
 
-        const label = d.category === "income"
-          ? `${pct}%${isMobile ? "" : " "}${incomeEmoji(d.name)}${isMobile ? "" : " "}${d.name}`
-          : d.category === "surplus" || d.category === "deficit"
-            ? `${pct}% ${d.name}`
-            : `${pct}%${isMobile ? "" : " "}${catEmoji[d.cat]||"📦"}${isMobile ? "" : " "}${displayName}`;
-        const plainLabel = d.category === "income" || d.category === "surplus" || d.category === "deficit"
+        const label = d.category === "income" || d.category === "surplus" || d.category === "deficit"
           ? `${pct}% ${d.name}`
-          : `${pct}% ${CategoryService.display(d.cat)?.label || d.cat}`;
-        text.setAttribute("aria-label", plainLabel);
+          : `${pct}% ${displayName}`;
+        text.setAttribute("aria-label", label);
 
         text.setAttribute("x", String(labelX));
         text.setAttribute("y", String(d.y0 + (d.y1 - d.y0) / 2));
@@ -408,7 +390,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
       <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
       {tooltip && (
-        <div style={{
+        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance" style={{
           position: "absolute", left: tooltip.x, top: tooltip.y,
           background: "var(--card)", border: "1px solid var(--line)",
           borderRadius: 8, padding: "8px 12px", pointerEvents: "none",
@@ -658,7 +640,7 @@ const WeeklyBurn = ({ data }) => {
         {data.weeklyBurn.map((w, idx) => (
           <div key={idx} className="anim-row" style={{"--i": idx, textAlign: "center", fontSize: 11, color: "var(--ink-3)", padding: "0 10px" }}>
             <div style={{ fontWeight: 500, color: w.projected ? "var(--ink-4)" : "var(--ink-2)" }}>{w.week}</div>
-            {w.projected && <div style={{ fontStyle: "italic", fontFamily: "'Instrument Serif', serif", fontSize: 12, color: "var(--ink-4)" }}>projected</div>}
+            {w.projected && <div style={{ fontStyle: "italic", fontFamily: "'Geist', sans-serif", fontSize: 12, color: "var(--ink-4)" }}>projected</div>}
           </div>
         ))}
       </div>
@@ -900,7 +882,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                   <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                       <span style={{ fontSize: 10, color: "var(--ink-4)", fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase" }}>Weekly burn</span>
-                      <span style={{ fontSize: 11, fontFamily: "'Instrument Serif', serif", fontStyle: "italic", color: "var(--ink-4)", opacity: 0.6 }}>when the money actually leaves</span>
+                      <span style={{ fontSize: 11, fontFamily: "'Geist', sans-serif", fontStyle: "italic", color: "var(--ink-4)", opacity: 0.6 }}>when the money actually leaves</span>
                     </div>
                     <WeeklyBurn data={flow}/>
                   </div>
