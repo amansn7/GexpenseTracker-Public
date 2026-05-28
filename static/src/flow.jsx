@@ -553,178 +553,6 @@ const skeleton = (h, w) => (
   <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
 );
 
-const genId = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
-const PlannerSection = ({ isMobile, planIncomes, setPlanIncomes, planExpenses, setPlanExpenses, planTotalIncome, planTotalExpense, planSurplus, planSavingsRate, seededRef, setFlowTab }) => {
-  const [incInput, setIncInput] = React.useState({ name: "", amount: "" });
-  const [expInput, setExpInput] = React.useState({ name: "", amount: "", category: "" });
-  const [editingId, setEditingId] = React.useState(null);
-  const [editFields, setEditFields] = React.useState({ name: "", amount: "" });
-
-  const addIncome = () => {
-    if (!incInput.name.trim() || !incInput.amount) return;
-    const amt = parseInt(incInput.amount.replace(/[^0-9]/g, ""), 10);
-    if (isNaN(amt) || amt <= 0) return;
-    setPlanIncomes(p => [...p, { id: genId(), name: incInput.name.trim(), amount: amt }]);
-    setIncInput({ name: "", amount: "" });
-  };
-  const addExpense = () => {
-    if (!expInput.name.trim() || !expInput.amount) return;
-    const amt = parseInt(expInput.amount.replace(/[^0-9]/g, ""), 10);
-    if (isNaN(amt) || amt <= 0) return;
-    setPlanExpenses(p => [...p, { id: genId(), name: expInput.name.trim(), amount: amt, category: expInput.category || "other" }]);
-    setExpInput({ name: "", amount: "", category: "" });
-  };
-  const startEdit = (item) => { setEditingId(item.id); setEditFields({ name: item.name, amount: String(item.amount) }); };
-  const saveEdit = (type) => {
-    if (!editingId || !editFields.name.trim() || !editFields.amount) return;
-    const amt = parseInt(editFields.amount.replace(/[^0-9]/g, ""), 10);
-    if (isNaN(amt) || amt <= 0) return;
-    const fn = type === "incomes" ? setPlanIncomes : setPlanExpenses;
-    fn(p => p.map(i => i.id === editingId ? { ...i, name: editFields.name.trim(), amount: amt } : i));
-    setEditingId(null);
-  };
-  const cancelEdit = () => setEditingId(null);
-  const resetFromActuals = () => { seededRef.current = false; setFlowTab("actuals"); setTimeout(() => setFlowTab("planner"), 50); };
-  const delItem = (fn, id) => fn(p => p.filter(i => i.id !== id));
-
-  const planCatMap = {};
-  for (const e of planExpenses) {
-    const key = e.category || "other";
-    planCatMap[key] = (planCatMap[key] || 0) + e.amount;
-  }
-  const planCatEntries = Object.entries(planCatMap).sort((a, b) => b[1] - a[1]);
-
-  const row = (items, type, colorVar, emptyMsg) => items.length === 0 ? (
-    <div style={{ fontSize: 12, color: "var(--ink-4)", fontStyle: "italic", padding: "8px 0" }}>{emptyMsg}</div>
-  ) : items.map((item, idx) => (
-    <div key={item.id} className="anim-row" style={{"--i": idx, display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: idx < items.length - 1 ? "1px dashed var(--line)" : "none"}}>
-      {editingId === item.id ? (
-        <>
-          <input value={editFields.name} onChange={e => setEditFields(p => ({ ...p, name: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") saveEdit(type); if (e.key === "Escape") cancelEdit(); }} style={{ flex: 1, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, minWidth: 0 }} placeholder="Name" autoFocus onClick={e => e.stopPropagation()}/>
-          <input value={editFields.amount} onChange={e => setEditFields(p => ({ ...p, amount: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") saveEdit(type); if (e.key === "Escape") cancelEdit(); }} style={{ width: 80, padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", textAlign: "right" }} placeholder="₹" onClick={e => e.stopPropagation()}/>
-          <button onClick={() => saveEdit(type)} className="btn-press" style={{ border: "none", background: colorVar, color: "white", borderRadius: 4, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>Save</button>
-          <button onClick={cancelEdit} className="btn-press" style={{ border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", borderRadius: 4, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>Esc</button>
-        </>
-      ) : (
-        <>
-          <span style={{ width: 7, height: 7, borderRadius: type === "incomes" ? "50%" : 2, background: colorVar, flexShrink: 0 }}/>
-          <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: "var(--ink)", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => startEdit(item)}>{item.name}</span>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: colorVar, fontWeight: 500, cursor: "pointer" }} onClick={() => startEdit(item)}>{fmtK(item.amount)}</span>
-          <button onClick={() => delItem(type === "incomes" ? setPlanIncomes : setPlanExpenses, item.id)} className="btn-press" style={{ border: "none", background: "none", color: "var(--ink-4)", cursor: "pointer", padding: "0 2px", fontSize: 13, lineHeight: 1 }} title="Delete">×</button>
-        </>
-      )}
-    </div>
-  ));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Comparison KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 10 }}>
-        <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)" }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>Income</div>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 16 : 20, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 4, color: "var(--pos)" }}>{fmtK(planTotalIncome)}</div>
-          <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>projected annual</div>
-        </div>
-        <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)" }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>Expenses</div>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 16 : 20, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 4, color: "var(--neg)" }}>{fmtK(planTotalExpense)}</div>
-          <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>projected annual</div>
-        </div>
-        <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)" }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>{planSurplus >= 0 ? "Surplus" : "Deficit"}</div>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 16 : 20, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 4, color: planSurplus >= 0 ? "var(--pos)" : "var(--neg)" }}>{planSurplus >= 0 ? "+" : "−"}{fmtK(Math.abs(planSurplus))}</div>
-          <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{fmtK(Math.round(Math.abs(planSurplus) / 12))}/month</div>
-        </div>
-        <div style={{ padding: "14px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)" }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>Savings rate</div>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: isMobile ? 16 : 20, fontWeight: 400, letterSpacing: "-0.02em", marginTop: 4, color: planSurplus >= 0 ? "var(--pos)" : "var(--neg)" }}>{planSavingsRate}%</div>
-          <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>of projected income</div>
-        </div>
-      </div>
-
-      {/* Income + Expense columns */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
-        {/* Incomes */}
-        <div>
-          <div style={{ borderRadius: "6px 6px 0 0", background: "var(--pos)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.08em" }}>Income sources</span>
-            <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: "white", opacity: 0.7 }}>{planTotalIncome > 0 ? fmtK(planTotalIncome) : ""}</span>
-          </div>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 6px 6px", padding: "12px 14px" }}>
-            {row(planIncomes, "incomes", "var(--pos)", "No income sources — add one below")}
-            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-              <input value={incInput.name} onChange={e => setIncInput(p => ({ ...p, name: e.target.value }))} placeholder="Source" style={{ flex: "1 1 100px", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 11, minWidth: 0 }} onKeyDown={e => { if (e.key === "Enter") addIncome(); }}/>
-              <input value={incInput.amount} onChange={e => setIncInput(p => ({ ...p, amount: e.target.value }))} placeholder="Amount" style={{ flex: "0 0 80px", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 11, fontFamily: "'Geist Mono', monospace", textAlign: "right" }} onKeyDown={e => { if (e.key === "Enter") addIncome(); }}/>
-              <button onClick={addIncome} className="btn-press" style={{ padding: "6px 12px", border: "none", background: "var(--pos)", color: "white", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add</button>
-            </div>
-            <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 6 }}>Annual amounts — click to edit</div>
-          </div>
-        </div>
-
-        {/* Expenses */}
-        <div>
-          <div style={{ borderRadius: "6px 6px 0 0", background: "var(--neg)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "white", textTransform: "uppercase", letterSpacing: "0.08em" }}>Expenses</span>
-            <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: "white", opacity: 0.7 }}>{planTotalExpense > 0 ? fmtK(planTotalExpense) : ""}</span>
-          </div>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 6px 6px", padding: "12px 14px" }}>
-            {row(planExpenses, "expenses", "var(--neg)", "No expenses — add one below")}
-            <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-              <input value={expInput.name} onChange={e => setExpInput(p => ({ ...p, name: e.target.value }))} placeholder="Expense" style={{ flex: "1 1 80px", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 11, minWidth: 0 }} onKeyDown={e => { if (e.key === "Enter") addExpense(); }}/>
-              <input value={expInput.amount} onChange={e => setExpInput(p => ({ ...p, amount: e.target.value }))} placeholder="Amount" style={{ flex: "0 0 70px", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 11, fontFamily: "'Geist Mono', monospace", textAlign: "right" }} onKeyDown={e => { if (e.key === "Enter") addExpense(); }}/>
-              <select value={expInput.category} onChange={e => setExpInput(p => ({ ...p, category: e.target.value }))} style={{ flex: "0 0 90px", padding: "6px 4px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 11 }}>
-                <option value="">Category</option>
-                {CategoryService.expenseCategories().map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
-              <button onClick={addExpense} className="btn-press" style={{ padding: "6px 12px", border: "none", background: "var(--neg)", color: "white", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Add</button>
-            </div>
-            <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 6 }}>Annual amounts — seeded from actual data</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Category breakdown */}
-      {planCatEntries.length > 0 && (
-        <div>
-          <div style={{ borderRadius: "6px 6px 0 0", background: "var(--ink)", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Expense breakdown</span>
-            <span style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", color: "var(--paper)", opacity: 0.5 }}>{fmtK(planTotalExpense)}</span>
-          </div>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 6px 6px", padding: "14px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-              {planCatEntries.map(([cat, amt], idx) => {
-                const pct = planTotalExpense > 0 ? (amt / planTotalExpense) * 100 : 0;
-                const ci = CategoryService.display(cat);
-                return (
-                  <div key={cat} className="anim-row" style={{"--i": idx, padding: "10px 12px", background: "var(--paper-2)", borderRadius: 5, border: "1px solid var(--line)"}}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: 2, background: ci.bg, border: `1px solid ${ci.ink}33`, flexShrink: 0 }}/>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)" }}>{ci.label}</span>
-                    </div>
-                    <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--neg)", letterSpacing: "-0.02em" }}>{fmtK(amt)}</div>
-                    <div style={{ background: "var(--line)", height: 3, borderRadius: 10, overflow: "hidden", margin: "6px 0 2px" }}>
-                      <div style={{ width: "100%", height: "100%", background: ci.ink, borderRadius: 10, transform: `scaleX(${pct / 100})`, transformOrigin: "left", transition: "transform 400ms cubic-bezier(.2,.8,.2,1)" }}/>
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>{pct.toFixed(0)}%</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset button */}
-      <div style={{ textAlign: "center" }}>
-        <button onClick={resetFromActuals} className="pill-btn btn-press" style={{ padding: "7px 16px", background: "var(--card)", color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
-          Reset from actuals
-        </button>
-      </div>
-    </div>
-  );
-};
-
 const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -739,10 +567,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const [flowError, setFlowError] = React.useState(null);
   const [retryKey, setRetryKey] = React.useState(0);
   const [viewMode, setViewMode] = React.useState("remaining");
-  const [flowTab, setFlowTab] = React.useState("actuals");
-  const seededRef = React.useRef(false);
-  const [planIncomes, setPlanIncomes] = React.useState([]);
-  const [planExpenses, setPlanExpenses] = React.useState([]);
   const [compareStats, setCompareStats] = React.useState(null);
   const [drillCategory, setDrillCategory] = React.useState(null);
   const [drillTxns, setDrillTxns] = React.useState(null);
@@ -791,11 +615,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     return () => { cancelled = true; };
   }, [drillCategory, rangeFrom, rangeTo]);
 
-  const planTotalIncome = planIncomes.reduce((a, i) => a + i.amount, 0);
-  const planTotalExpense = planExpenses.reduce((a, e) => a + e.amount, 0);
-  const planSurplus = planTotalIncome - planTotalExpense;
-  const planSavingsRate = planTotalIncome > 0 ? ((planSurplus / planTotalIncome) * 100).toFixed(1) : "0.0";
-
   const rangeTxs = !rangeFrom
     ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
     : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
@@ -828,26 +647,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const handleCategoryClick = (cat) => {
     setDrillCategory(cat || "__income__");
   };
-
-  // Seed planner from actuals (must be after `flow` declaration to avoid TDZ)
-  React.useEffect(() => {
-    if (flowTab !== "planner" || !flow || seededRef.current) return;
-    seededRef.current = true;
-    const actualInc = flow.income.map(i => ({ id: crypto.randomUUID(), name: i.label, amount: i.amount }));
-    const actualExp = (catBreakdown?.categories || [])
-      .filter(c => c.category !== "card" && c.category !== "investment")
-      .map(c => ({ id: crypto.randomUUID(), name: CategoryService.display(c.category).label, amount: c.amount, category: c.category }));
-    setPlanIncomes(actualInc);
-    setPlanExpenses(actualExp);
-  }, [flowTab, flow]);
-
-  // Persist planner data
-  React.useEffect(() => {
-    localStorage.setItem("mf_plan", JSON.stringify(planIncomes));
-  }, [planIncomes]);
-  React.useEffect(() => {
-    localStorage.setItem("mf_plan_exp", JSON.stringify(planExpenses));
-  }, [planExpenses]);
 
   return (
     <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
@@ -908,23 +707,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
         }
       </div>
 
-      {/* Sub-tab bar: Actuals | Planner */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 14 }}>
-        <button onClick={() => { setFlowTab("actuals"); seededRef.current = false; }} style={{
-          padding: "6px 16px", fontSize: 11, fontWeight: 600, lineHeight: 1, fontFamily: "'Geist', sans-serif",
-          background: flowTab === "actuals" ? "var(--ink)" : "var(--card)",
-          color: flowTab === "actuals" ? "var(--paper)" : "var(--ink-2)",
-          border: "1px solid var(--line)", borderRadius: "6px 0 0 6px", cursor: "pointer", transition: "all 120ms"
-        }}>Actuals</button>
-        <button onClick={() => setFlowTab("planner")} style={{
-          padding: "6px 16px", fontSize: 11, fontWeight: 600, lineHeight: 1, fontFamily: "'Geist', sans-serif",
-          background: flowTab === "planner" ? "var(--ink)" : "var(--card)",
-          color: flowTab === "planner" ? "var(--paper)" : "var(--ink-2)",
-          border: "1px solid var(--line)", borderLeft: "none", borderRadius: "0 6px 6px 0", cursor: "pointer", transition: "all 120ms"
-        }}>Planner</button>
-      </div>
-
-      {flowTab === "actuals" ? (
       <div style={flowStyles.secWrap}>
         <div style={flowStyles.secHead}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1022,20 +804,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
           }
         </div>
       </div>
-      ) : (
-      /* Planner tab — Cashkey-inspired income/expense projection from actuals */
-      <PlannerSection
-        isMobile={isMobile}
-        planIncomes={planIncomes} setPlanIncomes={setPlanIncomes}
-        planExpenses={planExpenses} setPlanExpenses={setPlanExpenses}
-        planTotalIncome={planTotalIncome}
-        planTotalExpense={planTotalExpense}
-        planSurplus={planSurplus}
-        planSavingsRate={planSavingsRate}
-        seededRef={seededRef}
-        setFlowTab={setFlowTab}
-      />
-      )}
 
       {drillCategory && (
         <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
