@@ -257,7 +257,6 @@ const App = () => {
     search:    { title: "Search",         sub: searchQuery ? `"${searchQuery}"` : "search your transactions" },
     today:     { title: "Dashboard",      sub: "one page, quick read" },
     picture:   { title: "Money Flow",     sub: "how the month really unfolded" },
-    planner:   { title: "Cashflow Planner", sub: "projected income vs expenses" },
     review:    { title: "Review Queue",   sub: "transactions needing attention" },
   };
 
@@ -377,7 +376,6 @@ const App = () => {
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
           {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange}/>}
-          {view === "planner"   && <CashflowPlannerView />}
           {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
