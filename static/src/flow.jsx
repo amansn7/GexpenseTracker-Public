@@ -231,11 +231,9 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         const prev = linkGroup.querySelector('[data-hovered]');
         if (prev) prev.removeAttribute('data-hovered');
         path.setAttribute('data-hovered', '');
-        linkGroup.setAttribute('data-hovered', '');
       });
       path.addEventListener('mouseleave', () => {
         path.removeAttribute('data-hovered');
-        linkGroup.removeAttribute('data-hovered');
         setTooltip(null);
       });
       path.addEventListener('mousemove', (e) => {
@@ -257,7 +255,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           const prev = linkGroup.querySelector('[data-hovered]');
           if (prev) prev.removeAttribute('data-hovered');
           path.setAttribute('data-hovered', '');
-          linkGroup.setAttribute('data-hovered', '');
           setTooltip({
             source: link.source.name,
             target: link.target.name,
@@ -269,7 +266,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         });
         path.addEventListener('touchend', () => {
           path.removeAttribute('data-hovered');
-          linkGroup.removeAttribute('data-hovered');
         });
       }
       path.addEventListener('keydown', (e) => {
@@ -287,6 +283,12 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         if (e.key === 'Escape') setTooltip(null);
       });
       linkGroup.appendChild(path);
+    });
+
+    linkGroup.addEventListener('mouseleave', () => {
+      const h = linkGroup.querySelector('[data-hovered]');
+      if (h) h.removeAttribute('data-hovered');
+      setTooltip(null);
     });
 
     requestAnimationFrame(() => {

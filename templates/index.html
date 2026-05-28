@@ -51,10 +51,9 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
   @keyframes drawLine { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
   @keyframes tooltip-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
-  path.link-flow { transition: fill-opacity 200ms cubic-bezier(0.4,0,0.2,1), filter 200ms cubic-bezier(0.4,0,0.2,1), stroke-width 200ms cubic-bezier(0.4,0,0.2,1); }
+  path.link-flow { transition: filter 200ms cubic-bezier(0.4,0,0.2,1), stroke-width 200ms cubic-bezier(0.4,0,0.2,1); }
   path.link-flow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .links[data-hovered] path.link-flow { fill-opacity: 0.08 !important; filter: brightness(0.7); }
-  .links[data-hovered] path.link-flow[data-hovered] { fill-opacity: 1 !important; filter: brightness(1.1); stroke: inherit; stroke-width: 1.5; }
+  path.link-flow[data-hovered] { fill-opacity: 1 !important; filter: brightness(1.1); stroke: inherit; stroke-width: 1.5; }
   .tooltip-entrance { animation: tooltip-in 150ms cubic-bezier(0.4,0,0.2,1); }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes dotPing {
@@ -178,7 +177,7 @@
   <script src="/static/dist/inbox-panels.js?v=67e8ee4d"></script>
   <script src="/static/dist/inbox.js?v=763d152a"></script>
   <script src="/static/dist/vendor/d3-sankey.js?v=49d2a337"></script>
-  <script src="/static/dist/flow.js?v=c548dc28"></script>
+  <script src="/static/dist/flow.js?v=f9e92e31"></script>
   <script src="/static/dist/health.js?v=a06d864b"></script>
   <script src="/static/dist/dashboard.js?v=24b25c44"></script>
   <script src="/static/dist/reports.js?v=75573fae"></script>
