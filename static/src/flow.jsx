@@ -52,59 +52,47 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     const totalExp = expNodes.reduce((a, e) => a + e.amount, 0);
     const surplusAmt = totalIncome - totalExp;
     const hasDeficit = surplusAmt < 0;
-
     const totalBudget = Math.max(totalIncome, totalExp + Math.abs(surplusAmt));
 
     const sortedInc = [...incNodes].sort((a, b) => b.amount - a.amount);
     const sortedExp = [...expNodes].sort((a, b) => b.amount - a.amount);
 
-    // Build node list for d3-sankey
+    const incEnd = sortedInc.length + (hasDeficit ? 1 : 0);
+    const budgetIdx = incEnd;
+
     const nodes = [
       ...sortedInc.map(n => ({
         name: n.label,
         value: n.amount,
-        pct: totalIncome > 0 ? (n.amount / totalIncome * 100) : 0,
+        percentage: totalBudget > 0 ? Math.round((n.amount / totalBudget) * 100) : 0,
         color: COLORS.income,
         category: "income",
       })),
       ...(hasDeficit ? [{
         name: "📉 Deficit",
         value: Math.abs(surplusAmt),
-        pct: totalIncome > 0 ? (Math.abs(surplusAmt) / totalIncome * 100) : 0,
+        percentage: totalBudget > 0 ? Math.round((Math.abs(surplusAmt) / totalBudget) * 100) : 0,
         color: COLORS.deficit,
         category: "deficit",
       }] : []),
-      {
-        name: "Budget",
-        value: totalBudget,
-        pct: 100,
-        color: COLORS.budget,
-        category: "budget",
-      },
+      { name: "Budget", value: totalBudget, percentage: 100, color: COLORS.budget, category: "budget" },
       ...sortedExp.map(n => ({
         name: n.cat,
         value: n.amount,
-        pct: totalIncome > 0 ? (n.amount / totalIncome * 100) : 0,
-        color: COLORS.expense,
-        category: "expense",
-        cat: n.cat,
+        percentage: totalBudget > 0 ? Math.round((n.amount / totalBudget) * 100) : 0,
+        color: COLORS.expense, category: "expense", cat: n.cat,
       })),
       ...(!hasDeficit && surplusAmt > 0 ? [{
-        name: "📈 Surplus",
-        value: surplusAmt,
-        pct: totalIncome > 0 ? (surplusAmt / totalIncome * 100) : 0,
-        color: COLORS.surplus,
-        category: "surplus",
+        name: "📈 Surplus", value: surplusAmt,
+        percentage: totalBudget > 0 ? Math.round((surplusAmt / totalBudget) * 100) : 0,
+        color: COLORS.surplus, category: "surplus",
       }] : []),
     ];
 
-    const incEnd = sortedInc.length + (hasDeficit ? 1 : 0);
-    const budgetIdx = incEnd;
-
     const links = [
-      ...sortedInc.map((n, i) => ({ source: i, target: budgetIdx, value: n.amount })),
+      ...sortedInc.map((_, i) => ({ source: i, target: budgetIdx, value: sortedInc[i].amount })),
       ...(hasDeficit ? [{ source: sortedInc.length, target: budgetIdx, value: Math.abs(surplusAmt) }] : []),
-      ...sortedExp.map((n, i) => ({ source: budgetIdx, target: budgetIdx + 1 + i, value: n.amount })),
+      ...sortedExp.map((_, i) => ({ source: budgetIdx, target: budgetIdx + 1 + i, value: sortedExp[i].amount })),
       ...(!hasDeficit && surplusAmt > 0 ? [{ source: budgetIdx, target: nodes.length - 1, value: surplusAmt }] : []),
     ];
 
@@ -121,42 +109,63 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     if (!container) return;
 
     const width = container.clientWidth || 600;
-    const height = isMobile ? 400 : 440;
+    const height = 450;
     const margin = isMobile
-      ? { top: 10, right: 10, bottom: 10, left: 10 }
-      : { top: 10, right: 14, bottom: 10, left: 14 };
+      ? { top: 30, right: 50, bottom: 30, left: 50 }
+      : { top: 30, right: 180, bottom: 30, left: 180 };
     const innerW = width - margin.left - margin.right;
     const innerH = height - margin.top - margin.bottom;
 
+    const ns = "http://www.w3.org/2000/svg";
+
+    // Clear
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    svg.setAttribute("width", String(width));
+    svg.setAttribute("height", String(height));
+    svg.style.width = "100%";
+    svg.style.height = "100%";
+    svg.style.overflow = "visible";
+
     const gen = d3Sankey.sankey()
-      .nodeWidth(isMobile ? 12 : 18)
-      .nodePadding(isMobile ? 10 : 12)
+      .nodeWidth(isMobile ? 10 : 20)
+      .nodePadding(isMobile ? 12 : 15)
       .extent([[0, 0], [innerW, innerH]]);
 
     const laid = gen({
-      nodes: parsed.nodes.map(n => ({ ...n })),
+      nodes: parsed.nodes.map(n => {
+        const d = { ...n };
+        if (n.category === "budget" && !isMobile) {
+          d.height = Math.max(innerH * 0.5, d.height || 0);
+        }
+        return d;
+      }),
       links: parsed.links.map(l => ({ ...l })),
     });
 
-    // Clear
-    let g = svg.querySelector(".sankey-g");
-    if (g) g.innerHTML = "";
-    else { g = document.createElementNS("http://www.w3.org/2000/svg", "g"); g.setAttribute("class", "sankey-g"); svg.appendChild(g); }
-    const ns = "http://www.w3.org/2000/svg";
+    // Center budget node vertically
+    const budgetNode = laid.nodes.find(n => n.category === "budget");
+    if (budgetNode) {
+      const centerY = innerH / 2;
+      const nodeH = budgetNode.y1 - budgetNode.y0;
+      budgetNode.y0 = centerY - (nodeH / 2);
+      budgetNode.y1 = centerY + (nodeH / 2);
+      if (!isMobile) {
+        const minH = innerH * 0.5;
+        if (budgetNode.y1 - budgetNode.y0 < minH) {
+          budgetNode.y0 = centerY - (minH / 2);
+          budgetNode.y1 = centerY + (minH / 2);
+        }
+      }
+    }
 
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    svg.style.width = "100%";
-    svg.style.height = height + "px";
-    svg.style.display = "block";
-    svg.style.overflow = "visible";
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+    svg.appendChild(g);
 
-    const gg = document.createElementNS(ns, "g");
-    gg.setAttribute("transform", `translate(${margin.left},${margin.top})`);
-    g.appendChild(gg);
-
-    // Defs with gradients
+    // Gradients
     const defs = document.createElementNS(ns, "defs");
-    gg.appendChild(defs);
+    g.appendChild(defs);
     laid.links.forEach((link, i) => {
       const grad = document.createElementNS(ns, "linearGradient");
       grad.setAttribute("id", `sg-${i}`);
@@ -174,103 +183,132 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       defs.appendChild(grad);
     });
 
-    // Sort links for proper z-order (income on top)
-    const sortedLinks = [...laid.links].sort((a, b) => {
-      if (a.source.layer !== b.source.layer) return a.source.layer - b.source.layer;
-      return a.source.y0 - b.source.y0;
+    // Manual offset tracking (Cashkey approach — needed after budget node reposition)
+    const sourceOffsets = {};
+    const targetOffsets = {};
+    laid.nodes.forEach((node) => {
+      sourceOffsets[node.index] = node.y0;
+      targetOffsets[node.index] = node.y0;
     });
 
-    // Draw links
+    const sortedLinks = [...laid.links].sort((a, b) => {
+      if (a.target.index !== b.target.index) return a.target.index - b.target.index;
+      return b.value - a.value;
+    });
+
+    // Links
     const linkGroup = document.createElementNS(ns, "g");
     linkGroup.setAttribute("class", "links");
-    gg.appendChild(linkGroup);
+    g.appendChild(linkGroup);
 
-    const createLinkPath = (d) => {
-      const sx = d.source.x1, tx = d.target.x0;
-      const sy = d.y0 + d.source.y0, ty = d.y1 + d.target.y0;
-      const sh = d.width, th = d.width;
-      const mx = (sx + tx) / 2;
-      return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty} L${tx},${ty+th} C${mx},${ty+th} ${mx},${sy+sh} ${sx},${sy+sh} Z`;
-    };
+    const curvature = isMobile ? 0.2 : 0.5;
 
     sortedLinks.forEach((link, i) => {
+      const sx = link.source.x1;
+      const tx = link.target.x0;
+      const sy = sourceOffsets[link.source.index];
+      const ty = targetOffsets[link.target.index];
+      const sh = (link.value / link.source.value) * (link.source.y1 - link.source.y0);
+      const th = (link.value / link.target.value) * (link.target.y1 - link.target.y0);
+
+      sourceOffsets[link.source.index] += sh;
+      targetOffsets[link.target.index] += th;
+
+      const c1x = sx * (1 - curvature) + tx * curvature;
+      const c2x = sx * curvature + tx * (1 - curvature);
+
       const path = document.createElementNS(ns, "path");
-      path.setAttribute("d", createLinkPath(link));
+      path.setAttribute("d", [
+        `M${sx},${sy}`,
+        `C${c1x},${sy} ${c2x},${ty} ${tx},${ty}`,
+        `L${tx},${ty + th}`,
+        `C${c2x},${ty + th} ${c1x},${sy + sh} ${sx},${sy + sh}`, "Z",
+      ].join(" "));
       path.setAttribute("fill", `url(#sg-${i})`);
-      path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.65");
+      path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
       path.setAttribute("stroke", "none");
       linkGroup.appendChild(path);
     });
 
-    // Draw nodes
+    // Nodes
     const nodeGroup = document.createElementNS(ns, "g");
     nodeGroup.setAttribute("class", "nodes");
-    gg.appendChild(nodeGroup);
+    g.appendChild(nodeGroup);
 
-    const getEltCenterX = (d) => {
-      if (d.category === "budget") return d.x0 + (d.x1 - d.x0) / 2;
-      const budgetNode = laid.nodes.find(n => n.category === "budget");
-      const isLeft = laid.nodes.indexOf(d) < laid.nodes.indexOf(budgetNode);
-      return isLeft ? d.x0 : d.x1;
-    };
+    const budgetIdx = laid.nodes.findIndex(n => n.category === "budget");
 
     laid.nodes.forEach((d) => {
-      const g = document.createElementNS(ns, "g");
+      const ng = document.createElementNS(ns, "g");
 
       const rect = document.createElementNS(ns, "rect");
       rect.setAttribute("x", String(d.x0));
       rect.setAttribute("y", String(d.y0));
       rect.setAttribute("width", String(d.x1 - d.x0));
       rect.setAttribute("height", String(d.y1 - d.y0));
-      rect.setAttribute("rx", "3");
-      rect.setAttribute("ry", "3");
+      rect.setAttribute("rx", "4");
+      rect.setAttribute("ry", "4");
       rect.setAttribute("fill", d.color || COLORS.income);
       rect.setAttribute("fill-opacity", "0.9");
-      g.appendChild(rect);
+      ng.appendChild(rect);
 
-      // Label (only for non-budget nodes)
       if (d.category !== "budget") {
-        const budgetNode = laid.nodes.find(n => n.category === "budget");
-        const isLeft = laid.nodes.indexOf(d) < laid.nodes.indexOf(budgetNode);
+        const isLeft = laid.nodes.indexOf(d) < budgetIdx;
+        const labelOff = isMobile ? 5 : 10;
+        const labelX = isLeft ? d.x0 - labelOff : d.x1 + labelOff;
         const text = document.createElementNS(ns, "text");
-        const labelX = isLeft ? d.x0 - (isMobile ? 5 : 8) : d.x1 + (isMobile ? 5 : 8);
-        const labelAnchor = isLeft ? "end" : "start";
 
-        const pctStr = d.pct < 1 ? "<1" : Math.round(d.pct);
+        const pct = d.percentage < 1 ? "<1" : Math.round(d.percentage);
+        let displayName = d.category === "income" ? d.name
+          : d.category === "surplus" || d.category === "deficit" ? ""
+          : CategoryService.display(d.cat).label;
+
+        if (isMobile && displayName.length > 12) {
+          displayName = displayName.substring(0, 10) + "..";
+        }
+
         const label = d.category === "income"
-          ? `${pctStr}% ${incomeEmoji(d.name)} ${d.name}`
+          ? `${pct}%${isMobile ? "" : " "}${incomeEmoji(d.name)}${isMobile ? "" : " "}${d.name}`
           : d.category === "surplus" || d.category === "deficit"
-            ? `${pctStr}% ${d.name}`
-            : `${pctStr}% ${catEmoji[d.cat]||"📦"} ${CategoryService.display(d.cat).label}`;
+            ? `${pct}% ${d.name}`
+            : `${pct}%${isMobile ? "" : " "}${catEmoji[d.cat]||"📦"}${isMobile ? "" : " "}${displayName}`;
 
         text.setAttribute("x", String(labelX));
         text.setAttribute("y", String(d.y0 + (d.y1 - d.y0) / 2));
         text.setAttribute("dy", "0.35em");
-        text.setAttribute("text-anchor", labelAnchor);
-        text.setAttribute("font-size", isMobile ? "9" : "11");
+        text.setAttribute("text-anchor", isLeft ? "end" : "start");
+        text.setAttribute("font-size", isMobile ? "9px" : "12px");
         text.setAttribute("fill", "#4b5563");
-        text.setAttribute("font-weight", "500");
         text.style.fontFamily = "'Geist', sans-serif";
         text.textContent = label;
 
         if (isMobile) {
+          const angle = isLeft ? 30 : -30;
+          const rotX = isLeft ? d.x0 - 8 : d.x1 + 8;
+          const rotY = d.y0 + (d.y1 - d.y0) / 2;
+          text.setAttribute("transform", `rotate(${angle}, ${rotX}, ${rotY})`);
           text.setAttribute("stroke", "white");
           text.setAttribute("stroke-width", "0.8");
           text.setAttribute("paint-order", "stroke");
         }
 
-        g.appendChild(text);
+        ng.appendChild(text);
       }
 
-      nodeGroup.appendChild(g);
+      nodeGroup.appendChild(ng);
     });
+
+    // Mobile: override font-size to 8px
+    if (isMobile) {
+      const texts = svg.querySelectorAll("text");
+      texts.forEach(t => t.setAttribute("font-size", "8px"));
+    }
   }, [parsed, isMobile]);
 
   if (!parsed.nodes.length) return null;
 
   return (
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>
-      <svg ref={svgRef} />
+      <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
     </div>
   );
 };
