@@ -44,6 +44,7 @@ const catEmoji = {
 
 const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
   const { isMobile } = useViewport();
+  const [tooltip, setTooltip] = React.useState(null);
   if (!data) return null;
 
   const parsed = React.useMemo(() => {
@@ -227,7 +228,64 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       path.setAttribute("fill", `url(#sg-${i})`);
       path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
       path.setAttribute("stroke", "none");
+      path.setAttribute("opacity", "0");
+      path.style.transition = `opacity 400ms cubic-bezier(.2,.8,.2,1) ${i * 60}ms`;
+      path.addEventListener('mouseenter', () => {
+        linkGroup.querySelectorAll('path').forEach(p => {
+          if (p === path) {
+            p.setAttribute('fill-opacity', '1');
+            p.setAttribute('stroke', p.getAttribute('fill'));
+            p.setAttribute('stroke-width', '1.5');
+            p.style.filter = 'brightness(1.1)';
+          } else {
+            p.setAttribute('fill-opacity', '0.08');
+            p.style.filter = 'brightness(0.7)';
+          }
+        });
+      });
+      path.addEventListener('mouseleave', () => {
+        linkGroup.querySelectorAll('path').forEach(p => {
+          p.setAttribute('fill-opacity', isMobile ? '0.8' : '0.7');
+          p.removeAttribute('stroke');
+          p.removeAttribute('stroke-width');
+          p.style.filter = 'none';
+        });
+        setTooltip(null);
+      });
+      path.addEventListener('mousemove', (e) => {
+        const rect = container.getBoundingClientRect();
+        const val = link.value;
+        const pct = parsed.totalBudget > 0 ? Math.round((val / parsed.totalBudget) * 100) : 0;
+        setTooltip({
+          source: link.source.name,
+          target: link.target.name,
+          value: val,
+          percentage: pct,
+          x: e.clientX - rect.left + 14,
+          y: e.clientY - rect.top - 10,
+        });
+      });
       linkGroup.appendChild(path);
+
+      const dashPath = document.createElementNS(ns, "path");
+      const midY1 = sy + sh / 2;
+      const midY2 = ty + th / 2;
+      dashPath.setAttribute("d", `M${sx},${midY1} C${c1x},${midY1} ${c2x},${midY2} ${tx},${midY2}`);
+      dashPath.setAttribute("fill", "none");
+      dashPath.setAttribute("stroke", "rgba(255,255,255,0.5)");
+      dashPath.setAttribute("stroke-width", isMobile ? "1.5" : "2");
+      dashPath.setAttribute("stroke-dasharray", "4, 4");
+      dashPath.setAttribute("opacity", "0.35");
+      dashPath.style.animation = `flow-dash 1.2s linear infinite`;
+      dashPath.style.animationDelay = `${i * 0.08}s`;
+      dashPath.style.pointerEvents = "none";
+      linkGroup.appendChild(dashPath);
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        linkGroup.querySelectorAll('path').forEach(p => p.setAttribute('opacity', '1'));
+      });
     });
 
     // Nodes
@@ -307,8 +365,27 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
   if (!parsed.nodes.length) return null;
 
   return (
-    <div ref={containerRef} style={{ width: "100%", overflow: "hidden" }}>
+    <div ref={containerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
       <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
+      {tooltip && (
+        <div style={{
+          position: "absolute", left: tooltip.x, top: tooltip.y,
+          background: "var(--card)", border: "1px solid var(--line)",
+          borderRadius: 8, padding: "8px 12px", pointerEvents: "none",
+          whiteSpace: "nowrap", zIndex: 50, boxShadow: "0 4px 16px -4px var(--shadow-lg)",
+          fontSize: 12, lineHeight: 1.5,
+        }}>
+          <div style={{ color: "var(--ink-2)", fontWeight: 500 }}>
+            {tooltip.source} <span style={{color:"var(--ink-4)",margin:"0 4px"}}>→</span> {tooltip.target}
+          </div>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginTop: 4 }}>
+            {tooltip.value >= 100000 ? `₹${(tooltip.value/100000).toFixed(2)}L` : tooltip.value >= 1000 ? `₹${(tooltip.value/1000).toFixed(1)}K` : `₹${tooltip.value}`}
+          </div>
+          <div style={{ color: "var(--ink-3)", fontSize: 11, marginTop: 2 }}>
+            {tooltip.percentage}% of budget
+          </div>
+        </div>
+      )}
     </div>
   );
 };
