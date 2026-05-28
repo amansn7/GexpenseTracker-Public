@@ -102,6 +102,19 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
     const ns = "http://www.w3.org/2000/svg";
 
+    // Snapshot old link shapes for morphing
+    const oldShapes = new Map();
+    const hadContent = svg.children.length > 0;
+    if (hadContent) {
+      svg.querySelectorAll('[data-link-key]').forEach(el => {
+        const dashEl = el.nextElementSibling;
+        oldShapes.set(el.getAttribute('data-link-key'), {
+          linkD: el.getAttribute('d'),
+          dashD: dashEl?.classList.contains('link-dash') ? dashEl.getAttribute('d') : null,
+        });
+      });
+    }
+
     // Clear
     while (svg.firstChild) svg.removeChild(svg.firstChild);
 
@@ -147,7 +160,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
     svg.appendChild(g);
 
-    // Gradients
+    // Gradients + glow filter
     const defs = document.createElementNS(ns, "defs");
     g.appendChild(defs);
     laid.links.forEach((link, i) => {
@@ -166,6 +179,26 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       grad.appendChild(t);
       defs.appendChild(grad);
     });
+    // Hover glow filter
+    const glowFilter = document.createElementNS(ns, "filter");
+    glowFilter.setAttribute("id", "link-glow");
+    glowFilter.setAttribute("x", "-20%");
+    glowFilter.setAttribute("y", "-20%");
+    glowFilter.setAttribute("width", "140%");
+    glowFilter.setAttribute("height", "140%");
+    const blur = document.createElementNS(ns, "feGaussianBlur");
+    blur.setAttribute("stdDeviation", "3");
+    blur.setAttribute("result", "blur");
+    glowFilter.appendChild(blur);
+    const merge = document.createElementNS(ns, "feMerge");
+    const mn1 = document.createElementNS(ns, "feMergeNode");
+    mn1.setAttribute("in", "blur");
+    merge.appendChild(mn1);
+    const mn2 = document.createElementNS(ns, "feMergeNode");
+    mn2.setAttribute("in", "SourceGraphic");
+    merge.appendChild(mn2);
+    glowFilter.appendChild(merge);
+    defs.appendChild(glowFilter);
 
     // Manual offset tracking (Cashkey approach — needed after budget node reposition)
     const sourceOffsets = {};
@@ -187,6 +220,9 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
     const curvature = isMobile ? 0.2 : 0.5;
 
+    const maxLinkVal = Math.max(...sortedLinks.map(l => l.value), 1);
+    const morphTargets = new Map();
+
     sortedLinks.forEach((link, i) => {
       const sx = link.source.x1;
       const tx = link.target.x0;
@@ -200,30 +236,39 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
       const c1x = sx * (1 - curvature) + tx * curvature;
       const c2x = sx * curvature + tx * (1 - curvature);
-
-      const val = link.value;
-      const pct = parsed.totalBudget > 0 ? Math.round((val / parsed.totalBudget) * 100) : 0;
-      const flowLabel = `${link.source.name} to ${link.target.name}: ${fmtKShort(val)}, ${pct}% of budget`;
-
-      const path = document.createElementNS(ns, "path");
-      path.setAttribute("d", [
+      const d = [
         `M${sx},${sy}`,
         `C${c1x},${sy} ${c2x},${ty} ${tx},${ty}`,
         `L${tx},${ty + th}`,
         `C${c2x},${ty + th} ${c1x},${sy + sh} ${sx},${sy + sh}`, "Z",
-      ].join(" "));
+      ].join(" ");
+
+      const val = link.value;
+      const pct = parsed.totalBudget > 0 ? Math.round((val / parsed.totalBudget) * 100) : 0;
+      const flowLabel = `${link.source.name} to ${link.target.name}: ${fmtKShort(val)}, ${pct}% of budget`;
+      const linkKey = `${link.source.name}::${link.target.name}`;
+      const isMorph = oldShapes.has(linkKey);
+
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", isMorph ? oldShapes.get(linkKey).linkD : d);
       path.setAttribute("fill", `url(#sg-${i})`);
       path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
       path.setAttribute("stroke", "transparent");
       path.setAttribute("stroke-width", isMobile ? "24" : "20");
-      path.setAttribute("opacity", "0");
+      path.setAttribute("opacity", isMorph ? "1" : "0");
       path.setAttribute("class", "link-flow");
       path.setAttribute("role", "graphics-symbol");
       path.setAttribute("aria-label", flowLabel);
       path.setAttribute("tabindex", "0");
-      path.style.transition = `opacity 400ms cubic-bezier(0.34,1.56,0.64,1), transform 400ms cubic-bezier(0.34,1.56,0.64,1)`;
-      path.style.transitionDelay = `${i * 60}ms`;
-      path.style.transform = `translateY(6px)`;
+      path.setAttribute("data-link-key", linkKey);
+
+      if (isMorph) {
+        path.style.transition = 'd 600ms cubic-bezier(0.34,1.56,0.64,1)';
+      } else {
+        path.style.transition = `opacity 400ms cubic-bezier(0.34,1.56,0.64,1), transform 400ms cubic-bezier(0.34,1.56,0.64,1)`;
+        path.style.transitionDelay = `${i * 60}ms`;
+        path.style.transform = `translateY(6px)`;
+      }
 
       path.addEventListener('mouseenter', () => {
         const prev = linkGroup.querySelector('[data-hovered]');
@@ -289,13 +334,18 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       const dashPath = document.createElementNS(ns, "path");
       const midY1 = sy + sh / 2;
       const midY2 = ty + th / 2;
-      dashPath.setAttribute("d", `M${sx},${midY1} C${c1x},${midY1} ${c2x},${midY2} ${tx},${midY2}`);
+      const dashCenterline = `M${sx},${midY1} C${c1x},${midY1} ${c2x},${midY2} ${tx},${midY2}`;
+      if (isMorph) morphTargets.set(linkKey, { linkD: d, dashD: dashCenterline });
+      dashPath.setAttribute("d", isMorph ? oldShapes.get(linkKey).dashD : dashCenterline);
       dashPath.setAttribute("fill", "none");
+      dashPath.setAttribute("class", "link-dash");
       dashPath.setAttribute("stroke", "rgba(255,255,255,0.5)");
       dashPath.setAttribute("stroke-width", isMobile ? "1.5" : "2");
       dashPath.setAttribute("stroke-dasharray", "4, 4");
-      dashPath.setAttribute("opacity", "0.35");
-      dashPath.style.animation = `flow-dash 1.2s linear infinite`;
+      dashPath.setAttribute("opacity", isMorph ? "0.35" : "0");
+      dashPath.style.transition = isMorph ? 'd 600ms cubic-bezier(0.34,1.56,0.64,1)' : 'opacity 400ms cubic-bezier(0.34,1.56,0.64,1)';
+      if (!isMorph) dashPath.style.transitionDelay = `${i * 60}ms`;
+      dashPath.style.animation = `flow-dash ${Math.max(0.6, 1.8 - (val / maxLinkVal) * 1.2).toFixed(1)}s linear infinite`;
       dashPath.style.animationDelay = `${i * 0.08}s`;
       dashPath.style.pointerEvents = "none";
       dashPath.style.willChange = "stroke-dashoffset";
@@ -304,9 +354,31 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        linkGroup.querySelectorAll('path').forEach(p => {
-          p.setAttribute('opacity', '1');
-          p.style.transform = '';
+        morphTargets.forEach(({ linkD, dashD }, key) => {
+          const sel = `[data-link-key="${CSS.escape(key)}"]`;
+          const p = linkGroup.querySelector(sel);
+          if (p) {
+            p.getBoundingClientRect();
+            p.setAttribute('d', linkD);
+            const dash = p.nextElementSibling;
+            if (dash && dash.classList.contains('link-dash') && dashD) {
+              dash.getBoundingClientRect();
+              dash.setAttribute('d', dashD);
+            }
+          }
+        });
+        sortedLinks.forEach((link, i) => {
+          const key = `${link.source.name}::${link.target.name}`;
+          if (!oldShapes.has(key)) {
+            const p = linkGroup.querySelector(`[data-link-key="${CSS.escape(key)}"]`);
+            if (p) {
+              p.setAttribute('opacity', '1');
+              p.style.transform = '';
+              // fade in dash too
+              const dash = p.parentElement?.querySelector('.link-dash');
+              if (dash) dash.setAttribute('opacity', '0.35');
+            }
+          }
         });
       });
     });
@@ -330,6 +402,12 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       rect.setAttribute("ry", "4");
       rect.setAttribute("fill", d.color || COLORS.income);
       rect.setAttribute("fill-opacity", "0.9");
+      const cx = d.x0 + (d.x1 - d.x0) / 2;
+      const cy = d.y0 + (d.y1 - d.y0) / 2;
+      rect.style.transformOrigin = `${cx}px ${cy}px`;
+      rect.style.transform = 'scale(0)';
+      rect.style.transition = 'transform 500ms cubic-bezier(0.34,1.56,0.64,1)';
+      rect.style.transitionDelay = `${400 + laid.nodes.indexOf(d) * 60}ms`;
       ng.appendChild(rect);
 
       if (d.category !== "budget") {
@@ -377,6 +455,15 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       nodeGroup.appendChild(ng);
     });
 
+    // Trigger node scale bounce
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        nodeGroup.querySelectorAll('rect').forEach(r => {
+          r.style.transform = 'scale(1)';
+        });
+      });
+    });
+
     // Mobile: override font-size to 10px minimum
     if (isMobile) {
       const texts = svg.querySelectorAll("text");
@@ -387,14 +474,14 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
   if (!parsed.nodes.length) return null;
 
   return (
-    <div ref={containerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
+    <div ref={containerRef} className="sankey-container" style={{ width: "100%", overflow: "hidden" }}>
       <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
       {tooltip && (
-        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance" style={{
+        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance glass-tooltip" style={{
           position: "absolute", left: tooltip.x, top: tooltip.y,
-          background: "var(--card)", border: "1px solid var(--line)",
+          background: "var(--card)",
           borderRadius: 8, padding: "8px 12px", pointerEvents: "none",
-          whiteSpace: "nowrap", zIndex: 50, boxShadow: "0 4px 16px -4px var(--shadow-lg)",
+          whiteSpace: "nowrap", zIndex: 50,
           fontSize: 12, lineHeight: 1.5,
         }}>
           <div style={{ color: "var(--ink-2)", fontWeight: 500 }}>
