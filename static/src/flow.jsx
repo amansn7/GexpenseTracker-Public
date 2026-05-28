@@ -721,7 +721,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
   const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
   const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
-  const savings = totalIncome - totalExpense - totalInvestments;
+  const savings = totalIncome - totalExpense - (stats?.total_cc_payments ?? 0) - totalInvestments;
   const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
@@ -862,7 +862,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       {(() => {
-                        const sr = totalIncome > 0 ? ((totalIncome - totalExpense - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
+                        const sr = savingsRate;
                         const topCat = flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").sort((a, b) => b.amount - a.amount)[0];
                         return [
                           { label: "Saved", value: `${sr}%`, color: "var(--pos)" },

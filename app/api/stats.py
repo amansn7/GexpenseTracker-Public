@@ -248,6 +248,7 @@ async def stats_category_breakdown(
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
+        or_(Transaction.label.is_(None), Transaction.label.notin_(["income", "ignore"])),
     ]
     if category:
         from app.services.category_service import CategoryService
