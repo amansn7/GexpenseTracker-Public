@@ -16,6 +16,178 @@ const flowStyles = {
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
 
+const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
+  const { isMobile } = useViewport();
+  if (!data) return null;
+
+  const incNodes = data.income;
+  const expNodes = data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment");
+  const totalExp = expNodes.reduce((a, e) => a + e.amount, 0);
+  const surplusAmt = totalIncome - totalExp;
+  const surplusPct = totalIncome > 0 ? (surplusAmt / totalIncome * 100) : 0;
+
+  const COL_W = isMobile ? 14 : 20;
+  const GAP = isMobile ? 80 : 160;
+  const PAD = isMobile ? 10 : 14;
+  const LABEL_W = isMobile ? 65 : 100;
+  const TOP = 8;
+
+  const col1X = PAD + LABEL_W;
+  const col2X = col1X + COL_W + GAP;
+  const col3X = col2X + COL_W + GAP;
+
+  const baseH = Math.max(totalIncome, totalExp + Math.abs(surplusAmt), 1);
+  const availH = Math.min(isMobile ? 260 : 340, baseH / 100);
+  const scale = (amt) => Math.max((amt / baseH) * availH, 3);
+
+  let incY = TOP;
+  const leftNodes = incNodes.map(n => {
+    const h = scale(n.amount);
+    const pct = totalIncome > 0 ? (n.amount / totalIncome * 100) : 0;
+    const node = { ...n, x: col1X, y: incY, h, pct };
+    incY += h + 3;
+    return node;
+  });
+
+  const midH = scale(totalIncome);
+  const totalIncH = incY;
+  const midY = TOP + Math.max(0, (totalIncH - TOP - midH) / 2);
+
+  let expY = TOP;
+  const rightNodes = expNodes.map(n => {
+    const h = scale(n.amount);
+    const pct = totalIncome > 0 ? (n.amount / totalIncome * 100) : 0;
+    const node = { ...n, x: col3X, y: expY, h, pct };
+    expY += h + 3;
+    return node;
+  });
+
+  const surplusH = scale(Math.abs(surplusAmt));
+  const surpNode = {
+    label: surplusAmt >= 0 ? "Surplus" : "Deficit",
+    amount: Math.abs(surplusAmt), pct: surplusPct, cat: "surplus",
+    x: col3X, y: expY, h: surplusH,
+  };
+
+  const totalRightH = expY + surplusH;
+  const svgH = Math.max(totalIncH + TOP, totalRightH + TOP, midY + midH + TOP) + TOP;
+
+  let midSliceY = midY;
+  const leftMidSlices = leftNodes.map(n => {
+    const h = scale(n.amount);
+    const slice = { y: midSliceY, h };
+    midSliceY += h;
+    return slice;
+  });
+
+  midSliceY = midY;
+  const rightMidSlices = [...expNodes, { amount: Math.abs(surplusAmt) }].map(n => {
+    const h = scale(n.amount);
+    const slice = { y: midSliceY, h };
+    midSliceY += h;
+    return slice;
+  });
+
+  const ribbonPath = (x1, y1, h1, x2, y2, h2) => {
+    const mx = (x1 + x2) / 2;
+    return `M${x1},${y1-h1/2} C${mx},${y1-h1/2} ${mx},${y2-h2/2} ${x2},${y2-h2/2} L${x2},${y2+h2/2} C${mx},${y2+h2/2} ${mx},${y1+h1/2} ${x1},${y1+h1/2} Z`;
+  };
+
+  const incColor = "#8E9EF0";
+  const midColor = "#F1C40F";
+  const expColor = "#9ADCB9";
+  const surpColor = "#9b87f5";
+
+  const catEmoji = {
+    food:"🍔", groceries:"🛒", rent:"🏡", transport:"🚙", travel:"✈️",
+    shop:"🛍️", entertainment:"🎭", health:"🏥", edu:"🎓",
+    sub:"📋", util:"💡", other:"📦",
+  };
+
+  const incomeEmoji = (label) => {
+    const l = label.toLowerCase();
+    if (l.includes("salary")||l.includes("paycheck")||l.includes("pay")) return "💵";
+    if (l.includes("freelance")||l.includes("gig")||l.includes("side")) return "💰";
+    if (l.includes("interest")) return "🤑";
+    if (l.includes("dividend")) return "📈";
+    if (l.includes("cashback")||l.includes("card")||l.includes("reward")) return "💳";
+    if (l.includes("rent")||l.includes("property")) return "🏠";
+    if (l.includes("invest")||l.includes("stock")) return "📊";
+    return "💰";
+  };
+
+  const leftLinks = leftNodes.map((n, i) => ({
+    x1: n.x+COL_W, y1: n.y+n.h/2, h1: n.h,
+    x2: col2X, y2: leftMidSlices[i].y+leftMidSlices[i].h/2, h2: leftMidSlices[i].h,
+    grad: `url(#sg-l-${i})`,
+  }));
+  const rightLinks = [
+    ...rightNodes.map((n, i) => ({
+      x1: col2X+COL_W, y1: rightMidSlices[i].y+rightMidSlices[i].h/2, h1: rightMidSlices[i].h,
+      x2: n.x, y2: n.y+n.h/2, h2: n.h,
+      grad: `url(#sg-r-${i})`,
+      cat: n.cat,
+    })),
+    {
+      x1: col2X+COL_W, y1: rightMidSlices[rightNodes.length].y+rightMidSlices[rightNodes.length].h/2, h1: rightMidSlices[rightNodes.length].h,
+      x2: surpNode.x, y2: surpNode.y+surpNode.h/2, h2: surpNode.h,
+      grad: `url(#sg-r-${rightNodes.length})`,
+      cat: "surplus",
+    },
+  ];
+
+  const vw = col3X + COL_W + LABEL_W + PAD;
+  return (
+    <svg viewBox={`0 0 ${vw} ${svgH}`} style={{width:"100%",maxHeight:isMobile?340:420,display:"block",marginBottom:20}} preserveAspectRatio="xMidYMid meet">
+      <defs>
+        {leftLinks.map((_,i) => (
+          <linearGradient key={`lg-${i}`} id={`sg-l-${i}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={incColor} stopOpacity="0.9"/>
+            <stop offset="100%" stopColor={incColor} stopOpacity="0.5"/>
+          </linearGradient>
+        ))}
+        {rightLinks.map((_,i) => (
+          <linearGradient key={`rg-${i}`} id={`sg-r-${i}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={midColor} stopOpacity="0.5"/>
+            <stop offset="100%" stopColor={midColor} stopOpacity="0.9"/>
+          </linearGradient>
+        ))}
+      </defs>
+      {leftLinks.map((lnk,i) => (
+        <path key={`ll-${i}`} d={ribbonPath(lnk.x1,lnk.y1,lnk.h1,lnk.x2,lnk.y2,lnk.h2)} fill={lnk.grad} stroke="none" fillOpacity="0.7"/>
+      ))}
+      {rightLinks.map((lnk,i) => (
+        <path key={`rl-${i}`} d={ribbonPath(lnk.x1,lnk.y1,lnk.h1,lnk.x2,lnk.y2,lnk.h2)} fill={surpNode.cat==="surplus"&&lnk.cat==="surplus"?surpColor:expColor} fillOpacity="0.7" stroke="none"/>
+      ))}
+      {leftNodes.map((n,i) => (
+        <g key={`li-${i}`}>
+          <rect x={n.x} y={n.y} width={COL_W} height={n.h} rx={3} ry={3} fill={incColor} fillOpacity="0.9"/>
+          <text x={n.x-5} y={n.y+n.h/2} dy="0.35em" textAnchor="end" fontSize={isMobile?9:11} fill="var(--ink)" fontWeight="500" style={{fontFamily:"'Geist', sans-serif"}}>
+            {n.pct.toFixed(0)}%{n.pct<1?"<":""} {incomeEmoji(n.label)} {n.label}
+          </text>
+        </g>
+      ))}
+      <rect x={col2X} y={midY} width={COL_W} height={midH} rx={3} ry={3} fill={midColor} fillOpacity="0.9"/>
+      {rightNodes.map((n,i) => (
+        <g key={`ri-${i}`}>
+          <rect x={n.x} y={n.y} width={COL_W} height={n.h} rx={3} ry={3} fill={expColor} fillOpacity="0.9"/>
+          <text x={n.x+COL_W+5} y={n.y+n.h/2} dy="0.35em" textAnchor="start" fontSize={isMobile?9:11} fill="var(--ink)" fontWeight="500" style={{fontFamily:"'Geist', sans-serif"}}>
+            {n.pct.toFixed(0)}% {catEmoji[n.cat]||"📦"} {CategoryService.display(n.cat).label}
+          </text>
+        </g>
+      ))}
+      {surplusH > 2 && (
+        <g>
+          <rect x={surpNode.x} y={surpNode.y} width={COL_W} height={surpNode.h} rx={3} ry={3} fill={surpColor} fillOpacity="0.9"/>
+          <text x={surpNode.x+COL_W+5} y={surpNode.y+surpNode.h/2} dy="0.35em" textAnchor="start" fontSize={isMobile?9:11} fill="var(--ink)" fontWeight="500" style={{fontFamily:"'Geist', sans-serif"}}>
+            {surpNode.pct.toFixed(0)}% {surpNode.pct<1?"<":""} {surplusAmt>=0?"📈":"📉"} {surpNode.label}
+          </text>
+        </g>
+      )}
+    </svg>
+  );
+};
+
 const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments, totalInvestments, savings, incomeSources, pctOfIncome, onCategoryClick, viewMode }) => {
   const { isMobile } = useViewport();
 
@@ -662,7 +834,10 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
           {flowLoading
             ? <div style={{ padding: "40px 20px", display: "flex", flexDirection: "column", gap: 16 }}>{[1,2,3,4,5,6].map(i => <div key={i} style={{ display: "flex", gap: 12, alignItems: "center" }}>{skeleton(12, `${30 + i * 8}%`)}<div style={{ flex: 1 }}>{skeleton(20, "100%")}</div></div>)}</div>
             : flow
-              ? <>
+               ? <>
+                  <div style={{ marginBottom: 20, background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: isMobile ? "14px 8px" : "16px 14px" }}>
+                    <SankeyFlow data={flow} totalIncome={totalIncome} totalExpense={totalExpense} savings={savings}/>
+                  </div>
                   <FlowBreakdown data={flow} totalIncome={totalIncome} totalExpenseNumber={totalExpense} totalCCPayments={totalCCPayments} totalInvestments={totalInvestments} savings={savings} incomeSources={incomeSources} pctOfIncome={pctOfIncome} onCategoryClick={handleCategoryClick} viewMode={viewMode}/>
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
