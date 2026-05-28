@@ -209,14 +209,20 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       path.setAttribute("d", isMorph ? oldShapes.get(linkKey) : d);
       path.style.fill = linkColor;
       path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
-      path.setAttribute("stroke", "transparent");
-      path.setAttribute("stroke-width", isMobile ? "24" : "20");
       path.setAttribute("opacity", isMorph ? "1" : "0");
       path.setAttribute("class", "link-flow");
       path.setAttribute("role", "graphics-symbol");
       path.setAttribute("aria-label", flowLabel);
       path.setAttribute("tabindex", "0");
       path.setAttribute("data-link-key", linkKey);
+      // Desktop: fill-only hit target (no overlapping hit areas, no hover blink)
+      // Mobile: wide transparent stroke for touch accessibility
+      if (isMobile) {
+        path.setAttribute("stroke", "transparent");
+        path.setAttribute("stroke-width", "24");
+      } else {
+        path.style.pointerEvents = "fill";
+      }
 
       if (isMorph) {
         path.style.transition = 'd 600ms cubic-bezier(0.4,0,0.2,1)';
@@ -230,12 +236,9 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       path.addEventListener('mousemove', (e) => {
         const rect = container.getBoundingClientRect();
         setTooltip({
-          source: link.source.name,
-          target: link.target.name,
-          value: val,
-          percentage: pct,
-          x: e.clientX - rect.left + 14,
-          y: e.clientY - rect.top - 10,
+          source: link.source.name, target: link.target.name,
+          value: val, percentage: pct,
+          x: e.clientX - rect.left + 14, y: e.clientY - rect.top - 10,
         });
       });
       path.addEventListener('mouseleave', () => setTooltip(null));
@@ -248,28 +251,19 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           if (prev) prev.removeAttribute('data-hovered');
           path.setAttribute('data-hovered', '');
           setTooltip({
-            source: link.source.name,
-            target: link.target.name,
-            value: val,
-            percentage: pct,
-            x: touch.clientX - rect.left + 14,
-            y: touch.clientY - rect.top - 10,
+            source: link.source.name, target: link.target.name,
+            value: val, percentage: pct,
+            x: touch.clientX - rect.left + 14, y: touch.clientY - rect.top - 10,
           });
         });
-        path.addEventListener('touchend', () => {
-          path.removeAttribute('data-hovered');
-        });
+        path.addEventListener('touchend', () => path.removeAttribute('data-hovered'));
       }
       path.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           const rect = container.getBoundingClientRect();
           setTooltip({
-            source: link.source.name,
-            target: link.target.name,
-            value: val,
-            percentage: pct,
-            x: 14,
-            y: rect.height / 2 - 10,
+            source: link.source.name, target: link.target.name,
+            value: val, percentage: pct, x: 14, y: rect.height / 2 - 10,
           });
         }
         if (e.key === 'Escape') setTooltip(null);
