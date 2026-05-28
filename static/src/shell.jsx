@@ -182,8 +182,8 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       <NavItem icon="chart"  label="Picture"   active={view==="picture"}   onClick={()=>navigate(()=>setView("picture"))} />
       <NavItem icon="repeat" label="Recurring" active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
       <NavItem icon="trending-down" label="Debt"    active={view==="debt"}    onClick={()=>navigate(()=>setView("debt"))} />
-      <NavItem icon="star"          label="Goals"   active={view==="goals"}   onClick={()=>navigate(()=>setView("goals"))} />
-      <NavItem icon="grid"          label="Budgets" active={view==="budgets"} onClick={()=>navigate(()=>setView("budgets"))} />
+      <NavItem icon="trend-u"       label="Goals"   active={view==="goals"}   onClick={()=>navigate(()=>setView("goals"))} />
+      <NavItem icon="bank"          label="Budgets" active={view==="budgets"} onClick={()=>navigate(()=>setView("budgets"))} />
 
       {/* Mode toggle */}
       <div style={{ marginTop: "auto", padding: "12px 8px", borderTop: "1px solid var(--line)" }}>
@@ -228,8 +228,8 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     <NavItem icon="chart"   label="Reports"                             active={view==="reports"}   onClick={()=>navigate(()=>setView("reports"))} />
     <NavItem icon="repeat"  label="Recurring"                           active={view==="recurring"} onClick={()=>navigate(()=>setView("recurring"))} />
     <NavItem icon="trending-down" label="Debt"                          active={view==="debt"}      onClick={()=>navigate(()=>setView("debt"))} />
-    <NavItem icon="star"          label="Goals"                          active={view==="goals"}     onClick={()=>navigate(()=>setView("goals"))} />
-    <NavItem icon="grid"          label="Budgets"                        active={view==="budgets"}   onClick={()=>navigate(()=>setView("budgets"))} />
+    <NavItem icon="trend-u"       label="Goals"                          active={view==="goals"}     onClick={()=>navigate(()=>setView("goals"))} />
+    <NavItem icon="bank"          label="Budgets"                        active={view==="budgets"}   onClick={()=>navigate(()=>setView("budgets"))} />
     </>}
 
     <div onClick={() => { const n = !filtersOpen; setFiltersOpen(n); localStorage.setItem("_nav_filters", n ? "1" : "0"); }}

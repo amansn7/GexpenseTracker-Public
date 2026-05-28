@@ -1,20 +1,33 @@
+import os
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 from app.models import Base
-from app.config import settings
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("+asyncpg", "").replace("+aiosqlite", ""))
+
+# Read DATABASE_URL directly from env to avoid triggering app settings validation
+# (which requires SECRET_KEY, FERNET_KEY etc. not needed for migrations)
+_db_url = os.getenv("DATABASE_URL", "sqlite:///./data/expense.db")
+_db_url = _db_url.replace("+asyncpg", "").replace("+aiosqlite", "")
+config.set_main_option("sqlalchemy.url", _db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+def _is_sqlite(url: str) -> bool:
+    return url.startswith("sqlite")
+
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        render_as_batch=_is_sqlite(url),
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -25,7 +38,11 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            render_as_batch=_is_sqlite(_db_url),
+        )
         with context.begin_transaction():
             context.run_migrations()
 

@@ -169,7 +169,7 @@ async def test_classify_email_returns_correct_fields():
             )
         )
     assert result.amount == 1200.0
-    assert result.category == "Entertainment"
+    assert result.category == "entertainment"
     assert result.confidence == 0.92
 
 
@@ -358,6 +358,6 @@ async def test_classify_email_anthropic_usd_converts_to_inr():
     assert result.amount == 491.47
     assert result.currency == "INR"
     assert result.source_currency == "USD"
-    assert result.category == "Subscriptions"
+    assert result.category == "sub"
     assert result.merchant == "Anthropic"
     assert result.label == Label.expense

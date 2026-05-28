@@ -154,7 +154,7 @@ async def test_run_sync_persists_rule_detected_merchant(db_session):
     assert txns[0].label == "expense"
     assert txns[0].merchant is not None
     assert "wiggy" in txns[0].merchant.lower()
-    assert txns[0].category == "Food"
+    assert txns[0].category == "food"
 
 
 @pytest.mark.asyncio

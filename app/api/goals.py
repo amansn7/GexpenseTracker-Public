@@ -47,7 +47,9 @@ class GoalPatch(BaseModel):
     name: str | None = None
     target_amount: float | None = None
     target_date: date | None = None
+    category: str | None = None
     notes: str | None = None
+    active: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -188,8 +190,12 @@ async def update_goal(
         g.target_amount = body.target_amount
     if body.target_date is not None:
         g.target_date = body.target_date
+    if body.category is not None:
+        g.category = body.category
     if body.notes is not None:
         g.notes = body.notes
+    if body.active is not None:
+        g.active = body.active
     await db.commit()
     await db.refresh(g)
     current = await _compute_current_amount(db, g.id)
