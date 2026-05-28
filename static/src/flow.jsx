@@ -365,12 +365,16 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           : d.category === "surplus" || d.category === "deficit"
             ? `${pct}% ${d.name}`
             : `${pct}%${isMobile ? "" : " "}${catEmoji[d.cat]||"📦"}${isMobile ? "" : " "}${displayName}`;
+        const plainLabel = d.category === "income" || d.category === "surplus" || d.category === "deficit"
+          ? `${pct}% ${d.name}`
+          : `${pct}% ${CategoryService.display(d.cat)?.label || d.cat}`;
+        text.setAttribute("aria-label", plainLabel);
 
         text.setAttribute("x", String(labelX));
         text.setAttribute("y", String(d.y0 + (d.y1 - d.y0) / 2));
         text.setAttribute("dy", "0.35em");
         text.setAttribute("text-anchor", isLeft ? "end" : "start");
-        text.setAttribute("font-size", isMobile ? "9px" : "12px");
+        text.setAttribute("font-size", "12px");
         text.setAttribute("fill", "var(--ink-2)");
         text.style.fontFamily = "'Geist', sans-serif";
         text.textContent = label;
