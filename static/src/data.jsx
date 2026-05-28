@@ -230,7 +230,8 @@ const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeT
 
   const totalIncome = summary?.total_income ? Math.round(summary.total_income) : income.reduce((a, i) => a + i.amount, 0);
   const totalExpenses = expenses.reduce((a, e) => a + e.amount, 0);
-  const saved = summary?.saved ?? (totalIncome - totalExpenses);
+  const cardAmount = catMap["card"] || 0;
+  const saved = totalIncome - (totalExpenses - cardAmount);
 
   return { month: monthLabel, income, expenses, weeklyBurn, savings: Math.round(saved), totalIncome };
 };

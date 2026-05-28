@@ -30,7 +30,7 @@ const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments,
   const invTxn = invExpenses.reduce((a, e) => a + (e.txnCount || 0), 0);
 
   const hasCommitments = cardAmt > 0 || invAmt > 0;
-  const totalSpent = totalExpenseNumber + totalCCPayments + totalInvestments;
+  const totalSpent = totalExpenseNumber + totalInvestments;
   const totalSpentPct = totalIncome > 0 ? ((totalSpent / totalIncome) * 100).toFixed(1) : "0.0";
 
   const maxAmount = Math.max(...sortedExpenses.map(e => e.amount), cardAmt > 0 ? cardAmt : 0, invAmt > 0 ? invAmt : 0, 1);
@@ -327,7 +327,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
   const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
   const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
-  const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
+  const savings = totalIncome - totalExpense - totalInvestments;
   const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
@@ -465,7 +465,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       {(() => {
-                        const sr = totalIncome > 0 ? ((totalIncome - totalExpense - totalCCPayments - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
+                        const sr = totalIncome > 0 ? ((totalIncome - totalExpense - totalInvestments) / totalIncome * 100).toFixed(1) : "0.0";
                         const topCat = flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").sort((a, b) => b.amount - a.amount)[0];
                         return [
                           { label: "Saved", value: `${sr}%`, color: "var(--pos)" },
