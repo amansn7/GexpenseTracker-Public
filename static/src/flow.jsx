@@ -18,11 +18,11 @@ const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `
 const fmtKShort = (n) => n >= 100000 ? `${(n/100000).toFixed(2)}L` : n >= 1000 ? `${(n/1000).toFixed(1)}K` : `${n}`;
 
 const COLORS = {
-  income: '#4a7c5e',
-  expense: '#9a5a4a',
-  surplus: '#2d5a3a',
-  deficit: '#c2410c',
-  budget: '#3d3a33',
+  income: 'var(--pos)',
+  expense: 'var(--neg)',
+  surplus: 'var(--pos)',
+  deficit: 'var(--accent)',
+  budget: 'var(--ink-2)',
 };
 
 const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
@@ -107,11 +107,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     const hadContent = svg.children.length > 0;
     if (hadContent) {
       svg.querySelectorAll('[data-link-key]').forEach(el => {
-        const dashEl = el.nextElementSibling;
-        oldShapes.set(el.getAttribute('data-link-key'), {
-          linkD: el.getAttribute('d'),
-          dashD: dashEl?.classList.contains('link-dash') ? dashEl.getAttribute('d') : null,
-        });
+        oldShapes.set(el.getAttribute('data-link-key'), el.getAttribute('d'));
       });
     }
 
@@ -160,46 +156,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
     svg.appendChild(g);
 
-    // Gradients + glow filter
-    const defs = document.createElementNS(ns, "defs");
-    g.appendChild(defs);
-    laid.links.forEach((link, i) => {
-      const grad = document.createElementNS(ns, "linearGradient");
-      grad.setAttribute("id", `sg-${i}`);
-      grad.setAttribute("gradientUnits", "userSpaceOnUse");
-      grad.setAttribute("x1", String(link.source.x1));
-      grad.setAttribute("x2", String(link.target.x0));
-      const s = document.createElementNS(ns, "stop");
-      s.setAttribute("offset", "0%");
-      s.setAttribute("stop-color", link.source.color || COLORS.income);
-      grad.appendChild(s);
-      const t = document.createElementNS(ns, "stop");
-      t.setAttribute("offset", "100%");
-      t.setAttribute("stop-color", link.target.color || COLORS.expense);
-      grad.appendChild(t);
-      defs.appendChild(grad);
-    });
-    // Hover glow filter
-    const glowFilter = document.createElementNS(ns, "filter");
-    glowFilter.setAttribute("id", "link-glow");
-    glowFilter.setAttribute("x", "-20%");
-    glowFilter.setAttribute("y", "-20%");
-    glowFilter.setAttribute("width", "140%");
-    glowFilter.setAttribute("height", "140%");
-    const blur = document.createElementNS(ns, "feGaussianBlur");
-    blur.setAttribute("stdDeviation", "3");
-    blur.setAttribute("result", "blur");
-    glowFilter.appendChild(blur);
-    const merge = document.createElementNS(ns, "feMerge");
-    const mn1 = document.createElementNS(ns, "feMergeNode");
-    mn1.setAttribute("in", "blur");
-    merge.appendChild(mn1);
-    const mn2 = document.createElementNS(ns, "feMergeNode");
-    mn2.setAttribute("in", "SourceGraphic");
-    merge.appendChild(mn2);
-    glowFilter.appendChild(merge);
-    defs.appendChild(glowFilter);
-
     // Manual offset tracking (Cashkey approach — needed after budget node reposition)
     const sourceOffsets = {};
     const targetOffsets = {};
@@ -220,7 +176,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
 
     const curvature = isMobile ? 0.2 : 0.5;
 
-    const maxLinkVal = Math.max(...sortedLinks.map(l => l.value), 1);
     const morphTargets = new Map();
 
     sortedLinks.forEach((link, i) => {
@@ -248,10 +203,11 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       const flowLabel = `${link.source.name} to ${link.target.name}: ${fmtKShort(val)}, ${pct}% of budget`;
       const linkKey = `${link.source.name}::${link.target.name}`;
       const isMorph = oldShapes.has(linkKey);
+      const linkColor = link.target.color || COLORS.expense;
 
       const path = document.createElementNS(ns, "path");
-      path.setAttribute("d", isMorph ? oldShapes.get(linkKey).linkD : d);
-      path.setAttribute("fill", `url(#sg-${i})`);
+      path.setAttribute("d", isMorph ? oldShapes.get(linkKey) : d);
+      path.style.fill = linkColor;
       path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
       path.setAttribute("stroke", "transparent");
       path.setAttribute("stroke-width", isMobile ? "24" : "20");
@@ -263,9 +219,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       path.setAttribute("data-link-key", linkKey);
 
       if (isMorph) {
-        path.style.transition = 'd 600ms cubic-bezier(0.34,1.56,0.64,1)';
+        path.style.transition = 'd 600ms cubic-bezier(0.4,0,0.2,1)';
+        morphTargets.set(linkKey, d);
       } else {
-        path.style.transition = `opacity 400ms cubic-bezier(0.34,1.56,0.64,1), transform 400ms cubic-bezier(0.34,1.56,0.64,1)`;
+        path.style.transition = `opacity 400ms cubic-bezier(0.4,0,0.2,1), transform 400ms cubic-bezier(0.4,0,0.2,1)`;
         path.style.transitionDelay = `${i * 60}ms`;
         path.style.transform = `translateY(6px)`;
       }
@@ -330,41 +287,16 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         if (e.key === 'Escape') setTooltip(null);
       });
       linkGroup.appendChild(path);
-
-      const dashPath = document.createElementNS(ns, "path");
-      const midY1 = sy + sh / 2;
-      const midY2 = ty + th / 2;
-      const dashCenterline = `M${sx},${midY1} C${c1x},${midY1} ${c2x},${midY2} ${tx},${midY2}`;
-      if (isMorph) morphTargets.set(linkKey, { linkD: d, dashD: dashCenterline });
-      dashPath.setAttribute("d", isMorph ? oldShapes.get(linkKey).dashD : dashCenterline);
-      dashPath.setAttribute("fill", "none");
-      dashPath.setAttribute("class", "link-dash");
-      dashPath.setAttribute("stroke", "rgba(255,255,255,0.5)");
-      dashPath.setAttribute("stroke-width", isMobile ? "1.5" : "2");
-      dashPath.setAttribute("stroke-dasharray", "4, 4");
-      dashPath.setAttribute("opacity", isMorph ? "0.35" : "0");
-      dashPath.style.transition = isMorph ? 'd 600ms cubic-bezier(0.34,1.56,0.64,1)' : 'opacity 400ms cubic-bezier(0.34,1.56,0.64,1)';
-      if (!isMorph) dashPath.style.transitionDelay = `${i * 60}ms`;
-      dashPath.style.animation = `flow-dash ${Math.max(0.6, 1.8 - (val / maxLinkVal) * 1.2).toFixed(1)}s linear infinite`;
-      dashPath.style.animationDelay = `${i * 0.08}s`;
-      dashPath.style.pointerEvents = "none";
-      dashPath.style.willChange = "stroke-dashoffset";
-      linkGroup.appendChild(dashPath);
     });
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        morphTargets.forEach(({ linkD, dashD }, key) => {
+        morphTargets.forEach((newD, key) => {
           const sel = `[data-link-key="${CSS.escape(key)}"]`;
           const p = linkGroup.querySelector(sel);
           if (p) {
             p.getBoundingClientRect();
-            p.setAttribute('d', linkD);
-            const dash = p.nextElementSibling;
-            if (dash && dash.classList.contains('link-dash') && dashD) {
-              dash.getBoundingClientRect();
-              dash.setAttribute('d', dashD);
-            }
+            p.setAttribute('d', newD);
           }
         });
         sortedLinks.forEach((link, i) => {
@@ -374,9 +306,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
             if (p) {
               p.setAttribute('opacity', '1');
               p.style.transform = '';
-              // fade in dash too
-              const dash = p.parentElement?.querySelector('.link-dash');
-              if (dash) dash.setAttribute('opacity', '0.35');
             }
           }
         });
@@ -406,7 +335,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       const cy = d.y0 + (d.y1 - d.y0) / 2;
       rect.style.transformOrigin = `${cx}px ${cy}px`;
       rect.style.transform = 'scale(0)';
-      rect.style.transition = 'transform 500ms cubic-bezier(0.34,1.56,0.64,1)';
+      rect.style.transition = 'transform 500ms cubic-bezier(0.4,0,0.2,1)';
       rect.style.transitionDelay = `${400 + laid.nodes.indexOf(d) * 60}ms`;
       ng.appendChild(rect);
 
@@ -474,14 +403,14 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
   if (!parsed.nodes.length) return null;
 
   return (
-    <div ref={containerRef} className="sankey-container" style={{ width: "100%", overflow: "hidden" }}>
+    <div ref={containerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
       <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
       {tooltip && (
-        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance glass-tooltip" style={{
+        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance" style={{
           position: "absolute", left: tooltip.x, top: tooltip.y,
-          background: "var(--card)",
+          background: "var(--card)", border: "1px solid var(--line)",
           borderRadius: 8, padding: "8px 12px", pointerEvents: "none",
-          whiteSpace: "nowrap", zIndex: 50,
+          whiteSpace: "nowrap", zIndex: 50, boxShadow: "0 4px 16px -4px var(--shadow-lg)",
           fontSize: 12, lineHeight: 1.5,
         }}>
           <div style={{ color: "var(--ink-2)", fontWeight: 500 }}>
