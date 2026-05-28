@@ -103,3 +103,11 @@
 
 1. React/SPA apps that use `style={{...}}` props generate inline `style` attributes on DOM elements. These require `'unsafe-inline'` in `style-src`. The nonce mechanism only protects `<style>` blocks, not `style` attributes. Removing `'unsafe-inline'` breaks all component styling in modern browsers.
 2. CSP `'unsafe-inline'` in `style-src` is standard for React SPAs — the security tradeoff accepts inline style attributes in exchange for the app being functional. If stricter CSP is desired, the entire app must be refactored to use CSS classes exclusively. Apply this knowledge before ever modifying the CSP policy.
+
+## Data Display Mismatches
+
+1. When a filter tab's count and its actual content mismatch, the root cause is usually different data sources: the count comes from a server query (e.g., `/api/review?count=true`) while the content is derived from a locally loaded data set (e.g., first 50 transactions from `/api/transactions`). Fix by either:
+   - Using the same data source for both count and content (e.g., count from `transactions.filter(...)`)
+   - Making the tab self-contained with its own fetch + internal state (preferred for special-purpose tabs like needs_review)
+2. Merging API results into the main `transactions` array via `setTransactions(prev => [...prev, ...items])` is fragile — it can race with other state updates (loadMore, loadData). Self-contained state inside the component (`needsReviewItems`) avoids this entirely.
+3. For minified frontend builds, always verify the dist file contains the expected logic by grepping for key strings. esbuild's minifier preserves string literals so `"needs_review"` remains searchable.

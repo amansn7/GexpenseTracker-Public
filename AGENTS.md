@@ -47,62 +47,15 @@ Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `compone
 <claude-mem-context>
 # Memory Context
 
-# [GexpenseTracker] recent context, 2026-05-25 10:12pm GMT+5:30
+# [GexpenseTracker] recent context, 2026-05-27 3:45pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (19,353t read) | 1,234,841t work | 98% savings
+Stats: 50 obs (16,168t read) | 873,366t work | 98% savings
 
 ### May 25, 2026
-793 10:40a 🔵 Code Quality Scan: 34 Ruff Lint Errors, All Minor
-795 10:41a 🔵 Second Pre-existing Failure: Gmail Socket Timeout Test Mock Not Called
-796 " 🟣 Important Security Fixes: SSRF, OAuth State, DELETE Re-auth, CSP — Subagent Dispatched
-797 3:17p 🔵 Parallel Subagents Launched for Deep Scan — Security + API Surface
-798 3:18p 🔐 SSRF Still Open: base_url Written to DB Without Validation
-799 " 🔵 API Surface Scan: Key Security Findings from Direct Code Read
-800 " 🔵 Security Deep Scan: OAuth State DB-Bound (PASS), CSP Still unsafe-inline (FAIL), JWT Blacklist Active (PASS), TOTP Enforcement Active (PASS)
-804 3:19p 🔵 API key encryption uses dedicated encrypt_ai_secret function
-805 " 🔵 Batch classify prompt includes email content with escape sanitization
-806 " 🔵 Admin endpoints require owner role with _require_owner dependency
-807 " 🔵 Search transactions endpoint has bounded limit constraint
-S126 Parallel deepscan complete — 6 agents finished, comprehensive readiness report compiled with 6+ critical blockers identified (May 25, 3:21 PM)
-S127 Parallel deepscan complete — 6 agents finished, comprehensive readiness report with 6+ critical blockers identified for public release (May 25, 3:22 PM)
-S124 Parallel deepscan application readiness for public consumption — 5 agents complete, data integrity findings critical (May 25, 3:22 PM)
-S125 Parallel deepscan application readiness for public consumption — 5 agents complete, data integrity findings critical (May 25, 3:22 PM)
-S128 Deep scan of GexpenseTracker to determine public release readiness — comprehensive security, data integrity, migration, and deployment audit across 6 domains using parallel subagents (May 25, 3:24 PM)
-S129 Create task list for GexpenseTracker public release blockers — user requested task tracking for all pre-launch blockers identified in deepscan (May 25, 3:25 PM)
-808 3:27p ⚖️ GexpenseTracker Public Release Blockers — Remediation Task List Created
-S130 GexpenseTracker public release readiness deepscan + full blocker/pre-launch task list creation — 20 tasks created covering 7 hard blockers and 13 pre-launch warnings (May 25, 3:40 PM)
-809 3:40p 🟣 GexpenseTracker Pre-Launch Warning Tasks Created (8–16)
-S131 GexpenseTracker public release deepscan + task list creation — deepscan complete, 20 tasks created, canonical report written to tasks/deepscan-2026-05-25.md (May 25, 3:41 PM)
-810 3:41p 🔵 Existing public-release-readiness-checklist.md Found in tasks/
-811 3:42p ✅ Deepscan Report Written to tasks/deepscan-2026-05-25.md
-S132 GexpenseTracker pre-launch hardening: tackle 12 deepscan items (CSP unsafe-inline, .dockerignore, pagination cap, structlog redaction, etc.) (May 25, 3:43 PM)
-812 7:38p 🔵 GexpenseTracker Public Launch Readiness Deep Scan
-813 " 🚨 SSRF Vulnerability in AI Service Base URL Validation
-814 " 🚨 TOTP Not Enforced on JWT Bearer Auth Path
-815 " 🚨 No Re-Authentication Gate for Destructive Account Operations
-816 " 🔵 GexpenseTracker Full Blocker Details with File:Line Evidence
-817 " 🔵 GexpenseTracker Pre-Launch Issues (Non-Blocker) Full Details
-818 7:39p 🔵 Deepscan Blockers Largely Already Fixed — Stale Report
-819 " 🔵 Remaining Real Issues: S4 DATABASE_URL Fallback and D1 Second FK Missing Cascade
-820 " 🔵 SSRF Validation Has DNS Rebinding Gap
-821 7:40p 🔵 D1 Cascade Issue Is ClassificationLog, Not Transaction Table
-822 " 🔵 Migration 0041 Already Exists and Covers All Data Integrity Blockers
-823 " 🔴 S4 Fixed: docker-compose DATABASE_URL Now Fails Fast on Missing Env Vars
-824 " 🔵 GexpenseTracker Security Posture — Comprehensive Passed Items
-825 " 🔵 Additional Pre-Launch Issues: Atomicity, Queue, Pagination, Observability
-826 " ✅ Deepscan Verdict Updated to BLOCKERS CLEARED — All 7 Marked Resolved
-827 8:12p 🔵 GexpenseTracker Pre-Launch Task Files Identified
-828 " 🔵 GexpenseTracker Pre-Launch Readiness State: 7 Blockers Fixed, 12 Pre-Launch Items Remaining
-829 " 🔵 Specific Pre-Launch Fix Locations in GexpenseTracker Codebase
-830 " 🔵 GexpenseTracker Data Integrity Pre-Launch Issues: 5 Open Items with Exact Locations
-831 " 🔵 GexpenseTracker P2 and Remaining Pre-Launch Gaps: Observability, pytest-asyncio, and Security Edge Cases
-832 " 🔵 DeepScan Pre-Launch Items: Multiple Already Fixed in Codebase
-833 " 🔵 Classifier Atomicity: Uses flush() Not commit() — Less Severe Than Deepscan Stated
-834 " 🔵 merchant.py MerchantEntityAlias Model Has Correct FK — Conflict Is Naming Only
 835 8:14p 🔵 LLMSpendTracker ORM Model Already Has ForeignKey — Deepscan Item #14 Already Done
 836 " 🔵 HTTPSRedirectMiddleware and Sentry Already Implemented — Items #17 and #18 Done
 837 " 🔵 True Open Pre-Launch Items: Only 4 Remain from Original 12
@@ -115,15 +68,85 @@ S132 GexpenseTracker pre-launch hardening: tackle 12 deepscan items (CSP unsafe-
 844 8:23p 🔐 CSP unsafe-inline removal committed and pushed to main
 845 10:01p 🔵 Alembic Migration 0038 Fails on PostgreSQL Boolean Default
 846 10:02p 🔴 Fixed Migration 0038 Boolean Default — PostgreSQL Compatibility
-S133 Fix Railway deployment crash — Alembic migration 0038 boolean default PostgreSQL incompatibility (May 25, 10:02 PM)
-**Investigated**: Railway deployment logs showing repeated container crash-restart loop. Traced to `alembic/versions/0038_add_goals_and_contributions.py` failing at startup with `psycopg2.errors.DatatypeMismatch: column "active" is of type boolean but default expression is of type integer`. Confirmed generated SQL was `active BOOLEAN DEFAULT 1` — integer literal rejected by PostgreSQL.
+### May 26, 2026
+847 10:50a 🔵 MoneyFlow (GexpenseTracker) Custom Skill Inventory
+848 11:04a 🔵 Computer-Use MCP Available for Mobile UI Review
+849 11:05a 🔵 Google Chrome Not Installed on Review Machine
+850 " 🔵 Browser Access Constraints for MoneyFlow Mobile Review
+851 11:06a 🔵 MoneyFlow Production URL Confirmed
+852 " 🔵 Screenshot Tool Blocked — macOS Version Too Old
+853 " 🔵 MoneyFlow Frontend Structure — JSX Components and Templates
+854 " 🔵 MoneyFlow Responsive Architecture — JS Viewport Hook, No Tailwind
+855 " 🔵 MoneyFlow Mobile UI Behavior — Sidebar Drawer, Topbar, Row Layout
+856 11:07a 🔵 useViewport Hook — window.innerWidth Resize Listener
+857 " 🔵 Mobile-Specific Layout Patterns — Search, Bulk Bar, Detail Panel
+858 " 🔵 useViewport Breakpoints — isMobile &lt;720px, isTablet &lt;980px
+859 " 🔵 DetailPanel IS Full-Screen on Mobile — Fixed Overlay with slide-in-right
+S139 Mobile view review — Playwright screenshot script running, awaiting user login to capture mobile viewports (May 26, 11:11 AM)
+860 11:11a 🔵 Playwright 1.60.0 Available — Node v24.15.0 via NVM
+862 " 🟣 Playwright Mobile Screenshot Script Created and Launched
+S140 Mobile view review — revised Playwright script relaunched (PID 53076), awaiting user login to capture 6 views × 2 viewports (May 26, 11:11 AM)
+861 11:12a 🔵 Playwright Chromium on macOS 12 — Frozen ffmpeg, Screenshots Still Work
+863 11:13a 🔵 Playwright Mobile Screenshots Captured Successfully
+865 " ✅ mobile-review.mjs Improved — Robust Locators, 6 Screenshots, Error Handling
+866 " 🔵 mobile-review.mjs Exits Immediately — No Screenshots, Process Gone
+864 " 🔵 mobile-screenshots/ Directory Empty — No Screenshots Captured
+S142 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright script hardened against bot detection for Google OAuth (May 26, 11:14 AM)
+S143 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright script hardened with anti-bot-detection flags, relaunched for full screenshot capture (May 26, 11:15 AM)
+S141 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright screenshot capture with OAuth auth gate (May 26, 11:15 AM)
+S145 Mobile view review for MoneyFlow (GexpenseTracker) — iterating through Playwright browser engines to bypass Google OAuth bot detection (May 26, 11:17 AM)
+S146 Mobile view review for MoneyFlow — blocked on auth; pivoting to cookie injection approach via Safari DevTools (May 26, 11:18 AM)
+S144 Mobile view review for MoneyFlow (GexpenseTracker) — switched Playwright to Firefox to bypass Google OAuth bot detection (May 26, 11:18 AM)
+S147 Mobile view review for MoneyFlow — pivoting to cookie injection via Safari DevTools Storage tab to bypass OAuth (May 26, 11:19 AM)
+867 11:19a 🔵 App exposes only CSRF token via document.cookie — session is HttpOnly
+868 11:25a 🟣 Playwright script rewritten to use session cookie injection, bypassing Google OAuth entirely
+869 " 🔵 Write to mobile-review.mjs did not persist — file still contains old webkit content
+### May 27, 2026
+870 11:01a 🔵 GexpenseTracker MoneyFlow Feature — Current State
+871 11:02a 🔵 MoneyFlow Feature — Full Implementation Details and Code Gaps
+872 11:04a 🔵 MoneyFlow UI Components — Architecture Gaps and Design Issues
+873 11:12a 🔵 GexpenseTracker Recent Commit History — 30 Fixes Across Classifier, Inbox, Migrations
+874 " 🔵 Goals and Budgets API Structure Mapped
+875 11:13a 🔵 Shell.jsx Nav Structure — Collapsible Sections with localStorage Persistence
+876 " 🔵 Inbox Polish Plan Exists — P0/P1/P2 Priority Work Pending
+877 " 🔵 httpx External Calls — SSRF Risk Surface Identified in settings.py and currency.py
+878 " 🔵 Frontend Build — esbuild via scripts/build-frontend.mjs
+879 11:37a 🟣 Goals + Budgets Frontend Views — Subagent Dispatched for Implementation
+880 11:41a 🟣 Mobile Viewport Fixes — Second Subagent Dispatched
+881 " 🔵 Frontend Code Patterns — DebtView and RecurringView Reference Implementation
+882 " 🔵 100vh Already Migrated to 100dvh — Mobile Subagent Task 1 Is No-Op
+883 " 🔵 reports.jsx and health.jsx Already Have Savings Rate — Third Subagent May Duplicate
+884 " 🔵 Icons List — "target" and "wallet" Not Available; Goals/Budgets Must Use Alternatives
+S148 GexpenseTracker moneyflow review — fix gaps, add Goals/Budgets views, mobile responsiveness, security audit (May 27, 11:42 AM)
+**Investigated**: - Recent subagent work observed via primary session tool calls
+    - SA-A (Goals+Budgets): goals.jsx (301 lines), budgets.jsx (207 lines) created and wired into app.jsx and shell.jsx
+    - SA-B (Mobile): flow.jsx Sankey mobile branch verified working; 100vh already gone (0 occurrences); stat-grid 720px override in CSS confirmed
+    - SA-D (Backend security): url_utils.py SSRF protection (DNS+IP checks), rate_limiter.py full coverage, pattern_rules/domain_pair_rules have no user_id FK (global tables), oauth_states has no user_id FK, rate limiting had bug where EXEMPT endpoints bypassed rate limits
 
-**Learned**: PostgreSQL strictly rejects integer literals (`1`/`0`) as defaults for BOOLEAN columns. SQLite silently accepts them. Alembic `server_default=sa.text("1")` compiles directly to SQL — no type coercion. Must use `sa.text("true")` for PostgreSQL-compatible boolean server defaults. Migration 0034 also produces expected warnings about 2 AI key rows already re-encrypted with FERNET_KEY — not a blocker.
+**Learned**: - goals.jsx and budgets.jsx: SA-A wrote both files twice (duplicate writes seen in observations) — final state is correct 301/207 lines respectively
+    - shell.jsx: Goals (icon=star) and Budgets (icon=grid) added to BOTH classic mode (Views section) and new mode nav — 4 matches confirmed
+    - app.jsx: titles object + view routing both updated — 4 matches confirmed
+    - flow.jsx: isMobile early-return now renders category list instead of scrollable SVG
+    - main.py: rate limiting had ordering bug — EXEMPT paths (/api/auth/callback, /api/auth/token/refresh) skipped rate limiting; SA-D fixed by moving rate limit block BEFORE the EXEMPT short-circuit, wrapped in `if not os.getenv("TESTING")`
+    - pattern_rules and domain_pair_rules are global ML tables with no user_id — not in GDPR deletion pipeline but correctly not user-owned
+    - oauth_states has no user_id column — ephemeral, expires naturally, acceptable
+    - validate_url() checks: scheme http/https only, DNS resolution, blocks private/loopback/reserved/unspecified IPs
 
-**Completed**: Fixed `alembic/versions/0038_add_goals_and_contributions.py`: changed `server_default=sa.text("1")` → `server_default=sa.text("true")` for `active` BOOLEAN column in `goals` table. Committed as `eca0b5c` on `main`. Pushed to `github.com:amansn7/GexpenseTracker.git` (75d7ca5..eca0b5c). Railway deploy will trigger automatically and migrations should now complete successfully.
+**Completed**: - static/src/goals.jsx: Full GoalsView + GoalModal with contributions (301 lines)
+    - static/src/budgets.jsx: Full BudgetsView + BudgetModal with over-budget highlighting (207 lines)
+    - static/src/app.jsx: titles dict + view routing for goals/budgets
+    - static/src/shell.jsx: Goals+Budgets NavItems in both classic and new mode sidebars
+    - static/src/flow.jsx: Sankey mobile list fallback (isMobile early return)
+    - static/styles.css: @media (max-width: 720px) .stat-grid 2-column override
+    - static/src/reports.jsx: monthly expense trend bar chart (orchestrator direct edit)
+    - app/main.py: rate limiting ordering fix — EXEMPT endpoints now covered
 
-**Next Steps**: Wait for Railway to pick up the push and redeploy. Verify deployment succeeds and `/health` check passes. Confirm `goals` and `goal_contributions` tables created in production PostgreSQL.
+**Next Steps**: All subagents appear to have completed their work based on the observed tool calls. Need to:
+    1. Run `npm run build` to compile all static/src/*.jsx → static/dist/*.js
+    2. Verify no conflicts between parallel agent changes
+    3. Check if templates/index.html needs script tags for goals.js and budgets.js
+    4. Confirm build succeeds without errors
 
 
-Access 1235k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 873k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

@@ -64,7 +64,7 @@ RATE_LIMIT_PREFIXES = {
     "/api/insights/": (10, 60),
     "/api/merchants/": (20, 60),
     "/api/budgets/": (20, 60),
-    "/api/goals/": (20, 60),
+    "/api/goals": (20, 60),
     "/api/debt/": (20, 60),
     "/api/duplicates/": (20, 60),
     "/api/emails/": (20, 60),

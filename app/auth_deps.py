@@ -92,7 +92,10 @@ async def get_current_user(
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
-    should_rotate = row.last_rotated_at is None or row.last_rotated_at < datetime.now(UTC) - timedelta(
+    last_rotated = row.last_rotated_at
+    if last_rotated is not None and last_rotated.tzinfo is None:
+        last_rotated = last_rotated.replace(tzinfo=UTC)
+    should_rotate = last_rotated is None or last_rotated < datetime.now(UTC) - timedelta(
         days=SESSION_ROTATION_DAYS
     )
     if should_rotate and response is not None:
