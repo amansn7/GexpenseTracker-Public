@@ -227,15 +227,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         path.style.transform = `translateY(6px)`;
       }
 
-      path.addEventListener('mouseenter', () => {
-        const prev = linkGroup.querySelector('[data-hovered]');
-        if (prev) prev.removeAttribute('data-hovered');
-        path.setAttribute('data-hovered', '');
-      });
-      path.addEventListener('mouseleave', () => {
-        path.removeAttribute('data-hovered');
-        setTooltip(null);
-      });
       path.addEventListener('mousemove', (e) => {
         const rect = container.getBoundingClientRect();
         setTooltip({
@@ -247,6 +238,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           y: e.clientY - rect.top - 10,
         });
       });
+      path.addEventListener('mouseleave', () => setTooltip(null));
       if (isMobile) {
         path.addEventListener('touchstart', (e) => {
           e.preventDefault();
@@ -283,12 +275,6 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         if (e.key === 'Escape') setTooltip(null);
       });
       linkGroup.appendChild(path);
-    });
-
-    linkGroup.addEventListener('mouseleave', () => {
-      const h = linkGroup.querySelector('[data-hovered]');
-      if (h) h.removeAttribute('data-hovered');
-      setTooltip(null);
     });
 
     requestAnimationFrame(() => {
