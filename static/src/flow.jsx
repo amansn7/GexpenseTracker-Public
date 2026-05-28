@@ -446,7 +446,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const seededRef = React.useRef(false);
   const [planIncomes, setPlanIncomes] = React.useState([]);
   const [planExpenses, setPlanExpenses] = React.useState([]);
-  const [planDirty, setPlanDirty] = React.useState(false);
   const [compareStats, setCompareStats] = React.useState(null);
   const [drillCategory, setDrillCategory] = React.useState(null);
   const [drillTxns, setDrillTxns] = React.useState(null);
@@ -495,26 +494,6 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     return () => { cancelled = true; };
   }, [drillCategory, rangeFrom, rangeTo]);
 
-  // Seed planner from actuals when first switching to planner tab
-  React.useEffect(() => {
-    if (flowTab !== "planner" || !flow || seededRef.current) return;
-    seededRef.current = true;
-    const actualInc = flow.income.map(i => ({ id: crypto.randomUUID(), name: i.label, amount: i.amount }));
-    const actualExp = (catBreakdown?.categories || [])
-      .filter(c => c.category !== "card" && c.category !== "investment")
-      .map(c => ({ id: crypto.randomUUID(), name: CategoryService.display(c.category).label, amount: c.amount, category: c.category }));
-    setPlanIncomes(actualInc);
-    setPlanExpenses(actualExp);
-  }, [flowTab, flow]);
-
-  // Persist planner data
-  React.useEffect(() => {
-    localStorage.setItem("mf_plan", JSON.stringify(planIncomes));
-  }, [planIncomes]);
-  React.useEffect(() => {
-    localStorage.setItem("mf_plan_exp", JSON.stringify(planExpenses));
-  }, [planExpenses]);
-
   const planTotalIncome = planIncomes.reduce((a, i) => a + i.amount, 0);
   const planTotalExpense = planExpenses.reduce((a, e) => a + e.amount, 0);
   const planSurplus = planTotalIncome - planTotalExpense;
@@ -552,6 +531,26 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const handleCategoryClick = (cat) => {
     setDrillCategory(cat || "__income__");
   };
+
+  // Seed planner from actuals (must be after `flow` declaration to avoid TDZ)
+  React.useEffect(() => {
+    if (flowTab !== "planner" || !flow || seededRef.current) return;
+    seededRef.current = true;
+    const actualInc = flow.income.map(i => ({ id: crypto.randomUUID(), name: i.label, amount: i.amount }));
+    const actualExp = (catBreakdown?.categories || [])
+      .filter(c => c.category !== "card" && c.category !== "investment")
+      .map(c => ({ id: crypto.randomUUID(), name: CategoryService.display(c.category).label, amount: c.amount, category: c.category }));
+    setPlanIncomes(actualInc);
+    setPlanExpenses(actualExp);
+  }, [flowTab, flow]);
+
+  // Persist planner data
+  React.useEffect(() => {
+    localStorage.setItem("mf_plan", JSON.stringify(planIncomes));
+  }, [planIncomes]);
+  React.useEffect(() => {
+    localStorage.setItem("mf_plan_exp", JSON.stringify(planExpenses));
+  }, [planExpenses]);
 
   return (
     <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
