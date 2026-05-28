@@ -15,13 +15,14 @@ const flowStyles = {
 };
 
 const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
+const fmtKShort = (n) => n >= 100000 ? `${(n/100000).toFixed(2)}L` : n >= 1000 ? `${(n/1000).toFixed(1)}K` : `${n}`;
 
 const COLORS = {
-  income: '#8E9EF0',
-  expense: '#9ADCB9',
-  surplus: '#9b87f5',
-  deficit: '#F7A097',
-  budget: '#F1C40F',
+  income: '#4a7c5e',
+  expense: '#9a5a4a',
+  surplus: '#2d5a3a',
+  deficit: '#c2410c',
+  budget: '#3d3a33',
 };
 
 const incomeEmoji = (label) => {
@@ -110,7 +111,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     if (!container) return;
 
     const width = container.clientWidth || 600;
-    const height = 450;
+    const height = Math.min(450, (window.innerHeight || 700) * 0.45);
     const margin = isMobile
       ? { top: 30, right: 50, bottom: 30, left: 50 }
       : { top: 30, right: 180, bottom: 30, left: 180 };
@@ -218,6 +219,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       const c1x = sx * (1 - curvature) + tx * curvature;
       const c2x = sx * curvature + tx * (1 - curvature);
 
+      const val = link.value;
+      const pct = parsed.totalBudget > 0 ? Math.round((val / parsed.totalBudget) * 100) : 0;
+      const flowLabel = `${link.source.name} to ${link.target.name}: ${fmtKShort(val)}, ${pct}% of budget`;
+
       const path = document.createElementNS(ns, "path");
       path.setAttribute("d", [
         `M${sx},${sy}`,
@@ -227,35 +232,28 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       ].join(" "));
       path.setAttribute("fill", `url(#sg-${i})`);
       path.setAttribute("fill-opacity", isMobile ? "0.8" : "0.7");
-      path.setAttribute("stroke", "none");
+      path.setAttribute("stroke", "transparent");
+      path.setAttribute("stroke-width", isMobile ? "24" : "20");
       path.setAttribute("opacity", "0");
+      path.setAttribute("class", "link-flow");
+      path.setAttribute("role", "graphics-symbol");
+      path.setAttribute("aria-label", flowLabel);
+      path.setAttribute("tabindex", "0");
       path.style.transition = `opacity 400ms cubic-bezier(.2,.8,.2,1) ${i * 60}ms`;
+
       path.addEventListener('mouseenter', () => {
-        linkGroup.querySelectorAll('path').forEach(p => {
-          if (p === path) {
-            p.setAttribute('fill-opacity', '1');
-            p.setAttribute('stroke', p.getAttribute('fill'));
-            p.setAttribute('stroke-width', '1.5');
-            p.style.filter = 'brightness(1.1)';
-          } else {
-            p.setAttribute('fill-opacity', '0.08');
-            p.style.filter = 'brightness(0.7)';
-          }
-        });
+        const prev = linkGroup.querySelector('[data-hovered]');
+        if (prev) prev.removeAttribute('data-hovered');
+        path.setAttribute('data-hovered', '');
+        linkGroup.setAttribute('data-hovered', '');
       });
       path.addEventListener('mouseleave', () => {
-        linkGroup.querySelectorAll('path').forEach(p => {
-          p.setAttribute('fill-opacity', isMobile ? '0.8' : '0.7');
-          p.removeAttribute('stroke');
-          p.removeAttribute('stroke-width');
-          p.style.filter = 'none';
-        });
+        path.removeAttribute('data-hovered');
+        linkGroup.removeAttribute('data-hovered');
         setTooltip(null);
       });
       path.addEventListener('mousemove', (e) => {
         const rect = container.getBoundingClientRect();
-        const val = link.value;
-        const pct = parsed.totalBudget > 0 ? Math.round((val / parsed.totalBudget) * 100) : 0;
         setTooltip({
           source: link.source.name,
           target: link.target.name,
@@ -264,6 +262,43 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           x: e.clientX - rect.left + 14,
           y: e.clientY - rect.top - 10,
         });
+      });
+      if (isMobile) {
+        path.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          const rect = container.getBoundingClientRect();
+          const touch = e.touches[0];
+          const prev = linkGroup.querySelector('[data-hovered]');
+          if (prev) prev.removeAttribute('data-hovered');
+          path.setAttribute('data-hovered', '');
+          linkGroup.setAttribute('data-hovered', '');
+          setTooltip({
+            source: link.source.name,
+            target: link.target.name,
+            value: val,
+            percentage: pct,
+            x: touch.clientX - rect.left + 14,
+            y: touch.clientY - rect.top - 10,
+          });
+        });
+        path.addEventListener('touchend', () => {
+          path.removeAttribute('data-hovered');
+          linkGroup.removeAttribute('data-hovered');
+        });
+      }
+      path.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const rect = container.getBoundingClientRect();
+          setTooltip({
+            source: link.source.name,
+            target: link.target.name,
+            value: val,
+            percentage: pct,
+            x: 14,
+            y: rect.height / 2 - 10,
+          });
+        }
+        if (e.key === 'Escape') setTooltip(null);
       });
       linkGroup.appendChild(path);
 
@@ -279,6 +314,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       dashPath.style.animation = `flow-dash 1.2s linear infinite`;
       dashPath.style.animationDelay = `${i * 0.08}s`;
       dashPath.style.pointerEvents = "none";
+      dashPath.style.willChange = "stroke-dashoffset";
       linkGroup.appendChild(dashPath);
     });
 
@@ -335,7 +371,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         text.setAttribute("dy", "0.35em");
         text.setAttribute("text-anchor", isLeft ? "end" : "start");
         text.setAttribute("font-size", isMobile ? "9px" : "12px");
-        text.setAttribute("fill", "#4b5563");
+        text.setAttribute("fill", "var(--ink-2)");
         text.style.fontFamily = "'Geist', sans-serif";
         text.textContent = label;
 
@@ -355,10 +391,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       nodeGroup.appendChild(ng);
     });
 
-    // Mobile: override font-size to 8px
+    // Mobile: override font-size to 10px minimum
     if (isMobile) {
       const texts = svg.querySelectorAll("text");
-      texts.forEach(t => t.setAttribute("font-size", "8px"));
+      texts.forEach(t => t.setAttribute("font-size", "10px"));
     }
   }, [parsed, isMobile]);
 
