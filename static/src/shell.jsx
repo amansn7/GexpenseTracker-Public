@@ -223,6 +223,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
     {viewsOpen && <>
     <NavItem icon="inbox"   label="Inbox"       count={counts.unread}  active={view==="inbox"}     onClick={()=>navigate(()=>setView("inbox"))} />
     <NavItem icon="flow"    label="Money Flow"                          active={view==="flow"}      onClick={()=>navigate(()=>setView("flow"))} />
+    <NavItem icon="flow"    label="Cashflow Planner"                   active={view==="planner"}   onClick={()=>navigate(()=>setView("planner"))} />
     <NavItem icon="dash"    label="Dashboard"                           active={view==="dashboard"} onClick={()=>navigate(()=>setView("dashboard"))} />
     <NavItem icon="heart"   label="Health"                              active={view==="health"}    onClick={()=>navigate(()=>setView("health"))} />
     <NavItem icon="chart"   label="Reports"                             active={view==="reports"}   onClick={()=>navigate(()=>setView("reports"))} />
