@@ -12,6 +12,21 @@ This project is configured to use `code-review-graph`. Use graph tools before ra
 
 Fall back to `rg`, `find`, or direct file reads only when the graph cannot answer the question.
 
+## Standing Rules
+
+1. **Review lessons at session start.** Read `tasks/lessons.md` before any work — especially the "Modal & Fixed Positioning" section when touching modals, and the "Deployment & Observability" section before any backend changes.
+
+2. **Run deployment checklist on every commit.** Before pushing, verify against `tasks/deployment-checklist.md`:
+   - Tests pass
+   - Lint passes
+   - Frontend builds
+   - Content hashes updated
+   - CSS cache buster bumped (if styles.css changed)
+   - No stale dist files
+   - Alembic head is single (if migrations exist)
+
+3. **Log new lessons.** If a debugging session or fix reveals a non-obvious pattern, add it to `tasks/lessons.md` under the relevant section before committing.
+
 ## Repo instruction boundaries
 
 - Keep `AGENTS.md` limited to stable, versioned project instructions.
