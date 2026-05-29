@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 from datetime import date, timedelta
@@ -43,11 +44,19 @@ def _maybe_parse_json(text: str) -> dict | None:
         cleaned = extract_json(text)
         if not cleaned:
             return None
+        # Try standard JSON repair strategies first
         for _, fix in _REPAIRERS:
             try:
                 return json.loads(fix(cleaned))
             except (json.JSONDecodeError, ValueError):
                 continue
+        # Fallback: try ast.literal_eval for Python dict syntax
+        try:
+            result = ast.literal_eval(cleaned)
+            if isinstance(result, dict):
+                return result
+        except (SyntaxError, ValueError):
+            pass
         logger.warning("Failed to parse LLM response as JSON after all repair strategies")
         return None
     except (json.JSONDecodeError, ValueError):
