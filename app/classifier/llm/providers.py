@@ -194,4 +194,5 @@ _KNOWN_BASE_URLS: dict[str, str] = {
     "scaleway": "https://api.scaleway.ai/v1",
     "openrouter": "https://openrouter.ai/api/v1",
     "cloudflare": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/run",
+    "freellmapi": "https://humble-wholeness-production.up.railway.app",
 }

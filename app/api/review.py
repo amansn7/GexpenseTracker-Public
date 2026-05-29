@@ -10,7 +10,7 @@ from app.auth_deps import get_current_user
 from app.classifier.classifier import classify_email
 from app.database import AsyncSessionLocal, get_db
 from app.models import Email, RuleSource, SenderRule, Transaction, TransactionStatus, User
-from app.services.llm_service import get_user_llm_client
+from app.services.llm_service import get_effective_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ async def reprocess_transaction(
     try:
         from app.classifier.context import ClassificationContext
 
-        user_llm_client = await get_user_llm_client(str(current_user.id), db)
+        user_llm_client = await get_effective_llm_client(str(current_user.id), db)
         result = await classify_email(
             ClassificationContext(
                 email_id=e.id,
@@ -201,7 +201,7 @@ async def reprocess_all(db: AsyncSession = Depends(get_db), current_user: User =
         return {"message": "Nothing to reprocess", "progress": dict(_bulk_progress.get(current_user.id, {}))}
 
     ids = list(rows)
-    user_llm_client = await get_user_llm_client(str(current_user.id), db)
+    user_llm_client = await get_effective_llm_client(str(current_user.id), db)
     asyncio.create_task(_bulk_reprocess_task(ids, user_id=current_user.id, llm_client_override=user_llm_client))
     return {"message": f"Started reprocessing {len(ids)} items", "total": len(ids)}
 

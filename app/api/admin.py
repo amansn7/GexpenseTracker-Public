@@ -436,3 +436,58 @@ async def list_audit_logs(
             for r in rows
         ],
     }
+
+
+class TrialOverrideBody(BaseModel):
+    user_id: str
+    days: int | None = None
+
+
+@router.post("/admin/trial/extend")
+async def extend_trial(
+    body: TrialOverrideBody,
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Extend a user's trial by N days, or grant a new trial."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    now = datetime.now(timezone.utc)
+    if user.trial_started_at is None:
+        user.trial_started_at = now
+        user.trial_ends_at = now + timedelta(days=body.days or settings.TRIAL_DURATION_DAYS)
+    else:
+        user.trial_ends_at = (user.trial_ends_at or now) + timedelta(days=body.days or settings.TRIAL_DURATION_DAYS)
+
+    await db.commit()
+    return {
+        "ok": True,
+        "trial_started_at": user.trial_started_at.isoformat() if user.trial_started_at else None,
+        "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
+    }
+
+
+@router.post("/admin/trial/revoke")
+async def revoke_trial(
+    body: TrialOverrideBody,
+    current_user: User = Depends(_require_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Immediately end a user's trial."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    user = (await db.execute(select(User).where(User.id == body.user_id))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.trial_ends_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"ok": True, "message": f"Trial ended for user {body.user_id}"}

@@ -118,6 +118,10 @@ async def _get_or_create_user(
 
     if user is None:
         user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=True)
+        if settings.ENABLE_LLM_TRIAL:
+            now = datetime.now(timezone.utc)
+            user.trial_started_at = now
+            user.trial_ends_at = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
         db.add(user)
         await db.flush()
         db.add(

@@ -7,7 +7,7 @@ from app.classifier.classifier import batch_classify_emails
 from app.classifier.pre_filter import load_engine_from_db
 from app.config import settings
 from app.models import UserSettings
-from app.services.llm_service import get_user_llm_client
+from app.services.llm_service import get_effective_llm_client
 
 
 async def _apply_pre_filter(
@@ -27,13 +27,7 @@ async def _apply_pre_filter(
 
     pre_filter_engine = await load_engine_from_db(session)
 
-    # Build user LLM client for Tier 3 ambiguous resolution
-    user_llm_client = None
-    if user_id:
-        user_settings_q = select(UserSettings).where(UserSettings.user_id == user_id)
-        user_settings = (await session.execute(user_settings_q)).scalar_one_or_none()
-        if user_settings and user_settings.active_ai_service_id:
-            user_llm_client = await get_user_llm_client(user_id, session)
+    user_llm_client = await get_effective_llm_client(user_id, session) if user_id else None
 
     new_pairs: list[tuple] = []
     skipped = 0
@@ -102,9 +96,7 @@ async def _classify_batch(
 
         db_rules = await build_domain_rules(session)
 
-    effective_llm_client = user_llm_client
-    if not effective_llm_client and user_id and user_settings and user_settings.active_ai_service_id:
-        effective_llm_client = await get_user_llm_client(user_id, session)
+    effective_llm_client = user_llm_client or (await get_effective_llm_client(user_id, session) if user_id else None)
 
     items = [
         (

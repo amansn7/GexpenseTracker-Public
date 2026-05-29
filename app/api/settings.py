@@ -879,3 +879,13 @@ async def get_llm_usage(
             "exceeded": float(today_cost) >= settings.DAILY_LLM_BUDGET,
         },
     }
+
+
+@router.get("/account/settings/llm-trial")
+async def get_llm_trial_status(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.llm_service import trial_status
+
+    return await trial_status(user.id, db)

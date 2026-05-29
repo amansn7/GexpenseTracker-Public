@@ -46,6 +46,29 @@ def build_user_client(
     return client
 
 
+def build_trial_client(user_id: str) -> MultiLLMClient | None:
+    """Build a client with FreeLLMAPI proxy first, then env-var providers as fallback.
+
+    Returns None if the FreeLLMAPI proxy is not configured.
+    """
+    if not settings.FREELLMAPI_API_KEY:
+        logger.warning("FREELLMAPI_API_KEY not configured — cannot build trial client")
+        return None
+
+    from app.classifier.llm.client import llm_client
+
+    client = MultiLLMClient(user_id=user_id)
+    model = settings.FREELLMAPI_MODEL or "auto"
+    trial_provider = Provider(
+        name="freellmapi",
+        base_url=settings.FREELLMAPI_BASE_URL,
+        api_key=settings.FREELLMAPI_API_KEY,
+        model=model,
+    )
+    client._providers = [trial_provider] + list(llm_client._providers)
+    return client
+
+
 def get_user_client(user_id: str) -> MultiLLMClient | None:
     """Convenience wrapper — get cached user client or build one from DB."""
     from app.classifier.llm.client import MultiLLMClient

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -47,6 +49,10 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
     role = UserRole.owner.value if existing_count == 0 else UserRole.member.value
     user = User(email=email, role=role, status=UserStatus.active.value, onboarding_complete=True)
+    if settings.ENABLE_LLM_TRIAL:
+        now = datetime.now(timezone.utc)
+        user.trial_started_at = now
+        user.trial_ends_at = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
     db.add(user)
     try:
         await db.flush()

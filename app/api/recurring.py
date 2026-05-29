@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth_deps import get_current_user
 from app.database import get_db
 from app.models import Email, RecurringExpense, Transaction, User
-from app.services.llm_service import get_user_llm_client
+from app.services.llm_service import get_effective_llm_client
 
 router = APIRouter()
 
@@ -255,7 +255,7 @@ async def find_recurring_from_transactions(
     prompt = _FIND_RECURRING_PROMPT.format(data=data_block)
 
     # Build user-specific LLM client
-    client = await get_user_llm_client(current_user.id, db)
+    client = await get_effective_llm_client(current_user.id, db)
     if not client:
         from app.classifier.llm_client import llm_client
 

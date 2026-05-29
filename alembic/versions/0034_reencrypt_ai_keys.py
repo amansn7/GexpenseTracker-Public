@@ -80,7 +80,6 @@ def upgrade() -> None:
         )
         migrated += 1
 
-    conn.commit()
     logger.info(
         "AI key re-encryption complete: %d migrated, %d skipped", migrated, skipped
     )
@@ -122,7 +121,6 @@ def downgrade() -> None:
         )
         migrated += 1
 
-    conn.commit()
     logger.info(
         "AI key downgrade complete: %d migrated, %d skipped", migrated, skipped
     )

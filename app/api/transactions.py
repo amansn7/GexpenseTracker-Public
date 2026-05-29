@@ -26,7 +26,7 @@ from app.models import (
     User,
 )
 from app.services.classifier_service import get_classifier_context
-from app.services.llm_service import get_user_llm_client
+from app.services.llm_service import get_effective_llm_client
 from app.services.transaction_formatter import format_transaction
 
 router = APIRouter()
@@ -665,7 +665,7 @@ async def reclassify_preview(
             e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules
         )
     else:
-        user_llm_client = await get_user_llm_client(str(current_user.id), db)
+        user_llm_client = await get_effective_llm_client(str(current_user.id), db)
         cls = await classify_email(
             ClassificationContext(
                 email_id=e.id,
@@ -713,7 +713,7 @@ async def reclassify_transaction(
             e.sender_domain or "", e.subject or "", e.body_text or e.body_snippet or "", db_rules
         )
     else:
-        user_llm_client = await get_user_llm_client(str(current_user.id), db)
+        user_llm_client = await get_effective_llm_client(str(current_user.id), db)
         cls = await classify_email(
             ClassificationContext(
                 email_id=e.id,

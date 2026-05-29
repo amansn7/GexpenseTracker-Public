@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     CLOUDFLARE_ACCOUNT_ID: str = ""  # Cloudflare — https://api.cloudflare.com/client/v4/accounts/
     CLOUDFLARE_API_TOKEN: str = ""  # Workers AI token
 
+    # FreeLLMAPI proxy — trial-tier LLM provider (bring-your-own-key after trial)
+    FREELLMAPI_BASE_URL: str = "https://humble-wholeness-production.up.railway.app"
+    FREELLMAPI_API_KEY: str = ""
+    FREELLMAPI_MODEL: str = ""  # empty = let proxy auto-select
+    TRIAL_DURATION_DAYS: int = 7
+    ENABLE_LLM_TRIAL: bool = False
+
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75
     ML_CONFIDENCE_THRESHOLD: float = 0.55

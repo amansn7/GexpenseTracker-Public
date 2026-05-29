@@ -20,6 +20,7 @@ from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
 from app.models import ClassificationLog, ClassifierMethod, Label, LLMSpendTracker, TransactionStatus
 from app.services.category_service import CategoryService
+from app.services.llm_service import get_effective_llm_client
 from app.services.currency import (
     SUPPORTED_CURRENCIES,
     convert_amount,
@@ -184,6 +185,21 @@ def _parse_date(raw: str | None) -> date | None:
         return None
 
 
+async def _resolve_client(
+    override: MultiLLMClient | None,
+    user_id: str | None,
+    session: AsyncSession | None,
+) -> MultiLLMClient | None:
+    """Resolve the effective LLM client — override → user-specific → global."""
+    if override:
+        return override
+    if user_id and session:
+        client = await get_effective_llm_client(user_id, session)
+        if client:
+            return client
+    return llm_client  # global fallback (may have empty providers → caught downstream)
+
+
 async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = (ctx.body_text or "")[:3000]
@@ -242,37 +258,41 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
             llm_result = None
             result_warnings.append("LLM daily budget exceeded")
         else:
-            active_client = ctx.llm_client_override or llm_client
-            try:
-                verbose = await active_client.classify_verbose(
-                    ctx.sender,
-                    ctx.subject,
-                    body_snippet,
-                    categories=user_categories,
-                    pre_extraction=pre_extraction,
-                )
-                llm_result = verbose["result"]
-                provider = verbose["provider"]
-                model_name = verbose["model"]
-                raw_response = verbose["raw_response"]
-                if ctx.session and ctx.user_id:
-                    await record_llm_spend(
-                        ctx.session,
-                        ctx.user_id,
-                        provider,
-                        model_name,
-                        estimated_cost=_COST_PER_CALL_ESTIMATE,
+            active_client = await _resolve_client(ctx.llm_client_override, ctx.user_id, ctx.session)
+            if not active_client:
+                logger.warning("No LLM client available for user %s, falling back to rules", ctx.user_id or "unknown")
+                result_warnings.append("No LLM provider available")
+            else:
+                try:
+                    verbose = await active_client.classify_verbose(
+                        ctx.sender,
+                        ctx.subject,
+                        body_snippet,
+                        categories=user_categories,
+                        pre_extraction=pre_extraction,
                     )
-                logger.info(
-                    "llm_classification_success",
-                    provider=provider,
-                    model=model_name,
-                    latency_ms=round((time.monotonic() - t0) * 1000),
-                    email_id=ctx.email_id,
-                )
-            except Exception as exc:
-                logger.error("llm_classification_failed", email_id=ctx.email_id, error=str(exc))
-                result_warnings.append(f"LLM classification failed: {exc}")
+                    llm_result = verbose["result"]
+                    provider = verbose["provider"]
+                    model_name = verbose["model"]
+                    raw_response = verbose["raw_response"]
+                    if ctx.session and ctx.user_id:
+                        await record_llm_spend(
+                            ctx.session,
+                            ctx.user_id,
+                            provider,
+                            model_name,
+                            estimated_cost=_COST_PER_CALL_ESTIMATE,
+                        )
+                    logger.info(
+                        "llm_classification_success",
+                        provider=provider,
+                        model=model_name,
+                        latency_ms=round((time.monotonic() - t0) * 1000),
+                        email_id=ctx.email_id,
+                    )
+                except Exception as exc:
+                    logger.error("llm_classification_failed", email_id=ctx.email_id, error=str(exc))
+                    result_warnings.append(f"LLM classification failed: {exc}")
 
     latency_ms = round((time.monotonic() - t0) * 1000)
 
@@ -568,42 +588,47 @@ async def batch_classify_emails(
             for idx, _, _, _, _, body_text in need_llm:
                 results[idx] = _rules_fallback_result(items[idx][2], items[idx][3], body_text, db_rules)
         else:
-            client = llm_client_override or llm_client
-            for batch_start in range(0, len(need_llm), batch_size):
-                batch = need_llm[batch_start : batch_start + batch_size]
-                batch_args = [
-                    (
-                        items[idx][1],
-                        items[idx][3],
-                        body_snippets[idx],
-                        rule_engine_adapter.extract(items[idx][3], body_snippets[idx]),
-                    )
-                    for idx, _, _, _, _, _ in batch
-                ]
-                batch_ts = time.monotonic()
-
-                try:
-                    verbose = await client.batch_classify_verbose(batch_args, categories=user_categories)
-                    llm_provider = verbose["provider"]
-                    llm_model = verbose["model"]
-                    llm_raw = verbose["raw_response"]
-                    batch_results = verbose["results"]
-
-                    if session and user_id:
-                        await record_llm_spend(
-                            session,
-                            user_id,
-                            llm_provider,
-                            llm_model,
-                            estimated_cost=_COST_PER_CALL_ESTIMATE * len(batch_results),
+            client = await _resolve_client(llm_client_override, user_id, session)
+            if not client:
+                logger.warning("No LLM client available for batch classify, falling back to rules")
+                for idx, _, _, _, _, body_text in need_llm:
+                    results[idx] = _rules_fallback_result(items[idx][2], items[idx][3], body_text, db_rules)
+            else:
+                for batch_start in range(0, len(need_llm), batch_size):
+                    batch = need_llm[batch_start : batch_start + batch_size]
+                    batch_args = [
+                        (
+                            items[idx][1],
+                            items[idx][3],
+                            body_snippets[idx],
+                            rule_engine_adapter.extract(items[idx][3], body_snippets[idx]),
                         )
+                        for idx, _, _, _, _, _ in batch
+                    ]
+                    batch_ts = time.monotonic()
 
-                    for offset, llm_res in enumerate(batch_results):
-                        idx, email_id, sender, sender_domain, subject, _ = batch[offset]
-                        snippet = body_snippets[idx]
+                    try:
+                        verbose = await client.batch_classify_verbose(batch_args, categories=user_categories)
+                        llm_provider = verbose["provider"]
+                        llm_model = verbose["model"]
+                        llm_raw = verbose["raw_response"]
+                        batch_results = verbose["results"]
 
-                        raw_merchant = llm_res.merchant
-                        merchant_info = (
+                        if session and user_id:
+                            await record_llm_spend(
+                                session,
+                                user_id,
+                                llm_provider,
+                                llm_model,
+                                estimated_cost=_COST_PER_CALL_ESTIMATE * len(batch_results),
+                            )
+
+                        for offset, llm_res in enumerate(batch_results):
+                            idx, email_id, sender, sender_domain, subject, _ = batch[offset]
+                            snippet = body_snippets[idx]
+
+                            raw_merchant = llm_res.merchant
+                            merchant_info = (
                             resolve_merchant(raw_merchant)
                             if raw_merchant
                             else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
@@ -698,22 +723,22 @@ async def batch_classify_emails(
                             except Exception as log_exc:
                                 logger.warning("Failed to write batch classification log: %s", log_exc)
 
-                except Exception as exc:
-                    logger.error("batch_classification_failed", batch_size=len(batch), error=str(exc))
+                    except Exception as exc:
+                        logger.error("batch_classification_failed", batch_size=len(batch), error=str(exc))
 
-                # Inter-batch backoff: if any provider is rate-limited, pause before next batch
-                if batch_start + batch_size < len(need_llm):
-                    try:
-                        providers = client._ranked_providers()
-                        if hasattr(providers, "__await__"):
-                            providers = await providers
-                        for p in providers:
-                            if hasattr(p, "is_rate_limited") and p.is_rate_limited():
-                                logger.info("Rate-limit pressure detected, sleeping 2s before next batch")
-                                await asyncio.sleep(2)
-                                break
-                    except Exception:
-                        pass  # Never block sync for backoff check failure
+                    # Inter-batch backoff: if any provider is rate-limited, pause before next batch
+                    if batch_start + batch_size < len(need_llm):
+                        try:
+                            providers = client._ranked_providers()
+                            if hasattr(providers, "__await__"):
+                                providers = await providers
+                            for p in providers:
+                                if hasattr(p, "is_rate_limited") and p.is_rate_limited():
+                                    logger.info("Rate-limit pressure detected, sleeping 2s before next batch")
+                                    await asyncio.sleep(2)
+                                    break
+                        except Exception:
+                            pass  # Never block sync for backoff check failure
 
     # ── Phase 3: retry remaining with per-email LLM, fall back to rules ──
     rules_fallback_count = 0

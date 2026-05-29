@@ -506,6 +506,28 @@ async def llm_status(
         for p in user_client.get_status():
             provider_runtime[p["name"]] = p
 
+    # Include FreeLLMAPI trial provider if user is within their trial window
+    from app.services.llm_service import trial_status
+
+    ts = await trial_status(current_user.id, db)
+    if ts["in_trial"] and settings.FREELLMAPI_API_KEY:
+        providers.insert(
+            0,
+            {
+                "source": "trial",
+                "name": "freellmapi",
+                "display_name": "FreeLLMAPI Proxy",
+                "model": settings.FREELLMAPI_MODEL or "auto",
+                "available": True,
+                "rate_limited_secs": 0,
+                "rate_limit_count": 0,
+                "priority_score": 0.0,
+                "success": 0,
+                "fail": 0,
+                "error_rate": 0.0,
+            },
+        )
+
     services_result = await db.execute(select(UserAIService).where(UserAIService.user_id == current_user.id))
     custom_services = services_result.scalars().all()
 

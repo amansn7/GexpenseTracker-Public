@@ -838,6 +838,16 @@ const AdminLLMSection = ({ account, settings }) => {
                           <span style={{ color: p.fail > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.fail}</span>
                         </td>
                       </tr>
+                    ) : p.source === "trial" ? (
+                      <tr key="trial-freellmapi">
+                        <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--pos-soft)", color: "var(--pos)", fontWeight: 600, textTransform: "uppercase" }}>Trial</span></td>
+                        <td style={{ ...TD, fontWeight: 600 }}>{p.display_name}</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model}</td>
+                        <td style={TD}><Pill on={true} text="Active"/></td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-4)" }}>—</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12 }}>0.000</td>
+                        <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-4)" }}>—</td>
+                      </tr>
                     ) : (
                       <tr key={`builtin-${p.name}`}>
                         <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
@@ -935,6 +945,43 @@ const AdminLLMTestSection = ({ account }) => {
     </div>
   );
 };
+
+const TrialInfoBanner = () => {
+  const [trial, setTrial] = React.useState(null);
+  React.useEffect(() => {
+    API.get("/api/account/settings/llm-trial").then(setTrial).catch(() => {});
+  }, []);
+  if (!trial || trial.trial_started_at === null) return null;
+  const daysLeft = trial.days_remaining;
+  const active = trial.in_trial;
+  return (
+    <div style={{
+      padding: "12px 16px",
+      borderRadius: 8,
+      marginBottom: 16,
+      fontSize: 13,
+      lineHeight: 1.5,
+      background: active ? (daysLeft <= 2 ? "var(--accent-soft)" : "var(--pos-soft)") : "var(--paper-2)",
+      color: active ? (daysLeft <= 2 ? "var(--accent)" : "var(--pos)") : "var(--ink-3)",
+      border: `1px solid ${active ? (daysLeft <= 2 ? "var(--accent)" : "var(--pos)") : "var(--line)"}`,
+    }}>
+      {active ? (
+        <span>
+          <strong>Free LLM Trial</strong> — {daysLeft > 0
+            ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining`
+            : "Last day!"}
+          . Add your own LLM API key below to continue after the trial ends.
+        </span>
+      ) : (
+        <span>
+          <strong>Trial ended</strong> — configure an LLM provider below for AI-powered classification,
+          or continue with rule-only mode.
+        </span>
+      )}
+    </div>
+  );
+};
+
 
 const AdminAlertsSection = () => {
   const [alerts,  setAlerts]  = React.useState([]);
@@ -2293,6 +2340,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
 
       {/* AI Services Tab */}
       {settingsTab === "ai" && (<>
+        <TrialInfoBanner />
         {/* Unified LLM Providers table */}
         <div style={accountStyles.section}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
