@@ -137,7 +137,7 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
     total_income = sum(
         float(r.amount or 0)
         for r in income_rows
-        if start <= _effective_month(r.txn_date, "income", r.sender) <= this_month
+        if start.replace(day=1) <= _effective_month(r.txn_date, "income", r.sender) <= this_month
     )
 
     cc_row = (
