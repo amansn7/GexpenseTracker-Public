@@ -106,6 +106,8 @@
 
 5. The inline `<style>` block in `templates/index.html` comes after the `<link>` to `styles.css`, so same-specificity rules in the inline block win the cascade.
 
+6. `.view-enter` wraps ALL views in `app.jsx`. Its `@keyframes viewEnter` had `transform: translateY(4px)` in the `from` state with `animation-fill-mode: both`. This creates a containing block for `position: fixed` descendants during the 200ms animation window — any modal opened within that window is cut off at the top. Fix: remove `transform` from the keyframe entirely. The opacity-only `fadeIn` approach is safer for wrappers that contain `position: fixed` children.
+
 ## Visual & CSS
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.
