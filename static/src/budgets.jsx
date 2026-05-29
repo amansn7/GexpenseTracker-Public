@@ -4,6 +4,23 @@ const { useState, useEffect } = React;
 
 const fmtMoneyB = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
+const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
+  <div onClick={() => onApply(amount)}
+    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 4, cursor: "pointer", background: "var(--card)", border: accent ? "1px solid var(--accent)" : "1px solid transparent", transition: "background 120ms" }}
+    onMouseEnter={e => e.currentTarget.style.background = "var(--line)"}
+    onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
+    role="button" tabIndex="0"
+    onKeyDown={e => { if (e.key === 'Enter') onApply(amount); }}>
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{label}</div>
+      <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 1 }}>{sub}</div>
+    </div>
+    <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, fontWeight: 600, color: accent ? "var(--accent)" : "var(--ink-2)" }}>
+      {fmtMoneyB(amount)}
+    </div>
+  </div>
+);
+
 const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [form, setForm] = useState(item ? {
     category: item.category,
@@ -13,6 +30,8 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState(null);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -22,6 +41,52 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const loadSuggestions = async () => {
+    const cat = form.category.trim();
+    if (!cat) { setErr("Enter a category first"); return; }
+    setSuggestLoading(true);
+    setErr(null);
+    setSuggestions(null);
+    try {
+      const today = new Date();
+      const threeMoAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+      const from = threeMoAgo.toISOString().slice(0, 10);
+      const to = today.toISOString().slice(0, 10);
+      const result = await API.get(
+        `/api/stats?sections=summary,categoryBreakdown&date_from=${from}&date_to=${to}`
+      );
+      if (!result) return;
+      const breakdown = result.categoryBreakdown;
+      const summary = result.summary;
+      if (!breakdown || !summary) { setErr("No historical data available"); setSuggestLoading(false); return; }
+
+      const totalSpend = breakdown.total || 0;
+      const monthlyIncome = summary.total_income || 0;
+      const totalExpense = summary.total_expenses || 0;
+
+      let catAmount = 0;
+      for (const c of breakdown.categories) {
+        const key = normCat(c.category, false);
+        if (key === normCat(cat, false)) { catAmount += c.amount; break; }
+      }
+
+      const avgMonthly = Math.round(catAmount / 3);
+      const suggested = Math.round(avgMonthly * 1.1);
+      const idealSavingsRate = 0.20;
+      const idealSpend = monthlyIncome * (1 - idealSavingsRate);
+      const catPct = totalSpend > 0 ? catAmount / totalSpend : 0;
+      const ideal = Math.round(idealSpend * catPct);
+
+      setSuggestions({ avgMonthly, suggested, ideal, monthlyIncome, totalExpense, catAmount });
+    } catch (_) { setErr("Could not fetch spending data"); }
+    setSuggestLoading(false);
+  };
+
+  const applySuggestion = (amount) => {
+    set("monthly_limit", String(amount));
+    setSuggestions(null);
+  };
 
   const save = async () => {
     if (!item && !form.category.trim()) { setErr("Category is required"); return; }
@@ -64,9 +129,27 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
             )}
           </div>
           <div>
-            <label style={lbl}>Monthly Limit (₹) *</label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <label style={lbl}>Monthly Limit (₹) *</label>
+              {!item && (
+                <button onClick={loadSuggestions} disabled={suggestLoading}
+                  style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3 }}>
+                  <Icon name="sparkle" size={10} stroke="var(--accent)"/> {suggestLoading ? "Loading…" : "Suggest"}
+                </button>
+              )}
+            </div>
             <input style={inp} type="number" min="0" value={form.monthly_limit} onChange={e => set("monthly_limit", e.target.value)} placeholder="5000" />
           </div>
+          {suggestions && (
+            <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Suggestions</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <SuggestionRow label="Avg monthly spend" amount={suggestions.avgMonthly} sub={`Last 3 months · ${fmtMoneyB(suggestions.catAmount)} total`} onApply={applySuggestion} />
+                <SuggestionRow label="Suggested budget" amount={suggestions.suggested} sub="Avg spend + 10% buffer" onApply={applySuggestion} accent />
+                <SuggestionRow label="Ideal budget" amount={suggestions.ideal} sub={`Based on income (${fmtMoneyB(suggestions.monthlyIncome)}) with 20% savings rate`} onApply={applySuggestion} />
+              </div>
+            </div>
+          )}
           {err && <div style={{ fontSize: 12, color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
         </div>
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
