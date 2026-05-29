@@ -4,6 +4,20 @@ const { useState, useEffect } = React;
 
 const fmtMoneyB = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
+const ConfidenceBadge = ({ confidence }) => {
+  if (confidence == null) return null;
+  const pct = Math.round(confidence * 100);
+  const color = pct >= 80 ? "var(--pos)" : pct >= 50 ? "#e6a817" : "var(--neg)";
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 500, padding: "1px 6px", borderRadius: 3,
+      background: color + "18", color, border: "1px solid " + color + "30",
+    }}>
+      {pct}%
+    </span>
+  );
+};
+
 const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
   <div onClick={() => onApply(amount)}
     style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 4, cursor: "pointer", background: "var(--card)", border: accent ? "1px solid var(--accent)" : "1px solid transparent", transition: "background 120ms" }}
@@ -21,6 +35,82 @@ const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
   </div>
 );
 
+const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, applyLoading, error }) => (
+  <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
+    <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
+        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>AI-Suggested Budget Plan</span>
+        <button onClick={onClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
+      </div>
+      <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, flexDirection: "column", gap: 12 }}>
+            <span className="spinner-lg" />
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>AI is analyzing your spending patterns…</span>
+          </div>
+        ) : error ? (
+          <div style={{ fontSize: 12, color: "var(--neg)", padding: "10px", background: "var(--neg-soft)", borderRadius: 5 }}>{error}</div>
+        ) : suggestions?.budgets?.length ? (
+          <>
+            {suggestions.summary && (
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}>{suggestions.summary}</div>
+            )}
+            <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+              {suggestions.total_budget != null && (
+                <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Total Budget</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600 }}>{fmtMoneyB(suggestions.total_budget)}</span></div>
+              )}
+              {suggestions.total_income != null && (
+                <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Total Income</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600 }}>{fmtMoneyB(suggestions.total_income)}</span></div>
+              )}
+              {suggestions.projected_savings != null && (
+                <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Projected Savings</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--pos)" }}>{fmtMoneyB(suggestions.projected_savings)}</span></div>
+              )}
+              {suggestions.savings_rate_pct != null && (
+                <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Savings Rate</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--pos)" }}>{suggestions.savings_rate_pct}%</span></div>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4 }}>Suggested Budgets</div>
+              {suggestions.budgets.map((b, i) => (
+                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{b.category}</span>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2 }}>
+                        {fmtMoneyB(b.suggested_limit)}
+                        {b.current_limit != null && <span style={{ color: "var(--ink-4)" }}> (was {fmtMoneyB(b.current_limit)})</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <ConfidenceBadge confidence={b.confidence} />
+                      <button onClick={() => onApply(b)} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                        {applyLoading ? "…" : "Apply"}
+                      </button>
+                    </div>
+                  </div>
+                  {b.rationale && (
+                    <details style={{ marginTop: 6 }}>
+                      <summary style={{ fontSize: 10, color: "var(--ink-4)", cursor: "pointer" }}>Rationale</summary>
+                      <p style={{ fontSize: 11, color: "var(--ink-3)", margin: "4px 0 0", lineHeight: 1.4 }}>{b.rationale}</p>
+                    </details>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <button onClick={onApplyAll} disabled={applyLoading} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.65 : 1 }}>
+                {applyLoading ? "Applying…" : "Apply All"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>No budget suggestions available.</div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [form, setForm] = useState(item ? {
     category: item.category,
@@ -32,6 +122,14 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [closing, setClosing] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
+
+  const [anomalyEnabled, setAnomalyEnabled] = useState(false);
+  const [anomalyResult, setAnomalyResult] = useState(null);
+  const [merchantSplit, setMerchantSplit] = useState(null);
+  const [adaptivePlanResult, setAdaptivePlanResult] = useState(null);
+  const [showAdaptiveDetail, setShowAdaptiveDetail] = useState(false);
+  const [llmLoading, setLlmLoading] = useState(false);
+  const [llmErr, setLlmErr] = useState(null);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -48,6 +146,11 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
     setSuggestLoading(true);
     setErr(null);
     setSuggestions(null);
+    setAnomalyResult(null);
+    setMerchantSplit(null);
+    setAdaptivePlanResult(null);
+    setShowAdaptiveDetail(false);
+    setLlmErr(null);
     try {
       const today = new Date();
       const threeMoAgo = new Date(today.getFullYear(), today.getMonth() - 3, 1);
@@ -81,11 +184,35 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
       setSuggestions({ avgMonthly, suggested, ideal, monthlyIncome, totalExpense, catAmount });
     } catch (_) { setErr("Could not fetch spending data"); }
     setSuggestLoading(false);
+
+    if (cat) {
+      setLlmLoading(true);
+      try {
+        const [adaptive, split] = await Promise.all([
+          API.post("/api/budgets/llm/adaptive-plan", {}).catch(() => null),
+          API.post("/api/budgets/llm/merchant-split", {}).catch(() => null),
+        ]);
+        if (adaptive) setAdaptivePlanResult(adaptive);
+        if (split?.reallocations) setMerchantSplit(split);
+      } catch (_) { setLlmErr("Could not load AI insights"); }
+
+      if (anomalyEnabled) {
+        try {
+          const anomaly = await API.post(`/api/budgets/llm/anomaly-adjust?category=${encodeURIComponent(cat)}`, {});
+          if (anomaly) setAnomalyResult(anomaly);
+        } catch (_) {}
+      }
+      setLlmLoading(false);
+    }
   };
 
   const applySuggestion = (amount) => {
     set("monthly_limit", String(amount));
     setSuggestions(null);
+    setAnomalyResult(null);
+    setMerchantSplit(null);
+    setAdaptivePlanResult(null);
+    setShowAdaptiveDetail(false);
   };
 
   const save = async () => {
@@ -111,6 +238,10 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
 
   const inp = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
   const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
+
+  const isVariableIncome = adaptivePlanResult?.income_profile?.type === "variable";
+
+  const adaptiveDetail = showAdaptiveDetail && adaptivePlanResult;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
@@ -140,6 +271,12 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
             </div>
             <input style={inp} type="number" min="0" value={form.monthly_limit} onChange={e => set("monthly_limit", e.target.value)} placeholder="5000" />
           </div>
+          {!item && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)", cursor: "pointer" }}>
+              <input type="checkbox" checked={anomalyEnabled} onChange={e => setAnomalyEnabled(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
+              Analyze for anomalies
+            </label>
+          )}
           {suggestions && (
             <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Suggestions</div>
@@ -148,8 +285,91 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
                 <SuggestionRow label="Suggested budget" amount={suggestions.suggested} sub="Avg spend + 10% buffer" onApply={applySuggestion} accent />
                 <SuggestionRow label="Ideal budget" amount={suggestions.ideal} sub={`Based on income (${fmtMoneyB(suggestions.monthlyIncome)}) with 20% savings rate`} onApply={applySuggestion} />
               </div>
+
+              {llmLoading && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0" }}>
+                  <span className="spinner-sm" />
+                  <span style={{ fontSize: 10, color: "var(--ink-3)" }}>AI analysis…</span>
+                </div>
+              )}
+
+              {anomalyResult && (
+                <div style={{ padding: "6px 8px", background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 4 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4 }}>Anomaly Adjustment</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                    Adjusted baseline: <strong>{fmtMoneyB(anomalyResult.adjusted_baseline)}</strong>
+                  </div>
+                  {anomalyResult.rationale && (
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{anomalyResult.rationale}</div>
+                  )}
+                  <button onClick={() => applySuggestion(anomalyResult.adjusted_baseline)}
+                    style={{ marginTop: 4, padding: "2px 8px", borderRadius: 3, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 10, cursor: "pointer" }}>
+                    Apply
+                  </button>
+                </div>
+              )}
+
+              {isVariableIncome && !showAdaptiveDetail && (
+                <div style={{ background: "var(--paper-2)", border: "1px dashed var(--accent)", borderRadius: 6, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.4, marginBottom: 8 }}>
+                    Your income varies month-to-month. Try proportional budgets instead.
+                  </div>
+                  <button onClick={() => setShowAdaptiveDetail(true)}
+                    style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                    Set up adaptive plan
+                  </button>
+                </div>
+              )}
+
+              {adaptiveDetail && (
+                <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 6 }}>Adaptive Plan</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-2)", marginBottom: 4 }}>
+                    Plan type: <strong>{adaptivePlanResult.plan_type}</strong>
+                  </div>
+                  {adaptivePlanResult.income_profile && (
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>
+                      Income: {adaptivePlanResult.income_profile.type} · mean {fmtMoneyB(adaptivePlanResult.income_profile.mean)}
+                      {adaptivePlanResult.income_profile.cv != null && ` · CV ${adaptivePlanResult.income_profile.cv.toFixed(2)}`}
+                    </div>
+                  )}
+                  {adaptivePlanResult.essentials && (
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 2 }}>
+                      Essentials: <strong>{fmtMoneyB(adaptivePlanResult.essentials.fixed_total)}</strong>
+                    </div>
+                  )}
+                  {adaptivePlanResult.discretionary && (
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 2 }}>
+                      Discretionary: <strong>{adaptivePlanResult.discretionary.total_pct_of_income}%</strong> of income
+                    </div>
+                  )}
+                  {adaptivePlanResult.savings_plan && (
+                    <div style={{ fontSize: 11, color: "var(--pos)" }}>Savings: {adaptivePlanResult.savings_plan}</div>
+                  )}
+                </div>
+              )}
+
+              {merchantSplit?.reallocations?.length > 0 && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ fontSize: 10, color: "var(--ink-4)", cursor: "pointer", padding: "4px 0" }}>
+                    Merchant Reallocations ({merchantSplit.reallocations.length})
+                  </summary>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+                    {merchantSplit.reallocations.map((r, i) => (
+                      <div key={i} style={{ padding: "6px 8px", background: "var(--card)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: "var(--ink)" }}>{r.merchant}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink-3)" }}>
+                          {fmtMoneyB(r.amount)} · {r.from_category} → {r.to_category}
+                        </div>
+                        {r.rationale && <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 1 }}>{r.rationale}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           )}
+          {llmErr && <div style={{ fontSize: 11, color: "var(--ink-3)", padding: "4px 0" }}>{llmErr}</div>}
           {err && <div style={{ fontSize: 12, color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
         </div>
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
@@ -176,6 +396,21 @@ const BudgetsView = () => {
   const [error, setError] = useState(null);
   const [modal, setModal] = useState(null);
 
+  const [healthCheck, setHealthCheck] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthError, setHealthError] = useState(null);
+  const [healthExpanded, setHealthExpanded] = useState(false);
+
+  const [suggestPlan, setSuggestPlan] = useState(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState(null);
+  const [suggestApplyLoading, setSuggestApplyLoading] = useState(false);
+
+  const [goalOptimize, setGoalOptimize] = useState(null);
+  const [goalLoading, setGoalLoading] = useState(false);
+  const [goalError, setGoalError] = useState(null);
+  const [goalExpanded, setGoalExpanded] = useState(false);
+
   const load = () => {
     setLoading(true);
     API.get("/api/budgets")
@@ -183,6 +418,89 @@ const BudgetsView = () => {
       .catch(e => { setError(e.message); setLoading(false); });
   };
   useEffect(load, []);
+
+  const loadHealthCheck = async () => {
+    setHealthLoading(true);
+    setHealthError(null);
+    try {
+      const result = await API.post("/api/budgets/llm/health-check", {});
+      setHealthCheck(result);
+      setHealthExpanded(true);
+    } catch (e) {
+      setHealthError(e.message || "Could not load health check");
+    }
+    setHealthLoading(false);
+  };
+  useEffect(() => { loadHealthCheck(); }, []);
+
+  const loadSuggestPlan = async () => {
+    setSuggestLoading(true);
+    setSuggestError(null);
+    setSuggestPlan(null);
+    try {
+      const result = await API.post("/api/budgets/llm/suggest-plan", {});
+      setSuggestPlan(result);
+    } catch (e) {
+      setSuggestError(e.message || "Could not load suggestions");
+      setSuggestPlan(null);
+    }
+    setSuggestLoading(false);
+  };
+
+  const loadGoalOptimize = async () => {
+    setGoalLoading(true);
+    setGoalError(null);
+    setGoalOptimize(null);
+    try {
+      const result = await API.post("/api/budgets/llm/goal-optimize", {});
+      setGoalOptimize(result);
+      setGoalExpanded(true);
+    } catch (e) {
+      setGoalError(e.message || "Could not load goal analysis");
+    }
+    setGoalLoading(false);
+  };
+
+  const applySuggestPlanItem = async (suggestion) => {
+    setSuggestError(null);
+    const existing = budgets.find(b => normCat(b.category, false) === normCat(suggestion.category, false));
+    try {
+      if (existing) {
+        await API.patch(`/api/budgets/${existing.id}`, { monthly_limit: suggestion.suggested_limit });
+      } else {
+        await API.post("/api/budgets", { category: suggestion.category, monthly_limit: suggestion.suggested_limit });
+      }
+      load();
+    } catch (e) {
+      setSuggestError(`Failed to apply for ${suggestion.category}`);
+    }
+  };
+
+  const applySuggestPlanAll = async () => {
+    if (!suggestPlan?.budgets) return;
+    setSuggestApplyLoading(true);
+    setSuggestError(null);
+    try {
+      for (const suggestion of suggestPlan.budgets) {
+        const existing = budgets.find(b => normCat(b.category, false) === normCat(suggestion.category, false));
+        if (existing) {
+          await API.patch(`/api/budgets/${existing.id}`, { monthly_limit: suggestion.suggested_limit });
+        } else {
+          await API.post("/api/budgets", { category: suggestion.category, monthly_limit: suggestion.suggested_limit });
+        }
+      }
+      setSuggestPlan(null);
+      load();
+    } catch (e) {
+      setSuggestError("Some budgets could not be applied");
+    }
+    setSuggestApplyLoading(false);
+  };
+
+  const openBudgetForCategory = (category) => {
+    const existing = budgets.find(b => normCat(b.category, false) === normCat(category, false));
+    setModal(existing || "new");
+  };
 
   const onSave = (result, isEdit) => {
     setModal(null);
@@ -205,6 +523,9 @@ const BudgetsView = () => {
   const totalLimit = budgets.reduce((s, b) => s + b.monthly_limit, 0);
   const totalSpent = budgets.reduce((s, b) => s + b.spent_this_month, 0);
 
+  const healthScore = healthCheck?.score;
+  const healthColor = healthScore >= 80 ? "var(--pos)" : healthScore >= 50 ? "#e6a817" : "var(--neg)";
+
   return (
     <div className="fade-in">
       {modal && (
@@ -213,6 +534,18 @@ const BudgetsView = () => {
           onSave={onSave}
           onDelete={onDelete}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {(suggestLoading || suggestPlan) && (
+        <SuggestAllModal
+          suggestions={suggestPlan}
+          onClose={() => { setSuggestPlan(null); setSuggestError(null); }}
+          onApply={applySuggestPlanItem}
+          onApplyAll={applySuggestPlanAll}
+          loading={suggestLoading && !suggestPlan}
+          applyLoading={suggestApplyLoading}
+          error={suggestError}
         />
       )}
 
@@ -232,10 +565,186 @@ const BudgetsView = () => {
             ))}
           </div>
         )}
-        <button onClick={() => setModal("new")} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-          <Icon name="plus" size={12} stroke="var(--paper)"/> Add Budget
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={loadSuggestPlan} disabled={suggestLoading}
+            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: suggestLoading ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+            {suggestLoading ? <span className="spinner-sm" /> : <Icon name="sparkle" size={10} stroke="var(--accent)"/>}
+            {suggestLoading ? "…" : "Suggest All"}
+          </button>
+          <button onClick={loadGoalOptimize} disabled={goalLoading}
+            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 11, cursor: goalLoading ? "default" : "pointer", fontFamily: "inherit" }}>
+            {goalLoading ? "…" : "Check Goals"}
+          </button>
+          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="plus" size={12} stroke="var(--paper)"/> Add Budget
+          </button>
+        </div>
       </div>
+
+      {healthLoading && (
+        <div style={{ padding: "12px 28px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="spinner-sm" />
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Checking budget health…</span>
+        </div>
+      )}
+      {healthError && !healthLoading && (
+        <div style={{ padding: "12px 28px", fontSize: 12, color: "var(--ink-3)" }}>
+          Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit" }}>Retry</button>
+        </div>
+      )}
+      {healthCheck && (
+        <div style={{ margin: "0 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", overflow: "hidden" }}>
+          <div onClick={() => setHealthExpanded(h => !h)} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+            <span style={{
+              width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              background: healthColor + "18", color: healthColor, fontSize: 11, fontWeight: 700, fontFamily: "'Geist Mono', monospace",
+              border: "2px solid " + healthColor + "40",
+            }}>
+              {healthCheck.score != null ? healthCheck.score : "?"}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Budget Health</span>
+            {healthCheck.score_label && <span style={{ fontSize: 11, color: healthColor, fontWeight: 500 }}>{healthCheck.score_label}</span>}
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{healthExpanded ? "▲" : "▼"}</span>
+          </div>
+          {healthExpanded && (
+            <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {healthCheck.issues?.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Issues</div>
+                  {healthCheck.issues.map((issue, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                      <span style={{ fontSize: 12, flexShrink: 0 }}>{issue.severity === "critical" ? "❌" : "⚠️"}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{issue.category}</div>
+                        <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{issue.message}</div>
+                        {issue.action && (
+                          <button onClick={() => openBudgetForCategory(issue.category)}
+                            style={{ marginTop: 4, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                            {issue.action}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {healthCheck.praise?.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Doing Well</div>
+                  {healthCheck.praise.map((p, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--pos)" }}>
+                      <span>✅</span> {p.category}: {p.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {healthCheck.projection && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Projection</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
+                    Month-end spend: {fmtMoneyB(healthCheck.projection.month_end_spend)}
+                    {healthCheck.projection.vs_budget != null && (
+                      <span style={{ color: healthCheck.projection.vs_budget > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4 }}>
+                        ({healthCheck.projection.vs_budget > 0 ? "+" : ""}{fmtMoneyB(healthCheck.projection.vs_budget)} vs budget)
+                      </span>
+                    )}
+                  </div>
+                  {healthCheck.projection.concern && (
+                    <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{healthCheck.projection.concern}</div>
+                  )}
+                </div>
+              )}
+              {healthCheck.goal_impact && (
+                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  <span style={{ fontWeight: 500 }}>Goal impact: </span>{healthCheck.goal_impact}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {goalLoading && (
+        <div style={{ padding: "12px 28px", display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="spinner-sm" />
+          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Analyzing goals…</span>
+        </div>
+      )}
+      {goalError && (
+        <div style={{ padding: "8px 28px", fontSize: 12, color: "var(--neg)", background: "var(--neg-soft)" }}>
+          {goalError}
+        </div>
+      )}
+      {goalOptimize && (
+        <div style={{ margin: "0 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", overflow: "hidden" }}>
+          <div onClick={() => setGoalExpanded(h => !h)} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Goal Optimization</span>
+            {goalOptimize.total_savings_found != null && (
+              <span style={{ fontSize: 11, color: "var(--pos)", fontWeight: 500 }}>Found {fmtMoneyB(goalOptimize.total_savings_found)}</span>
+            )}
+            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{goalExpanded ? "▲" : "▼"}</span>
+          </div>
+          {goalExpanded && (
+            <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {goalOptimize.goal_analysis?.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Goals</div>
+                  {goalOptimize.goal_analysis.map((g, i) => (
+                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>{g.on_track ? "✅" : "⚠️"}</span>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{g.goal_name}</span>
+                        <span style={{ fontSize: 11, color: g.on_track ? "var(--pos)" : "var(--neg)" }}>
+                          {g.on_track ? "On track" : "Off track"}
+                        </span>
+                      </div>
+                      {g.required_monthly != null && (
+                        <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>
+                          Required monthly: {fmtMoneyB(g.required_monthly)}
+                          {g.suggestion && <span style={{ marginLeft: 4 }}>· {g.suggestion}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {goalOptimize.adjustments?.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Suggested Adjustments</div>
+                  {goalOptimize.adjustments.map((adj, i) => (
+                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{adj.category}</div>
+                          <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                            {fmtMoneyB(adj.current_limit)} → {fmtMoneyB(adj.suggested_limit)}
+                            {adj.savings > 0 && <span style={{ color: "var(--pos)", marginLeft: 4 }}>(save {fmtMoneyB(adj.savings)})</span>}
+                          </div>
+                          {adj.rationale && <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 1 }}>{adj.rationale}</div>}
+                        </div>
+                        <button onClick={() => openBudgetForCategory(adj.category)}
+                          style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
+                          Adjust
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {goalOptimize.remaining_shortfall != null && (
+                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                  Remaining shortfall: <strong>{fmtMoneyB(goalOptimize.remaining_shortfall)}</strong>
+                </div>
+              )}
+              {goalOptimize.recommendation && (
+                <div style={{ fontSize: 11, color: "var(--ink-2)", padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)", lineHeight: 1.4 }}>
+                  {goalOptimize.recommendation}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 8 }}>
         {!budgets.length ? (

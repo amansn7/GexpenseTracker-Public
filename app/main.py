@@ -48,6 +48,7 @@ from starlette.responses import RedirectResponse as StarletteRedirect
 
 from app.api import admin as admin_api
 from app.api import auth, review, transactions
+from app.api import budget_llm as budget_llm_api
 from app.api import budgets as budgets_api
 from app.api import cleanup as cleanup_api
 from app.api import debt as debt_api
@@ -273,6 +274,7 @@ app.include_router(rules_api.router, prefix="/api")
 app.include_router(recurring_api.router, prefix="/api")
 app.include_router(stats_api.router, prefix="/api")
 app.include_router(budgets_api.router, prefix="/api")
+app.include_router(budget_llm_api.router, prefix="/api")
 app.include_router(emails_api.router, prefix="/api")
 app.include_router(admin_api.router, prefix="/api")
 app.include_router(duplicates_api.router, prefix="/api")
