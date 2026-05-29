@@ -684,11 +684,11 @@ const skeleton = (h, w) => (
 const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = DateUtils.getLastNDays(29).from;
+  const monthStart = todayStr.slice(0, 7) + "-01";
 
-  const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
+  const [rangeFrom, setRangeFrom] = React.useState(monthStart);
   const [rangeTo, setRangeTo] = React.useState(todayStr);
-  const [activePreset, setActivePreset] = React.useState("30d");
+  const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [flowLoading, setFlowLoading] = React.useState(false);

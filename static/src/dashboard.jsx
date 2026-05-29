@@ -25,11 +25,11 @@ const dashStyles = {
 const DashboardView = ({ transactions, categoryFilter }) => {
   var { isMobile, isTablet } = useViewport();
   var todayStr = new Date().toISOString().slice(0, 10);
-  var thirtyDaysAgo = DateUtils.getLastNDays(29).from;
+  var monthStart = todayStr.slice(0, 7) + "-01";
 
-  const [rangeFrom, setRangeFrom] = React.useState(thirtyDaysAgo);
+  const [rangeFrom, setRangeFrom] = React.useState(monthStart);
   const [rangeTo, setRangeTo] = React.useState(todayStr);
-  const [activePreset, setActivePreset] = React.useState("30d");
+  const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [topMerchants, setTopMerchants] = React.useState([]);
