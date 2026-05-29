@@ -14,8 +14,8 @@ const flowStyles = {
   secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 var(--r) var(--r)", padding: "20px 16px" },
 };
 
-const fmtK = (n) => n >= 100000 ? `₹${(n/100000).toFixed(2)}L` : n >= 1000 ? `₹${(n/1000).toFixed(1)}K` : `₹${n}`;
-const fmtKShort = (n) => n >= 100000 ? `${(n/100000).toFixed(2)}L` : n >= 1000 ? `${(n/1000).toFixed(1)}K` : `${n}`;
+const fmtK = (n) => { const a=Math.abs(n),s=n<0?"-":""; return a>=100000?`${s}₹${(a/100000).toFixed(2)}L`:a>=1000?`${s}₹${(a/1000).toFixed(1)}K`:`${s}₹${Math.round(a)}`; };
+const fmtKShort = (n) => { const a=Math.abs(n),s=n<0?"-":""; return a>=100000?`${s}${(a/100000).toFixed(2)}L`:a>=1000?`${s}${(a/1000).toFixed(1)}K`:`${s}${Math.round(a)}`; };
 
 const COLORS = {
   income: 'var(--pos)',

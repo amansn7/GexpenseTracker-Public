@@ -636,6 +636,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
     // Optimistic local update
     setTransactions(ts => ts.map(t => t.id === id ? { ...t, ...patch } : t));
+    setNeedsReviewItems(ts => ts.map(t => t.id === id ? { ...t, ...patch } : t));
     if (patch._skipApi) return;
 
     // Build API patch object

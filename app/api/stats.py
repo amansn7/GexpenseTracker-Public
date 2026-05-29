@@ -130,7 +130,6 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
                 Transaction.label == "income",
                 Transaction.txn_date >= _add_months(start, -1),
                 Transaction.txn_date.isnot(None),
-                Transaction.status != "needs_review",
             )
         )
     ).all()
@@ -414,12 +413,15 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
         )
     ).scalar_one() or 0
 
+    income_filter = [Email.user_id == user_id, Transaction.txn_date.isnot(None)]
+    if starting_balance_date:
+        income_filter.append(Transaction.txn_date >= starting_balance_date)
     income_total = float(
         (
             await db.execute(
                 select(func.sum(Transaction.amount))
                 .join(Email, Transaction.email_id == Email.id)
-                .where(Transaction.label == "income", *base_filter)
+                .where(Transaction.label == "income", *income_filter)
             )
         ).scalar_one()
         or 0
@@ -573,7 +575,6 @@ async def _monthly_data(
         Transaction.label == "income",
         Transaction.txn_date >= _add_months(start, -1),
         Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
     ]
     expense_where.insert(0, Email.user_id == user_id)
     income_where.insert(0, Email.user_id == user_id)
