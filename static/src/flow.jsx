@@ -25,9 +25,11 @@ const COLORS = {
   budget: 'var(--ink-2)',
 };
 
-const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
+const SankeyFlow = ({ data, totalIncome, totalExpense, savings, onCategoryClick }) => {
   const { isMobile } = useViewport();
   const [tooltip, setTooltip] = React.useState(null);
+  const tooltipRef = React.useRef(null);
+  const hoveredKeyRef = React.useRef(null);
   if (!data) return null;
 
   const parsed = React.useMemo(() => {
@@ -78,7 +80,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       ...(hasDeficit ? [{ source: sortedInc.length, target: budgetIdx, value: Math.abs(surplusAmt) }] : []),
       ...sortedExp.map((_, i) => ({ source: budgetIdx, target: budgetIdx + 1 + i, value: sortedExp[i].amount })),
       ...(!hasDeficit && surplusAmt > 0 ? [{ source: budgetIdx, target: nodes.length - 1, value: surplusAmt }] : []),
-    ];
+    ].filter(l => l.value > 0);
 
     return { nodes, links, totalBudget, hasDeficit };
   }, [data, totalIncome, totalExpense]);
@@ -91,6 +93,14 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     const svg = svgRef.current;
     const container = containerRef.current;
     if (!container) return;
+
+    const onContainerMove = (e) => {
+      if (!hoveredKeyRef.current || !tooltipRef.current) return;
+      const rect = container.getBoundingClientRect();
+      tooltipRef.current.style.left = `${e.clientX - rect.left + 14}px`;
+      tooltipRef.current.style.top = `${e.clientY - rect.top - 10}px`;
+    };
+    container.addEventListener('mousemove', onContainerMove);
 
     const width = container.clientWidth || 600;
     const height = Math.min(450, (window.innerHeight || 700) * 0.45);
@@ -233,7 +243,8 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
         path.style.transform = `translateY(6px)`;
       }
 
-      path.addEventListener('mousemove', (e) => {
+      path.addEventListener('mouseenter', (e) => {
+        hoveredKeyRef.current = linkKey;
         const rect = container.getBoundingClientRect();
         setTooltip({
           source: link.source.name, target: link.target.name,
@@ -241,7 +252,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           x: e.clientX - rect.left + 14, y: e.clientY - rect.top - 10,
         });
       });
-      path.addEventListener('mouseleave', () => setTooltip(null));
+      path.addEventListener('mouseleave', () => {
+        hoveredKeyRef.current = null;
+        setTooltip(null);
+      });
       if (isMobile) {
         path.addEventListener('touchstart', (e) => {
           e.preventDefault();
@@ -253,10 +267,11 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
           setTooltip({
             source: link.source.name, target: link.target.name,
             value: val, percentage: pct,
-            x: touch.clientX - rect.left + 14, y: touch.clientY - rect.top - 10,
+            x: Math.min(touch.clientX - rect.left + 14, (container.clientWidth || 300) - 180),
+            y: touch.clientY - rect.top - 10,
           });
         });
-        path.addEventListener('touchend', () => path.removeAttribute('data-hovered'));
+        path.addEventListener('touchend', () => { path.removeAttribute('data-hovered'); setTooltip(null); });
       }
       path.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -321,6 +336,18 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       rect.style.transitionDelay = `${400 + laid.nodes.indexOf(d) * 60}ms`;
       ng.appendChild(rect);
 
+      if (d.category === "expense" || d.category === "income") {
+        const drillCat = d.category === "income" ? "__income__" : d.cat;
+        rect.style.cursor = "pointer";
+        rect.setAttribute("tabindex", "0");
+        rect.setAttribute("role", "button");
+        rect.setAttribute("aria-label", d.category === "income" ? `View income` : `View ${CategoryService.display(d.cat).label}`);
+        rect.addEventListener("click", () => onCategoryClick?.(drillCat));
+        rect.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCategoryClick?.(drillCat); }
+        });
+      }
+
       if (d.category !== "budget") {
         const isLeft = laid.nodes.indexOf(d) < budgetIdx;
         const labelOff = isMobile ? 5 : 10;
@@ -380,6 +407,10 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
       const texts = svg.querySelectorAll("text");
       texts.forEach(t => t.setAttribute("font-size", "10px"));
     }
+
+    return () => {
+      container.removeEventListener('mousemove', onContainerMove);
+    };
   }, [parsed, isMobile]);
 
   if (!parsed.nodes.length) return null;
@@ -388,7 +419,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings }) => {
     <div ref={containerRef} style={{ width: "100%", overflow: "hidden", position: "relative" }}>
       <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: "visible" }} />
       {tooltip && (
-        <div key={tooltip.x + '-' + tooltip.y} className="tooltip-entrance" style={{
+        <div ref={tooltipRef} className="tooltip-entrance" style={{
           position: "absolute", left: tooltip.x, top: tooltip.y,
           background: "var(--card)", border: "1px solid var(--line)",
           borderRadius: 8, padding: "8px 12px", pointerEvents: "none",
@@ -840,7 +871,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
             : flow
                ? <>
                   <div style={{ marginBottom: 20, background: "var(--card)", border: "1px solid var(--line)", borderRadius: "var(--r)", padding: isMobile ? "14px 8px" : "16px 14px" }}>
-                    <SankeyFlow data={flow} totalIncome={totalIncome} totalExpense={totalExpense} savings={savings}/>
+                    <SankeyFlow data={flow} totalIncome={totalIncome} totalExpense={totalExpense} savings={savings} onCategoryClick={handleCategoryClick}/>
                   </div>
                   <FlowBreakdown data={flow} totalIncome={totalIncome} totalExpenseNumber={totalExpense} totalCCPayments={totalCCPayments} totalInvestments={totalInvestments} savings={savings} incomeSources={incomeSources} pctOfIncome={pctOfIncome} onCategoryClick={handleCategoryClick} viewMode={viewMode}/>
                   <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--line)", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 12 }}>
