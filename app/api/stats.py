@@ -76,19 +76,26 @@ def _period_start(period: str) -> date:
 
 async def _compute_summary(start: date, end: date, category: str | None, user_id: str, db: AsyncSession) -> dict:
     """Reusable summary computation."""
+    from app.services.category_service import CategoryService
+
     this_month = end.replace(day=1)
+
+    # Exclude investment-categorized transactions from expenses so they're
+    # only counted in total_investments (handles classifiers that set
+    # category=investment but leave transaction_type=NULL).
+    inv_cat_aliases = CategoryService.filter_aliases("investment")
 
     expense_where = [
         Email.user_id == user_id,
         Transaction.label == "expense",
         or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+        ~func.lower(Transaction.category).in_(inv_cat_aliases),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
     if category:
-        from app.services.category_service import CategoryService
         if category == "other":
             other_aliases = CategoryService.filter_aliases("other")
             all_known = CategoryService.all_known_values()
@@ -161,7 +168,10 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
             .join(Email, Transaction.email_id == Email.id)
             .where(
                 Email.user_id == user_id,
-                Transaction.transaction_type == "investment",
+                or_(
+                    Transaction.transaction_type == "investment",
+                    func.lower(Transaction.category).in_(inv_cat_aliases),
+                ),
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
