@@ -419,34 +419,41 @@ const BudgetsView = () => {
   useEffect(load, []);
 
   const loadHealthCheck = async () => {
-    setHealthLoading(true);
-    setHealthError(null);
-    let result = null;
-    try {
-      result = await API.post("/api/budgets/llm/health-check", {});
-      setHealthCheck(result);
-      setHealthExpanded(true);
-    } catch (e) {
-      setHealthError(e.message || "Could not load health check");
-    }
-    if (result) {
-      sessionStorage.setItem("budget_health_cache", JSON.stringify({ data: result, ts: Date.now() }));
-    }
-    setHealthLoading(false);
-  };
-  useEffect(() => {
     const cached = sessionStorage.getItem("budget_health_cache");
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
         if (Date.now() - parsed.ts < 300000) {
           setHealthCheck(parsed.data);
+          setHealthExpanded(true);
           return;
         }
       } catch (_) {}
     }
-    loadHealthCheck();
-  }, []);
+    setHealthLoading(true);
+    setHealthError(null);
+    let result = null;
+    try {
+      result = await API.post("/api/budgets/llm/health-check", {});
+      setHealthCheck(result);
+    } catch (e) {
+      setHealthError(e.message || "Could not load health check");
+    }
+    if (result) {
+      sessionStorage.setItem("budget_health_cache", JSON.stringify({ data: result, ts: Date.now() }));
+    }
+    setHealthExpanded(true);
+    setHealthLoading(false);
+  };
+
+  const handleHealthToggle = () => {
+    if (!healthCheck && !healthLoading && !healthError) {
+      loadHealthCheck();
+    } else {
+      setHealthExpanded(h => !h);
+      if (healthError) { setHealthError(null); setHealthExpanded(h => !h); }
+    }
+  };
 
   const loadSuggestPlan = async () => {
     setSuggestLoading(true);
@@ -596,34 +603,36 @@ const BudgetsView = () => {
         </div>
       </div>
 
-      {healthLoading && (
-        <div style={{ padding: "12px 28px", display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="spinner-sm" />
-          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Checking budget health…</span>
+      <div className="health-card">
+        <div onClick={handleHealthToggle} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+          <span aria-label={healthCheck ? `Health score: ${healthCheck.score} — ${healthCheck.score_label || ""}` : "Budget health not checked"} style={{
+            width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+            background: (healthCheck ? healthColor + "18" : "var(--line)"), color: healthCheck ? healthColor : "var(--ink-4)",
+            fontSize: 11, fontWeight: 700, fontFamily: "'Geist Mono', monospace",
+            border: "2px solid " + (healthCheck ? healthColor + "40" : "var(--line)"),
+          }}>
+            {healthCheck?.score != null ? healthCheck.score : "—"}
+          </span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Budget Health</span>
+          {healthLoading && <span style={{ fontSize: 11, color: "var(--ink-3)" }}>Checking…</span>}
+          {healthCheck?.score_label && !healthLoading && <span style={{ fontSize: 11, color: healthColor, fontWeight: 500 }}>{healthCheck.score_label}</span>}
+          {!healthCheck && !healthLoading && !healthError && <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>Check</span>}
+          {healthError && !healthLoading && <span style={{ fontSize: 11, color: "var(--neg)" }}>Failed</span>}
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{healthExpanded ? "▲" : "▼"}</span>
         </div>
-      )}
-      {healthError && !healthLoading && (
-        <div style={{ padding: "12px 28px", fontSize: 12, color: "var(--ink-3)" }}>
-          Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44 }}>Retry</button>
-        </div>
-      )}
-      {healthCheck && (
-        <div style={{ margin: "0 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", overflow: "hidden" }}>
-          <div onClick={() => setHealthExpanded(h => !h)} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-            <span aria-label={`Health score: ${healthCheck.score != null ? healthCheck.score : "?"} — ${healthCheck.score_label || ""}`} style={{
-              width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-              background: healthColor + "18", color: healthColor, fontSize: 11, fontWeight: 700, fontFamily: "'Geist Mono', monospace",
-              border: "2px solid " + healthColor + "40",
-            }}>
-              {healthCheck.score != null ? healthCheck.score : "?"}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Budget Health</span>
-            {healthCheck.score_label && <span style={{ fontSize: 11, color: healthColor, fontWeight: 500 }}>{healthCheck.score_label}</span>}
-            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{healthExpanded ? "▲" : "▼"}</span>
-          </div>
-          {healthExpanded && (
-            <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
-              {healthCheck.issues?.length > 0 && (
+        {healthExpanded && (
+          <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {healthLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+              <span className="spinner-sm" />
+              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Checking budget health…</span>
+            </div>
+          ) : healthError ? (
+            <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
+              Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44 }}>Retry</button>
+            </div>
+          ) : healthCheck && (
+              <>{healthCheck.issues?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Issues</div>
                   {healthCheck.issues.map((issue, i) => (
@@ -679,10 +688,11 @@ const BudgetsView = () => {
                   ))}
                 </div>
               )}
-            </div>
-          )}
+            </>)}
         </div>
       )}
+      </div>
+
 
       {goalLoading && (
         <div style={{ padding: "12px 28px", display: "flex", alignItems: "center", gap: 8 }}>
