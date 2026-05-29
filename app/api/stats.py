@@ -650,13 +650,10 @@ async def stats_health(
     return await _compute_health(months, current_user.id, db)
 
 
-@router.get("/stats/confidence")
-async def stats_confidence(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
+async def _compute_confidence(user_id: str, db: AsyncSession) -> dict:
+    """Reusable confidence stats computation."""
     base_where = [
-        Email.user_id == current_user.id,
+        Email.user_id == user_id,
         Transaction.confidence.isnot(None),
     ]
 
@@ -765,6 +762,14 @@ async def stats_confidence(
     }
 
 
+@router.get("/stats/confidence")
+async def stats_confidence(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _compute_confidence(current_user.id, db)
+
+
 @router.get("/stats")
 async def get_stats(
     sections: str = "summary",
@@ -804,6 +809,8 @@ async def get_stats(
             result["monthlyTrend"] = await _compute_monthly_trend(period, date_from, date_to, user_id, db)
         elif section == "budgets":
             result["budgets"] = await _compute_budgets(user_id, db)
+        elif section == "confidence":
+            result["confidence"] = await _compute_confidence(user_id, db)
 
     if compare and date_from and date_to:
         range_days = (date_to - date_from).days

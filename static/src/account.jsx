@@ -128,14 +128,19 @@ const ProfileView = ({ transactions, account, setAccount }) => {
   React.useEffect(() => {
     let cancelled = false;
     setStatsLoading(true);
-    Promise.all([
-      API.get("/api/stats/health?months=6"),
-      API.get("/api/stats/summary?period=1m"),
-      API.get("/api/stats/category-breakdown?period=1m"),
-      API.get("/api/stats/confidence"),
-    ]).then(([health, summary, breakdown, confidence]) => {
-      if (!cancelled) { setStats({ health, summary, breakdown, confidence }); setStatsLoading(false); }
-    }).catch(() => { if (!cancelled) setStatsLoading(false); });
+    API.get("/api/stats?sections=health,summary,categoryBreakdown,confidence&months=6&period=1m")
+      .then(d => {
+        if (!cancelled) {
+          setStats({
+            health: d.health || null,
+            summary: d.summary || null,
+            breakdown: d.categoryBreakdown || null,
+            confidence: d.confidence || null,
+          });
+          setStatsLoading(false);
+        }
+      })
+      .catch(() => { if (!cancelled) setStatsLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
