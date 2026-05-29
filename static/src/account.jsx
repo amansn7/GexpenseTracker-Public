@@ -201,8 +201,8 @@ const ProfileView = ({ transactions, account, setAccount }) => {
     },
     {
       label: "Top category",
-      value: stats.breakdown.categories?.[0]?.name
-        ? (CategoryService?.display?.(stats.breakdown.categories[0].name)?.label || stats.breakdown.categories[0].name)
+      value: stats.breakdown.categories?.[0]?.category
+        ? (CategoryService?.display?.(stats.breakdown.categories[0].category)?.label || stats.breakdown.categories[0].category)
         : "—",
       sub: stats.breakdown.categories?.[0]?.amount ? `${fmt(stats.breakdown.categories[0].amount)} this month` : "no data",
     },
