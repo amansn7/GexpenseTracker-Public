@@ -654,9 +654,14 @@ const BudgetsView = () => {
                   )}
                 </div>
               )}
-              {healthCheck.goal_impact && (
-                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
-                  <span style={{ fontWeight: 500 }}>Goal impact: </span>{healthCheck.goal_impact}
+              {healthCheck.goal_impact && typeof healthCheck.goal_impact === "object" && (
+                <div style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontWeight: 500 }}>Goal impact</span>
+                  {Object.entries(healthCheck.goal_impact).map(([goal, msg]) => (
+                    <div key={goal} style={{ padding: "4px 6px", background: "var(--paper-2)", borderRadius: 4, fontSize: 11, lineHeight: 1.4 }}>
+                      <strong>{goal}</strong>: {msg}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

@@ -125,3 +125,10 @@
    - Making the tab self-contained with its own fetch + internal state (preferred for special-purpose tabs like needs_review)
 2. Merging API results into the main `transactions` array via `setTransactions(prev => [...prev, ...items])` is fragile — it can race with other state updates (loadMore, loadData). Self-contained state inside the component (`needsReviewItems`) avoids this entirely.
 3. For minified frontend builds, always verify the dist file contains the expected logic by grepping for key strings. esbuild's minifier preserves string literals so `"needs_review"` remains searchable.
+
+## LLM JSON Parsing
+
+1. LLMs often return Python dict syntax (`{'key': 'value'}` with `True`/`False`) instead of valid JSON (`{"key": "value"}` with `true`/`false`). The `_REPAIRERS` from `parsing.py` handle this for simple cases, but `.replace("'", '"')` breaks on apostrophes within string values (e.g., `"Maids's Salary"`). Always include `ast.literal_eval` as a fallback for complex LLM responses with natural language.
+2. Each `.format()` placeholder in a prompt template MUST have a corresponding keyword argument. Missing placeholders cause hard `KeyError` at runtime — test against production data before shipping.
+3. Post-process LLM outputs that include numeric limit/savings values. LLMs can produce negative `suggested_limit` values when trying to express "reduce by X amount" as `current - X`. Clamp to `max(0, value)`.
+4. The anomaly-adjust endpoint should compute a useful baseline even when LLM analysis fails — use median of all available transactions as fallback rather than returning 0.
