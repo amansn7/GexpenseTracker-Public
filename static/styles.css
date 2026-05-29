@@ -473,6 +473,10 @@ aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) t
 @keyframes backdropIn {
   from { opacity: 0; } to { opacity: 1; }
 }
+@keyframes modalOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.96) translateY(-6px); }
+}
 @keyframes backdropOut {
   from { opacity: 1; }
   to { opacity: 0; }
@@ -820,6 +824,7 @@ a.link:hover { text-decoration: underline; }
 .pulse-dot { animation: pulse 2s var(--ease-out-quart) infinite; }
 .check-pop { animation: checkPop 300ms var(--ease-out-quint) both; }
 .backdrop-out { animation: backdropOut 150ms var(--ease-in) both; }
+.modal-out { animation: modalOut 150ms var(--ease-in) both; }
 .backdrop-in { animation: backdropIn 200ms ease-out both; }
 .modal-in { animation: modalIn 280ms var(--ease-out-quart) both; }
 

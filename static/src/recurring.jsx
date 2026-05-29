@@ -17,11 +17,14 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [closing, setClosing] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
+
+  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -56,11 +59,11 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
-      <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Recurring" : "Add Recurring"}</span>
-          <button onClick={onClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
+          <button onClick={handleClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
         </div>
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -103,7 +106,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
           {item && confirming && (
             <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
           )}
-          <button onClick={onClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          <button onClick={handleClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--ink)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>
             {saving ? "Saving…" : "Save"}
           </button>
