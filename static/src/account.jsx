@@ -211,7 +211,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
       value: (stats.confidence.total || 0) > 0
         ? `${Math.round(((stats.confidence.auto_confirmed || 0) / stats.confidence.total) * 100)}%`
         : "—",
-      sub: `${stats.confidence.correction_rate ?? 0}% correction rate`,
+      sub: `${(((stats.confidence.correction_rate ?? 0) * 100).toFixed(1))}% correction rate`,
       color: (stats.confidence.total > 0 && (stats.confidence.auto_confirmed / stats.confidence.total) >= 0.85) ? "var(--pos)" : "var(--amber)",
     },
   ] : [];
