@@ -35,39 +35,27 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const [health, setHealth] = React.useState(null);
 
   React.useEffect(() => {
-    API.get("/api/budgets").then(d => setBudgets(d.budgets || [])).catch(() => {});
-    API.get("/api/stats/health?months=6").then(d => setHealth(d)).catch(() => {});
-  }, []);
-
-  React.useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       setStatsLoading(true);
       try {
         const dateQP = (dateRange.from && dateRange.to) ? `date_from=${dateRange.from}&date_to=${dateRange.to}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
-        const [s, c, tm] = await Promise.all([
-          API.get(`/api/stats/summary?${dateQP}${catQP}`),
-          API.get(`/api/stats/category-breakdown?${dateQP}${catQP}`),
-          API.get(`/api/stats/top-merchants?${dateQP}`),
-        ]);
-        if (!cancelled) { setStats(s); setCatBreakdown(c); setTopMerchants(tm.merchants || []); }
+        const sections = "summary,categoryBreakdown,topMerchants,health,budgets";
+        const result = await API.get(`/api/stats?sections=${sections}&${dateQP}${catQP}&compare=true&months=6`);
+        if (!cancelled) {
+          setStats(result.summary || null);
+          setCatBreakdown(result.categoryBreakdown || null);
+          setTopMerchants(result.topMerchants?.merchants || []);
+          setHealth(result.health || null);
+          setBudgets(result.budgets?.budgets || []);
+          setCompareStats(result.previousPeriod?.summary || null);
+        }
       } catch (_) {}
       if (!cancelled) setStatsLoading(false);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [dateRange.from, dateRange.to]);
-
-  // Compare stats for previous equivalent period
-  React.useEffect(() => {
-    if (!dateRange.from || !dateRange.to) { setCompareStats(null); return; }
-    const rangeMs = new Date(dateRange.to) - new Date(dateRange.from);
-    const prevFrom = new Date(new Date(dateRange.from).getTime() - rangeMs - 1).toISOString().slice(0, 10);
-    const prevTo = new Date(new Date(dateRange.from).getTime() - 1).toISOString().slice(0, 10);
-    API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
-      .then(d => setCompareStats(d))
-      .catch(() => {});
-  }, [dateRange.from, dateRange.to]);
+  }, [dateRange.from, dateRange.to, categoryFilter]);
 
   // Filter transactions to selected range for client-side charts
   const rangeTxs = !dateRange.from

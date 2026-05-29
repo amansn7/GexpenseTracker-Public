@@ -702,11 +702,13 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
       try {
         const dateQP = (dateRange.from && dateRange.to) ? `date_from=${dateRange.from}&date_to=${dateRange.to}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
-        const [s, c] = await Promise.all([
-          API.get(`/api/stats/summary?${dateQP}${catQP}`),
-          API.get(`/api/stats/category-breakdown?${dateQP}${catQP}`),
-        ]);
-        if (!cancelled) { setStats(s); setCatBreakdown(c); }
+        const sections = "summary,categoryBreakdown";
+        const result = await API.get(`/api/stats?sections=${sections}&${dateQP}${catQP}&compare=true`);
+        if (!cancelled) {
+          setStats(result.summary || null);
+          setCatBreakdown(result.categoryBreakdown || null);
+          setCompareStats(result.previousPeriod?.summary || null);
+        }
       } catch (e) {
         if (!cancelled) setFlowError(e.message || "Failed to load");
       }
@@ -714,16 +716,6 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [dateRange.from, dateRange.to, categoryFilter, retryKey]);
-
-  React.useEffect(() => {
-    if (!dateRange.from || !dateRange.to) { setCompareStats(null); return; }
-    const rangeMs = new Date(dateRange.to) - new Date(dateRange.from);
-    const prevFrom = new Date(new Date(dateRange.from).getTime() - rangeMs - 1).toISOString().slice(0, 10);
-    const prevTo = new Date(new Date(dateRange.from).getTime() - 1).toISOString().slice(0, 10);
-    API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
-      .then(d => setCompareStats(d))
-      .catch(() => {});
-  }, [dateRange.from, dateRange.to]);
 
   React.useEffect(() => {
     if (!drillCategory) { setDrillTxns(null); return; }

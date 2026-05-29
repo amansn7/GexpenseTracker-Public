@@ -9,8 +9,8 @@ const ReportsView = () => {
 
   useEffect(() => {
     setLoading(true);
-    API.get("/api/stats/monthly-summary")
-      .then(d => { setMonths(d.months); setLoading(false); })
+    API.get("/api/stats?sections=monthlySummary")
+      .then(d => { setMonths(d.monthlySummary?.months || []); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
   }, []);
 

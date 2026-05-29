@@ -8,8 +8,8 @@ const HealthView = () => {
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    API.get(`/api/stats/health?months=${months}`)
-      .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
+    API.get(`/api/stats?sections=health&months=${months}`)
+      .then(d => { if (!cancelled) { setData(d.health || null); setLoading(false); } })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [months]);
