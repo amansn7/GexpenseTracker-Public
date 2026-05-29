@@ -94,6 +94,18 @@
 3. Two separate processing queues for the same conceptual stage is an architecture smell. Surface both to the UI or merge them — hidden queues rot.
 4. When a preprocessing pipeline calls an external API, check whether it already calls the necessary data-fetch internally. Manual fetch buttons may be optional.
 
+## Modal & Fixed Positioning
+
+1. `animation-fill-mode: both` on a keyframe that includes `transform` (even `translateY(0)`) creates a new containing block for `position: fixed` children. If the element scrolls, the "fixed" child scrolls with it — the top gets cut off. Fix: remove `transform` from all keyframes on ancestor elements that contain modals, or render modals outside any transforming ancestor.
+
+2. Body scroll lock (`document.body.style.overflow = "hidden"`) is essential when opening modals. Without it, background scrolling can misalign `position: fixed` overlays on some browsers (especially Safari with grid layouts and overscroll behavior).
+
+3. Always add `maxHeight: "90vh"; overflowY: "auto"` to modal cards. Without it, tall modal content overflows the viewport on small screens, and the centered flex layout clips the top.
+
+4. `styles.css` uses a manual cache buster (`?v=N` in templates/index.html). The build script only auto-hashes JS dist files, not CSS. Always bump `styles.css` version when modifying it.
+
+5. The inline `<style>` block in `templates/index.html` comes after the `<link>` to `styles.css`, so same-specificity rules in the inline block win the cascade.
+
 ## Visual & CSS
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.
