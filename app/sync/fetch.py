@@ -135,7 +135,7 @@ async def _sync_emails_inner(
         return result
 
     # ── Phase 3: batch classify all new emails ─────────────────────────────
-    prog.update({"phase": "classifying", "total": len(new_pairs), "current": skipped})
+    prog.update({"phase": "classifying", "total": len(new_pairs), "current": 0})
     prog.update({"phase_detail": f"Classifying {len(new_pairs)} emails…"})
     _log_event(uid, f"Classifying {len(new_pairs)} emails with batch LLM")
 
@@ -156,7 +156,7 @@ async def _sync_emails_inner(
         _log_event(uid, f"WARNING: {rules_only}/{total} emails used rules-only classification", "warning")
 
     for i, (email, msg) in enumerate(new_pairs):
-        prog["current"] = skipped + i + 1
+        prog["current"] = i + 1
         cls = classifications[i]
         label_val = cls.label.value
         _add_preview(uid, msg, cls.label.value, cls.category, cls.amount)

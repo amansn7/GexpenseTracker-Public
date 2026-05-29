@@ -43,6 +43,8 @@ const App = () => {
   const [syncPanelPosition, setSyncPanelPosition] = useState(() => localStorage.getItem("mf_sync_panel_pos") || "bottom-right");
   const [account, setAccount] = useState(null);
   const [showSeedModal, setShowSeedModal] = React.useState(false);
+  const [closingSeed, setClosingSeed] = React.useState(false);
+  const closeSeed = () => { if (closingSeed) return; setClosingSeed(true); setTimeout(() => { setShowSeedModal(false); setClosingSeed(false); }, 150); };
   const [searchQuery, setSearchQuery] = useState("");
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
@@ -406,8 +408,8 @@ const App = () => {
       </main>
 
       {showSeedModal && (
-  <div style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-    <div style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
+  <div className={closingSeed ? "backdrop-out" : "backdrop-in"} style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
+    <div className={closingSeed ? "modal-out" : "modal-in"} style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
       <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
       <div style={{ fontSize:14, color:"var(--ink-3)", lineHeight:1.6, marginBottom:24 }}>
         We found existing transaction data from a previous setup. Import it into your account?
@@ -417,16 +419,16 @@ const App = () => {
           onClick={async () => {
             try {
               await API.post("/api/auth/claim-seed-data");
-              setShowSeedModal(false);
+              closeSeed();
               loadData();
             } catch (_) {
-              setShowSeedModal(false);
+              closeSeed();
             }
           }}
           style={{ padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
         >Import my data</button>
         <button
-          onClick={() => setShowSeedModal(false)}
+          onClick={closeSeed}
           style={{ padding:"10px 20px", background:"var(--card)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
         >Start fresh</button>
       </div>

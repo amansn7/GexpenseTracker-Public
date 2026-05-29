@@ -1250,14 +1250,16 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
   const [form, setForm] = React.useState(rule || defaults[ruleType] || {});
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [closing, setClosing] = React.useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const save = async () => {
     setSaving(true); setError(null);
     try {
       const result = await API.post(RULE_TYPES[ruleType].apiPath, form);
       onSave(result);
-      onClose();
+      handleClose();
     } catch (e) { setError(e.message || "Save failed"); }
     setSaving(false);
   };
@@ -1265,8 +1267,8 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
   const isCreate = mode === "create";
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480 }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480 }}>
         <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>
           {isCreate ? `New ${RULE_TYPES[ruleType].label}` : `Edit ${RULE_TYPES[ruleType].label}`}
         </div>
@@ -1359,7 +1361,7 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
         </div>
         {error && <div style={{ padding: "8px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 12, marginTop: 14 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={onClose} style={accountStyles.btn}>Cancel</button>
+          <button onClick={handleClose} style={accountStyles.btn}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: saving ? 0.65 : 1 }}>
             {saving ? "Saving…" : isCreate ? "Create" : "Save"}
           </button>
@@ -1949,9 +1951,11 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [aiSaving, setAiSaving] = React.useState(false);
   const [aiError, setAiError] = React.useState(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+  const [closingDelete, setClosingDelete] = React.useState(false);
   const [confirmEmail, setConfirmEmail] = React.useState("");
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState(null);
+  const closeDelete = () => { if (closingDelete) return; setClosingDelete(true); setTimeout(() => { setShowDeleteModal(false); setClosingDelete(false); }, 150); };
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
@@ -2397,8 +2401,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {showDeleteModal && (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} className={closingDelete ? "backdrop-out" : "backdrop-in"}>
+          <div className={closingDelete ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
             <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
             <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
               This permanently deletes all your transactions, categories, budgets, and Gmail connection. There is no undo.
@@ -2421,7 +2425,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               </div>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+              <button style={accountStyles.btn} onClick={closeDelete} disabled={deleting}>Cancel</button>
               <button
                 style={{ ...accountStyles.btn, ...accountStyles.btnDanger, opacity: (confirmEmail.toLowerCase() === account?.email?.toLowerCase() && !deleting) ? 1 : 0.4 }}
                 disabled={confirmEmail.toLowerCase() !== account?.email?.toLowerCase() || deleting}
@@ -2431,7 +2435,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                   try {
                     const resp = await API.patch("/api/account/schedule-deletion");
                     setDeleting(false);
-                    setShowDeleteModal(false);
+                    closeDelete();
                     setAccount(a => ({ ...a, scheduled_deletion_at: resp.deletion_at }));
                   } catch (e) {
                     setDeleteError(e.message || "Failed to schedule deletion. Try again.");

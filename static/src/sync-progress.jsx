@@ -12,7 +12,11 @@ const _syncMessages = {
 
 const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position = "bottom-right" }) => {
   const [minimized, setMinimized] = useState(false);
+  const [closing, setClosing] = useState(false);
   const logEndRef = useRef(null);
+
+  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 200); };
+
   const isError = progress.phase === "error";
   const isDone = progress.phase === "done";
   const isComplete = isDone || isError;
@@ -56,7 +60,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
         {!isComplete && <span style={{ display:"inline-block", width:8, height:8, borderRadius:"50%", background:"var(--accent)", animation:"pulse 1.2s ease-in-out infinite" }}/>}
         <span>{isComplete ? "Done" : progress.phase}</span>
         <span style={{ color:"var(--ink-4)" }}>{progress.current}/{progress.total}</span>
-        <svg onClick={(e) => { e.stopPropagation(); onClose(); }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round" style={{ cursor:"pointer", marginLeft:4 }}><path d="M6 6l12 12M18 6l-12 12"/></svg>
+        <svg onClick={(e) => { e.stopPropagation(); handleClose(); }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round" style={{ cursor:"pointer", marginLeft:4 }}><path d="M6 6l12 12M18 6l-12 12"/></svg>
       </div>
     );
   }
@@ -69,9 +73,9 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       background: "var(--card)", border: "1px solid var(--line)",
       borderRadius: 12, boxShadow: "0 8px 32px var(--shadow-lg)",
       display: "flex", flexDirection: "column",
-      animation: "slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+      animation: closing ? "slideDown 200ms ease-in both" : "slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1)",
     }}>
-      <style>{`@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
+      <style>{`@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes slideDown{from{transform:translateY(0);opacity:1}to{transform:translateY(16px);opacity:0}}`}</style>
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap: 8, padding:"14px 16px 0" }}>
@@ -86,7 +90,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
         <button onClick={() => setMinimized(true)} style={{ background:"none", border:"none", color:"var(--ink-3)", cursor:"pointer", padding:4, display:"flex" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 15l6-6 6 6"/></svg>
         </button>
-        <button onClick={onClose} style={{ background:"none", border:"none", color:"var(--ink-3)", cursor:"pointer", padding:4, display:"flex" }}>
+        <button onClick={handleClose} style={{ background:"none", border:"none", color:"var(--ink-3)", cursor:"pointer", padding:4, display:"flex" }}>
           <Icon name="x" size={14}/>
         </button>
       </div>
@@ -168,7 +172,7 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       )}
       {isComplete && (
         <div style={{ display:"flex", justifyContent:"flex-end", gap:8, padding:"10px 16px 12px" }}>
-          <button onClick={onClose} style={{
+          <button onClick={handleClose} style={{
             padding:"6px 14px", background:"var(--ink)", color:"var(--paper)",
             border:"none", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"inherit",
           }}>

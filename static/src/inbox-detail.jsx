@@ -64,10 +64,12 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
 
 const CategoryPicker = ({ current, onPick, onClose }) => {
   const { isMobile } = useViewport();
+  const [closing, setClosing] = React.useState(false);
+  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
   const groups = CategoryService.grouped();
   return (
-  <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-    <div onClick={(e)=>e.stopPropagation()} className="fade-in" style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
+  <div onClick={handleClose} style={{ position: "fixed", inset: 0, zIndex: 100 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+    <div onClick={(e)=>e.stopPropagation()} className={closing ? "modal-out" : "modal-in"} style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
       <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
         <Icon name="bolt" size={12} stroke="var(--accent)"/> Recategorize: teaches the model
       </div>

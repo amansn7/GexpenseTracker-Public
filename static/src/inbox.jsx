@@ -118,8 +118,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     return range.from === p.get().from && range.to === p.get().to;
   }) || null;
   const [bulkReclassItems, setBulkReclassItems] = React.useState([]);  // each: { id, subject, snippet, current, preview, status }
+  const [closingReclass, setClosingReclass] = React.useState(false);
+  const closeReclass = () => { if (closingReclass) return; setClosingReclass(true); setTimeout(() => { clearSelect(); setBulkReclassItems([]); setClosingReclass(false); }, 150); };
   const [bulkReclassIdx, setBulkReclassIdx] = React.useState(0);       // index of currently-displayed item
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
+  const [closingBulk, setClosingBulk] = React.useState(false);
+  const closeBulk = () => { if (closingBulk) return; setClosingBulk(true); setTimeout(() => { setBulkManualOpen(false); setClosingBulk(false); }, 150); };
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
   const [bulkMethod, setBulkMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
@@ -531,10 +535,6 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     setBulkReclassItems([]);
   };
 
-  const bulkCloseReclass = () => {
-    clearSelect();
-    setBulkReclassItems([]);
-  };
 
   const bulkManualApply = async () => {
     const apiPatch = { label: bulkManualLabel, category: bulkManualCat };
@@ -670,11 +670,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   // Keyboard shortcuts for the inbox list
   const [showShortcuts, setShowShortcuts] = React.useState(false);
+  const [closingShortcuts, setClosingShortcuts] = React.useState(false);
+  const closeShortcuts = () => { if (closingShortcuts) return; setClosingShortcuts(true); setTimeout(() => { setShowShortcuts(false); setClosingShortcuts(false); }, 150); };
   React.useEffect(() => {
     if (selectMode || filter === "duplicates") return;
     const onKey = (e) => {
       if (e.key === "Escape" && selectedId) { e.preventDefault(); setSelectedId(null); return; }
-      if (e.key === "Escape" && showShortcuts) { e.preventDefault(); setShowShortcuts(false); return; }
+      if (e.key === "Escape" && showShortcuts) { e.preventDefault(); closeShortcuts(); return; }
       if (e.key === "?" && !selectedId) { e.preventDefault(); setShowShortcuts(s => !s); return; }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -1269,8 +1271,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
 
       {bulkManualOpen && (
-        <div onClick={()=>setBulkManualOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }}>
-          <div onClick={e=>e.stopPropagation()} style={{ position: "absolute", top: isMobile ? 80 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: isMobile ? "calc(100vw - 28px)" : 340, boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
+        <div onClick={closeBulk} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingBulk ? "backdrop-out" : "backdrop-in"}>
+          <div onClick={e=>e.stopPropagation()} className={closingBulk ? "modal-out" : "modal-in"} style={{ position: "absolute", top: isMobile ? 80 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: isMobile ? "calc(100vw - 28px)" : 340, boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
             <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectAllFlag ? totalTransactions : selectedIds.size} transactions</div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
@@ -1289,7 +1291,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               </select>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={()=>setBulkManualOpen(false)} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+              <button onClick={closeBulk} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
               <button onClick={bulkManualApply} style={{ flex: 2, padding: "9px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
             </div>
           </div>
@@ -1297,13 +1299,13 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
 
       {bulkReclassItems.length > 0 && (
-        <div onClick={bulkCloseReclass} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }}>
-          <div onClick={e => { if (e.target === e.currentTarget) return; e.stopPropagation(); }} style={{ position: "absolute", top: isMobile ? 60 : "15%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 0, width: isMobile ? "calc(100vw - 20px)" : 520, maxHeight: isMobile ? "calc(100dvh - 80px)" : "70vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px -20px var(--shadow-lg)" }}>
+        <div onClick={closeReclass} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingReclass ? "backdrop-out" : "backdrop-in"}>
+          <div onClick={e => { if (e.target === e.currentTarget) return; e.stopPropagation(); }} className={closingReclass ? "modal-out" : "modal-in"} style={{ position: "absolute", top: isMobile ? 60 : "15%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 0, width: isMobile ? "calc(100vw - 20px)" : 520, maxHeight: isMobile ? "calc(100dvh - 80px)" : "70vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px -20px var(--shadow-lg)" }}>
             {/* Header */}
             <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontWeight: 600, fontSize: 13 }}>Recategorize {bulkReclassItems.length} emails</span>
-                <button onClick={bulkCloseReclass} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}><Icon name="x" size={14} stroke="currentColor"/></button>
+                <button onClick={closeReclass} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex" }}><Icon name="x" size={14} stroke="currentColor"/></button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
@@ -1483,7 +1485,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               if (isAllDone) {
                 return (
                   <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button onClick={bulkCloseReclass} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Close</button>
+                    <button onClick={closeReclass} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Close</button>
                   </div>
                 );
               }
@@ -1526,10 +1528,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
       {showShortcuts && (
         <div
+          className={closingShortcuts ? "backdrop-out" : "backdrop-in"}
           style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
-          onClick={() => setShowShortcuts(false)}
+          onClick={closeShortcuts}
         >
           <div
+            className={closingShortcuts ? "modal-out" : "modal-in"}
             style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"28px 32px", maxWidth:360, width:"90%" }}
             onClick={e => e.stopPropagation()}
           >

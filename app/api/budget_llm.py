@@ -29,7 +29,7 @@ from app.classifier.llm.budget_prompts import (
     USER_HEALTH_CHECK_TEMPLATE,
     USER_MERCHANT_SPLIT_TEMPLATE,
 )
-from app.classifier.llm.parsing import extract_json
+from app.classifier.llm.parsing import _REPAIRERS, extract_json
 from app.database import get_db
 from app.models import Email, Goal, GoalContribution, RecurringExpense, Transaction, User
 
@@ -41,7 +41,15 @@ def _maybe_parse_json(text: str) -> dict | None:
     """Try to extract and parse JSON from LLM response. Return None on failure."""
     try:
         cleaned = extract_json(text)
-        return json.loads(cleaned) if cleaned else None
+        if not cleaned:
+            return None
+        for _, fix in _REPAIRERS:
+            try:
+                return json.loads(fix(cleaned))
+            except (json.JSONDecodeError, ValueError):
+                continue
+        logger.warning("Failed to parse LLM response as JSON after all repair strategies")
+        return None
     except (json.JSONDecodeError, ValueError):
         logger.warning("Failed to parse LLM response as JSON")
         return None
@@ -154,7 +162,11 @@ async def suggest_budget_plan(
     client = await llm_client.get_user_client(current_user.id) or llm_client
     raw = await client.chat(system_prompt=SYSTEM_BUDGET_PLAN, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
     parsed = _maybe_parse_json(raw)
-    return parsed or {"error": "Could not parse LLM response", "raw": raw}
+    if parsed:
+        for b in parsed.get("budgets") or []:
+            b["suggested_limit"] = max(0, b.get("suggested_limit", 0))
+        return parsed
+    return {"error": "Could not parse LLM response", "raw": raw}
 
 
 # ── Endpoint 2: Anomaly-Adjust Category ──────────────────────
@@ -203,9 +215,18 @@ async def anomaly_adjust(
     valid = [float(r.amount or 0) for i, r in enumerate(rows) if (i + 1) not in excluded and float(r.amount or 0) > 0]
     baseline = round(sum(valid) / len(valid)) if valid else 0
 
+    # Fall back to median of all if no valid non-excluded transactions
+    if not valid and rows:
+        all_amt = [float(r.amount or 0) for r in rows if float(r.amount or 0) > 0]
+        if all_amt:
+            all_amt.sort()
+            baseline = round(all_amt[len(all_amt) // 2])
+
     return {
         "adjusted_baseline": baseline,
-        "rationale": parsed.get("rationale", "No anomalies detected") if parsed else "Could not analyze",
+        "rationale": parsed.get("rationale", "Baseline computed from available transactions")
+        if parsed
+        else f"Baseline ₹{baseline} from {len(rows)} transactions; LLM analysis unavailable",
         "anomaly_months": parsed.get("anomaly_months", []) if parsed else [],
     }
 
@@ -305,7 +326,12 @@ async def goal_optimize(
     client = await llm_client.get_user_client(current_user.id) or llm_client
     raw = await client.chat(system_prompt=SYSTEM_GOAL_OPTIMIZE, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
     parsed = _maybe_parse_json(raw)
-    return parsed or {"error": "Could not parse LLM response", "raw": raw}
+    if parsed:
+        # Clamp negative suggested_limit values
+        for adj in parsed.get("adjustments") or []:
+            adj["suggested_limit"] = max(0, adj.get("suggested_limit", 0))
+        return parsed
+    return {"error": "Could not parse LLM response", "raw": raw}
 
 
 # ── Endpoint 5: Adaptive Plan (Irregular Income) ─────────────
@@ -339,11 +365,28 @@ async def adaptive_plan(
     goals_rows = (await db.execute(select(Goal).where(Goal.user_id == current_user.id, Goal.active))).scalars().all()
     goals_list = [{"name": g.name, "target_amount": float(g.target_amount)} for g in goals_rows]
 
+    recurring_rows = (
+        (
+            await db.execute(
+                select(RecurringExpense).where(RecurringExpense.user_id == current_user.id, RecurringExpense.active)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    recurring_lines = []
+    for r in recurring_rows:
+        mult = {"monthly": 1, "weekly": 4.33, "bi-weekly": 2.17, "yearly": 1 / 12}.get(r.frequency, 1)
+        monthly_eq = float(r.amount or 0) * mult
+        recurring_lines.append(f"  {r.name:25s} ₹{float(r.amount or 0):<8.0f} {r.frequency:12s} → ₹{monthly_eq:.0f}/mo")
+    recurring_str = "\n".join(recurring_lines) if recurring_lines else "No recurring expenses."
+
     user_prompt = USER_ADAPTIVE_PLAN_TEMPLATE.format(
         income_profile=json.dumps(income_profile, indent=2),
         category_breakdown=_category_rows(breakdown),
         existing_budgets=_budget_rows(budgets_data),
         goals=json.dumps(goals_list, indent=2) if goals_list else "No active goals",
+        recurring=recurring_str,
     )
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
@@ -426,4 +469,8 @@ async def budget_health_check(
     client = await llm_client.get_user_client(current_user.id) or llm_client
     raw = await client.chat(system_prompt=SYSTEM_HEALTH_CHECK, user_prompt=user_prompt, max_tokens=1200, timeout=25.0)
     parsed = _maybe_parse_json(raw)
-    return parsed or {"error": "Could not parse LLM response", "raw": raw}
+    if parsed:
+        if parsed.get("projection"):
+            parsed["projection"]["month_end_spend"] = max(0, parsed["projection"].get("month_end_spend", 0))
+        return parsed
+    return {"error": "Could not parse LLM response", "raw": raw}

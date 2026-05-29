@@ -694,6 +694,8 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
   const [compareStats, setCompareStats] = React.useState(null);
   const [drillCategory, setDrillCategory] = React.useState(null);
   const [drillTxns, setDrillTxns] = React.useState(null);
+  const [drillClosing, setDrillClosing] = React.useState(false);
+  const closeDrill = () => { if (drillClosing) return; setDrillClosing(true); setTimeout(() => { setDrillCategory(null); setDrillClosing(false); }, 150); };
 
   React.useEffect(() => {
     let cancelled = false;
@@ -923,10 +925,11 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
 
       {drillCategory && (
         <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
+          className={drillClosing ? "backdrop-out" : "backdrop-in"}
           role="dialog" aria-modal="true" aria-label={drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
-          onClick={() => setDrillCategory(null)}
-          onKeyDown={e => { if (e.key === 'Escape') setDrillCategory(null); }}>
-          <div style={{background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px -16px var(--shadow-lg)"}}
+          onClick={closeDrill}
+          onKeyDown={e => { if (e.key === 'Escape') closeDrill(); }}>
+          <div className={drillClosing ? "modal-out" : "modal-in"} style={{background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px -16px var(--shadow-lg)"}}
             onClick={e => e.stopPropagation()}>
             <div style={{padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", flexShrink: 0}}>
               <span style={{fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-3)"}}>
@@ -941,7 +944,7 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
                     })()
                 }
               </span>
-              <button onClick={() => setDrillCategory(null)} aria-label="Close"
+              <button onClick={closeDrill} aria-label="Close"
                 style={{marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex"}}>
                 <Icon name="x" size={16}/>
               </button>
