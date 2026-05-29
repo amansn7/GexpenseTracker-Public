@@ -495,7 +495,7 @@ aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) t
   to   { opacity: 0; transform: translateX(20px); }
 }
 @keyframes viewEnter {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; }
 }
 @keyframes pulse {
@@ -820,6 +820,8 @@ a.link:hover { text-decoration: underline; }
 .pulse-dot { animation: pulse 2s var(--ease-out-quart) infinite; }
 .check-pop { animation: checkPop 300ms var(--ease-out-quint) both; }
 .backdrop-out { animation: backdropOut 150ms var(--ease-in) both; }
+.backdrop-in { animation: backdropIn 200ms ease-out both; }
+.modal-in { animation: modalIn 280ms var(--ease-out-quart) both; }
 
 /* ── Inbox row staggered entrance ─────────────────────────── */
 @keyframes row-enter {
