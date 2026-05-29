@@ -995,12 +995,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                             showToast("Discarded", { label: "Undo", onClick: handleReviewUndo });
                             handleDetailPanelAdvance(id);
                           }}
-                          onClose={() => {
-                            setReviewPreviewId(null);
-                            if (reviewEmails.length === 1 && reviewSessionStats.kept + reviewSessionStats.discarded > 0) {
-                              setShowReviewComplete(true);
-                            }
-                          }}
+                          onClose={() => setReviewPreviewId(null)}
                         />
                       </div>
                     );

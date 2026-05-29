@@ -80,16 +80,18 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
 
     this_month = end.replace(day=1)
 
-    # Exclude investment-categorized transactions from expenses so they're
-    # only counted in total_investments (handles classifiers that set
-    # category=investment but leave transaction_type=NULL).
+    # Exclude investment- and card-categorized transactions from expenses so
+    # they're only counted in their own buckets (handles classifiers that set
+    # category but leave transaction_type=NULL, and manual re-tags).
     inv_cat_aliases = CategoryService.filter_aliases("investment")
+    card_cat_aliases = CategoryService.filter_aliases("card")
 
     expense_where = [
         Email.user_id == user_id,
         Transaction.label == "expense",
         or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-        ~func.lower(Transaction.category).in_(inv_cat_aliases),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(inv_cat_aliases)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(card_cat_aliases)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
@@ -148,7 +150,10 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
             .join(Email, Transaction.email_id == Email.id)
             .where(
                 Email.user_id == user_id,
-                Transaction.transaction_type == "cc_payment",
+                or_(
+                    Transaction.transaction_type == "cc_payment",
+                    func.lower(Transaction.category).in_(card_cat_aliases),
+                ),
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
@@ -371,6 +376,9 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
     if starting_balance_date:
         base_filter.append(Transaction.txn_date >= starting_balance_date)
 
+    from app.services.category_service import CategoryService as _CS
+    _health_inv_aliases = _CS.filter_aliases("investment")
+
     expense_total = (
         await db.execute(
             select(func.sum(Transaction.amount))
@@ -378,6 +386,7 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
             .where(
                 Transaction.label == "expense",
                 or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+                or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_health_inv_aliases)),
                 *base_filter,
             )
         )
@@ -395,7 +404,13 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
         await db.execute(
             select(func.sum(Transaction.amount))
             .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.transaction_type == "investment", *base_filter)
+            .where(
+                or_(
+                    Transaction.transaction_type == "investment",
+                    func.lower(Transaction.category).in_(_health_inv_aliases),
+                ),
+                *base_filter,
+            )
         )
     ).scalar_one() or 0
 
@@ -525,6 +540,8 @@ async def _monthly_data(
     period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = ""
 ) -> list:
     """Shared logic for monthly-trend and income-vs-expense endpoints."""
+    from app.services.category_service import CategoryService
+
     today = date.today()
     if date_from and date_to:
         start = date_from
@@ -541,9 +558,12 @@ async def _monthly_data(
         months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
         m = _add_months(m, 1)
 
+    _inv_aliases = CategoryService.filter_aliases("investment")
+
     expense_where = [
         Transaction.label == "expense",
         or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_inv_aliases)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
