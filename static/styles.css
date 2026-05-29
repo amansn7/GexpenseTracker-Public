@@ -868,3 +868,146 @@ a.link:hover { text-decoration: underline; }
   .main { margin: 0 !important; }
   a { color: var(--ink) !important; text-decoration: underline !important; }
 }
+
+/* ── Budget Tab ─────────────────────────────────────────────── */
+.budget-row {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 14px 16px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 8px;
+  transition: background var(--dur-fast);
+}
+.budget-row:hover { background: var(--paper-2); }
+.budget-row.over-budget {
+  background: var(--neg-soft); border-color: var(--neg);
+}
+
+.budget-section-band {
+  border-bottom: 1px solid var(--line); padding: 10px 28px;
+  background: var(--paper-2); display: flex; align-items: center; gap: 10px;
+}
+@media (max-width: 560px) {
+  .budget-section-band { padding: 10px max(16px, (100vw - 640px) * 0.5); }
+}
+@media (max-width: 420px) {
+  .budget-section-band { flex-wrap: wrap; }
+}
+
+.budget-stat-group {
+  display: flex; gap: 20px;
+}
+.budget-stat { display: flex; flex-direction: column; gap: 1px; }
+.budget-stat-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-4);
+}
+.budget-stat-value {
+  font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 600;
+}
+
+.budget-header-actions {
+  margin-left: auto; display: flex; align-items: center; gap: 6px;
+}
+
+.btn-ghost-sm {
+  background: transparent; color: var(--accent);
+  border: 1px solid var(--accent); cursor: pointer;
+  border-radius: var(--r-sm); padding: 5px 10px;
+  font-size: 11px; font-family: inherit;
+  display: flex; align-items: center; gap: 4px;
+  min-height: 44px; transition: background 150ms;
+}
+.btn-ghost-sm:hover { background: var(--accent-soft); }
+.btn-ghost-sm:disabled { opacity: .5; cursor: not-allowed; }
+
+.btn-ghost-subtle {
+  background: transparent; color: var(--ink-2);
+  border: 1px solid var(--line); cursor: pointer;
+  border-radius: var(--r-sm); padding: 5px 10px;
+  font-size: 11px; font-family: inherit;
+  min-height: 44px;
+}
+.btn-ghost-subtle:hover { background: var(--paper-2); }
+
+.health-card {
+  margin: 0 28px 12px; border: 1px solid var(--line);
+  border-radius: var(--r); background: var(--card); overflow: hidden;
+}
+@media (max-width: 560px) {
+  .health-card { margin: 0 16px 12px; }
+}
+.health-card-header {
+  padding: 10px 14px; display: flex; align-items: center;
+  gap: 10px; cursor: pointer; user-select: none;
+}
+.health-score-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  font-family: 'Geist Mono', monospace;
+  flex-shrink: 0;
+}
+.health-card-body {
+  padding: 0 14px 10px; display: flex;
+  flex-direction: column; gap: 10px;
+}
+.health-card-body .section-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-4); font-weight: 500;
+}
+.health-issue {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 6px 8px; background: var(--paper-2);
+  border-radius: 4px; border: 1px solid var(--line);
+}
+.health-issue-icon { font-size: 12px; flex-shrink: 0; }
+.health-issue-content { flex: 1; }
+.health-issue-category { font-size: 12px; font-weight: 500; color: var(--ink); }
+.health-issue-message { font-size: 11px; color: var(--ink-3); }
+.health-issue-action {
+  margin-top: 4px; padding: 2px 6px; border-radius: 3px;
+  border: 1px solid var(--line); background: none;
+  color: var(--accent); font-size: 10px; cursor: pointer;
+  font-family: inherit;
+}
+
+.budget-list {
+  padding: 20px 28px; display: flex; flex-direction: column; gap: 8px;
+}
+@media (max-width: 560px) {
+  .budget-list { padding: 20px 16px; }
+}
+
+.empty-state {
+  padding: 48px 0; text-align: center; color: var(--ink-3); font-size: 13px;
+}
+
+.suggestion-metrics {
+  display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.suggestion-metric-label {
+  font-size: 10px; color: var(--ink-4); display: block;
+}
+.suggestion-metric-value {
+  font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 600;
+}
+
+.suggestion-card {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 6px; padding: 10px 12px;
+}
+.suggestion-card-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.goal-analysis-card {
+  padding: 8px 10px; background: var(--paper-2);
+  border-radius: 4px; border: 1px solid var(--line);
+}
+.goal-analysis-row {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.adaptive-plan-banner {
+  background: var(--paper-2); border: 1px dashed var(--accent);
+  border-radius: 6px; padding: 10px 12px;
+}

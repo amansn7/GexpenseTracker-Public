@@ -155,12 +155,12 @@ async def review_email(
             confidence=result.confidence,
             classifier_method=result.classifier_method,
             txn_date=result.txn_date,
-            status=TransactionStatus.needs_review,
+            status=result.status,
         )
         log.info(
             "review_email keep: email=%s status=%s txn_date=%s confidence=%s",
             email.id,
-            TransactionStatus.needs_review,
+            result.status,
             result.txn_date,
             result.confidence,
         )
@@ -386,7 +386,7 @@ async def bulk_review_emails(
                     confidence=result.confidence,
                     classifier_method=result.classifier_method,
                     txn_date=result.txn_date,
-                    status=TransactionStatus.needs_review,
+                    status=result.status,
                 )
                 db.add(txn)
                 email.pre_filter_status = "passed"

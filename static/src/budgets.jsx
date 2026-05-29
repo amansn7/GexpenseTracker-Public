@@ -7,7 +7,7 @@ const fmtMoneyB = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximu
 const ConfidenceBadge = ({ confidence }) => {
   if (confidence == null) return null;
   const pct = Math.round(confidence * 100);
-  const color = pct >= 80 ? "var(--pos)" : pct >= 50 ? "#e6a817" : "var(--neg)";
+  const color = pct >= 80 ? "var(--pos)" : pct >= 50 ? "var(--amber)" : "var(--neg)";
   return (
     <span style={{
       fontSize: 10, fontWeight: 500, padding: "1px 6px", borderRadius: 3,
@@ -20,9 +20,8 @@ const ConfidenceBadge = ({ confidence }) => {
 
 const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
   <div onClick={() => onApply(amount)}
-    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 4, cursor: "pointer", background: "var(--card)", border: accent ? "1px solid var(--accent)" : "1px solid transparent", transition: "background 120ms" }}
-    onMouseEnter={e => e.currentTarget.style.background = "var(--line)"}
-    onMouseLeave={e => e.currentTarget.style.background = "var(--card)"}
+    className="row-clickable"
+    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 4, cursor: "pointer", background: "var(--card)", border: accent ? "1px solid var(--accent)" : "1px solid transparent" }}
     role="button" tabIndex="0"
     onKeyDown={e => { if (e.key === 'Enter') onApply(amount); }}>
     <div>
@@ -40,13 +39,13 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
     <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
         <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>AI-Suggested Budget Plan</span>
-        <button onClick={onClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
+        <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
       </div>
       <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, flexDirection: "column", gap: 12 }}>
             <span className="spinner-lg" />
-            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>AI is analyzing your spending patterns…</span>
+            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Generating budget suggestions…</span>
           </div>
         ) : error ? (
           <div style={{ fontSize: 12, color: "var(--neg)", padding: "10px", background: "var(--neg-soft)", borderRadius: 5 }}>{error}</div>
@@ -83,7 +82,7 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ConfidenceBadge confidence={b.confidence} />
-                      <button onClick={() => onApply(b)} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                      <button onClick={() => onApply(b)} style={{ padding: "3px 12px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}>
                         {applyLoading ? "…" : "Apply"}
                       </button>
                     </div>
@@ -98,7 +97,7 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
               ))}
             </div>
             <div style={{ marginTop: 16 }}>
-              <button onClick={onApplyAll} disabled={applyLoading} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.65 : 1 }}>
+              <button onClick={onApplyAll} disabled={applyLoading} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.65 : 1, minHeight: 44 }}>
                 {applyLoading ? "Applying…" : "Apply All"}
               </button>
             </div>
@@ -248,7 +247,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
       <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Budget" : "Add Budget"}</span>
-          <button onClick={handleClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
+          <button onClick={handleClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
         </div>
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
@@ -264,7 +263,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
               <label style={lbl}>Monthly Limit (₹) *</label>
               {!item && (
                 <button onClick={loadSuggestions} disabled={suggestLoading}
-                  style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3 }}>
+                  style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3, minHeight: 44 }}>
                   <Icon name="sparkle" size={10} stroke="var(--accent)"/> {suggestLoading ? "Loading…" : "Suggest"}
                 </button>
               )}
@@ -303,7 +302,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
                     <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{anomalyResult.rationale}</div>
                   )}
                   <button onClick={() => applySuggestion(anomalyResult.adjusted_baseline)}
-                    style={{ marginTop: 4, padding: "2px 8px", borderRadius: 3, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 10, cursor: "pointer" }}>
+                    style={{ marginTop: 4, padding: "2px 8px", borderRadius: 3, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 10, cursor: "pointer", minHeight: 44 }}>
                     Apply
                   </button>
                 </div>
@@ -315,7 +314,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
                     Your income varies month-to-month. Try proportional budgets instead.
                   </div>
                   <button onClick={() => setShowAdaptiveDetail(true)}
-                    style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ padding: "5px 10px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}>
                     Set up adaptive plan
                   </button>
                 </div>
@@ -374,16 +373,16 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
         </div>
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
           {item && !confirming && (
-            <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--neg)", background: "none", color: "var(--neg)", fontSize: 13, cursor: "pointer" }}>Delete</button>
+            <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--neg)", background: "none", color: "var(--neg)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Delete</button>
           )}
           {item && confirming && (
             <>
-              <button onClick={del} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer" }}>Confirm Delete</button>
-              <button onClick={() => setConfirming(false)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              <button onClick={del} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", minHeight: 44 }}>Confirm Delete</button>
+              <button onClick={() => setConfirming(false)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Cancel</button>
             </>
           )}
-          <button onClick={handleClose} style={{ marginLeft: confirming ? 0 : "auto", padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>{saving ? "Saving…" : item ? "Save" : "Add Budget"}</button>
+          <button onClick={handleClose} style={{ marginLeft: confirming ? 0 : "auto", padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1, minHeight: 44 }}>{saving ? "Saving…" : item ? "Save" : "Add Budget"}</button>
         </div>
       </div>
     </div>
@@ -422,16 +421,32 @@ const BudgetsView = () => {
   const loadHealthCheck = async () => {
     setHealthLoading(true);
     setHealthError(null);
+    let result = null;
     try {
-      const result = await API.post("/api/budgets/llm/health-check", {});
+      result = await API.post("/api/budgets/llm/health-check", {});
       setHealthCheck(result);
       setHealthExpanded(true);
     } catch (e) {
       setHealthError(e.message || "Could not load health check");
     }
+    if (result) {
+      sessionStorage.setItem("budget_health_cache", JSON.stringify({ data: result, ts: Date.now() }));
+    }
     setHealthLoading(false);
   };
-  useEffect(() => { loadHealthCheck(); }, []);
+  useEffect(() => {
+    const cached = sessionStorage.getItem("budget_health_cache");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.ts < 300000) {
+          setHealthCheck(parsed.data);
+          return;
+        }
+      } catch (_) {}
+    }
+    loadHealthCheck();
+  }, []);
 
   const loadSuggestPlan = async () => {
     setSuggestLoading(true);
@@ -524,7 +539,7 @@ const BudgetsView = () => {
   const totalSpent = budgets.reduce((s, b) => s + b.spent_this_month, 0);
 
   const healthScore = healthCheck?.score;
-  const healthColor = healthScore >= 80 ? "var(--pos)" : healthScore >= 50 ? "#e6a817" : "var(--neg)";
+  const healthColor = healthScore >= 80 ? "var(--pos)" : healthScore >= 50 ? "var(--amber)" : "var(--neg)";
 
   return (
     <div className="fade-in">
@@ -567,15 +582,15 @@ const BudgetsView = () => {
         )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
           <button onClick={loadSuggestPlan} disabled={suggestLoading}
-            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: suggestLoading ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
+            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 11, cursor: suggestLoading ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, minHeight: 44 }}>
             {suggestLoading ? <span className="spinner-sm" /> : <Icon name="sparkle" size={10} stroke="var(--accent)"/>}
             {suggestLoading ? "…" : "Suggest All"}
           </button>
           <button onClick={loadGoalOptimize} disabled={goalLoading}
-            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 11, cursor: goalLoading ? "default" : "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 11, cursor: goalLoading ? "default" : "pointer", fontFamily: "inherit", minHeight: 44 }}>
             {goalLoading ? "…" : "Check Goals"}
           </button>
-          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, minHeight: 44 }}>
             <Icon name="plus" size={12} stroke="var(--paper)"/> Add Budget
           </button>
         </div>
@@ -589,13 +604,13 @@ const BudgetsView = () => {
       )}
       {healthError && !healthLoading && (
         <div style={{ padding: "12px 28px", fontSize: 12, color: "var(--ink-3)" }}>
-          Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit" }}>Retry</button>
+          Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44 }}>Retry</button>
         </div>
       )}
       {healthCheck && (
         <div style={{ margin: "0 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", overflow: "hidden" }}>
           <div onClick={() => setHealthExpanded(h => !h)} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-            <span style={{
+            <span aria-label={`Health score: ${healthCheck.score != null ? healthCheck.score : "?"} — ${healthCheck.score_label || ""}`} style={{
               width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
               background: healthColor + "18", color: healthColor, fontSize: 11, fontWeight: 700, fontFamily: "'Geist Mono', monospace",
               border: "2px solid " + healthColor + "40",
@@ -613,13 +628,13 @@ const BudgetsView = () => {
                   <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Issues</div>
                   {healthCheck.issues.map((issue, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
-                      <span style={{ fontSize: 12, flexShrink: 0 }}>{issue.severity === "critical" ? "❌" : "⚠️"}</span>
+                      <span role="img" aria-label={issue.severity === "critical" ? "Critical" : "Warning"} style={{ fontSize: 12, flexShrink: 0 }}>{issue.severity === "critical" ? "❌" : "⚠️"}</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{issue.category}</div>
                         <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{issue.message}</div>
                         {issue.action && (
                           <button onClick={() => openBudgetForCategory(issue.category)}
-                            style={{ marginTop: 4, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                            style={{ marginTop: 4, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}>
                             {issue.action}
                           </button>
                         )}
@@ -633,7 +648,7 @@ const BudgetsView = () => {
                   <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Doing Well</div>
                   {healthCheck.praise.map((p, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--pos)" }}>
-                      <span>✅</span> {p.category}: {p.message}
+                      <span role="img" aria-label="Positive">✅</span> {p.category}: {p.message}
                     </div>
                   ))}
                 </div>
@@ -697,7 +712,7 @@ const BudgetsView = () => {
                   {goalOptimize.goal_analysis.map((g, i) => (
                     <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span>{g.on_track ? "✅" : "⚠️"}</span>
+                        <span role="img" aria-label={g.on_track ? "On track" : "Off track"}>{g.on_track ? "✅" : "⚠️"}</span>
                         <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{g.goal_name}</span>
                         <span style={{ fontSize: 11, color: g.on_track ? "var(--pos)" : "var(--neg)" }}>
                           {g.on_track ? "On track" : "Off track"}
@@ -728,7 +743,7 @@ const BudgetsView = () => {
                           {adj.rationale && <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 1 }}>{adj.rationale}</div>}
                         </div>
                         <button onClick={() => openBudgetForCategory(adj.category)}
-                          style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
+                          style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", flexShrink: 0, fontFamily: "inherit", minHeight: 44 }}>
                           Adjust
                         </button>
                       </div>
@@ -754,7 +769,7 @@ const BudgetsView = () => {
       <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 8 }}>
         {!budgets.length ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
-            No budgets set. <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Add one per category to track monthly spend.</button>
+            No budgets set. <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13, minHeight: 44 }}>Add one per category to track monthly spend.</button>
           </div>
         ) : budgets.map(budget => {
           const pct = Math.min(budget.pct || 0, 100);
@@ -764,7 +779,7 @@ const BudgetsView = () => {
               key={budget.id}
               onClick={() => setModal(budget)}
               style={{
-                background: over ? "var(--neg-soft, #fff0f0)" : "var(--card)",
+                background: over ? "var(--neg-soft)" : "var(--card)",
                 border: "1px solid " + (over ? "var(--neg)" : "var(--line)"),
                 borderRadius: 8,
                 padding: "14px 16px",

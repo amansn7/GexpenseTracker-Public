@@ -61,7 +61,7 @@ async def test_review_keep_action_classifies_and_updates_status(db_session, mock
     await db_session.commit()
     await db_session.refresh(email)
 
-    # Stub classify_email to avoid LLM calls — high confidence returns status="auto" but should override to "needs_review"
+    # Stub classify_email to avoid LLM calls — high confidence is respected (not overridden)
     async def _fake_classify(*args, **kwargs):
         from app.classifier.protocol import ClassificationResult
         from app.models import Label
@@ -90,12 +90,12 @@ async def test_review_keep_action_classifies_and_updates_status(db_session, mock
         await db_session.refresh(email)
         assert email.pre_filter_status == "passed"
 
-        # Transaction should be created with status=needs_review (overridden, not auto)
+        # Transaction status respects classifier's actual confidence
         txn = (
             await db_session.execute(select(Transaction).where(Transaction.email_id == email.id))
         ).scalar_one_or_none()
         assert txn is not None
-        assert txn.status == "needs_review"
+        assert txn.status == "auto"
         assert txn.txn_date == date(2026, 5, 15)
         assert txn.confidence == 0.95
         assert txn.label == "expense"

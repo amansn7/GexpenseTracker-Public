@@ -16,6 +16,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [reviewShowShortcuts, setReviewShowShortcuts] = React.useState(true);
   const [reviewBulkBusy, setReviewBulkBusy] = React.useState(false);
   const [reviewBulkErrors, setReviewBulkErrors] = React.useState([]);
+  const [showReviewComplete, setShowReviewComplete] = React.useState(false);
+  const [closingReviewComplete, setClosingReviewComplete] = React.useState(false);
+  const closeReviewComplete = () => { if (closingReviewComplete) return; setClosingReviewComplete(true); setTimeout(() => { setShowReviewComplete(false); setClosingReviewComplete(false); }, 150); };
   const [reviewSessionStats, setReviewSessionStats] = React.useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("mf_review_session"));
@@ -167,9 +170,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filter, dupTab, dupSelected.size]);
+  }, [dupTab, filter, dupSelected]);
 
-  // Keyboard shortcuts for review (pending) tab
+  // Show review-complete prompt when last email is resolved
+  React.useEffect(() => {
+    if (filter === "review" && reviewEmails.length === 0 && reviewSessionStats.kept + reviewSessionStats.discarded > 0 && !showReviewComplete) {
+      setShowReviewComplete(true);
+    }
+  }, [reviewEmails.length, filter]);
+
+  // Fetch needs_review count on mount and filter change
   React.useEffect(() => {
     if (filter !== "review" || reviewEmails.length === 0) return;
     const onKey = (e) => {
@@ -1571,6 +1581,56 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           storageKey="mf_review_shortcuts_dismissed"
           position="bottom-left"
         />
+      )}
+
+      {showReviewComplete && (
+        <div
+          onClick={closeReviewComplete}
+          className={closingReviewComplete ? "backdrop-out" : "backdrop-in"}
+          style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--overlay)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className={closingReviewComplete ? "modal-out" : "modal-in"}
+            style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, maxWidth: 380, width: "calc(100vw - 32px)", textAlign: "center" }}
+          >
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pos-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <Icon name="check" size={22} stroke="var(--pos)"/>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>Review complete</div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 20, lineHeight: 1.5 }}>
+              All pending emails have been reviewed.
+            </div>
+            <div style={{ display: "flex", gap: 16, justifyContent: "center", marginBottom: 20 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--pos)", fontFamily: "'Geist Mono', monospace" }}>{reviewSessionStats.kept}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>kept</div>
+              </div>
+              <div style={{ width: 1, background: "var(--line)" }}/>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--neg)", fontFamily: "'Geist Mono', monospace" }}>{reviewSessionStats.discarded}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>discarded</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 20 }}>
+              Session: {Math.round((Date.now() - reviewSessionStats.startedAt) / 60000)} min
+            </div>
+            <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+              <button
+                onClick={() => { closeReviewComplete(); handleClearSessionStats(); setFilter("all"); }}
+                style={{ fontSize: 13, padding: "10px 20px", borderRadius: 8, background: "var(--accent)", color: "var(--paper)", border: "none", cursor: "pointer", fontWeight: 600 }}
+              >
+                View transactions
+              </button>
+              <button
+                onClick={() => { closeReviewComplete(); handleClearSessionStats(); }}
+                style={{ fontSize: 12, padding: "8px 16px", borderRadius: 6, background: "none", border: "1px solid var(--line)", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
