@@ -327,6 +327,8 @@ async def auth_me(
 
     services = (await db.execute(select(UserAIService).where(UserAIService.user_id == user.id))).scalars().all()
 
+    connected = (await db.execute(select(ConnectedAccount).where(ConnectedAccount.user_id == user.id))).scalars().all()
+
     return {
         "id": user.id,
         "email": user.email,
@@ -335,6 +337,17 @@ async def auth_me(
         "avatar_url": profile.avatar_url if profile else None,
         "has_seed_data": has_seed_data,
         "onboarding_complete": user.onboarding_complete,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
+        "connected_accounts": [
+            {
+                "provider": c.provider,
+                "account_email": c.account_email,
+                "status": c.status,
+                "last_synced_at": c.last_synced_at.isoformat() if c.last_synced_at else None,
+            }
+            for c in connected
+        ],
         "ai_services": [
             {
                 "id": s.id,

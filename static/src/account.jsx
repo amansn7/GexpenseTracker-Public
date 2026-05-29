@@ -114,130 +114,255 @@ const OnboardingView = ({ onComplete }) => {
 };
 
 const ProfileView = ({ transactions, account, setAccount }) => {
+  const { isMobile } = useViewport();
   const profile = account?.profile || {};
   const user = account?.user || {};
+
   const [form, setForm] = React.useState(profile);
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState(null);
   React.useEffect(() => setForm(profile), [account?.user?.id]);
+
+  const [stats, setStats] = React.useState(null);
+  const [statsLoading, setStatsLoading] = React.useState(true);
+  React.useEffect(() => {
+    let cancelled = false;
+    setStatsLoading(true);
+    Promise.all([
+      API.get("/api/stats/health?months=6"),
+      API.get("/api/stats/summary?period=1m"),
+      API.get("/api/stats/category-breakdown?period=1m"),
+      API.get("/api/stats/confidence"),
+    ]).then(([health, summary, breakdown, confidence]) => {
+      if (!cancelled) { setStats({ health, summary, breakdown, confidence }); setStatsLoading(false); }
+    }).catch(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   const patch = (key, value) => setForm(f => ({ ...f, [key]: value }));
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const result = await API.patch("/api/account/profile", form);
       setAccount(a => ({ ...a, profile: result.profile }));
+    } catch (err) {
+      setSaveError(err.message || "Could not save changes");
     } finally {
       setSaving(false);
     }
   };
-  const totalIncome = transactions.filter(t=>t.amount>0).reduce((a,t)=>a+t.amount,0);
-  const totalExpense = transactions.filter(t=>t.amount<0).reduce((a,t)=>a+Math.abs(t.amount),0);
-  const parsed = transactions.length;
+
   const initials = (form.display_name || form.full_name || user.email || "U").split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
-  const memberSince = user.created_at ? new Date(user.created_at).toLocaleString("en-US", { month: "short", year: "numeric" }) : "today";
+  const createdAt = account.created_at || user.created_at;
+  const memberSince = createdAt ? new Date(createdAt).toLocaleString("en-US", { month: "short", year: "numeric" }) : "today";
+  const currency = form.default_currency || "INR";
+  const currSym = { INR: "₹", USD: "$", EUR: "€", GBP: "£" }[currency] || "₹";
+  const fmt = (n) => {
+    const v = Math.abs(n || 0);
+    const s = (n || 0) < 0 ? "-" : "";
+    return v >= 100000 ? `${s}${currSym}${(v/100000).toFixed(1)}L` : v >= 1000 ? `${s}${currSym}${(v/1000).toFixed(1)}K` : `${s}${currSym}${Math.round(v)}`;
+  };
+
+  const trialEndsAt = account.trial_ends_at || user.trial_ends_at;
+  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((new Date(trialEndsAt) - Date.now()) / 86400000)) : null;
+
+  const connectedAccounts = account.connected_accounts || [];
+
+  const kpis = stats ? [
+    {
+      label: "Current balance",
+      value: fmt(stats.health.current_balance || 0),
+      sub: stats.health.balance_mode === "anchored" ? "anchored" : "estimated from history",
+      color: (stats.health.current_balance || 0) >= 0 ? "var(--pos)" : "var(--neg)",
+    },
+    {
+      label: "Savings rate",
+      value: `${Math.round(stats.health.savings_rate || 0)}%`,
+      sub: "6-month avg",
+      color: (stats.health.savings_rate || 0) >= 20 ? "var(--pos)" : (stats.health.savings_rate || 0) >= 0 ? "var(--amber)" : "var(--neg)",
+    },
+    {
+      label: "Runway",
+      value: `${Math.round(stats.health.runway_months || 0)}mo`,
+      sub: "months covered",
+      color: (stats.health.runway_months || 0) >= 6 ? "var(--pos)" : (stats.health.runway_months || 0) >= 3 ? "var(--amber)" : "var(--neg)",
+    },
+    {
+      label: "Income this month",
+      value: fmt(stats.summary.total_income || 0),
+      sub: `vs ${fmt(stats.summary.total_expenses || 0)} spent`,
+      color: "var(--pos)",
+    },
+    {
+      label: "Top category",
+      value: stats.breakdown.categories?.[0]?.name
+        ? (CategoryService?.display?.(stats.breakdown.categories[0].name)?.label || stats.breakdown.categories[0].name)
+        : "—",
+      sub: stats.breakdown.categories?.[0]?.amount ? `${fmt(stats.breakdown.categories[0].amount)} this month` : "no data",
+    },
+    {
+      label: "Auto-classified",
+      value: (stats.confidence.total || 0) > 0
+        ? `${Math.round(((stats.confidence.auto_confirmed || 0) / stats.confidence.total) * 100)}%`
+        : "—",
+      sub: `${stats.confidence.correction_rate ?? 0}% correction rate`,
+      color: (stats.confidence.total > 0 && (stats.confidence.auto_confirmed / stats.confidence.total) >= 0.85) ? "var(--pos)" : "var(--amber)",
+    },
+  ] : [];
+
   return (
     <div style={accountStyles.wrap}>
       <div style={accountStyles.inner}>
-      <div style={accountStyles.header}>
-        <div style={accountStyles.kicker}>Your account</div>
-        <h1 style={accountStyles.h1}>Profile</h1>
-      </div>
-
-      <div style={accountStyles.section}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 10, flexWrap: "wrap" }}>
-          <div style={{ width: 72, height: 72, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 26, fontWeight: 600, fontFamily: "'Geist', sans-serif" }}>{initials}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>{form.display_name || form.full_name || "Unnamed user"}</div>
-            <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 2 }}>{user.email}{form.location ? ` · ${form.location}` : ""}</div>
-            <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 6, fontFamily: "'Geist Mono', monospace" }}>Member since {memberSince} · Role: <span style={{ color: "var(--accent)", fontWeight: 600 }}>{user.role || "member"}</span></div>
-          </div>
-          <button style={{ ...accountStyles.btn }}><Icon name="edit" size={13}/> Change photo</button>
+        <div style={accountStyles.header}>
+          <div style={accountStyles.kicker}>Your account</div>
+          <h1 style={accountStyles.h1}>Profile</h1>
         </div>
-      </div>
 
-      <div style={accountStyles.section}>
-        <h3 style={accountStyles.sectionTitle}>Your year, so far</h3>
-        <div style={accountStyles.sectionSub}>— a quiet summary, not a scoreboard</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 20, marginTop: 6 }}>
-          {[
-            { label: "Emails parsed", value: parsed, sub: "April 2026" },
-            { label: "Income tracked", value: "₹" + totalIncome.toLocaleString("en-IN"), sub: "2 sources", color: "var(--pos)" },
-            { label: "Expenses tracked", value: "₹" + totalExpense.toLocaleString("en-IN"), sub: `${transactions.filter(t=>t.amount<0).length} transactions` },
-          ].map((k,i)=>(
-            <div key={i} style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>{k.label}</div>
-              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 24, fontWeight: 400, marginTop: 4, color: k.color || "var(--ink)" }}>{k.value}</div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>{k.sub}</div>
+        {/* Hero */}
+        <div style={accountStyles.section}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            {profile.avatar_url
+              ? <img src={profile.avatar_url} alt={initials} style={{ width: 72, height: 72, borderRadius: 999, objectFit: "cover", flexShrink: 0 }}/>
+              : <div style={{ width: 72, height: 72, borderRadius: 999, background: "var(--cat-travel)", color: "var(--cat-travel-ink)", display: "grid", placeItems: "center", fontSize: 26, fontWeight: 600, fontFamily: "'Geist', sans-serif", flexShrink: 0 }}>{initials}</div>
+            }
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 24, fontWeight: 500, letterSpacing: "-0.01em" }}>{form.display_name || form.full_name || "Unnamed user"}</div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginTop: 2 }}>{user.email}{form.location ? ` · ${form.location}` : ""}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)", marginTop: 6, fontFamily: "'Geist Mono', monospace" }}>
+                Member since {memberSince} · Role: <span style={{ color: "var(--accent)", fontWeight: 600 }}>{user.role || "member"}</span>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={accountStyles.section}>
-        <h3 style={accountStyles.sectionTitle}>Personal details</h3>
-        <div style={accountStyles.sectionSub}>— what we know about you</div>
-
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Full name</div><div style={accountStyles.sub}>shown on invoices</div></div>
-          <input style={accountStyles.input} value={form.full_name || ""} onChange={e=>patch("full_name", e.target.value)}/>
-          <div/>
-        </div>
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Display name</div><div style={accountStyles.sub}>shorter name in the UI</div></div>
-          <input style={accountStyles.input} value={form.display_name || ""} onChange={e=>patch("display_name", e.target.value)}/>
-          <div/>
-        </div>
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Email address</div><div style={accountStyles.sub}>used for login & digests</div></div>
-          <input style={{ ...accountStyles.input, color: "var(--ink-3)" }} value={user.email || ""} disabled/>
-          <div/>
-        </div>
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Phone</div><div style={accountStyles.sub}>optional contact detail</div></div>
-          <input style={accountStyles.input} value={form.phone || ""} onChange={e=>patch("phone", e.target.value)}/>
-          <div/>
-        </div>
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Location</div><div style={accountStyles.sub}>used in digest context</div></div>
-          <input style={accountStyles.input} value={form.location || ""} onChange={e=>patch("location", e.target.value)}/>
-          <div/>
-        </div>
-        <div style={accountStyles.row}>
-          <div><div style={accountStyles.label}>Default currency</div><div style={accountStyles.sub}>how amounts render</div></div>
-          <select style={accountStyles.input} value={form.default_currency || "INR"} onChange={e=>patch("default_currency", e.target.value)}>
-            <option value="INR">INR — Indian Rupee ₹</option>
-            <option value="USD">USD — US Dollar $</option>
-            <option value="EUR">EUR — Euro €</option>
-            <option value="GBP">GBP — British Pound £</option>
-          </select>
-          <div/>
-        </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
-          <div><div style={accountStyles.label}>Timezone</div><div style={accountStyles.sub}>for daily digest timing</div></div>
-          <select style={accountStyles.input} value={form.timezone || "Asia/Kolkata"} onChange={e=>patch("timezone", e.target.value)}>
-            <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
-            <option value="America/Los_Angeles">America/Los_Angeles</option>
-            <option value="Europe/London">Europe/London</option>
-            <option value="UTC">UTC</option>
-          </select>
-          <div/>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-          <button onClick={()=>setForm(profile)} style={accountStyles.btn}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: saving ? 0.65 : 1 }}>{saving ? "Saving…" : "Save changes"}</button>
-        </div>
-      </div>
-
-      <div style={accountStyles.section}>
-        <h3 style={accountStyles.sectionTitle}>Plan & billing</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "16px 18px", background: "var(--accent-soft)", borderRadius: 6, marginTop: 10, flexWrap: "wrap" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--accent)" }}>Moneyflow Pro</div>
-            <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>Unlimited inbox parsing, multi-account Sankey, daily digest · ₹499/month</div>
           </div>
-          <button style={accountStyles.btn}>Manage plan</button>
         </div>
-      </div>
+
+        {/* Financial snapshot */}
+        <div style={accountStyles.section}>
+          <h3 style={accountStyles.sectionTitle}>Financial snapshot</h3>
+          <div style={accountStyles.sectionSub}>— this month & trailing 6-month health</div>
+          {statsLoading ? (
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 140 : 160}px, 1fr))`, gap: 12, marginTop: 8 }}>
+              {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 76, borderRadius: 6 }}/>)}
+            </div>
+          ) : stats ? (
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 140 : 160}px, 1fr))`, gap: 12, marginTop: 8 }}>
+              {kpis.map((k, i) => (
+                <div key={i} style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
+                  <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 500 }}>{k.label}</div>
+                  <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 20, fontWeight: 400, marginTop: 5, color: k.color || "var(--ink)", lineHeight: 1.1 }}>{k.value}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 3 }}>{k.sub}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: "20px 0", fontSize: 13, color: "var(--ink-3)" }}>Could not load financial data.</div>
+          )}
+        </div>
+
+        {/* Connected accounts */}
+        {connectedAccounts.length > 0 && (
+          <div style={accountStyles.section}>
+            <h3 style={accountStyles.sectionTitle}>Connected accounts</h3>
+            <div style={accountStyles.sectionSub}>— Gmail inboxes MoneyFlow reads from</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              {connectedAccounts.map((ca, i) => {
+                const synced = ca.last_synced_at ? new Date(ca.last_synced_at) : null;
+                const minsAgo = synced ? Math.round((Date.now() - synced.getTime()) / 60000) : null;
+                const syncLabel = minsAgo === null ? "never synced"
+                  : minsAgo < 2 ? "just now"
+                  : minsAgo < 60 ? `${minsAgo}m ago`
+                  : minsAgo < 1440 ? `${Math.round(minsAgo / 60)}h ago`
+                  : `${Math.round(minsAgo / 1440)}d ago`;
+                const isOk = ca.status === "connected";
+                return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--paper-2)", borderRadius: 6 }}>
+                    <Icon name="mail" size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ca.account_email}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 1 }}>Last synced {syncLabel}</div>
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 500, color: isOk ? "var(--pos)" : "var(--neg)", background: isOk ? "var(--pos-soft)" : "var(--neg-soft)", padding: "2px 8px", borderRadius: 99, whiteSpace: "nowrap" }}>
+                      {isOk ? "connected" : ca.status}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Personal details */}
+        <div style={accountStyles.section}>
+          <h3 style={accountStyles.sectionTitle}>Personal details</h3>
+          <div style={accountStyles.sectionSub}>— what we know about you</div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Full name</div><div style={accountStyles.sub}>shown on invoices</div></div>
+            <input style={accountStyles.input} value={form.full_name || ""} onChange={e=>patch("full_name", e.target.value)}/>
+            <div/>
+          </div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Display name</div><div style={accountStyles.sub}>shorter name in the UI</div></div>
+            <input style={accountStyles.input} value={form.display_name || ""} onChange={e=>patch("display_name", e.target.value)}/>
+            <div/>
+          </div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Email address</div><div style={accountStyles.sub}>used for login & digests</div></div>
+            <input style={{ ...accountStyles.input, color: "var(--ink-3)" }} value={user.email || ""} disabled/>
+            <div/>
+          </div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Phone</div><div style={accountStyles.sub}>optional contact detail</div></div>
+            <input style={accountStyles.input} value={form.phone || ""} onChange={e=>patch("phone", e.target.value)}/>
+            <div/>
+          </div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Location</div><div style={accountStyles.sub}>used in digest context</div></div>
+            <input style={accountStyles.input} value={form.location || ""} onChange={e=>patch("location", e.target.value)}/>
+            <div/>
+          </div>
+          <div style={accountStyles.row}>
+            <div><div style={accountStyles.label}>Default currency</div><div style={accountStyles.sub}>how amounts render</div></div>
+            <select style={accountStyles.input} value={form.default_currency || "INR"} onChange={e=>patch("default_currency", e.target.value)}>
+              <option value="INR">INR — Indian Rupee ₹</option>
+              <option value="USD">USD — US Dollar $</option>
+              <option value="EUR">EUR — Euro €</option>
+              <option value="GBP">GBP — British Pound £</option>
+            </select>
+            <div/>
+          </div>
+          <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+            <div><div style={accountStyles.label}>Timezone</div><div style={accountStyles.sub}>for daily digest timing</div></div>
+            <select style={accountStyles.input} value={form.timezone || "Asia/Kolkata"} onChange={e=>patch("timezone", e.target.value)}>
+              <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="UTC">UTC</option>
+            </select>
+            <div/>
+          </div>
+          {saveError && <div style={{ padding: "8px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, marginTop: 14, fontSize: 12 }}>{saveError}</div>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+            <button onClick={()=>{ setForm(profile); setSaveError(null); }} style={accountStyles.btn}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: saving ? 0.65 : 1 }}>{saving ? "Saving…" : "Save changes"}</button>
+          </div>
+        </div>
+
+        {/* Trial info */}
+        {trialEndsAt && (
+          <div style={accountStyles.section}>
+            <h3 style={accountStyles.sectionTitle}>Trial</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "16px 18px", background: (trialDaysLeft || 0) > 3 ? "var(--accent-soft)" : "var(--neg-soft)", borderRadius: 6, marginTop: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 500, color: (trialDaysLeft || 0) > 3 ? "var(--accent)" : "var(--neg)" }}>
+                  {(trialDaysLeft || 0) > 0 ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} remaining` : "Trial ended"}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 2 }}>
+                  Free trial ends {new Date(trialEndsAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
