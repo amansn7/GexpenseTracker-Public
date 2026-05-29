@@ -22,13 +22,9 @@ const dashStyles = {
   catCard: { padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" },
 };
 
-const DashboardView = ({ transactions, categoryFilter }) => {
+const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }) => {
   var { isMobile, isTablet } = useViewport();
   var todayStr = new Date().toISOString().slice(0, 10);
-  var monthStart = todayStr.slice(0, 7) + "-01";
-
-  const [rangeFrom, setRangeFrom] = React.useState(monthStart);
-  const [rangeTo, setRangeTo] = React.useState(todayStr);
   const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
@@ -48,7 +44,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setStatsLoading(true);
       try {
-        const dateQP = (rangeFrom && rangeTo) ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
+        const dateQP = (dateRange.from && dateRange.to) ? `date_from=${dateRange.from}&date_to=${dateRange.to}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c, tm] = await Promise.all([
           API.get(`/api/stats/summary?${dateQP}${catQP}`),
@@ -60,23 +56,23 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       if (!cancelled) setStatsLoading(false);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [rangeFrom, rangeTo]);
+  }, [dateRange.from, dateRange.to]);
 
   // Compare stats for previous equivalent period
   React.useEffect(() => {
-    if (!rangeFrom || !rangeTo) { setCompareStats(null); return; }
-    const rangeMs = new Date(rangeTo) - new Date(rangeFrom);
-    const prevFrom = new Date(new Date(rangeFrom).getTime() - rangeMs - 1).toISOString().slice(0, 10);
-    const prevTo = new Date(new Date(rangeFrom).getTime() - 1).toISOString().slice(0, 10);
+    if (!dateRange.from || !dateRange.to) { setCompareStats(null); return; }
+    const rangeMs = new Date(dateRange.to) - new Date(dateRange.from);
+    const prevFrom = new Date(new Date(dateRange.from).getTime() - rangeMs - 1).toISOString().slice(0, 10);
+    const prevTo = new Date(new Date(dateRange.from).getTime() - 1).toISOString().slice(0, 10);
     API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
       .then(d => setCompareStats(d))
       .catch(() => {});
-  }, [rangeFrom, rangeTo]);
+  }, [dateRange.from, dateRange.to]);
 
   // Filter transactions to selected range for client-side charts
-  const rangeTxs = !rangeFrom
+  const rangeTxs = !dateRange.from
     ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
-    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
+    : transactions.filter(t => t.date >= dateRange.from && t.date <= dateRange.to && (!categoryFilter || t.cat === categoryFilter));
   const totalIncome = stats?.total_income ?? 0;
   const totalExpense = stats?.total_expenses ?? 0;
   const totalCCPayments = stats?.total_cc_payments ?? 0;
@@ -84,7 +80,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const remaining = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const cashOutflow = totalExpense + totalCCPayments + totalInvestments;
   const pctSpent = totalIncome > 0 ? (cashOutflow / totalIncome) * 100 : 0;
-  const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
+  const rangeDays = Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
   const daily = Math.round(totalExpense / rangeDays);
   const subsTotal = rangeTxs.filter(t=>t.tag==="subscription").reduce((a,t)=>a+Math.abs(t.amount),0);
   const subsCount = rangeTxs.filter(t=>t.tag==="subscription").length;
@@ -101,17 +97,17 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const incDelta = deltaPct(totalIncome, prevIncome);
   const prevNeedsReview = compareStats?.needs_review_count ?? null;
   const attentionDelta = prevNeedsReview != null ? (unread + flagged) - prevNeedsReview : null;
-  const midpoint = new Date((new Date(rangeFrom).getTime() + new Date(rangeTo).getTime()) / 2).toISOString().slice(0, 10);
+  const midpoint = new Date((new Date(dateRange.from).getTime() + new Date(dateRange.to).getTime()) / 2).toISOString().slice(0, 10);
   const firstHalf = rangeTxs.filter(t => t.date < midpoint && t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
   const secondHalf = rangeTxs.filter(t => t.date >= midpoint && t.amount < 0).reduce((a, t) => a + Math.abs(t.amount), 0);
   const burnTrend = firstHalf > 0 ? ((secondHalf - firstHalf) / firstHalf * 100).toFixed(1) : null;
 
   // Chart dates array for the selected range
-  const chartDates = !rangeFrom
+  const chartDates = !dateRange.from
     ? []
     : (() => {
         const dates = [];
-        for (let d = new Date(rangeFrom); d <= new Date(rangeTo); d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(dateRange.from); d <= new Date(dateRange.to); d.setDate(d.getDate() + 1)) {
           dates.push(d.toISOString().slice(0, 10));
         }
         return dates;
@@ -141,7 +137,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     <div style={{ ...dashStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{rangeFrom} → {rangeTo} · Snapshot</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{dateRange.from} → {dateRange.to} · Snapshot</div>
           <h2 style={{ fontFamily: "'Geist', sans-serif", fontSize: isMobile ? 28 : 36, fontWeight: 400, letterSpacing: "-0.02em", margin: "4px 0 0" }}>
             You're <span className="italic-serif" style={{ color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</span> ahead.
           </h2>
@@ -151,10 +147,10 @@ const DashboardView = ({ transactions, categoryFilter }) => {
       {/* Date range controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
         <DateRangeControl
-          rangeFrom={rangeFrom}
-          rangeTo={rangeTo}
+          rangeFrom={dateRange.from}
+          rangeTo={dateRange.to}
           activePreset={activePreset}
-          onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
+          onChange={(f, t, p) => { setDateRange({ from: f, to: t }); setActivePreset(p); }}
         />
         {statsLoading && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Loading…</span>}
       </div>
@@ -164,10 +160,9 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           <div style={dashStyles.heroLabel}>Net position · selected range</div>
           <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
           <div style={dashStyles.heroSub}>
-            after ₹{totalExpense.toLocaleString("en-IN")} in expenses
+            after ₹{totalExpense.toLocaleString("en-IN")} in expenses{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4, fontSize: 13 }}>↑{Math.abs(expDelta)}% vs prev</span>}
             {totalCCPayments > 0 && <span> · ₹{totalCCPayments.toLocaleString("en-IN")} in CC payments</span>}
             {totalInvestments > 0 && <span> · ₹{totalInvestments.toLocaleString("en-IN")} invested</span>}
-            {expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 6, fontSize: 13 }}>↑{Math.abs(expDelta)}%</span>}
             · {(100-pctSpent).toFixed(0)}% saved so far
           </div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
@@ -220,7 +215,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
             })()}
           </svg>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginTop: -6, paddingLeft: 10, paddingRight: 10 }}>
-            <span>{rangeFrom}</span><span>{rangeTo}</span>
+            <span>{dateRange.from}</span><span>{dateRange.to}</span>
           </div>
         </div>
       </div>
@@ -420,7 +415,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
         <div style={dashStyles.secBody}>
           {budgets.length === 0 ? (
             <div style={{ fontSize: 12, color: "var(--ink-4)", fontFamily: "'Instrument Serif', serif", fontStyle: "italic" }}>
-              No budgets set — <span onClick={() => window._goSettings && window._goSettings()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>add them in Settings</span> to track monthly limits per category.
+              No budgets set — <span onClick={() => window._goBudgets && window._goBudgets()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>add one in Budgets</span> to track monthly limits per category.
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>

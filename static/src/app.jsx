@@ -22,7 +22,7 @@ const App = () => {
   const [categoryFilter, setCategoryFilter] = useState(null);
   const [catOpen, setCatOpen] = useState(false);
   const catRef = useRef(null);
-  const [dateRange, setDateRange] = useState({ from: null, to: null }); // null = current month
+  const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
 
   React.useEffect(() => {
     if (inboxFilter !== "review") return;
@@ -47,9 +47,6 @@ const App = () => {
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
 
-  // Helper to get current month range
-  var getCurrentMonthRange = DateUtils.getCurrentMonthRange;
-
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
@@ -57,7 +54,8 @@ const App = () => {
   useEffect(() => {
     window._goSettings = () => setView("settings");
     window._goRecurring = () => setView("recurring");
-    return () => { delete window._goSettings; delete window._goRecurring; };
+    window._goBudgets = () => setView("budgets");
+    return () => { delete window._goSettings; delete window._goRecurring; delete window._goBudgets; };
   }, [setView]);
 
   const loadData = useCallback(async () => {
@@ -65,8 +63,7 @@ const App = () => {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams({ offset: 0, limit: 50 });
-      const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
-      if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
+      if (dateRange.from) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
@@ -88,8 +85,7 @@ const App = () => {
         offset: transactions.length,
         limit: 50,
       });
-      const range = dateRange.from !== null ? (dateRange.from ? dateRange : getCurrentMonthRange()) : null;
-      if (range) { params.append("date_from", range.from); params.append("date_to", range.to); }
+      if (dateRange.from) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
@@ -375,8 +371,8 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange}/>}
-          {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange}/>}
+          {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
           {view === "recurring" && <RecurringView userCategories={account?.categories || []}/>}
@@ -386,8 +382,8 @@ const App = () => {
           {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
           {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
           {/* "new" mode nav aliases — route to nearest functional equivalent */}
-          {view === "today"   && <DashboardView transactions={transactions} categoryFilter={categoryFilter}/>}
-          {view === "picture" && <FlowView transactions={transactions} categoryFilter={categoryFilter}/>}
+          {view === "today"   && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
+          {view === "picture" && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
           {view === "review"  && <InboxView
               transactions={transactions}
               setTransactions={setTransactions}

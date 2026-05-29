@@ -681,13 +681,9 @@ const skeleton = (h, w) => (
   <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
 );
 
-const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
+const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
-  const monthStart = todayStr.slice(0, 7) + "-01";
-
-  const [rangeFrom, setRangeFrom] = React.useState(monthStart);
-  const [rangeTo, setRangeTo] = React.useState(todayStr);
   const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
@@ -704,7 +700,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     const timer = setTimeout(async () => {
       setFlowLoading(true);
       try {
-        const dateQP = (rangeFrom && rangeTo) ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
+        const dateQP = (dateRange.from && dateRange.to) ? `date_from=${dateRange.from}&date_to=${dateRange.to}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c] = await Promise.all([
           API.get(`/api/stats/summary?${dateQP}${catQP}`),
@@ -717,17 +713,17 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
       if (!cancelled) setFlowLoading(false);
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [rangeFrom, rangeTo, categoryFilter, retryKey]);
+  }, [dateRange.from, dateRange.to, categoryFilter, retryKey]);
 
   React.useEffect(() => {
-    if (!rangeFrom || !rangeTo) { setCompareStats(null); return; }
-    const rangeMs = new Date(rangeTo) - new Date(rangeFrom);
-    const prevFrom = new Date(new Date(rangeFrom).getTime() - rangeMs - 1).toISOString().slice(0, 10);
-    const prevTo = new Date(new Date(rangeFrom).getTime() - 1).toISOString().slice(0, 10);
+    if (!dateRange.from || !dateRange.to) { setCompareStats(null); return; }
+    const rangeMs = new Date(dateRange.to) - new Date(dateRange.from);
+    const prevFrom = new Date(new Date(dateRange.from).getTime() - rangeMs - 1).toISOString().slice(0, 10);
+    const prevTo = new Date(new Date(dateRange.from).getTime() - 1).toISOString().slice(0, 10);
     API.get(`/api/stats/summary?date_from=${prevFrom}&date_to=${prevTo}`)
       .then(d => setCompareStats(d))
       .catch(() => {});
-  }, [rangeFrom, rangeTo]);
+  }, [dateRange.from, dateRange.to]);
 
   React.useEffect(() => {
     if (!drillCategory) { setDrillTxns(null); return; }
@@ -735,26 +731,26 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     let cancelled = false;
     const isIncome = drillCategory === "__income__";
     const qp = isIncome
-      ? `label=income&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`
-      : `category=${encodeURIComponent(drillCategory)}&date_from=${rangeFrom}&date_to=${rangeTo}&limit=200`;
+      ? `label=income&date_from=${dateRange.from}&date_to=${dateRange.to}&limit=200`
+      : `category=${encodeURIComponent(drillCategory)}&date_from=${dateRange.from}&date_to=${dateRange.to}&limit=200`;
     API.get(`/api/transactions?${qp}`)
       .then(d => { if (!cancelled) setDrillTxns(d.items || []); })
       .catch(() => { if (!cancelled) setDrillTxns([]); });
     return () => { cancelled = true; };
-  }, [drillCategory, rangeFrom, rangeTo]);
+  }, [drillCategory, dateRange.from, dateRange.to]);
 
-  const rangeTxs = !rangeFrom
+  const rangeTxs = !dateRange.from
     ? transactions.filter(t => !categoryFilter || t.cat === categoryFilter)
-    : transactions.filter(t => t.date >= rangeFrom && t.date <= rangeTo && (!categoryFilter || t.cat === categoryFilter));
-  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, rangeFrom, rangeTo) : null;
+    : transactions.filter(t => t.date >= dateRange.from && t.date <= dateRange.to && (!categoryFilter || t.cat === categoryFilter));
+  const flow = stats && catBreakdown ? buildFlowSummary(rangeTxs, stats, catBreakdown, dateRange.from, dateRange.to) : null;
 
   const totalIncome = flow ? flow.totalIncome : 0;
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
-  const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
-  const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
+  const totalCCPayments = stats?.total_cc_payments ?? 0;
+  const totalInvestments = stats?.total_investments ?? 0;
   const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
-  const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
+  const rangeDays = Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
   const incomeSources = flow ? flow.income.length : 0;
   const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;
@@ -859,10 +855,10 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
         </div>
         <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderTop: "none", padding: isMobile ? "10px 12px" : "8px 20px", display: "flex", justifyContent: "flex-end", overflowX: "auto" }}>
           <DateRangeControl
-            rangeFrom={rangeFrom}
-            rangeTo={rangeTo}
+            rangeFrom={dateRange.from}
+            rangeTo={dateRange.to}
             activePreset={activePreset}
-            onChange={(f, t, p) => { setRangeFrom(f); setRangeTo(t); setActivePreset(p); }}
+            onChange={(f, t, p) => { setDateRange({ from: f, to: t }); setActivePreset(p); }}
           />
         </div>
         <div style={{ ...flowStyles.secBody }}>
@@ -923,9 +919,9 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                     Try a wider date range or sync your inbox
                   </div>
                   <div style={{ marginTop: 14, display: "flex", gap: 8, justifyContent: "center" }}>
-                    <button onClick={() => { setActivePreset("3m"); setRangeFrom(DateUtils.getLastNDays(89).from); setRangeTo(todayStr); }}
+                    <button onClick={() => { setActivePreset("3m"); setDateRange({ from: DateUtils.getLastNDays(89).from, to: todayStr }); }}
                       style={{ padding: "6px 14px", background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", cursor: "pointer" }}>Last 3 months</button>
-                    <button onClick={() => { setActivePreset("1y"); setRangeFrom(DateUtils.getLastNDays(364).from); setRangeTo(todayStr); }}
+                    <button onClick={() => { setActivePreset("1y"); setDateRange({ from: DateUtils.getLastNDays(364).from, to: todayStr }); }}
                       style={{ padding: "6px 14px", background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12, color: "var(--ink-2)", cursor: "pointer" }}>Last year</button>
                   </div>
                 </div>
@@ -988,7 +984,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
                 if (!onNavigateToView) return;
                 if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
                 if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
-                if (onSetDateRange) onSetDateRange({ from: rangeFrom, to: rangeTo });
+                if (onSetDateRange) onSetDateRange({ from: dateRange.from, to: dateRange.to });
                 onNavigateToView("inbox");
               }}
                 style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>
