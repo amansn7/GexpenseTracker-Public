@@ -228,7 +228,7 @@ async def _compute_category_breakdown(start: date, end: date, category: str | No
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
-        or_(Transaction.label.is_(None), Transaction.label.notin_(["income", "ignore"])),
+        Transaction.label == "expense",
     ]
     if category:
         from app.services.category_service import CategoryService
@@ -288,6 +288,9 @@ async def _compute_category_breakdown(start: date, end: date, category: str | No
 
 
 async def _compute_top_merchants(start: date, end: date, user_id: str, db: AsyncSession) -> dict:
+    from app.services.category_service import CategoryService as _CS
+    _merch_inv_aliases = _CS.filter_aliases("investment")
+    _merch_card_aliases = _CS.filter_aliases("card")
     rows = (
         await db.execute(
             select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
@@ -296,6 +299,8 @@ async def _compute_top_merchants(start: date, end: date, user_id: str, db: Async
                 Email.user_id == user_id,
                 Transaction.label == "expense",
                 or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+                or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_merch_inv_aliases)),
+                or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_merch_card_aliases)),
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
@@ -561,11 +566,13 @@ async def _monthly_data(
         m = _add_months(m, 1)
 
     _inv_aliases = CategoryService.filter_aliases("investment")
+    _card_aliases = CategoryService.filter_aliases("card")
 
     expense_where = [
         Transaction.label == "expense",
         or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
         or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_inv_aliases)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_card_aliases)),
         Transaction.txn_date >= start,
         Transaction.txn_date <= end,
         Transaction.txn_date.isnot(None),
