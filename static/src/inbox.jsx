@@ -82,6 +82,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         setTimeout(() => setReviewPreviewId(reviewEmails[nextIdx].id), 50);
       } else {
         setReviewPreviewId(null);
+        if (reviewSessionStats.kept + reviewSessionStats.discarded > 0) {
+          setShowReviewComplete(true);
+        }
       }
     }
   };
@@ -171,13 +174,6 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [dupTab, filter, dupSelected]);
-
-  // Show review-complete prompt when last email is resolved
-  React.useEffect(() => {
-    if (filter === "review" && reviewEmails.length === 0 && reviewSessionStats.kept + reviewSessionStats.discarded > 0 && !showReviewComplete) {
-      setShowReviewComplete(true);
-    }
-  }, [reviewEmails.length, filter]);
 
   // Fetch needs_review count on mount and filter change
   React.useEffect(() => {
@@ -999,7 +995,12 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                             showToast("Discarded", { label: "Undo", onClick: handleReviewUndo });
                             handleDetailPanelAdvance(id);
                           }}
-                          onClose={() => setReviewPreviewId(null)}
+                          onClose={() => {
+                            setReviewPreviewId(null);
+                            if (reviewEmails.length === 1 && reviewSessionStats.kept + reviewSessionStats.discarded > 0) {
+                              setShowReviewComplete(true);
+                            }
+                          }}
                         />
                       </div>
                     );

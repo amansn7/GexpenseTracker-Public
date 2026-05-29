@@ -34,7 +34,35 @@ const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
   </div>
 );
 
-const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, applyLoading, error }) => (
+const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
+  const [appliedSet, setAppliedSet] = useState(new Set());
+  const [applyingCategory, setApplyingCategory] = useState(null);
+
+  const handleApply = async (suggestion) => {
+    setApplyingCategory(suggestion.category);
+    try {
+      await onApply(suggestion);
+      setAppliedSet(prev => new Set(prev).add(suggestion.category));
+    } catch (_) {}
+    setApplyingCategory(null);
+  };
+
+  const handleApplyAll = async () => {
+    if (!suggestions?.budgets) return;
+    for (const s of suggestions.budgets) {
+      setApplyingCategory(s.category);
+      try {
+        await onApply(s);
+        setAppliedSet(prev => new Set(prev).add(s.category));
+      } catch (_) {}
+    }
+    setApplyingCategory(null);
+    onClose();
+  };
+
+  const pendingCount = suggestions?.budgets ? suggestions.budgets.filter(s => !appliedSet.has(s.category)).length : 0;
+
+  return (
   <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
     <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
@@ -70,8 +98,11 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4 }}>Suggested Budgets</div>
-              {suggestions.budgets.map((b, i) => (
-                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px" }}>
+              {suggestions.budgets.map((b, i) => {
+                const isApplied = appliedSet.has(b.category);
+                const isApplying = applyingCategory === b.category;
+                return (
+                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", opacity: isApplied ? 0.6 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{b.category}</span>
@@ -82,9 +113,13 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <ConfidenceBadge confidence={b.confidence} />
-                      <button onClick={() => onApply(b)} style={{ padding: "3px 12px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}>
-                        {applyLoading ? "…" : "Apply"}
-                      </button>
+                      {isApplied ? (
+                        <span style={{ fontSize: 10, color: "var(--pos)", fontWeight: 500 }}>Applied</span>
+                      ) : (
+                        <button onClick={() => handleApply(b)} disabled={!!applyingCategory} style={{ padding: "3px 12px", borderRadius: 4, border: "1px solid var(--accent)", background: "none", color: "var(--accent)", fontSize: 10, cursor: applyingCategory ? "default" : "pointer", fontFamily: "inherit", minHeight: 44, opacity: applyingCategory ? 0.5 : 1 }}>
+                          {isApplying ? "…" : "Apply"}
+                        </button>
+                      )}
                     </div>
                   </div>
                   {b.rationale && (
@@ -94,13 +129,16 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
                     </details>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
+            {pendingCount > 0 && (
             <div style={{ marginTop: 16 }}>
-              <button onClick={onApplyAll} disabled={applyLoading} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyLoading ? "default" : "pointer", opacity: applyLoading ? 0.65 : 1, minHeight: 44 }}>
-                {applyLoading ? "Applying…" : "Apply All"}
+              <button onClick={handleApplyAll} disabled={!!applyingCategory} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyingCategory ? "default" : "pointer", opacity: applyingCategory ? 0.65 : 1, minHeight: 44 }}>
+                {applyingCategory ? "Applying…" : `Apply All (${pendingCount})`}
               </button>
             </div>
+            )}
           </>
         ) : (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>No budget suggestions available.</div>
@@ -108,7 +146,8 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, onApplyAll, loading, a
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [form, setForm] = useState(item ? {
@@ -403,8 +442,6 @@ const BudgetsView = () => {
   const [suggestPlan, setSuggestPlan] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState(null);
-  const [suggestApplyLoading, setSuggestApplyLoading] = useState(false);
-
   const [goalOptimize, setGoalOptimize] = useState(null);
   const [goalLoading, setGoalLoading] = useState(false);
   const [goalError, setGoalError] = useState(null);
@@ -487,36 +524,27 @@ const BudgetsView = () => {
     setSuggestError(null);
     const existing = budgets.find(b => normCat(b.category, false) === normCat(suggestion.category, false));
     try {
+      let result;
       if (existing) {
-        await API.patch(`/api/budgets/${existing.id}`, { monthly_limit: suggestion.suggested_limit });
+        result = await API.patch(`/api/budgets/${existing.id}`, { monthly_limit: suggestion.suggested_limit });
       } else {
-        await API.post("/api/budgets", { category: suggestion.category, monthly_limit: suggestion.suggested_limit });
+        result = await API.post("/api/budgets", { category: suggestion.category, monthly_limit: suggestion.suggested_limit });
       }
-      load();
+      setBudgets(prev => {
+        const idx = prev.findIndex(b => b.id === result.id);
+        if (idx >= 0) {
+          return prev.map(b => b.id === result.id ? {
+            ...b, monthly_limit: result.monthly_limit,
+            pct: b.spent_this_month > 0 ? Math.round((b.spent_this_month / result.monthly_limit) * 1000) / 10 : 0,
+            over_budget: b.spent_this_month > result.monthly_limit,
+          } : b);
+        }
+        return [...prev, { ...result, spent_this_month: 0, pct: 0, over_budget: false }];
+      });
     } catch (e) {
       setSuggestError(`Failed to apply for ${suggestion.category}`);
+      throw e;
     }
-  };
-
-  const applySuggestPlanAll = async () => {
-    if (!suggestPlan?.budgets) return;
-    setSuggestApplyLoading(true);
-    setSuggestError(null);
-    try {
-      for (const suggestion of suggestPlan.budgets) {
-        const existing = budgets.find(b => normCat(b.category, false) === normCat(suggestion.category, false));
-        if (existing) {
-          await API.patch(`/api/budgets/${existing.id}`, { monthly_limit: suggestion.suggested_limit });
-        } else {
-          await API.post("/api/budgets", { category: suggestion.category, monthly_limit: suggestion.suggested_limit });
-        }
-      }
-      setSuggestPlan(null);
-      load();
-    } catch (e) {
-      setSuggestError("Some budgets could not be applied");
-    }
-    setSuggestApplyLoading(false);
   };
 
   const openBudgetForCategory = (category) => {
@@ -564,9 +592,7 @@ const BudgetsView = () => {
           suggestions={suggestPlan}
           onClose={() => { setSuggestPlan(null); setSuggestError(null); }}
           onApply={applySuggestPlanItem}
-          onApplyAll={applySuggestPlanAll}
           loading={suggestLoading && !suggestPlan}
-          applyLoading={suggestApplyLoading}
           error={suggestError}
         />
       )}
@@ -604,11 +630,9 @@ const BudgetsView = () => {
       </div>
 
       <div className="health-card">
-        <div onClick={handleHealthToggle} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
-          <span aria-label={healthCheck ? `Health score: ${healthCheck.score} — ${healthCheck.score_label || ""}` : "Budget health not checked"} style={{
-            width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+        <div className="health-card-header" onClick={handleHealthToggle}>
+          <span aria-label={healthCheck ? `Health score: ${healthCheck.score} — ${healthCheck.score_label || ""}` : "Budget health not checked"} className="health-score-badge" style={{
             background: (healthCheck ? healthColor + "18" : "var(--line)"), color: healthCheck ? healthColor : "var(--ink-4)",
-            fontSize: 11, fontWeight: 700, fontFamily: "'Geist Mono', monospace",
             border: "2px solid " + (healthCheck ? healthColor + "40" : "var(--line)"),
           }}>
             {healthCheck?.score != null ? healthCheck.score : "—"}
@@ -618,10 +642,10 @@ const BudgetsView = () => {
           {healthCheck?.score_label && !healthLoading && <span style={{ fontSize: 11, color: healthColor, fontWeight: 500 }}>{healthCheck.score_label}</span>}
           {!healthCheck && !healthLoading && !healthError && <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 500 }}>Check</span>}
           {healthError && !healthLoading && <span style={{ fontSize: 11, color: "var(--neg)" }}>Failed</span>}
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{healthExpanded ? "▲" : "▼"}</span>
+          <span className={"chevron" + (healthExpanded ? " open" : "")}>&#8963;</span>
         </div>
-        {healthExpanded && (
-          <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className={"expandable-body" + (healthExpanded ? " open" : "")}>
+          <div className="expandable-inner">
           {healthLoading ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
               <span className="spinner-sm" />
@@ -634,16 +658,16 @@ const BudgetsView = () => {
           ) : healthCheck && (
               <>{healthCheck.issues?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Issues</div>
+                  <div className="section-label">Issues</div>
                   {healthCheck.issues.map((issue, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
-                      <span role="img" aria-label={issue.severity === "critical" ? "Critical" : "Warning"} style={{ fontSize: 12, flexShrink: 0 }}>{issue.severity === "critical" ? "❌" : "⚠️"}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{issue.category}</div>
-                        <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{issue.message}</div>
+                    <div key={i} className="health-issue">
+                      <span role="img" aria-label={issue.severity === "critical" ? "Critical" : "Warning"} className="health-issue-icon">{issue.severity === "critical" ? "❌" : "⚠️"}</span>
+                      <div className="health-issue-content">
+                        <div className="health-issue-category">{issue.category}</div>
+                        <div className="health-issue-message">{issue.message}</div>
                         {issue.action && (
                           <button onClick={() => openBudgetForCategory(issue.category)}
-                            style={{ marginTop: 4, padding: "2px 6px", borderRadius: 3, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", minHeight: 44 }}>
+                            className="health-issue-action">
                             {issue.action}
                           </button>
                         )}
@@ -654,7 +678,7 @@ const BudgetsView = () => {
               )}
               {healthCheck.praise?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Doing Well</div>
+                  <div className="section-label">Doing Well</div>
                   {healthCheck.praise.map((p, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--pos)" }}>
                       <span role="img" aria-label="Positive">✅</span> {p.category}: {p.message}
@@ -664,7 +688,7 @@ const BudgetsView = () => {
               )}
               {healthCheck.projection && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Projection</div>
+                  <div className="section-label">Projection</div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
                     Month-end spend: {fmtMoneyB(healthCheck.projection.month_end_spend)}
                     {healthCheck.projection.vs_budget != null && (
@@ -689,8 +713,8 @@ const BudgetsView = () => {
                 </div>
               )}
             </>)}
+          </div>
         </div>
-      )}
       </div>
 
 
@@ -706,19 +730,19 @@ const BudgetsView = () => {
         </div>
       )}
       {goalOptimize && (
-        <div style={{ margin: "0 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", overflow: "hidden" }}>
-          <div onClick={() => setGoalExpanded(h => !h)} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}>
+        <div style={{ margin: "12px 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+          <div onClick={() => setGoalExpanded(h => !h)} className="health-card-header">
             <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Goal Optimization</span>
             {goalOptimize.total_savings_found != null && (
               <span style={{ fontSize: 11, color: "var(--pos)", fontWeight: 500 }}>Found {fmtMoneyB(goalOptimize.total_savings_found)}</span>
             )}
-            <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--ink-4)" }}>{goalExpanded ? "▲" : "▼"}</span>
+            <span className={"chevron" + (goalExpanded ? " open" : "")}>&#8963;</span>
           </div>
-          {goalExpanded && (
-            <div style={{ padding: "0 14px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className={"expandable-body" + (goalExpanded ? " open" : "")}>
+            <div className="expandable-inner">
               {goalOptimize.goal_analysis?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Goals</div>
+                  <div className="section-label">Goals</div>
                   {goalOptimize.goal_analysis.map((g, i) => (
                     <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -772,7 +796,7 @@ const BudgetsView = () => {
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
       )}
 

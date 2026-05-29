@@ -10,9 +10,13 @@ SYSTEM_BUDGET_PLAN = (
     "complete monthly budget plan. Suggest realistic category limits, highlight "
     "areas for savings, and align budgets with the user's stated goals. "
     "Always express amounts in INR. "
-    "Consider common Indian categories: Food & Dining, Groceries, Rent, "
-    "Transport, Shopping, Entertainment, Healthcare, Education, Subscriptions, "
-    "Utilities, EMI, Insurance, Investment, and Other. "
+    "CRITICAL: You MUST use ONLY the following categories: "
+    "Food & Dining, Groceries, Rent, Transport, Shopping, Entertainment, "
+    "Healthcare, Education, Subscriptions, Utilities, EMI, Insurance, "
+    "Investment, Other. "
+    "Never create budgets for individual merchants or services "
+    "(e.g. Netflix, Apple One, Amazon). Always map merchant spend to its "
+    "appropriate category (e.g. Netflix -> Entertainment or Subscriptions). "
     "Respond with valid JSON only. No markdown, no explanation outside JSON."
 )
 
@@ -41,9 +45,10 @@ Recurring Expenses:
 3. For categories where current spend exceeds existing budget, suggest a realistic increase or flag for review.
 4. For goals, ensure enough is allocated (e.g. emergency fund, investment, travel).
 5. If existing budgets are missing, infer from category breakdown.
-6. Each budget item must include: category name, suggested_limit (INR), current_limit (INR or 0), rationale (1 sentence), confidence (0.0-1.0).
-7. Summary must be 2-3 sentences in plain English.
-8. savings_rate_pct = round((projected_savings / income) * 100, 1).
+6. NEVER create a budget for an individual merchant or service name. Always map to the correct category (e.g. Netflix -> Entertainment or Subscriptions; Blinkit -> Groceries).
+7. Each budget item must include: category name, suggested_limit (INR), current_limit (INR or 0), rationale (1 sentence), confidence (0.0-1.0).
+8. Summary must be 2-3 sentences in plain English.
+9. savings_rate_pct = round((projected_savings / income) * 100, 1).
 
 Respond with valid JSON only. No markdown, no explanation outside JSON.
 Format:
