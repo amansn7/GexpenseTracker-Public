@@ -704,7 +704,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
     const timer = setTimeout(async () => {
       setFlowLoading(true);
       try {
-        const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
+        const dateQP = (rangeFrom && rangeTo) ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c] = await Promise.all([
           API.get(`/api/stats/summary?${dateQP}${catQP}`),
@@ -752,7 +752,7 @@ const FlowView = ({ transactions, categoryFilter, onNavigateToView, onSetCategor
   const totalExpense = flow ? flow.expenses.filter(e => e.cat !== "card" && e.cat !== "investment").reduce((a, e) => a + e.amount, 0) : 0;
   const totalCCPayments = flow ? flow.expenses.filter(e => e.cat === "card").reduce((a, e) => a + e.amount, 0) : 0;
   const totalInvestments = flow ? flow.expenses.filter(e => e.cat === "investment").reduce((a, e) => a + e.amount, 0) : 0;
-  const savings = totalIncome - totalExpense - (stats?.total_cc_payments ?? 0) - totalInvestments;
+  const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;

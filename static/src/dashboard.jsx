@@ -48,7 +48,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
     const timer = setTimeout(async () => {
       setStatsLoading(true);
       try {
-        const dateQP = rangeFrom ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
+        const dateQP = (rangeFrom && rangeTo) ? `date_from=${rangeFrom}&date_to=${rangeTo}` : "";
         const catQP = categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : "";
         const [s, c, tm] = await Promise.all([
           API.get(`/api/stats/summary?${dateQP}${catQP}`),
@@ -82,7 +82,7 @@ const DashboardView = ({ transactions, categoryFilter }) => {
   const totalCCPayments = stats?.total_cc_payments ?? 0;
   const totalInvestments = stats?.total_investments ?? 0;
   const remaining = totalIncome - totalExpense - totalCCPayments - totalInvestments;
-  const cashOutflow = totalExpense + totalCCPayments;
+  const cashOutflow = totalExpense + totalCCPayments + totalInvestments;
   const pctSpent = totalIncome > 0 ? (cashOutflow / totalIncome) * 100 : 0;
   const rangeDays = Math.max(1, Math.round((new Date(rangeTo) - new Date(rangeFrom)) / 86400000) + 1);
   const daily = Math.round(totalExpense / rangeDays);
@@ -172,14 +172,16 @@ const DashboardView = ({ transactions, categoryFilter }) => {
           </div>
           <div style={dashStyles.barSplit} title={`${pctSpent.toFixed(0)}% spent`}>
             <div style={{ width: `${(totalExpense / (totalIncome || 1)) * 100}%`, background: "var(--accent)" }} />
-            {totalCCPayments > 0 && <div style={{ width: `${(totalCCPayments / (totalIncome || 1)) * 100}%`, background: "var(--cat-card-ink)" }} />}
-            <div style={{ width: `${(remaining / (totalIncome || 1)) * 100}%`, background: "var(--pos)" }} />
+          {totalCCPayments > 0 && <div style={{ width: `${(totalCCPayments / (totalIncome || 1)) * 100}%`, background: "var(--cat-card-ink)" }} />}
+          {totalInvestments > 0 && <div style={{ width: `${(totalInvestments / (totalIncome || 1)) * 100}%`, background: "var(--cat-investment-ink)" }} />}
+          <div style={{ width: `${(remaining / (totalIncome || 1)) * 100}%`, background: "var(--pos)" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace", flexWrap: "wrap", gap: "4px 12px" }}>
             <span>Expenses ₹{totalExpense.toLocaleString("en-IN")}{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4 }}>↑{Math.abs(expDelta)}%</span>}</span>
             {totalCCPayments > 0 && <span>CC ₹{totalCCPayments.toLocaleString("en-IN")}</span>}
             {totalInvestments > 0 && <span>Invest ₹{totalInvestments.toLocaleString("en-IN")}</span>}
             <span>Income ₹{totalIncome.toLocaleString("en-IN")}{incDelta != null && <span style={{ color: "var(--pos)", marginLeft: 4 }}>↑{Math.abs(incDelta)}%</span>}</span>
+            <span>Saved ₹{remaining.toLocaleString("en-IN")}</span>
           </div>
         </div>
 
