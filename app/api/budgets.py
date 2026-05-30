@@ -57,9 +57,39 @@ async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = 
 
     spend_map = {r.category: float(r.spent or 0) for r in spend_rows}
 
+    # Linked spend: for each (source_category, split_amount) link, sum min(split_amount, txn.amount)
+    # per matching transaction. Computed in Python to stay compatible with SQLite and PostgreSQL.
+    linked_rows = (
+        await db.execute(
+            select(
+                BudgetLink.target_category,
+                BudgetLink.split_amount,
+                Transaction.amount,
+            )
+            .join(Transaction, Transaction.category == BudgetLink.source_category)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                BudgetLink.user_id == current_user.id,
+                Email.user_id == current_user.id,
+                Transaction.label == "expense",
+                Transaction.txn_date >= first_of_month,
+                Transaction.txn_date <= today,
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+            )
+        )
+    ).all()
+
+    linked_map: dict[str, float] = {}
+    for row in linked_rows:
+        contrib = min(float(row.split_amount), float(row.amount or 0))
+        linked_map[row.target_category] = linked_map.get(row.target_category, 0.0) + contrib
+
     result = []
     for b in budgets:
-        spent = spend_map.get(b.category, 0.0)
+        direct = spend_map.get(b.category, 0.0)
+        linked = linked_map.get(b.category, 0.0)
+        spent = direct + linked
         limit = float(b.monthly_limit)
         pct = round(spent / limit * 100, 1) if limit > 0 else 0.0
         result.append(
