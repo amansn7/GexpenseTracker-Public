@@ -482,11 +482,15 @@ async def _compute_budgets(user_id: str, db: AsyncSession) -> dict:
         )
     ).all()
 
-    spend_map = {r.category: float(r.spent or 0) for r in spend_rows}
+    spend_map: dict[str, float] = {}
+    for r in spend_rows:
+        key = r.category.lower() if r.category else ""
+        if key:
+            spend_map[key] = spend_map.get(key, 0.0) + float(r.spent or 0)
 
     result = []
     for b in budgets:
-        spent = spend_map.get(b.category, 0.0)
+        spent = spend_map.get(b.category.lower(), 0.0)
         limit = float(b.monthly_limit)
         pct = round(spent / limit * 100, 1) if limit > 0 else 0.0
         result.append(
