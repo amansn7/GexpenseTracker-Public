@@ -537,7 +537,7 @@ const BudgetsView = () => {
   const loadRecurring = async () => {
     try {
       const r = await API.get("/api/recurring");
-      setRecurringExpenses(r.items || r || []);
+      setRecurringExpenses(r.items || []);
     } catch (_) {}
   };
 
@@ -562,7 +562,6 @@ const BudgetsView = () => {
         target_category: linkForm.target_category,
         split_amount: amount,
       });
-      setLinks(prev => [...prev, result]);
       setShowAddLink(false);
       setLinkForm({ source_category: "", target_category: "", split_amount: "" });
       load();
@@ -573,7 +572,6 @@ const BudgetsView = () => {
   const deleteLink = async (id) => {
     try {
       await API.delete(`/api/budgets/links/${id}`);
-      setLinks(prev => prev.filter(l => l.id !== id));
       load();
     } catch (e) { setLinkErr(e.message); }
   };
