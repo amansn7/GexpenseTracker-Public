@@ -99,10 +99,11 @@ const _timeStr = (iso) => {
 // Transform API transaction → UI shape
 const transformTransaction = (t) => {
   const isIncome = t.label === "income";
+  const isSelfTransfer = t.label === "self_transfer";
   const cat = _normCat(t.category, isIncome);
   const isSub = cat === "sub";
-  const tag = t.label === "ignore" ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense";
-  const amount = t.label === "ignore" ? 0 : isIncome ? (t.amount || 0) : -(t.amount || 0);
+  const tag = t.label === "ignore" ? "ignore" : isSelfTransfer ? "self_transfer" : isIncome ? "income" : isSub ? "subscription" : "expense";
+  const amount = (t.label === "ignore" || isSelfTransfer) ? 0 : isIncome ? (t.amount || 0) : -(t.amount || 0);
   const conf = t.confidence ?? 0.5;
 
   const _localDate = (iso) => {
