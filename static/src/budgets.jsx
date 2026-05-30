@@ -1,6 +1,6 @@
 // Budgets tracking view
 
-const { useState, useEffect } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 
 const fmtMoneyB = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
@@ -15,6 +15,59 @@ const ConfidenceBadge = ({ confidence }) => {
     }}>
       {pct}%
     </span>
+  );
+};
+
+const ProcessingAnimation = ({ message, subMessage, loading, onDone }) => {
+  const [exiting, setExiting] = useState(false);
+  const hasLoaded = useRef(false);
+  const [mounted, setMounted] = useState(true);
+
+  useEffect(() => {
+    if (loading) hasLoaded.current = true;
+    if (!loading && hasLoaded.current && !exiting) {
+      setExiting(true);
+    }
+  }, [loading, exiting]);
+
+  useEffect(() => {
+    if (exiting) {
+      const t = setTimeout(() => { setMounted(false); onDone?.(); }, 450);
+      return () => clearTimeout(t);
+    }
+  }, [exiting, onDone]);
+
+  const stars = useMemo(() =>
+    Array.from({ length: 10 }, (_, i) => ({
+      left: `${12 + (i * 8.3) % 76}%`,
+      top: `${15 + (i * 13.7) % 60}%`,
+      delay: `${(i * 0.23) % 1.8}s`,
+      size: 3 + (i % 4) * 1.8,
+      duration: 2 + (i % 3) * 0.6,
+    })), []
+  );
+
+  if (!mounted && !loading) return null;
+
+  return (
+    <div className={"processing-overlay" + (exiting ? " exit" : "")}>
+      <div className="processing-ring" />
+      <div className="processing-sine">
+        {Array.from({ length: 14 }, (_, i) => (
+          <div key={i} className="processing-sine-dot" style={{ '--i': i }} />
+        ))}
+      </div>
+      {stars.map((s, i) => (
+        <div key={i} className="processing-star" style={{
+          left: s.left, top: s.top,
+          width: s.size + 'px', height: s.size + 'px',
+          animationDelay: s.delay,
+          animationDuration: s.duration + 's',
+        }} />
+      ))}
+      <div className="processing-message">{message || 'Analyzing'}</div>
+      {subMessage && <div className="processing-sub">{subMessage}</div>}
+    </div>
   );
 };
 
@@ -37,6 +90,7 @@ const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
 const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
   const [appliedSet, setAppliedSet] = useState(new Set());
   const [applyingCategory, setApplyingCategory] = useState(null);
+  const [suggestDone, setSuggestDone] = useState(false);
 
   const handleApply = async (suggestion) => {
     setApplyingCategory(suggestion.category);
@@ -71,18 +125,15 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
       </div>
       <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
         {loading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, flexDirection: "column", gap: 12 }}>
-            <span className="spinner-lg" />
-            <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Generating budget suggestions…</span>
-          </div>
+          <ProcessingAnimation message="Generating budget suggestions" subMessage="Analyzing spending history" loading />
         ) : error ? (
           <div style={{ fontSize: 12, color: "var(--neg)", padding: "10px", background: "var(--neg-soft)", borderRadius: 5 }}>{error}</div>
         ) : suggestions?.budgets?.length ? (
-          <>
+          <div className="stagger-group">
             {suggestions.summary && (
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}>{suggestions.summary}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5, '--i': 0 }}>{suggestions.summary}</div>
             )}
-            <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap", '--i': 1 }}>
               {suggestions.total_budget != null && (
                 <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Total Budget</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600 }}>{fmtMoneyB(suggestions.total_budget)}</span></div>
               )}
@@ -102,7 +153,7 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
                 const isApplied = appliedSet.has(b.category);
                 const isApplying = applyingCategory === b.category;
                 return (
-                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", opacity: isApplied ? 0.6 : 1 }}>
+                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", opacity: isApplied ? 0.6 : 1, '--i': i + 2 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{b.category}</span>
@@ -139,8 +190,8 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
               </button>
             </div>
             )}
-          </>
-        ) : (
+            </div>
+          ) : (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>No budget suggestions available.</div>
         )}
       </div>
@@ -315,6 +366,9 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
               Analyze for anomalies
             </label>
           )}
+          {suggestLoading && (
+            <ProcessingAnimation message="Finding spending patterns" subMessage="Analyzing your transaction history" loading />
+          )}
           {suggestions && (
             <div style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Suggestions</div>
@@ -325,8 +379,12 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
               </div>
 
               {llmLoading && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0" }}>
-                  <span className="spinner-sm" />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+                  <div className="processing-sine" style={{ height: 20, marginBottom: 0 }}>
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <div key={i} className="processing-sine-dot" style={{ '--i': i, width: 4, height: 4 }} />
+                    ))}
+                  </div>
                   <span style={{ fontSize: 10, color: "var(--ink-3)" }}>AI analysis…</span>
                 </div>
               )}
@@ -446,6 +504,7 @@ const BudgetsView = () => {
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState(null);
   const [healthExpanded, setHealthExpanded] = useState(false);
+  const [healthProcessingDone, setHealthProcessingDone] = useState(true);
 
   const [suggestPlan, setSuggestPlan] = useState(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -454,6 +513,7 @@ const BudgetsView = () => {
   const [goalLoading, setGoalLoading] = useState(false);
   const [goalError, setGoalError] = useState(null);
   const [goalExpanded, setGoalExpanded] = useState(false);
+  const [goalProcessingDone, setGoalProcessingDone] = useState(true);
 
   const load = () => {
     setLoading(true);
@@ -476,7 +536,9 @@ const BudgetsView = () => {
       } catch (_) {}
     }
     setHealthLoading(true);
+    setHealthProcessingDone(false);
     setHealthError(null);
+    setHealthCheck(null);
     let result = null;
     try {
       result = await API.post("/api/budgets/llm/health-check", {});
@@ -493,10 +555,11 @@ const BudgetsView = () => {
 
   const handleHealthToggle = () => {
     if (!healthCheck && !healthLoading && !healthError) {
+      setHealthProcessingDone(false);
       loadHealthCheck();
     } else {
       setHealthExpanded(h => !h);
-      if (healthError) { setHealthError(null); setHealthExpanded(h => !h); }
+      if (healthError) { setHealthError(null); setHealthProcessingDone(false); setHealthExpanded(h => !h); }
     }
   };
 
@@ -516,6 +579,7 @@ const BudgetsView = () => {
 
   const loadGoalOptimize = async () => {
     setGoalLoading(true);
+    setGoalProcessingDone(false);
     setGoalError(null);
     setGoalOptimize(null);
     try {
@@ -654,21 +718,25 @@ const BudgetsView = () => {
         </div>
         <div className={"expandable-body" + (healthExpanded ? " open" : "")}>
           <div className="expandable-inner">
-          {healthLoading ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
-              <span className="spinner-sm" />
-              <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Checking budget health…</span>
-            </div>
-          ) : healthError ? (
+          {!healthProcessingDone && (
+            <ProcessingAnimation
+              message="Checking budget health"
+              subMessage="Analyzing spending patterns"
+              loading={healthLoading}
+              onDone={() => setHealthProcessingDone(true)}
+            />
+          )}
+          {healthProcessingDone && healthError && (
             <div style={{ fontSize: 12, color: "var(--ink-3)" }}>
               Health check unavailable. <button onClick={loadHealthCheck} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44 }}>Retry</button>
             </div>
-          ) : healthCheck && (
-              <>{healthCheck.issues?.length > 0 && (
+          )}
+          {healthProcessingDone && healthCheck && (
+              <div className="stagger-group">{healthCheck.issues?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <div className="section-label">Issues</div>
                   {healthCheck.issues.map((issue, i) => (
-                    <div key={i} className="health-issue">
+                    <div key={i} className="health-issue" style={{ '--i': i }}>
                       <span role="img" aria-label={issue.severity === "critical" ? "Critical" : "Warning"} className="health-issue-icon">{issue.severity === "critical" ? "❌" : "⚠️"}</span>
                       <div className="health-issue-content">
                         <div className="health-issue-category">{issue.category}</div>
@@ -688,14 +756,14 @@ const BudgetsView = () => {
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <div className="section-label">Doing Well</div>
                   {healthCheck.praise.map((p, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--pos)" }}>
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--pos)", '--i': (healthCheck.issues?.length || 0) + i }}>
                       <span role="img" aria-label="Positive">✅</span> {p.category}: {p.message}
                     </div>
                   ))}
                 </div>
               )}
               {healthCheck.projection && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, '--i': (healthCheck.issues?.length || 0) + (healthCheck.praise?.length || 0) }}>
                   <div className="section-label">Projection</div>
                   <div style={{ fontSize: 12, color: "var(--ink-2)" }}>
                     Month-end spend: {fmtMoneyB(healthCheck.projection.month_end_spend)}
@@ -711,7 +779,7 @@ const BudgetsView = () => {
                 </div>
               )}
               {healthCheck.goal_impact && typeof healthCheck.goal_impact === "object" && (
-                <div style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", display: "flex", flexDirection: "column", gap: 4, '--i': (healthCheck.issues?.length || 0) + (healthCheck.praise?.length || 0) + 1 }}>
                   <span style={{ fontWeight: 500 }}>Goal impact</span>
                   {Object.entries(healthCheck.goal_impact).map(([goal, msg]) => (
                     <div key={goal} style={{ padding: "4px 6px", background: "var(--paper-2)", borderRadius: 4, fontSize: 11, lineHeight: 1.4 }}>
@@ -720,24 +788,26 @@ const BudgetsView = () => {
                   ))}
                 </div>
               )}
-            </>)}
+            </div>)}
           </div>
         </div>
       </div>
 
 
-      {goalLoading && (
-        <div style={{ padding: "12px 28px", display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="spinner-sm" />
-          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>Analyzing goals…</span>
+      {!goalProcessingDone && (
+        <ProcessingAnimation
+          message="Analyzing goals"
+          subMessage="Optimizing budget allocation"
+          loading={goalLoading}
+          onDone={() => setGoalProcessingDone(true)}
+        />
+      )}
+      {goalProcessingDone && goalError && (
+        <div style={{ margin: "12px 28px", padding: "8px 16px", fontSize: 12, color: "var(--neg)", background: "var(--neg-soft)", borderRadius: 6 }}>
+          {goalError} <button onClick={loadGoalOptimize} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44, marginLeft: 8 }}>Retry</button>
         </div>
       )}
-      {goalError && (
-        <div style={{ padding: "8px 28px", fontSize: 12, color: "var(--neg)", background: "var(--neg-soft)" }}>
-          {goalError}
-        </div>
-      )}
-      {goalOptimize && (
+      {goalProcessingDone && goalOptimize && (
         <div style={{ margin: "12px 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
           <div onClick={() => setGoalExpanded(h => !h)} className="health-card-header">
             <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Goal Optimization</span>
@@ -748,11 +818,12 @@ const BudgetsView = () => {
           </div>
           <div className={"expandable-body" + (goalExpanded ? " open" : "")}>
             <div className="expandable-inner">
+              <div className="stagger-group">
               {goalOptimize.goal_analysis?.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <div className="section-label">Goals</div>
                   {goalOptimize.goal_analysis.map((g, i) => (
-                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)", '--i': i }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span role="img" aria-label={g.on_track ? "On track" : "Off track"}>{g.on_track ? "✅" : "⚠️"}</span>
                         <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{g.goal_name}</span>
@@ -771,10 +842,10 @@ const BudgetsView = () => {
                 </div>
               )}
               {goalOptimize.adjustments?.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, '--i': (goalOptimize.goal_analysis?.length || 0) }}>
                   <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>Suggested Adjustments</div>
                   {goalOptimize.adjustments.map((adj, i) => (
-                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)" }}>
+                    <div key={i} style={{ padding: "8px 10px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)", '--i': (goalOptimize.goal_analysis?.length || 0) + 1 + i }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{adj.category}</div>
@@ -794,15 +865,16 @@ const BudgetsView = () => {
                 </div>
               )}
               {goalOptimize.remaining_shortfall != null && (
-                <div style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", '--i': (goalOptimize.goal_analysis?.length || 0) + (goalOptimize.adjustments?.length || 0) + 1 }}>
                   Remaining shortfall: <strong>{fmtMoneyB(goalOptimize.remaining_shortfall)}</strong>
                 </div>
               )}
               {goalOptimize.recommendation && (
-                <div style={{ fontSize: 11, color: "var(--ink-2)", padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)", lineHeight: 1.4 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-2)", padding: "6px 8px", background: "var(--paper-2)", borderRadius: 4, border: "1px solid var(--line)", lineHeight: 1.4, '--i': (goalOptimize.goal_analysis?.length || 0) + (goalOptimize.adjustments?.length || 0) + 2 }}>
                   {goalOptimize.recommendation}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -813,14 +885,14 @@ const BudgetsView = () => {
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             No budgets set. <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13, minHeight: 44 }}>Add one per category to track monthly spend.</button>
           </div>
-        ) : budgets.map(budget => {
+        ) : budgets.map((budget, idx) => {
           const pct = Math.min(budget.pct || 0, 100);
           const over = budget.over_budget;
           return (
             <div
               key={budget.id}
-              onClick={() => setModal(budget)}
-              style={{
+              className="stagger-card"
+              style={{ '--i': idx,
                 background: over ? "var(--neg-soft)" : "var(--card)",
                 border: "1px solid " + (over ? "var(--neg)" : "var(--line)"),
                 borderRadius: 8,

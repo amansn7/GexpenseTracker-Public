@@ -943,10 +943,13 @@ a.link:hover { text-decoration: underline; }
 .expandable-body > .expandable-inner {
   overflow: hidden;
   min-height: 0;
-  padding: 0 14px 10px;
+  padding: 0 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.expandable-body.open > .expandable-inner {
+  overflow-y: auto;
 }
 
 .chevron {
@@ -1036,4 +1039,93 @@ a.link:hover { text-decoration: underline; }
 .adaptive-plan-banner {
   background: var(--paper-2); border: 1px dashed var(--accent);
   border-radius: 6px; padding: 10px 12px;
+}
+
+/* ── Processing Animation ──────────────────────────────────── */
+
+@keyframes proc-float {
+  0%   { transform: translateY(0) translateX(0) scale(0); opacity: 0; }
+  15%  { opacity: 0.8; }
+  85%  { opacity: 0.4; }
+  100% { transform: translateY(-90px) translateX(16px) scale(1); opacity: 0; }
+}
+
+@keyframes proc-sine {
+  0%, 100% { transform: translateY(0); }
+  25%  { transform: translateY(-9px); }
+  75%  { transform: translateY(9px); }
+}
+
+@keyframes proc-ring {
+  0%   { transform: scale(0.8); opacity: 0.5; }
+  100% { transform: scale(2.4);  opacity: 0; }
+}
+
+@keyframes proc-fade-out {
+  to { opacity: 0; transform: scale(0.96); }
+}
+
+@keyframes stagger-card-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.processing-overlay {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 36px 20px; position: relative;
+  min-height: 160px; overflow: hidden;
+  transition: opacity 420ms var(--ease-out-expo),
+              transform 420ms var(--ease-out-expo);
+}
+.processing-overlay.exit {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+}
+
+.processing-sine {
+  display: flex; align-items: center;
+  gap: 5px; height: 36px;
+  margin-bottom: 16px; z-index: 1;
+}
+.processing-sine-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  animation: proc-sine 1.2s var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+.processing-sine-dot:nth-child(odd) { background: var(--accent); }
+.processing-sine-dot:nth-child(even) { background: var(--pos); }
+
+.processing-star {
+  position: absolute; border-radius: 50%;
+  pointer-events: none; z-index: 0;
+  animation: proc-float 2.8s ease-out infinite;
+  box-shadow: 0 0 5px 2px var(--accent);
+}
+
+.processing-ring {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--accent); z-index: 1;
+  animation: proc-ring 2s ease-out infinite;
+  opacity: 0.5;
+}
+
+.processing-message {
+  font-size: 13px; font-weight: 500; color: var(--ink-2);
+  margin-top: 8px; z-index: 1;
+}
+.processing-sub {
+  font-size: 11px; color: var(--ink-4);
+  margin-top: 3px; z-index: 1;
+}
+
+/* Staggered card entrance */
+.stagger-card {
+  animation: stagger-card-in 380ms var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+.stagger-group > * {
+  animation: stagger-card-in 380ms var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
 }
