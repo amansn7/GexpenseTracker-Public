@@ -23,7 +23,7 @@ def upgrade() -> None:
         sa.Column("source_category", sa.String(100), nullable=False),
         sa.Column("target_category", sa.String(100), nullable=False),
         sa.Column("split_amount", sa.Numeric(12, 2), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
