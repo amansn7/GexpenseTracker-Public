@@ -270,9 +270,42 @@ async def test_get_transaction_detail_includes_body_text(db_session, mock_user):
 
 @pytest.mark.asyncio
 async def test_patch_transaction_label_self_transfer(db_session, mock_user):
-    """self_transfer is a valid label value in the Label enum."""
-    from app.models.transaction import Label
+    """self_transfer is a valid label value — PATCH must accept it."""
+    from app.models import Email, Transaction
+    from app.models.transaction import Label, TransactionStatus
+    from datetime import datetime, timezone
 
-    # Verify self_transfer is a valid Label enum value
-    assert hasattr(Label, "self_transfer")
-    assert Label.self_transfer == "self_transfer"
+    email = Email(
+        id="test-email-st-1",
+        user_id=mock_user.id,
+        gmail_id="msg-st-1",
+        subject="Bank transfer",
+        sender="bank@example.com",
+        received_at=datetime.now(timezone.utc),
+        body_text="Transfer 5000",
+    )
+    db_session.add(email)
+    txn = Transaction(
+        id="test-txn-st-1",
+        email_id=email.id,
+        amount=5000.0,
+        category="transfer",
+        label=Label.expense,
+        status=TransactionStatus.confirmed,
+        txn_date=None,
+    )
+    db_session.add(txn)
+    await db_session.commit()
+
+    async def override():
+        yield db_session
+    app.dependency_overrides[get_db] = override
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.patch(
+                "/api/transactions/test-txn-st-1",
+                json={"label": "self_transfer"},
+            )
+        assert resp.status_code == 200
+    finally:
+        app.dependency_overrides.pop(get_db, None)
