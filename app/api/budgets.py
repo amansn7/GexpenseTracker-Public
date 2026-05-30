@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import get_current_user
@@ -57,14 +57,17 @@ async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = 
 
     spend_map = {r.category: float(r.spent or 0) for r in spend_rows}
 
-    # Linked spend: for each (source_category, split_amount) link, sum min(split_amount, txn.amount)
-    # per matching transaction. Computed in Python to stay compatible with SQLite and PostgreSQL.
+    # Linked spend: sum least(split_amount, txn.amount) per target_category in SQL.
     linked_rows = (
         await db.execute(
             select(
                 BudgetLink.target_category,
-                BudgetLink.split_amount,
-                Transaction.amount,
+                func.sum(
+                    case(
+                        (Transaction.amount < BudgetLink.split_amount, Transaction.amount),
+                        else_=BudgetLink.split_amount,
+                    )
+                ).label("linked_spent"),
             )
             .join(Transaction, Transaction.category == BudgetLink.source_category)
             .join(Email, Transaction.email_id == Email.id)
@@ -77,13 +80,11 @@ async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = 
                 Transaction.txn_date.isnot(None),
                 Transaction.status != "needs_review",
             )
+            .group_by(BudgetLink.target_category)
         )
     ).all()
 
-    linked_map: dict[str, float] = {}
-    for row in linked_rows:
-        contrib = min(float(row.split_amount), float(row.amount or 0))
-        linked_map[row.target_category] = linked_map.get(row.target_category, 0.0) + contrib
+    linked_map = {r.target_category: float(r.linked_spent or 0) for r in linked_rows}
 
     result = []
     for b in budgets:
