@@ -29,6 +29,23 @@ class Budget(Base):
     __table_args__ = (sa.UniqueConstraint("user_id", "category", name="uq_budget_user_category"),)
 
 
+class BudgetLink(Base):
+    __tablename__ = "budget_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_category: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_category: Mapped[str] = mapped_column(String(100), nullable=False)
+    split_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "source_category", "target_category", name="uq_budget_link_user_src_tgt"),
+    )
+
+
 class Debt(Base):
     __tablename__ = "debts"
 

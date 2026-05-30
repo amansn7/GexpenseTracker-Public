@@ -22,6 +22,7 @@ from .filter_rule import (
 )
 from .financial import (
     Budget,
+    BudgetLink,
     Debt,
     DomainPairRule,
     DuplicatePair,
@@ -100,6 +101,7 @@ __all__ = [
     # financial
     "RuleSource",
     "Budget",
+    "BudgetLink",
     "Debt",
     "RecurringExpense",
     "SenderRule",
