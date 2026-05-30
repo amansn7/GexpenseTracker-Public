@@ -228,6 +228,9 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
 
 
 async def _compute_category_breakdown(start: date, end: date, category: str | None, user_id: str, db: AsyncSession) -> dict:
+    from app.services.category_service import CategoryService as _CBD_CS
+    _cbd_inv_aliases = _CBD_CS.filter_aliases("investment")
+    _cbd_card_aliases = _CBD_CS.filter_aliases("card")
     where = [
         Email.user_id == user_id,
         Transaction.txn_date >= start,
@@ -235,6 +238,9 @@ async def _compute_category_breakdown(start: date, end: date, category: str | No
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
         Transaction.label == "expense",
+        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_cbd_inv_aliases)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_cbd_card_aliases)),
     ]
     if category:
         from app.services.category_service import CategoryService
@@ -424,7 +430,7 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
         )
     ).scalar_one() or 0
 
-    income_filter = [Email.user_id == user_id, Transaction.txn_date.isnot(None)]
+    income_filter = [Email.user_id == user_id, Transaction.txn_date.isnot(None), Transaction.status != "needs_review"]
     if starting_balance_date:
         income_filter.append(Transaction.txn_date >= starting_balance_date)
     income_total = float(
@@ -575,6 +581,7 @@ async def _monthly_data(
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
             )
             .group_by(MonthKey(Transaction.txn_date))
         )

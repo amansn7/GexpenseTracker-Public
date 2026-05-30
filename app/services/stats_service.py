@@ -110,6 +110,7 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
             )
         )).scalar_one() or 0
     )
@@ -189,6 +190,7 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
                 Transaction.txn_date >= start,
                 Transaction.txn_date <= end,
                 Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
             )
             .group_by(Transaction.category)
             .order_by(desc("total"))
