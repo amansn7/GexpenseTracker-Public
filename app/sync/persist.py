@@ -19,6 +19,9 @@ async def _persist_transactions(
     processed = 0
     new_transactions: list = []
     for (email, msg), cls in zip(new_pairs, classifications):
+        txn_date = cls.txn_date
+        if txn_date is None and email.received_at is not None:
+            txn_date = email.received_at.date()
         t = Transaction(
             email_id=email.id,
             label=cls.label.value,
@@ -28,7 +31,7 @@ async def _persist_transactions(
             currency=cls.currency,
             merchant=cls.merchant,
             category=cls.category,
-            txn_date=cls.txn_date,
+            txn_date=txn_date,
             confidence=cls.confidence,
             status=cls.status.value,
             classifier_method=cls.classifier_method.value,

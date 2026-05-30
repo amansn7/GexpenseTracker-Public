@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import ColumnElement, desc, func, or_, select
+from sqlalchemy import ColumnElement, cast, desc, func, or_, select
+from sqlalchemy.types import Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.compiler import compiles
 
@@ -121,15 +122,15 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
         or 0
     )
 
+    _inc_date = func.coalesce(Transaction.txn_date, cast(Email.received_at, Date))
     income_rows = (
         await db.execute(
-            select(Transaction.txn_date, Transaction.amount, Email.sender)
+            select(_inc_date.label("txn_date"), Transaction.amount, Email.sender)
             .join(Email, Transaction.email_id == Email.id)
             .where(
                 Email.user_id == user_id,
                 Transaction.label == "income",
-                Transaction.txn_date >= _add_months(start, -1),
-                Transaction.txn_date.isnot(None),
+                _inc_date >= _add_months(start, -1),
             )
         )
     ).all()
@@ -578,10 +579,10 @@ async def _monthly_data(
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
+    _m_inc_date = func.coalesce(Transaction.txn_date, cast(Email.received_at, Date))
     income_where = [
         Transaction.label == "income",
-        Transaction.txn_date >= _add_months(start, -1),
-        Transaction.txn_date.isnot(None),
+        _m_inc_date >= _add_months(start, -1),
     ]
     expense_where.insert(0, Email.user_id == user_id)
     income_where.insert(0, Email.user_id == user_id)
@@ -605,7 +606,7 @@ async def _monthly_data(
 
     income_rows = (
         await db.execute(
-            select(Transaction.txn_date, Transaction.amount, Email.sender)
+            select(_m_inc_date.label("txn_date"), Transaction.amount, Email.sender)
             .join(Email, Transaction.email_id == Email.id)
             .where(*income_where)
         )
