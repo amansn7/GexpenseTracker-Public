@@ -139,6 +139,7 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
                     Transaction.txn_date >= start,
                     Transaction.txn_date <= end,
                     Transaction.txn_date.isnot(None),
+                    Transaction.status != "needs_review",
                 )
             )
         ).scalar_one()

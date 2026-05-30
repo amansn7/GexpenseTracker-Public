@@ -36,7 +36,7 @@ const SankeyFlow = ({ data, totalIncome, totalExpense, savings, onCategoryClick 
     const incNodes = data.income;
     const expNodes = data.expenses.filter(e => e.cat !== "card" && e.cat !== "investment");
     const totalExp = expNodes.reduce((a, e) => a + e.amount, 0);
-    const surplusAmt = totalIncome - totalExp;
+    const surplusAmt = savings;  // use prop: already deducts cc_payments + investments
     const hasDeficit = surplusAmt < 0;
     const totalBudget = Math.max(totalIncome, totalExp + Math.abs(surplusAmt));
 
