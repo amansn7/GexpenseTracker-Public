@@ -212,7 +212,7 @@ const ThemeToggle = () => {
 // ---------------------------------------------------------------------------
 const S = {
   label: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 5, display: "block" },
-  input: { width: "100%", padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
+  input: { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" },
   btnPrimary: { padding: "10px 20px", background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)", borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" },
   btnSecondary: { padding: "10px 20px", background: "transparent", color: "var(--ink-3)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "inherit" },
   error: { padding: "10px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 13, marginBottom: 16 },

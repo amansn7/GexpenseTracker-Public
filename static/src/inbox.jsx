@@ -1290,7 +1290,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectAllFlag ? totalTransactions : selectedIds.size} transactions</div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
-              <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+              <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
                 <option value="expense">Expense</option>
                 <option value="income">Income</option>
                 <option value="ignore">Ignore</option>
@@ -1298,7 +1298,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             </div>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Category</div>
-              <select value={bulkManualCat} onChange={e=>setBulkManualCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+              <select value={bulkManualCat} onChange={e=>setBulkManualCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
                 {Object.entries(CATEGORIES).map(([k,c])=>(
                   <option key={k} value={k}>{c.label}</option>
                 ))}
@@ -1306,11 +1306,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             </div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Amount (optional)</div>
-              <input type="number" min="0" step="0.01" value={bulkManualAmount} onChange={e=>setBulkManualAmount(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+              <input type="number" min="0" step="0.01" value={bulkManualAmount} onChange={e=>setBulkManualAmount(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Merchant (optional)</div>
-              <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+              <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={closeBulk} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>

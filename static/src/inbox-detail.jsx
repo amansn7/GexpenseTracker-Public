@@ -294,7 +294,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               onChange={e=>setMerchantDraft(e.target.value)}
               onBlur={saveMerchant}
               onKeyDown={e=>{ if(e.key==="Enter") saveMerchant(); if(e.key==="Escape") { setMerchantDraft(tx.merchant||""); setEditingMerchant(false); } }}
-              style={{ padding: "3px 6px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", width: 140, textAlign: "right" }}
+              style={{ padding: "8px 10px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", width: 140, textAlign: "right", boxSizing: "border-box" }}
             />
           ) : (
             <span onClick={()=>setEditingMerchant(true)} className="hover-border-bottom" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink)", padding: "1px 0" }}>
@@ -365,7 +365,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           onBlur={()=>{ setSaving(true); onUpdate({ note }); setTimeout(()=>setSaving(false), 600); }}
           placeholder="Add context for yourself..."
           className="focus-ring"
-          style={{ width: "100%", minHeight: 60, border: "1px solid var(--line)", borderRadius: 6, padding: 10, background: "var(--paper)", color: "var(--ink)", fontSize: 12, resize: "vertical", outline: "none", fontFamily: "inherit" }}
+          style={{ width: "100%", minHeight: 60, border: "1px solid var(--line)", borderRadius: 6, padding: "8px 10px", background: "var(--card)", color: "var(--ink)", fontSize: 12, resize: "vertical", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
         />
       </div>
 
@@ -380,7 +380,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Label</div>
-                <select value={editDraft.label} onChange={e=>setEditDraft(d=>({...d, label:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
+                <select value={editDraft.label} onChange={e=>setEditDraft(d=>({...d, label:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}>
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
                   <option value="ignore">Ignore</option>
@@ -388,15 +388,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               </div>
               <div>
                 <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Amount</div>
-                <input type="number" min="0" step="0.01" value={editDraft.amount} onChange={e=>setEditDraft(d=>({...d, amount: parseFloat(e.target.value) || 0}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+                <input type="number" min="0" step="0.01" value={editDraft.amount} onChange={e=>setEditDraft(d=>({...d, amount: parseFloat(e.target.value) || 0}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div>
                 <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Merchant</div>
-                <input type="text" value={editDraft.merchant} onChange={e=>setEditDraft(d=>({...d, merchant:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                <input type="text" value={editDraft.merchant} onChange={e=>setEditDraft(d=>({...d, merchant:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div>
                 <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Category</div>
-                <select value={editDraft.category} onChange={e=>setEditDraft(d=>({...d, category:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
+                <select value={editDraft.category} onChange={e=>setEditDraft(d=>({...d, category:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}>
                   {Object.entries(CATEGORIES).filter(([k])=>k!=="income").map(([k, c]) => (
                     <option key={k} value={k}>{c.label}</option>
                   ))}

@@ -14,7 +14,7 @@ const accountStyles = {
   rowLast: { borderBottom: "none" },
   label: { fontSize: 13, fontWeight: 500, color: "var(--ink)" },
   sub: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 },
-  input: { padding: "8px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%" },
+  input: { padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" },
   btn: { padding: "8px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
   btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
   btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
@@ -434,7 +434,7 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
             placeholder="0"
             value={balance}
             onChange={e => setBalance(e.target.value)}
-            style={{ width: 110, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", fontSize: 13, fontFamily: "inherit" }}
+            style={{ width: 110, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
           />
           <span style={{ fontSize: 12, color: "var(--ink-3)" }}>as of</span>
           <input
@@ -442,7 +442,7 @@ const FinancialHealthSection = ({ settings, onRefresh }) => {
             max={today}
             value={balanceDate}
             onChange={e => setBalanceDate(e.target.value)}
-            style={{ padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", fontSize: 13, fontFamily: "inherit" }}
+            style={{ padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
           />
           <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>
             {saving ? "…" : saved ? <><Icon name="check" size={12} stroke="var(--pos)"/> Saved</> : "Save"}
@@ -612,7 +612,7 @@ const AccessSection = ({ account }) => {
             onChange={e => setNewEmail(e.target.value)}
             onKeyDown={e => e.key === "Enter" && addEmail()}
             placeholder="Add email address…"
-            style={{ flex:1, padding:"7px 10px", border:"1px solid var(--line)", borderRadius:6, background:"var(--paper)", color:"var(--ink)", fontSize:13, fontFamily:"inherit" }}
+            style={{ flex:1, padding:"7px 10px", border:"1px solid var(--line)", borderRadius:6, background:"var(--card)", color:"var(--ink)", fontSize:13, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
           />
           <button
             onClick={addEmail}
@@ -1059,7 +1059,7 @@ const AdminLLMTestSection = ({ account }) => {
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
-        <select value={target} onChange={e => setTarget(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13 }}>
+        <select value={target} onChange={e => setTarget(e.target.value)} style={{ padding: "9px 12px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
           <option value="">— select a service —</option>
           {aiServices.map(s => <option key={s.id} value={`service:${s.id}`}>{s.display_name}{s.enabled === false ? " (disabled)" : ""}</option>)}
         </select>

@@ -473,7 +473,7 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
           value={rangeFrom}
           max={rangeTo}
           onChange={e => onChange(e.target.value, rangeTo, null)}
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
         />
         <span aria-hidden="true" style={{ color: "var(--ink-4)", fontSize: 12 }}>→</span>
         <input
@@ -482,7 +482,7 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
           value={rangeTo}
           min={rangeFrom}
           onChange={e => onChange(rangeFrom, e.target.value, null)}
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)" }}
+          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: 12, background: "var(--card)", color: "var(--ink)", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
         />
       </div>
     </div>
