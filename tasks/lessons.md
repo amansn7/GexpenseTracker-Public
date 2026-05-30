@@ -128,6 +128,15 @@
 
 ## LLM JSON Parsing
 
+## React Error #31 — Object as Child
+
+1. **Never render an API/LLM response field directly as a React child** without checking its type. LLM-generated JSON is unpredictable — a field expected to be a string may be an object, array, or null. Always guard with `typeof val === "object" ? ... : val`.
+2. **Check every `{field}` in JSX for potential object values.** Common culprits: LLM-returned fields like `goal_impact` values, `savings_plan`, `projection`, `description` — anything from a `suggest-plan`, `health-check`, or `adaptive-plan` response. One missed check = production crash.
+3. **Pattern for safe rendering:**
+   `{typeof val === "object" ? (val.message || val.description || JSON.stringify(val)) : val}`
+4. **History:** Previously fixed `healthCheck.goal_impact` with `Object.entries()` to avoid direct access, but `{msg}` still crashed when LLM returned objects `{message, threat}` instead of strings. The `savings_plan` field (`{description, target_rate_pct, ...}`) was also rendered as a raw object in `BudgetModal`.
+5. **Lesson: LLM API responses can change shape.** Never assume the LLM follows the format spec. Every field rendered in JSX needs a defensive type check.
+
 1. LLMs often return Python dict syntax (`{'key': 'value'}` with `True`/`False`) instead of valid JSON (`{"key": "value"}` with `true`/`false`). The `_REPAIRERS` from `parsing.py` handle this for simple cases, but `.replace("'", '"')` breaks on apostrophes within string values (e.g., `"Maids's Salary"`). Always include `ast.literal_eval` as a fallback for complex LLM responses with natural language.
 2. Each `.format()` placeholder in a prompt template MUST have a corresponding keyword argument. Missing placeholders cause hard `KeyError` at runtime — test against production data before shipping.
 3. Post-process LLM outputs that include numeric limit/savings values. LLMs can produce negative `suggested_limit` values when trying to express "reduce by X amount" as `current - X`. Clamp to `max(0, value)`.

@@ -382,7 +382,15 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
                     </div>
                   )}
                   {adaptivePlanResult.savings_plan && (
-                    <div style={{ fontSize: 11, color: "var(--pos)" }}>Savings: {adaptivePlanResult.savings_plan}</div>
+                    <div style={{ fontSize: 11, color: "var(--pos)", lineHeight: 1.4 }}>
+                      {typeof adaptivePlanResult.savings_plan === "object"
+                        ? Object.entries(adaptivePlanResult.savings_plan).map(([k, v]) => (
+                            <div key={k} style={{ fontSize: 10, marginTop: 1 }}>
+                              {k.replace(/_/g, " ")}: {typeof v === "object" ? JSON.stringify(v) : v}
+                            </div>
+                          ))
+                        : `Savings: ${adaptivePlanResult.savings_plan}`}
+                    </div>
                   )}
                 </div>
               )}
@@ -707,7 +715,7 @@ const BudgetsView = () => {
                   <span style={{ fontWeight: 500 }}>Goal impact</span>
                   {Object.entries(healthCheck.goal_impact).map(([goal, msg]) => (
                     <div key={goal} style={{ padding: "4px 6px", background: "var(--paper-2)", borderRadius: 4, fontSize: 11, lineHeight: 1.4 }}>
-                      <strong>{goal}</strong>: {msg}
+                      <strong>{goal}</strong>: {typeof msg === "object" ? (msg.message || msg.threat || JSON.stringify(msg)) : msg}
                     </div>
                   ))}
                 </div>
