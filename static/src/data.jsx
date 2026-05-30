@@ -20,11 +20,12 @@ const CATEGORIES = {
 };
 
 const TAGS = {
-  expense:      { label: "Expense",      dot: "var(--neg)"    },
-  income:       { label: "Income",       dot: "var(--pos)"    },
-  subscription: { label: "Subscription", dot: "var(--accent)" },
-  transfer:     { label: "Transfer",     dot: "var(--ink-3)"  },
-  ignore:       { label: "Ignored",     dot: "var(--ink-4)"  },
+  expense:       { label: "Expense",       dot: "var(--neg)"    },
+  income:        { label: "Income",        dot: "var(--pos)"    },
+  subscription:  { label: "Subscription",  dot: "var(--accent)" },
+  transfer:      { label: "Transfer",      dot: "var(--ink-3)"  },
+  self_transfer: { label: "Self Transfer", dot: "var(--ink-3)"  },
+  ignore:        { label: "Ignored",       dot: "var(--ink-4)"  },
 };
 
 // DB category value → CATEGORIES key.

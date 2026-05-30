@@ -169,13 +169,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       setReclass("done");
       const isIgnore = draft.label === "ignore";
       const isIncome = draft.label === "income";
+      const isSelfTransfer = draft.label === "self_transfer";
       const cat = normCat(draft.category, isIncome);
       const isSub = cat === "sub";
       onUpdate({
         _skipApi: true,
-        amount:   isIgnore ? 0 : isIncome ? (draft.amount || 0) : -(draft.amount || 0),
+        amount:   isIgnore || isSelfTransfer ? 0 : isIncome ? (draft.amount || 0) : -(draft.amount || 0),
         cat,
-        tag:      isIgnore ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense",
+        tag:      isIgnore ? "ignore" : isSelfTransfer ? "self_transfer" : isIncome ? "income" : isSub ? "subscription" : "expense",
         conf:     draft.confidence ?? tx.conf,
         merchant: draft.merchant || tx.merchant,
       });
@@ -274,12 +275,12 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           <span style={inboxStyles.fieldLabel}>Type</span>
           <span
             onClick={() => {
-              const order = ["expense", "income", "ignore"];
+              const order = ["expense", "income", "self_transfer", "ignore"];
               const idx = order.indexOf(tx.tag);
               onUpdate({ tag: order[(idx + 1) % order.length] });
             }}
             style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}
-            title="Click to cycle: expense: income: ignore"
+            title="Click to cycle: expense → income → self transfer → ignore"
           >
             <span style={{ ...inboxStyles.tagDot, background: TAGS[tx.tag].dot }}/>
             <span style={inboxStyles.fieldVal}>{TAGS[tx.tag].label}</span>
@@ -373,29 +374,30 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
       <div style={inboxStyles.panelFooter}>
         {reclass === "preview" && reclassResult && editDraft && (
-          <div className="fade-in" style={{ marginBottom: 10, padding: 14, background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", fontSize: 12 }}>
+          <div className="fade-in" style={{ marginBottom: 10, padding: 16, background: "var(--card)", borderRadius: 12, border: "1px solid var(--line)", fontSize: 13 }}>
             <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
               <Icon name={reclassMethod === "rules" ? "check" : "bolt"} size={13} stroke="var(--accent)"/> {reclassMethod === "rules" ? "Rules found" : "AI found"}: edit & apply
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Label</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Label</div>
                 <select value={editDraft.label} onChange={e=>setEditDraft(d=>({...d, label:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}>
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
+                  <option value="self_transfer">Self Transfer</option>
                   <option value="ignore">Ignore</option>
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Amount</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Amount</div>
                 <input type="number" min="0" step="0.01" value={editDraft.amount} onChange={e=>setEditDraft(d=>({...d, amount: parseFloat(e.target.value) || 0}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Merchant</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Merchant</div>
                 <input type="text" value={editDraft.merchant} onChange={e=>setEditDraft(d=>({...d, merchant:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Category</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Category</div>
                 <select value={editDraft.category} onChange={e=>setEditDraft(d=>({...d, category:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}>
                   {Object.entries(CATEGORIES).filter(([k])=>k!=="income").map(([k, c]) => (
                     <option key={k} value={k}>{c.label}</option>
@@ -403,11 +405,11 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
                 </select>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Confidence</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Confidence</div>
                 <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2, fontSize: 12 }}>{Math.round((editDraft.confidence ?? 0) * 100)}%</div>
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Date</div>
+                <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Date</div>
                 <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2, fontSize: 12 }}>{editDraft.txn_date || "\u2014"}</div>
               </div>
             </div>
