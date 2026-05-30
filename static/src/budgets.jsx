@@ -515,13 +515,68 @@ const BudgetsView = () => {
   const [goalExpanded, setGoalExpanded] = useState(false);
   const [goalProcessingDone, setGoalProcessingDone] = useState(true);
 
+  const [links, setLinks] = useState([]);
+  const [linksExpanded, setLinksExpanded] = useState(false);
+  const [showAddLink, setShowAddLink] = useState(false);
+  const [linkForm, setLinkForm] = useState({ source_category: "", target_category: "", split_amount: "" });
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [linkErr, setLinkErr] = useState(null);
+  const [recurringExpenses, setRecurringExpenses] = useState([]);
+
   const load = () => {
     setLoading(true);
-    API.get("/api/budgets")
-      .then(d => { setBudgets(d.budgets); setLoading(false); })
+    Promise.all([
+      API.get("/api/budgets"),
+      API.get("/api/budgets/links"),
+    ])
+      .then(([d, l]) => { setBudgets(d.budgets); setLinks(l.links || []); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
   };
   useEffect(load, []);
+
+  const loadRecurring = async () => {
+    try {
+      const r = await API.get("/api/recurring");
+      setRecurringExpenses(r.items || r || []);
+    } catch (_) {}
+  };
+
+  const prefillSplitFromRecurring = (targetCat) => {
+    const match = recurringExpenses.find(r =>
+      normCat(r.category || r.name, false) === normCat(targetCat, false)
+    );
+    if (match?.amount) {
+      setLinkForm(f => ({ ...f, split_amount: String(match.amount) }));
+    }
+  };
+
+  const addLink = async () => {
+    const amount = parseFloat(linkForm.split_amount);
+    if (!linkForm.source_category) { setLinkErr("Source category required"); return; }
+    if (!linkForm.target_category) { setLinkErr("Target budget required"); return; }
+    if (!amount || amount <= 0) { setLinkErr("Split amount must be positive"); return; }
+    setLinkSaving(true); setLinkErr(null);
+    try {
+      const result = await API.post("/api/budgets/links", {
+        source_category: linkForm.source_category,
+        target_category: linkForm.target_category,
+        split_amount: amount,
+      });
+      setLinks(prev => [...prev, result]);
+      setShowAddLink(false);
+      setLinkForm({ source_category: "", target_category: "", split_amount: "" });
+      load();
+    } catch (e) { setLinkErr(e.message); }
+    setLinkSaving(false);
+  };
+
+  const deleteLink = async (id) => {
+    try {
+      await API.delete(`/api/budgets/links/${id}`);
+      setLinks(prev => prev.filter(l => l.id !== id));
+      load();
+    } catch (e) { setLinkErr(e.message); }
+  };
 
   const loadHealthCheck = async () => {
     const cached = sessionStorage.getItem("budget_health_cache");
@@ -892,6 +947,7 @@ const BudgetsView = () => {
             <div
               key={budget.id}
               className="stagger-card"
+              onClick={() => setModal(budget)}
               style={{ '--i': idx,
                 background: over ? "var(--neg-soft)" : "var(--card)",
                 border: "1px solid " + (over ? "var(--neg)" : "var(--line)"),
@@ -935,6 +991,109 @@ const BudgetsView = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* Category Links */}
+      <div style={{ margin: "0 28px 20px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+        <div
+          onClick={() => setLinksExpanded(e => !e)}
+          style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+        >
+          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Category Links</span>
+          {links.length > 0 && (
+            <span style={{ fontSize: 10, color: "var(--ink-4)" }}>{links.length} link{links.length !== 1 ? "s" : ""}</span>
+          )}
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              if (!showAddLink) loadRecurring();
+              setShowAddLink(v => !v);
+              setLinksExpanded(true);
+              setLinkErr(null);
+            }}
+            style={{ marginLeft: "auto", padding: "3px 10px", borderRadius: 4, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 11, cursor: "pointer", minHeight: 44 }}
+          >
+            + Add Link
+          </button>
+          <span className={"chevron" + (linksExpanded ? " open" : "")}>&#8963;</span>
+        </div>
+        <div className={"expandable-body" + (linksExpanded ? " open" : "")}>
+          <div className="expandable-inner" style={{ padding: "0 14px 12px" }}>
+            {showAddLink && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12, padding: "10px 12px", background: "var(--paper-2)", borderRadius: 6, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500 }}>New Link</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", marginBottom: 3 }}>Source category</div>
+                    <input
+                      list="link-source-list"
+                      value={linkForm.source_category}
+                      onChange={e => setLinkForm(f => ({ ...f, source_category: e.target.value }))}
+                      placeholder="e.g. Rent"
+                      style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 5, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                    <datalist id="link-source-list">
+                      {budgets.map(b => <option key={b.id} value={b.category} />)}
+                    </datalist>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 2, fontSize: 14, color: "var(--ink-3)" }}>→</div>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", marginBottom: 3 }}>Target budget</div>
+                    <select
+                      value={linkForm.target_category}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setLinkForm(f => ({ ...f, target_category: v }));
+                        prefillSplitFromRecurring(v);
+                      }}
+                      style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 5, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", boxSizing: "border-box" }}
+                    >
+                      <option value="">Select budget…</option>
+                      {budgets
+                        .filter(b => normCat(b.category, false) !== normCat(linkForm.source_category, false))
+                        .map(b => <option key={b.id} value={b.category}>{b.category}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100 }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", marginBottom: 3 }}>Split amount (₹/txn)</div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={linkForm.split_amount}
+                      onChange={e => setLinkForm(f => ({ ...f, split_amount: e.target.value }))}
+                      placeholder="2000"
+                      style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 5, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                </div>
+                {linkErr && <div style={{ fontSize: 11, color: "var(--neg)" }}>{linkErr}</div>}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={addLink} disabled={linkSaving} style={{ padding: "5px 14px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: linkSaving ? "default" : "pointer", opacity: linkSaving ? 0.65 : 1, minHeight: 44 }}>
+                    {linkSaving ? "Saving…" : "Save Link"}
+                  </button>
+                  <button onClick={() => { setShowAddLink(false); setLinkErr(null); setLinkForm({ source_category: "", target_category: "", split_amount: "" }); }} style={{ padding: "5px 14px", borderRadius: 5, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 12, cursor: "pointer", minHeight: 44 }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {links.length === 0 && !showAddLink ? (
+              <div style={{ fontSize: 12, color: "var(--ink-4)", padding: "4px 0" }}>No links. Add one to split a source category's spend into another budget.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {links.map(lnk => (
+                  <div key={lnk.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "var(--paper-2)", borderRadius: 5, border: "1px solid var(--line)" }}>
+                    <span style={{ fontSize: 12, color: "var(--ink)", fontWeight: 500 }}>{lnk.source_category}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-4)" }}>→</span>
+                    <span style={{ fontSize: 12, color: "var(--ink)" }}>{lnk.target_category}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "'Geist Mono', monospace" }}>{fmtMoneyB(lnk.split_amount)}/txn</span>
+                    <button onClick={() => deleteLink(lnk.id)} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--ink-3)", fontSize: 10, cursor: "pointer", minHeight: 44 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
