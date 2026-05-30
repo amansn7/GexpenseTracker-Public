@@ -13,6 +13,7 @@ class Label(StrEnum):
     expense = "expense"
     income = "income"
     ignore = "ignore"
+    self_transfer = "self_transfer"
 
 
 class TransactionType(StrEnum):

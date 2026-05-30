@@ -266,3 +266,13 @@ async def test_get_transaction_detail_includes_body_text(db_session, mock_user):
         assert data["email"]["body_text"] == "Full body text here."
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_patch_transaction_label_self_transfer(db_session, mock_user):
+    """self_transfer is a valid label value in the Label enum."""
+    from app.models.transaction import Label
+
+    # Verify self_transfer is a valid Label enum value
+    assert hasattr(Label, "self_transfer")
+    assert Label.self_transfer == "self_transfer"
