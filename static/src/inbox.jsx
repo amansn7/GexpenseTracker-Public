@@ -132,6 +132,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const closeBulk = () => { if (closingBulk) return; setClosingBulk(true); setTimeout(() => { setBulkManualOpen(false); setClosingBulk(false); }, 150); };
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
+  const [bulkManualAmount, setBulkManualAmount] = React.useState("");
+  const [bulkManualMerchant, setBulkManualMerchant] = React.useState("");
   const [bulkMethod, setBulkMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
   const [dupPairs, setDupPairs] = React.useState([]);
   const [dupLoading, setDupLoading] = React.useState(false);
@@ -544,13 +546,18 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
   const bulkManualApply = async () => {
     const apiPatch = { label: bulkManualLabel, category: bulkManualCat };
+    if (bulkManualAmount) apiPatch.amount = Math.abs(parseFloat(bulkManualAmount)) || 0;
+    if (bulkManualMerchant.trim()) apiPatch.merchant = bulkManualMerchant.trim();
     await Promise.all([...selectedIds].map(id =>
       API.patch(`/api/transactions/${id}`, apiPatch).catch(() => {})
     ));
+    const isIncome = bulkManualLabel === "income";
     setTransactions(ts => ts.map(t => selectedIds.has(t.id) ? {
       ...t,
-      cat: normCat(bulkManualCat, bulkManualLabel === "income"),
-      tag: bulkManualLabel === "ignore" ? "ignore" : bulkManualLabel === "income" ? "income" : bulkManualCat === "sub" ? "subscription" : "expense",
+      cat: normCat(bulkManualCat, isIncome),
+      tag: bulkManualLabel === "ignore" ? "ignore" : isIncome ? "income" : bulkManualCat === "sub" ? "subscription" : "expense",
+      ...(bulkManualAmount ? { amount: bulkManualLabel === "ignore" ? 0 : isIncome ? (parseFloat(bulkManualAmount) || 0) : -(parseFloat(bulkManualAmount) || 0) } : {}),
+      ...(bulkManualMerchant.trim() ? { merchant: bulkManualMerchant.trim() } : {}),
     } : t));
     setBulkManualOpen(false);
     clearSelect();
@@ -1296,6 +1303,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <option key={k} value={k}>{c.label}</option>
                 ))}
               </select>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Amount (optional)</div>
+              <input type="number" min="0" step="0.01" value={bulkManualAmount} onChange={e=>setBulkManualAmount(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Merchant (optional)</div>
+              <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={closeBulk} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>

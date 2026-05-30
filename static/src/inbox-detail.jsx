@@ -101,13 +101,19 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const { isMobile } = useViewport();
   const [fetchedBody, setFetchedBody] = React.useState(null);
   const [reclassMethod, setReclassMethod] = React.useState(() => localStorage.getItem("_reclass_method") || "llm");
+  const [editingMerchant, setEditingMerchant] = React.useState(false);
+  const [merchantDraft, setMerchantDraft] = React.useState(tx.merchant || "");
+  const [editDraft, setEditDraft] = React.useState(null);
 
   React.useEffect(() => {
     setAmtDraft(Math.abs(tx.amount));
     setNote(tx.note || "");
     setEditingAmt(false);
+    setEditingMerchant(false);
+    setMerchantDraft(tx.merchant || "");
     setReclass("idle");
     setReclassResult(null);
+    setEditDraft(null);
     setFetchedBody(null);
   }, [tx.id]);
 
@@ -135,6 +141,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       await handleFetchBody();
       const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview?method=${reclassMethod}`);
       setReclassResult(result);
+      setEditDraft({
+        label: result.label || tx.tag,
+        amount: result.amount != null ? Math.abs(result.amount) : Math.abs(tx.amount),
+        merchant: result.merchant || tx.merchant,
+        category: result.category || tx.cat,
+        confidence: result.confidence ?? tx.conf,
+        txn_date: result.txn_date || tx.date,
+      });
       setReclass("preview");
     } catch (e) {
       setReclass("error");
@@ -144,31 +158,41 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const handleConfirm = async () => {
     setReclass("saving");
     try {
-      await handleFetchBody();
-      const result = await API.post(`/api/transactions/${tx.id}/reclassify?method=${reclassMethod}`);
-      setReclassResult(result);
+      const draft = editDraft;
+      if (!draft) return;
+      await API.patch(`/api/transactions/${tx.id}`, {
+        label: draft.label,
+        amount: Math.abs(draft.amount),
+        merchant: draft.merchant,
+        category: draft.category,
+      });
       setReclass("done");
-      const isIgnore = result.label === "ignore";
-      const isIncome = result.label === "income";
-      const cat = normCat(result.category, isIncome);
+      const isIgnore = draft.label === "ignore";
+      const isIncome = draft.label === "income";
+      const cat = normCat(draft.category, isIncome);
       const isSub = cat === "sub";
       onUpdate({
         _skipApi: true,
-        amount:   isIgnore ? 0 : isIncome ? (result.amount || 0) : -(result.amount || 0),
+        amount:   isIgnore ? 0 : isIncome ? (draft.amount || 0) : -(draft.amount || 0),
         cat,
         tag:      isIgnore ? "ignore" : isIncome ? "income" : isSub ? "subscription" : "expense",
-        conf:     result.confidence ?? tx.conf,
-        merchant: result.merchant || tx.merchant,
+        conf:     draft.confidence ?? tx.conf,
+        merchant: draft.merchant || tx.merchant,
       });
-      if (result.learned_rule) {
-        showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {result.learned_rule.domain}: {result.learned_rule.label} / {result.learned_rule.category}</span>);
-      }
     } catch (e) {
       setReclass("error");
     }
   };
 
   const [saving, setSaving] = React.useState(false);
+
+  const saveMerchant = () => {
+    const m = merchantDraft.trim();
+    setSaving(true);
+    onUpdate({ merchant: m });
+    setEditingMerchant(false);
+    setTimeout(() => setSaving(false), 600);
+  };
 
   const saveAmt = () => {
     const n = parseFloat(amtDraft) || 0;
@@ -262,6 +286,23 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </span>
         </div>
         <div style={inboxStyles.field}>
+          <span style={inboxStyles.fieldLabel}>Merchant</span>
+          {editingMerchant ? (
+            <input
+              autoFocus
+              value={merchantDraft}
+              onChange={e=>setMerchantDraft(e.target.value)}
+              onBlur={saveMerchant}
+              onKeyDown={e=>{ if(e.key==="Enter") saveMerchant(); if(e.key==="Escape") { setMerchantDraft(tx.merchant||""); setEditingMerchant(false); } }}
+              style={{ padding: "3px 6px", border: "1px solid var(--accent)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", width: 140, textAlign: "right" }}
+            />
+          ) : (
+            <span onClick={()=>setEditingMerchant(true)} className="hover-border-bottom" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500, color: "var(--ink)", padding: "1px 0" }}>
+              {tx.merchant || "\u2014"}
+            </span>
+          )}
+        </div>
+        <div style={inboxStyles.field}>
           <span style={inboxStyles.fieldLabel}>Source</span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--ink-3)", fontSize: 12 }}>
             <Icon name="mail" size={12}/>
@@ -331,25 +372,44 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       </div>{/* end panelBody */}
 
       <div style={inboxStyles.panelFooter}>
-        {reclass === "preview" && reclassResult && (
+        {reclass === "preview" && reclassResult && editDraft && (
           <div className="fade-in" style={{ marginBottom: 10, padding: 14, background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)", fontSize: 12 }}>
             <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon name={reclassMethod === "rules" ? "check" : "bolt"} size={13} stroke="var(--accent)"/> {reclassMethod === "rules" ? "Rules found" : "AI found"}: does this look right?
+              <Icon name={reclassMethod === "rules" ? "check" : "bolt"} size={13} stroke="var(--accent)"/> {reclassMethod === "rules" ? "Rules found" : "AI found"}: edit & apply
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px", marginBottom: 12 }}>
-              {[
-                ["Label",    reclassResult.label || "\u2014"],
-                ["Amount",   reclassResult.amount != null ? `\u20B9${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "\u2014"],
-                ["Merchant", reclassResult.merchant || "\u2014"],
-                ["Category", reclassResult.category || "\u2014"],
-                ["Confidence", `${Math.round((reclassResult.confidence ?? 0) * 100)}%`],
-                ["Date",     reclassResult.txn_date || "\u2014"],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{k}</div>
-                  <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2 }}>{v}</div>
-                </div>
-              ))}
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Label</div>
+                <select value={editDraft.label} onChange={e=>setEditDraft(d=>({...d, label:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                  <option value="ignore">Ignore</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Amount</div>
+                <input type="number" min="0" step="0.01" value={editDraft.amount} onChange={e=>setEditDraft(d=>({...d, amount: parseFloat(e.target.value) || 0}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Merchant</div>
+                <input type="text" value={editDraft.merchant} onChange={e=>setEditDraft(d=>({...d, merchant:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Category</div>
+                <select value={editDraft.category} onChange={e=>setEditDraft(d=>({...d, category:e.target.value}))} style={{ width: "100%", padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none" }}>
+                  {Object.entries(CATEGORIES).filter(([k])=>k!=="income").map(([k, c]) => (
+                    <option key={k} value={k}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Confidence</div>
+                <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2, fontSize: 12 }}>{Math.round((editDraft.confidence ?? 0) * 100)}%</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Date</div>
+                <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2, fontSize: 12 }}>{editDraft.txn_date || "\u2014"}</div>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "8px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Discard</button>
@@ -365,10 +425,10 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           </div>
         )}
 
-        {reclass === "done" && reclassResult && (
+        {reclass === "done" && (
           <div className="fade-in" style={{ marginBottom: 10, padding: 10, background: "var(--pos-soft)", borderRadius: 8, border: "1px solid var(--pos)", fontSize: 12, color: "var(--pos)", display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="check" size={14} stroke="var(--pos)"/>
-            Saved: {reclassResult.label}: {reclassResult.amount != null ? `\u20B9${Math.abs(reclassResult.amount).toLocaleString("en-IN")}` : "no amount"}: {Math.round((reclassResult.confidence ?? 0) * 100)}% confidence
+            Saved: {editDraft?.label || "—"}: ₹{Math.abs(editDraft?.amount ?? 0).toLocaleString("en-IN")} · {editDraft?.merchant || "—"}
           </div>
         )}
 
@@ -408,7 +468,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 };
 
 const RowMemo = React.memo(Row, (prev, next) => {
-  return prev.tx.id === next.tx.id
+  return prev.tx === next.tx
     && prev.selected === next.selected
     && prev.selectMode === next.selectMode;
 });
