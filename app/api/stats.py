@@ -1,6 +1,18 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from app.services.stats_service import (
+    get_summary,
+    get_category_breakdown,
+    get_top_merchants,
+    get_monthly_summary,
+    get_health,
+    get_rollup,
+    recompute_month,
+    invalidate_user_cache,
+    _add_months,
+    _period_start,
+)
 from sqlalchemy import ColumnElement, cast, desc, func, or_, select
 from sqlalchemy.types import Date
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -521,7 +533,7 @@ async def stats_summary(
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
         end = date.today()
-    return await _compute_summary(start, end, category, current_user.id, db)
+    return await get_summary(current_user.id, start, end, db)
 
 
 @router.get("/stats/category-breakdown")
@@ -541,101 +553,7 @@ async def stats_category_breakdown(
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
         end = date.today()
-    return await _compute_category_breakdown(start, end, category, current_user.id, db)
-
-
-async def _monthly_data(
-    period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = ""
-) -> list:
-    """Shared logic for monthly-trend and income-vs-expense endpoints."""
-    from app.services.category_service import CategoryService
-
-    today = date.today()
-    if date_from and date_to:
-        start = date_from
-        end = date_to
-    else:
-        start = _period_start(period)
-        end = today
-    this_month = end.replace(day=1)
-
-    months: dict = {}
-    m = start.replace(day=1)
-    while m <= this_month:
-        key = m.strftime("%Y-%m")
-        months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
-        m = _add_months(m, 1)
-
-    _inv_aliases = CategoryService.filter_aliases("investment")
-    _card_aliases = CategoryService.filter_aliases("card")
-
-    expense_where = [
-        Transaction.label == "expense",
-        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_inv_aliases)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_card_aliases)),
-        Transaction.txn_date >= start,
-        Transaction.txn_date <= end,
-        Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
-    ]
-    _m_inc_date = func.coalesce(Transaction.txn_date, cast(Email.received_at, Date))
-    income_where = [
-        Transaction.label == "income",
-        _m_inc_date >= _add_months(start, -1),
-    ]
-    expense_where.insert(0, Email.user_id == user_id)
-    income_where.insert(0, Email.user_id == user_id)
-
-    expense_rows = (
-        await db.execute(
-            select(
-                MonthKey(Transaction.txn_date).label("month_key"),
-                func.sum(Transaction.amount).label("total"),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*expense_where)
-            .group_by(MonthKey(Transaction.txn_date))
-        )
-    ).all()
-
-    for r in expense_rows:
-        key = r.month_key
-        if key in months:
-            months[key]["expenses"] += float(r.total or 0)
-
-    income_rows = (
-        await db.execute(
-            select(_m_inc_date.label("txn_date"), Transaction.amount, Email.sender)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*income_where)
-        )
-    ).all()
-
-    for r in income_rows:
-        em = _effective_month(r.txn_date, "income", r.sender)
-        key = em.strftime("%Y-%m")
-        if key in months:
-            months[key]["income"] += float(r.amount or 0)
-
-    result = sorted(months.values(), key=lambda x: x["month"])
-    for entry in result:
-        entry["expenses"] = round(entry["expenses"], 2)
-        entry["income"] = round(entry["income"], 2)
-    return result
-
-
-@router.get("/stats/monthly-trend")
-async def stats_monthly_trend(
-    period: str = "1m",
-    date_from: date | None = None,
-    date_to: date | None = None,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    if not (date_from and date_to) and period not in ("1m", "3m", "6m", "1y"):
-        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
-    return await _compute_monthly_trend(period, date_from, date_to, current_user.id, db)
+    return await get_category_breakdown(current_user.id, start, end, db)
 
 
 @router.get("/stats/top-merchants")
@@ -654,7 +572,7 @@ async def stats_top_merchants(
             raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
         start = _period_start(period)
         end = date.today()
-    return await _compute_top_merchants(start, end, current_user.id, db)
+    return await get_top_merchants(current_user.id, start, end, db)
 
 
 @router.get("/stats/monthly-summary")
@@ -662,7 +580,7 @@ async def stats_monthly_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await _compute_monthly_summary(current_user.id, db)
+    return await get_monthly_summary(current_user.id, 12, db)
 
 
 @router.get("/stats/income-vs-expense")
@@ -686,119 +604,7 @@ async def stats_health(
 ):
     if months not in (3, 6, 12):
         raise HTTPException(status_code=422, detail="months must be 3, 6, or 12")
-    return await _compute_health(months, current_user.id, db)
-
-
-async def _compute_confidence(user_id: str, db: AsyncSession) -> dict:
-    """Reusable confidence stats computation."""
-    base_where = [
-        Email.user_id == user_id,
-        Transaction.confidence.isnot(None),
-    ]
-
-    total = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where)
-        )
-    ).scalar_one()
-
-    auto_confirmed = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
-        )
-    ).scalar_one()
-
-    corrected = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
-        )
-    ).scalar_one()
-
-    needs_review = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
-        )
-    ).scalar_one()
-
-    high_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
-        )
-    ).scalar_one()
-
-    medium_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                *base_where,
-                Transaction.confidence >= settings.MEDIUM_CONFIDENCE_THRESHOLD,
-                Transaction.confidence < settings.HIGH_CONFIDENCE_THRESHOLD,
-            )
-        )
-    ).scalar_one()
-
-    low_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.confidence < settings.LOW_CONFIDENCE_THRESHOLD)
-        )
-    ).scalar_one()
-
-    rule_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.classifier_method == ClassifierMethod.rule.value)
-        )
-    ).scalar_one()
-
-    llm_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.classifier_method == ClassifierMethod.llm.value)
-        )
-    ).scalar_one()
-
-    correction_rate = round(corrected / total, 4) if total > 0 else 0.0
-
-    return {
-        "total": total,
-        "auto_confirmed": auto_confirmed,
-        "corrected": corrected,
-        "needs_review": needs_review,
-        "confidence_distribution": {
-            "high": high_count,
-            "medium": medium_count,
-            "low": low_count,
-        },
-        "method_breakdown": {
-            "rule": rule_count,
-            "llm": llm_count,
-        },
-        "correction_rate": correction_rate,
-    }
+    return await get_health(current_user.id, months, db)
 
 
 @router.get("/stats/confidence")
@@ -835,15 +641,15 @@ async def get_stats(
 
     for section in section_set:
         if section == "summary":
-            result["summary"] = await _compute_summary(start, end, category, user_id, db)
+            result["summary"] = await get_summary(user_id, start, end, db)
         elif section == "categoryBreakdown":
-            result["categoryBreakdown"] = await _compute_category_breakdown(start, end, category, user_id, db)
+            result["categoryBreakdown"] = await get_category_breakdown(user_id, start, end, db)
         elif section == "topMerchants":
-            result["topMerchants"] = await _compute_top_merchants(start, end, user_id, db)
+            result["topMerchants"] = await get_top_merchants(user_id, start, end, db)
         elif section == "health":
-            result["health"] = await _compute_health(months, user_id, db)
+            result["health"] = await get_health(user_id, months, db)
         elif section == "monthlySummary":
-            result["monthlySummary"] = await _compute_monthly_summary(user_id, db)
+            result["monthlySummary"] = await get_monthly_summary(user_id, 12, db)
         elif section == "monthlyTrend":
             result["monthlyTrend"] = await _compute_monthly_trend(period, date_from, date_to, user_id, db)
         elif section == "budgets":
@@ -855,11 +661,10 @@ async def get_stats(
         range_days = (date_to - date_from).days
         prev_from = date_from - timedelta(days=range_days + 1)
         prev_to = date_from - timedelta(days=1)
-        prev_summary = await _compute_summary(prev_from, prev_to, category, user_id, db)
         result["previousPeriod"] = {
             "date_from": prev_from.isoformat(),
             "date_to": prev_to.isoformat(),
-            "summary": prev_summary,
+            "summary": await get_summary(user_id, prev_from, prev_to, db),
         }
 
     return {k: v for k, v in result.items() if v is not None}

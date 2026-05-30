@@ -28,6 +28,7 @@ from app.models import (
 from app.services.classifier_service import get_classifier_context
 from app.services.llm_service import get_effective_llm_client
 from app.services.transaction_formatter import format_transaction
+from app.services.stats_service import recompute_month, invalidate_user_cache
 
 router = APIRouter()
 
@@ -92,6 +93,7 @@ async def bulk_transactions(
         last_id = ""
         total_updated = 0
         all_stats = None
+        affected_months: set[tuple[int, int]] = set()
         while True:
             rows = (
                 (
@@ -156,7 +158,14 @@ async def bulk_transactions(
                     t.status = TransactionStatus.corrected.value
 
             await db.commit()
+            for row in rows:
+                if row.txn_date:
+                    affected_months.add((row.txn_date.year, row.txn_date.month))
             total_updated += len(rows)
+
+        for year, month in affected_months:
+            await recompute_month(current_user.id, year, month, db)
+        invalidate_user_cache(current_user.id)
 
         if payload.action == "detect_duplicates":
             return {"updated": total_updated, "duplicates": all_stats or {}}
@@ -200,6 +209,13 @@ async def bulk_transactions(
             user_id = str(current_user.id)
             stats = await batch_detect_duplicates(tx_email_pairs, db, user_id)
             await db.commit()
+            affected_months = set()
+            for txn in rows:
+                if txn.txn_date:
+                    affected_months.add((txn.txn_date.year, txn.txn_date.month))
+            for year, month in affected_months:
+                await recompute_month(current_user.id, year, month, db)
+            invalidate_user_cache(current_user.id)
             return {"updated": len(rows), "duplicates": stats}
         elif payload.action == "set_category":
             if not payload.category:
@@ -215,6 +231,13 @@ async def bulk_transactions(
                 t.status = TransactionStatus.corrected.value
 
         await db.commit()
+        affected_months = set()
+        for txn in rows:
+            if txn.txn_date:
+                affected_months.add((txn.txn_date.year, txn.txn_date.month))
+        for year, month in affected_months:
+            await recompute_month(current_user.id, year, month, db)
+        invalidate_user_cache(current_user.id)
         return {"updated": len(rows)}
 
 
@@ -604,6 +627,10 @@ async def patch_transaction(
 
     await db.commit()
 
+    if t.txn_date:
+        await recompute_month(current_user.id, t.txn_date.year, t.txn_date.month, db)
+        invalidate_user_cache(current_user.id)
+
     # Record merchant→category correction for future pre-extraction hints
     final_merchant = patch.merchant if patch.merchant is not None else t.merchant
     final_category = patch.category if patch.category is not None else t.category
@@ -771,6 +798,10 @@ async def reclassify_transaction(
             "category": t.category,
         }
         await db.commit()
+
+    if t.txn_date:
+        await recompute_month(current_user.id, t.txn_date.year, t.txn_date.month, db)
+        invalidate_user_cache(current_user.id)
 
     await db.refresh(t)
     result = format_transaction(t, e)

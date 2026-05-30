@@ -39,6 +39,10 @@ from .merchant import MerchantEntityAlias
 from .merchant import (
     MerchantEntity,
 )
+from .rollup import (
+    DailySnapshot,
+    PeriodRollup,
+)
 from .sync_progress import (
     SyncProgress,
 )
@@ -112,6 +116,9 @@ __all__ = [
     "MerchantEntity",
     # sync progress
     "SyncProgress",
+    # rollup
+    "DailySnapshot",
+    "PeriodRollup",
     # audit log
     "AuditLog",
     # device / JWT
