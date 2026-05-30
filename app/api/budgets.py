@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth_deps import get_current_user
 from app.database import get_db
-from app.models import Budget, Email, Transaction, User
+from app.models import Budget, BudgetLink, Email, Transaction, User
 
 router = APIRouter()
 
@@ -19,6 +19,12 @@ class BudgetBody(BaseModel):
 
 class BudgetPatch(BaseModel):
     monthly_limit: float | None = None
+
+
+class BudgetLinkBody(BaseModel):
+    source_category: str
+    target_category: str
+    split_amount: float
 
 
 @router.get("/budgets")
@@ -89,6 +95,79 @@ async def create_budget(
         raise HTTPException(status_code=409, detail="Budget for this category already exists")
     await db.refresh(b)
     return {"id": b.id, "category": b.category, "monthly_limit": float(b.monthly_limit)}
+
+
+@router.get("/budgets/links")
+async def list_budget_links(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    links = (
+        (await db.execute(select(BudgetLink).where(BudgetLink.user_id == current_user.id).order_by(BudgetLink.id)))
+        .scalars()
+        .all()
+    )
+    return {
+        "links": [
+            {
+                "id": lnk.id,
+                "source_category": lnk.source_category,
+                "target_category": lnk.target_category,
+                "split_amount": float(lnk.split_amount),
+            }
+            for lnk in links
+        ]
+    }
+
+
+@router.post("/budgets/links", status_code=201)
+async def create_budget_link(
+    body: BudgetLinkBody,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not body.source_category.strip():
+        raise HTTPException(status_code=422, detail="source_category is required")
+    if not body.target_category.strip():
+        raise HTTPException(status_code=422, detail="target_category is required")
+    if body.source_category.strip().lower() == body.target_category.strip().lower():
+        raise HTTPException(status_code=422, detail="source and target categories must differ")
+    if body.split_amount <= 0:
+        raise HTTPException(status_code=422, detail="split_amount must be positive")
+    from sqlalchemy.exc import IntegrityError
+
+    lnk = BudgetLink(
+        user_id=current_user.id,
+        source_category=body.source_category.strip(),
+        target_category=body.target_category.strip(),
+        split_amount=body.split_amount,
+    )
+    db.add(lnk)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Link for this source/target pair already exists")
+    await db.refresh(lnk)
+    return {
+        "id": lnk.id,
+        "source_category": lnk.source_category,
+        "target_category": lnk.target_category,
+        "split_amount": float(lnk.split_amount),
+    }
+
+
+@router.delete("/budgets/links/{id}")
+async def delete_budget_link(
+    id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    lnk = (
+        await db.execute(select(BudgetLink).where(BudgetLink.id == id, BudgetLink.user_id == current_user.id))
+    ).scalar_one_or_none()
+    if not lnk:
+        raise HTTPException(status_code=404, detail="Not found")
+    await db.delete(lnk)
+    await db.commit()
+    return {"deleted": id}
 
 
 @router.patch("/budgets/{id}")
