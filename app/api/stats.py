@@ -59,13 +59,7 @@ def _add_months(d: date, n: int) -> date:
 
 
 def _effective_month(txn_date: date, label: str, sender: str | None) -> date:
-    """Return the month this transaction is attributed to.
-
-    Axis Bank income on day >= 25 shifts to the 1st of the following month.
-    All other transactions: 1st of their own month.
-    """
-    if label == "income" and txn_date.day >= 25 and sender and "axis" in sender.lower():
-        return _add_months(txn_date, settings.INCOME_MONTH_SHIFT)
+    """Return the month this transaction is attributed to (1st of txn month)."""
     return txn_date.replace(day=1)
 
 
@@ -134,23 +128,21 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
         or 0
     )
 
-    _inc_date = func.coalesce(Transaction.txn_date, cast(Email.received_at, Date))
-    income_rows = (
-        await db.execute(
-            select(_inc_date.label("txn_date"), Transaction.amount, Email.sender)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user_id,
-                Transaction.label == "income",
-                _inc_date >= _add_months(start, -1),
+    total_income = float(
+        (
+            await db.execute(
+                select(func.sum(Transaction.amount))
+                .join(Email, Transaction.email_id == Email.id)
+                .where(
+                    Email.user_id == user_id,
+                    Transaction.label == "income",
+                    Transaction.txn_date >= start,
+                    Transaction.txn_date <= end,
+                    Transaction.txn_date.isnot(None),
+                )
             )
-        )
-    ).all()
-
-    total_income = sum(
-        float(r.amount or 0)
-        for r in income_rows
-        if start.replace(day=1) <= _effective_month(r.txn_date, "income", r.sender) <= this_month
+        ).scalar_one()
+        or 0
     )
 
     cc_row = (
@@ -509,6 +501,152 @@ async def _compute_budgets(user_id: str, db: AsyncSession) -> dict:
         )
 
     return {"budgets": result}
+
+
+async def _monthly_data(
+    period: str, db: AsyncSession, date_from: date | None = None, date_to: date | None = None, user_id: str = ""
+) -> list:
+    """Shared logic for monthly-trend and income-vs-expense endpoints."""
+    from app.services.category_service import CategoryService
+
+    today = date.today()
+    if date_from and date_to:
+        start = date_from
+        end = date_to
+    else:
+        start = _period_start(period)
+        end = today
+    this_month = end.replace(day=1)
+
+    months: dict = {}
+    m = start.replace(day=1)
+    while m <= this_month:
+        key = m.strftime("%Y-%m")
+        months[key] = {"month": key, "expenses": 0.0, "income": 0.0}
+        m = _add_months(m, 1)
+
+    _inv_aliases = CategoryService.filter_aliases("investment")
+    _card_aliases = CategoryService.filter_aliases("card")
+
+    expense_where = [
+        Email.user_id == user_id,
+        Transaction.label == "expense",
+        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_inv_aliases)),
+        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_card_aliases)),
+        Transaction.txn_date >= start,
+        Transaction.txn_date <= end,
+        Transaction.txn_date.isnot(None),
+        Transaction.status != "needs_review",
+    ]
+
+    expense_rows = (
+        await db.execute(
+            select(
+                MonthKey(Transaction.txn_date).label("month_key"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*expense_where)
+            .group_by(MonthKey(Transaction.txn_date))
+        )
+    ).all()
+
+    for r in expense_rows:
+        key = r.month_key
+        if key in months:
+            months[key]["expenses"] += float(r.total or 0)
+
+    income_rows = (
+        await db.execute(
+            select(
+                MonthKey(Transaction.txn_date).label("month_key"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                Email.user_id == user_id,
+                Transaction.label == "income",
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.txn_date.isnot(None),
+            )
+            .group_by(MonthKey(Transaction.txn_date))
+        )
+    ).all()
+
+    for r in income_rows:
+        key = r.month_key
+        if key in months:
+            months[key]["income"] += float(r.total or 0)
+
+    result = sorted(months.values(), key=lambda x: x["month"])
+    for entry in result:
+        entry["expenses"] = round(entry["expenses"], 2)
+        entry["income"] = round(entry["income"], 2)
+    return result
+
+
+async def _compute_confidence(user_id: str, db: AsyncSession) -> dict:
+    """Reusable confidence stats computation."""
+    base_where = [
+        Email.user_id == user_id,
+        Transaction.confidence.isnot(None),
+    ]
+
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where)
+        )
+    ).scalar_one()
+
+    auto_confirmed = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
+        )
+    ).scalar_one()
+
+    corrected = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
+        )
+    ).scalar_one()
+
+    needs_review = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
+        )
+    ).scalar_one()
+
+    high_count = (
+        await db.execute(
+            select(func.count())
+            .select_from(Transaction)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
+        )
+    ).scalar_one()
+
+    return {
+        "total": total,
+        "auto_confirmed": auto_confirmed,
+        "corrected": corrected,
+        "needs_review": needs_review,
+        "high_confidence": high_count,
+        "overall_score": round(auto_confirmed / total * 100, 1) if total > 0 else 0.0,
+    }
 
 
 # ---------------------------------------------------------------------------

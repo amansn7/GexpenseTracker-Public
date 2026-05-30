@@ -1,14 +1,12 @@
 from datetime import date, datetime, timedelta
-from decimal import Decimal
 import json
 import uuid
 
-from sqlalchemy import cast, case, desc, func, or_, select
+from sqlalchemy import case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.types import Date
 
 from app.models import (
-    Budget, Email, PeriodRollup, DailySnapshot,
+    Email, PeriodRollup,
     Transaction, UserSettings,
 )
 from app.services.category_service import CategoryService
@@ -51,8 +49,6 @@ def _add_months(d: date, n: int) -> date:
 
 
 def _effective_month(txn_date: date, label: str, sender: str | None) -> date:
-    if label == "income" and txn_date.day >= 25 and sender and "axis" in sender.lower():
-        return _add_months(txn_date, 1)
     return txn_date.replace(day=1)
 
 
@@ -104,22 +100,18 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
     )
 
     # ── Income ──
-    _inc_date = func.coalesce(Transaction.txn_date, cast(Email.received_at, Date))
-    income_rows = (
-        await db.execute(
-            select(_inc_date.label("txn_date"), Transaction.amount, Email.sender)
+    total_income = float(
+        (await db.execute(
+            select(func.sum(Transaction.amount))
             .join(Email, Transaction.email_id == Email.id)
             .where(
                 Email.user_id == user_id,
                 Transaction.label == "income",
-                _inc_date >= _add_months(start, -1),
+                Transaction.txn_date >= start,
+                Transaction.txn_date <= end,
+                Transaction.txn_date.isnot(None),
             )
-        )
-    ).all()
-    total_income = sum(
-        float(r.amount or 0)
-        for r in income_rows
-        if start <= _effective_month(r.txn_date, "income", r.sender) <= end
+        )).scalar_one() or 0
     )
 
     # ── CC payments ──
@@ -409,15 +401,19 @@ async def get_monthly_summary(user_id: str, num_months: int, db: AsyncSession) -
                 "savings_rate": sr,
             })
         else:
-            # Fallback to live data for this month
-            from app.api.stats import _compute_summary, _compute_monthly_summary
+            from app.api.stats import _compute_summary
+            live = await _compute_summary(m, end, None, user_id, db)
+            inc = live["total_income"]
+            exp = live["total_expenses"]
+            net = round(inc - exp, 2)
+            sr = round(net / inc * 100, 1) if inc > 0 else 0.0
             results.append({
                 "month": key,
                 "label": m.strftime("%B %Y"),
-                "income": 0.0,
-                "expenses": 0.0,
-                "net": 0.0,
-                "savings_rate": 0.0,
+                "income": inc,
+                "expenses": exp,
+                "net": net,
+                "savings_rate": sr,
             })
         m = _add_months(m, 1)
     return {"months": results}
