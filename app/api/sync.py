@@ -439,14 +439,14 @@ async def get_alerts(current_user: User = Depends(get_current_user)):
 async def list_tasks(current_user: User = Depends(get_current_user)):
     from app.workers.queue import task_queue
 
-    return {"tasks": task_queue.get_tasks(user_id=current_user.id, limit=20)}
+    return {"tasks": await task_queue.get_tasks(user_id=current_user.id, limit=20)}
 
 
 @router.get("/tasks/{task_id}")
 async def get_task_status(task_id: str, current_user: User = Depends(get_current_user)):
     from app.workers.queue import task_queue
 
-    task = task_queue.get_status(task_id)
+    task = await task_queue.get_status(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task["user_id"] != current_user.id:

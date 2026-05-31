@@ -1,5 +1,12 @@
 # Agent Instructions: Lessons & Patterns
 
+## Git: Prevent unintended changes in commits
+
+### Always diff --stat before committing with `git add -A`
+1. `git add -A` stages ALL changes in the working tree, including unrelated dirty files from previous sessions. Always run `git diff --cached --stat` before committing to verify only intended files are staged.
+2. If unintended files are present, use `git reset HEAD <file>` to unstage them, or `git checkout HEAD -- <file>` to revert the working tree version.
+3. This is especially important when switching contexts between feature work (e.g., frontend polish vs. backend infrastructure spikes).
+
 ## Frontend CSS Consistency
 
 ### Batch Pattern for Form Element Styling Fixes

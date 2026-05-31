@@ -187,7 +187,7 @@ def setup_scheduler() -> None:
     async def _idempotency_cleanup_job():
         logger.info("idempotency_cleanup_starting")
         try:
-            pruned = task_queue.cleanup_idempotency()
+            pruned = await task_queue.cleanup_idempotency()
             if pruned:
                 logger.info("idempotency_cleanup_complete", pruned_count=pruned)
         except Exception as exc:
