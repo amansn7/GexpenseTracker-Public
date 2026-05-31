@@ -290,7 +290,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     <aside style={{
       ...inboxStyles.panel,
       ...(isMobile ? {
-        position: "fixed", inset: 0, zIndex: 65, borderLeft: "none",
+        position: "fixed", inset: 0, height: "100dvh", zIndex: 65, borderLeft: "none",
         padding: "18px 18px 0", overflowY: "auto", minHeight: 0,
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
