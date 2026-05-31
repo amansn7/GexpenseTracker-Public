@@ -242,29 +242,48 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setTimeout(() => setSaving(false), 600);
   };
 
+  var touchStartY = React.useRef(0);
+  var swipeActivated = React.useRef(false);
+
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
-    swipingRef.current = true;
-    setSwiping(true);
+    touchStartY.current = e.touches[0].clientY;
+    swipeActivated.current = false;
+    swipingRef.current = false;
     setSwipeX(0);
+    setSwiping(false);
   };
 
   const handleTouchMove = (e) => {
-    if (!swipingRef.current) return;
-    var dx = e.touches[0].clientX - touchStartX.current;
-    if (dx > 0) {
-      swipeXRef.current = dx;
-      setSwipeX(dx);
+    if (swipeActivated.current) {
+      var dx = e.touches[0].clientX - touchStartX.current;
+      if (dx > 0) {
+        swipeXRef.current = dx;
+        setSwipeX(dx);
+      }
+      return;
+    }
+    var ddx = e.touches[0].clientX - touchStartX.current;
+    var ddy = Math.abs(e.touches[0].clientY - touchStartY.current);
+    if (ddx > 10 && ddx > ddy * 1.5) {
+      swipeActivated.current = true;
+      swipingRef.current = true;
+      setSwiping(true);
+      swipeXRef.current = ddx;
+      setSwipeX(ddx);
     }
   };
 
   const handleTouchEnd = () => {
+    var shouldClose = swipeXRef.current > 80;
     swipingRef.current = false;
+    swipeActivated.current = false;
     setSwiping(false);
-    if (swipeXRef.current > 80) {
+    setSwipeX(0);
+    swipeXRef.current = 0;
+    if (shouldClose) {
       onClose();
     }
-    setSwipeX(0);
   };
 
   return (
@@ -284,7 +303,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       onTouchMove={isMobile ? handleTouchMove : undefined}
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
     >
-      <div style={inboxStyles.panelBody} className="view-enter">
+      <div style={{ ...inboxStyles.panelBody, ...(isMobile ? { minHeight: 0 } : {}) }} className="view-enter">
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <MerchantLogo merchant={tx.merchant} size={36}/>
