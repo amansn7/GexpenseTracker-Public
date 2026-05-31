@@ -286,20 +286,19 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     }
   };
 
-  return (
+  const panel = (
     <aside style={{
       ...inboxStyles.panel,
       ...(isMobile ? {
-        position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", zIndex: 65, borderLeft: "none",
-        padding: "18px 18px 0", overflowY: "auto",
-        display: "block", boxSizing: "border-box",
+        display: "flex", flexDirection: "column", height: "100%",
+        padding: "18px 18px 0", borderLeft: "none", overflowY: "auto",
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
         transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
         willChange: swiping ? "transform, opacity" : "auto",
         touchAction: "pan-y"
       } : {})
-    }} className="slide-in-right" key={tx.id}
+    }} className={isMobile ? "" : "slide-in-right"} key={tx.id}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchMove={isMobile ? handleTouchMove : undefined}
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
@@ -566,6 +565,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       </div>
     </aside>
   );
+
+  if (isMobile) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 65, background: "var(--card)" }}>
+        {panel}
+      </div>
+    );
+  }
+  return panel;
 };
 
 const RowMemo = React.memo(Row, (prev, next) => {

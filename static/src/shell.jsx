@@ -120,7 +120,7 @@ const useViewport = () => {
 };
 
 const shellStyles = {
-  app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100dvh", position: "relative", zIndex: 2 },
+  app: { display: "grid", gridTemplateColumns: "232px 1fr", minHeight: "100dvh" },
   side: { borderRight: "1px solid var(--line)", padding: "16px 12px", display: "flex", flexDirection: "column", gap: 1, position: "sticky", top: 0, height: "100dvh", background: "var(--paper)", overflowY: "auto" },
   brand: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 4px 24px" },
   brandMark: { fontFamily: "'Geist', sans-serif", fontSize: 26, fontWeight: 500, letterSpacing: "-0.03em", color: "var(--ink)" },
