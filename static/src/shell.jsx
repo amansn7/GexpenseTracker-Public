@@ -68,7 +68,7 @@ const mobileStyles = {
 
 var bottomSheetStyles = {
   overlay: {
-    position: "fixed", inset: 0, zIndex: 100,
+    position: "fixed", inset: 0, zIndex: 9999,
     background: "var(--overlay)",
     display: "flex", alignItems: "flex-end", justifyContent: "center"
   },

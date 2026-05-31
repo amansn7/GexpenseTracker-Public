@@ -122,7 +122,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
       </div>
     </div>
   );
-  return ReactDOM.createPortal(mobilePicker, document.body);
+  return ReactDOM.createPortal(mobilePicker, document.getElementById("modal-root"));
 };
 
 const DetailPanel = ({ tx, onClose, onUpdate }) => {
@@ -572,7 +572,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       <div style={{ position: "fixed", inset: 0, zIndex: 65, background: "var(--card)" }}>
         {panel}
       </div>,
-      document.body
+      document.getElementById("modal-root")
     );
   }
   return panel;
