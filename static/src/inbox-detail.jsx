@@ -97,7 +97,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
     );
   }
 
-  return (
+  const mobilePicker = (
     <div onClick={handleClose} style={{
       position: "fixed", inset: 0, zIndex: 100,
       background: closing ? "transparent" : "rgba(0,0,0,0.4)",
@@ -122,6 +122,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
       </div>
     </div>
   );
+  return ReactDOM.createPortal(mobilePicker, document.body);
 };
 
 const DetailPanel = ({ tx, onClose, onUpdate }) => {
@@ -567,10 +568,11 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   );
 
   if (isMobile) {
-    return (
+    return ReactDOM.createPortal(
       <div style={{ position: "fixed", inset: 0, zIndex: 65, background: "var(--card)" }}>
         {panel}
-      </div>
+      </div>,
+      document.body
     );
   }
   return panel;

@@ -1340,7 +1340,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
 
       {bulkManualOpen && (
-        isMobile ? (
+        isMobile ? ReactDOM.createPortal(
           <div onClick={closeBulk} style={bottomSheetStyles.overlay}>
             <div onClick={e=>e.stopPropagation()} style={bottomSheetStyles.sheet}>
               <div style={bottomSheetStyles.handle} />
@@ -1376,7 +1376,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         ) : (
           <div onClick={closeBulk} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingBulk ? "backdrop-out" : "backdrop-in"}>
             <div onClick={e=>e.stopPropagation()} className={closingBulk ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: 340, boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
@@ -1415,7 +1416,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
 
       {bulkReclassItems.length > 0 && (
-        isMobile ? (
+        isMobile ? ReactDOM.createPortal(
           <div onClick={closeReclass} style={bottomSheetStyles.overlay}>
             <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
               <div style={bottomSheetStyles.handle} />
@@ -1629,7 +1630,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 })()}
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         ) : (
           <div onClick={closeReclass} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingReclass ? "backdrop-out" : "backdrop-in"}>
             <div onClick={e => { if (e.target === e.currentTarget) return; e.stopPropagation(); }} className={closingReclass ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "15%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 0, width: 520, maxHeight: "70vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px -20px var(--shadow-lg)" }}>
