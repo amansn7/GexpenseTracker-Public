@@ -767,7 +767,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
             </div>
           )}
-          <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px 14px", gap: 8, overflowX: "auto", alignItems: "center", scrollSnapType: "x mandatory" } : {}) }}>
+          <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px max(14px, env(safe-area-inset-right, 0px)) 9px max(14px, env(safe-area-inset-left, 0px))", gap: 8, overflowX: "auto", alignItems: "center", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } : {}) }}>
             {selectMode ? (
               <>
                 <input
@@ -1041,7 +1041,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       );
                     }
                     return (
-                      <div style={isMobile ? { position: "fixed", inset: 0, zIndex: 65, background: "var(--paper)", padding: "18px 18px 0", height: "100dvh", overflowY: "auto", borderLeft: "none" } : { overflowY: "auto", background: "var(--card)", padding: "24px" }} className={isMobile ? "slide-in-right" : ""}>
+                      <div style={isMobile ? { position: "fixed", inset: 0, zIndex: 65, background: "var(--paper)", padding: "18px max(18px, env(safe-area-inset-right, 0px)) max(0px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px))", height: "100dvh", overflowY: "auto", borderLeft: "none" } : { overflowY: "auto", background: "var(--card)", padding: "24px" }} className={isMobile ? "slide-in-right" : ""}>
                         <ReviewDetailPanel
                           email={selectedReviewEmail}
                           onKeep={id => {
@@ -1261,7 +1261,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                       });
                     }
                   }}
-                  style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}), cursor: "pointer", userSelect: "none" }}
+                  style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px max(14px, env(safe-area-inset-right, 0px)) 7px max(14px, env(safe-area-inset-left, 0px))", top: 41 } : {}), cursor: "pointer", userSelect: "none" }}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {selectMode && (
@@ -1321,21 +1321,21 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         {selected && <DetailPanel tx={selected} onClose={()=>setSelectedId(null)} onUpdate={(p)=>updateTx(selected.id, p)} />}
       </div>
 
-      {selectedIds.size > 0 && (
-        <div style={{ position: "fixed", bottom: isMobile ? 12 : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px var(--shadow-lg)", zIndex: 70, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible" }}>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectAllFlag ? totalTransactions : selectedIds.size} selected</span>
-          <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
-          <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>
-          <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Flag</button>
-          <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Unflag</button>
-          <button onClick={bulkReclassify} disabled={bulkReclassItems.length > 0} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassItems.length > 0 ? "default" : "pointer", fontWeight: 500 }}>
-            Recategorize (LLM)
+          {selectedIds.size > 0 && (
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(var(--mobile-tabbar-h) + 8px)" : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px var(--shadow-lg)", zIndex: 70, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6, whiteSpace: "nowrap" }}>{selectAllFlag ? totalTransactions : selectedIds.size} selected</span>
+          <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Mark Read</button>
+          <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Mark Unread</button>
+          <button onClick={bulkFlag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Flag</button>
+          <button onClick={bulkUnflag} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Unflag</button>
+          <button onClick={bulkReclassify} disabled={bulkReclassItems.length > 0} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: bulkReclassItems.length > 0 ? "default" : "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>
+            LLM
           </button>
-          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>Recategorize (Manual)</button>
-          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Delete</button>
-          <button onClick={bulkDetectDuplicates} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Detect Duplicates</button>
+          <button onClick={()=>setBulkManualOpen(true)} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap", ...(isMobile ? { minHeight: 44 } : {}) }}>Manual</button>
+          <button onClick={bulkDelete} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--neg)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Delete</button>
+          <button onClick={bulkDetectDuplicates} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500, ...(isMobile ? { minHeight: 44, whiteSpace: "nowrap" } : {}) }}>Duplicates</button>
           {bulkDetectError && <span style={{ fontSize: 11, color: "var(--neg)" }}>{bulkDetectError}</span>}
-          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon name="x" size={14} stroke="currentColor"/></button>
+          <button onClick={clearSelect} style={{ padding: "6px 10px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", display: "flex", alignItems: "center", ...(isMobile ? { minHeight: 44 } : {}) }}><Icon name="x" size={14} stroke="currentColor"/></button>
         </div>
       )}
 
@@ -2195,7 +2195,7 @@ const SearchView = ({ query, categoryFilter }) => {
       )}
 
       {selectedIds.size > 0 && (
-        <div style={{ position: "fixed", bottom: isMobile ? 68 : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px var(--shadow-lg)", zIndex: 70, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible" }}>
+        <div style={{ position: "fixed", bottom: isMobile ? "calc(var(--mobile-tabbar-h) + 8px)" : 24, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--paper)", borderRadius: 10, padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px -8px var(--shadow-lg)", zIndex: 70, fontSize: 13, fontWeight: 500, width: isMobile ? "calc(100vw - 24px)" : "auto", overflowX: isMobile ? "auto" : "visible" }}>
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 11, opacity: 0.6 }}>{selectAllFlag ? results.length : selectedIds.size} selected</span>
           <button onClick={bulkMarkRead} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Read</button>
           <button onClick={bulkMarkUnread} style={{ padding: "6px 12px", border: "1px solid var(--ink-3)", borderRadius: 6, background: "transparent", color: "var(--paper)", fontSize: 12, cursor: "pointer", fontWeight: 500 }}>Mark Unread</button>

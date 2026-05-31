@@ -78,7 +78,7 @@ var bottomSheetStyles = {
     maxHeight: "min(70vh, 420px)",
     background: "var(--card)",
     borderTopLeftRadius: 12, borderTopRightRadius: 12,
-    padding: "4px 0 24px",
+    padding: "4px 0 max(24px, env(safe-area-inset-bottom, 0px))",
     overflowY: "auto",
     boxShadow: "0 -8px 32px -8px var(--shadow-lg)",
     transform: "translateY(0)",

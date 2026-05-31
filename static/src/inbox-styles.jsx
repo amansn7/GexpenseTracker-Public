@@ -37,7 +37,7 @@ const inboxStyles = {
 
   panel: { overflowY: "auto", padding: "28px 28px 0", background: "var(--card)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" },
   panelBody: { flex: 1, paddingBottom: 16 },
-  panelFooter: { position: "sticky", bottom: 0, background: "var(--card)", borderTop: "1px solid var(--line)", padding: "12px 0 16px", marginTop: "auto" },
+  panelFooter: { position: "sticky", bottom: 0, background: "var(--card)", borderTop: "1px solid var(--line)", padding: "12px 0 max(16px, env(safe-area-inset-bottom, 0px))", marginTop: "auto" },
   panelHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 },
   bigAmount: { fontFamily: "'Geist Mono', monospace", fontSize: 54, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, margin: "8px 0 4px" },
   panelSection: { padding: "16px 0", borderBottom: "1px dashed var(--line)" },

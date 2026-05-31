@@ -4,7 +4,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   const [hovered, setHovered] = React.useState(false);
   const { isMobile } = useViewport();
   const rowStyle = isMobile
-    ? { ...inboxStyles.row, gridTemplateColumns: "24px 30px minmax(0, 1fr) auto", gap: 10, padding: "13px 14px", alignItems: "start" }
+    ? { ...inboxStyles.row, gridTemplateColumns: "24px 30px minmax(0, 1fr) auto", gap: 10, padding: "13px max(14px, env(safe-area-inset-right, 0px)) 13px max(14px, env(safe-area-inset-left, 0px))", alignItems: "start" }
     : inboxStyles.row;
   return (
     <div
@@ -108,7 +108,7 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
         background: "var(--card)",
         borderTopLeftRadius: 12,
         borderTopRightRadius: 12,
-        padding: "4px 8px 24px",
+        padding: "4px max(8px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
         maxHeight: "70vh",
         overflowY: "auto",
         boxShadow: "0 -8px 32px -8px var(--shadow-lg)",
@@ -291,8 +291,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     <aside style={{
       ...inboxStyles.panel,
       ...(isMobile ? {
-        display: "flex", flexDirection: "column", height: "100%",
-        padding: "18px 18px 0", borderLeft: "none", overflowY: "auto",
+        display: "flex", flexDirection: "column", height: "100dvh",
+        padding: "18px max(18px, env(safe-area-inset-right, 0px)) 0 max(18px, env(safe-area-inset-left, 0px))", borderLeft: "none", overflowY: "auto",
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
         transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
