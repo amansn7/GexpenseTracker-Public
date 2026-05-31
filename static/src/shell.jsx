@@ -70,8 +70,7 @@ var bottomSheetStyles = {
   overlay: {
     position: "fixed", inset: 0, zIndex: 100,
     background: "var(--overlay)",
-    display: "flex", alignItems: "flex-end", justifyContent: "center",
-    animation: "fadeIn 200ms ease"
+    display: "flex", alignItems: "flex-end", justifyContent: "center"
   },
   sheet: {
     position: "relative",
