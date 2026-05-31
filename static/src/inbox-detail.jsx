@@ -275,6 +275,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
         transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
+        willChange: swiping ? "transform, opacity" : "auto",
         touchAction: "pan-y"
       } : {})
     }} className="slide-in-right" key={tx.id}

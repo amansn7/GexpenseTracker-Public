@@ -69,14 +69,14 @@ const mobileStyles = {
 var bottomSheetStyles = {
   overlay: {
     position: "fixed", inset: 0, zIndex: 100,
-    background: "rgba(0,0,0,0.4)",
+    background: "var(--overlay)",
     display: "flex", alignItems: "flex-end", justifyContent: "center",
     animation: "fadeIn 200ms ease"
   },
   sheet: {
     position: "relative",
     width: "100%", maxWidth: 500,
-    maxHeight: "70vh",
+    maxHeight: "min(70vh, 420px)",
     background: "var(--card)",
     borderTopLeftRadius: 12, borderTopRightRadius: 12,
     padding: "4px 0 24px",
