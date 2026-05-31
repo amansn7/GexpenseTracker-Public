@@ -745,7 +745,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   return (
     <>
       <div style={{ ...(selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel), height: isMobile ? "calc(100dvh - 115px)" : (selected ? inboxStyles.wrap.height : inboxStyles.wrapNoPanel.height) }}>
-        <div ref={listRef} style={{ ...inboxStyles.list, ...(isMobile ? { borderRight: "none", touchAction: "pan-x pan-y" } : {}) }}
+        <div ref={listRef} style={{ ...inboxStyles.list, ...(isMobile ? { borderRight: "none", touchAction: "pan-y" } : {}) }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
@@ -767,7 +767,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
             </div>
           )}
-          <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px 14px", overflowX: "auto", alignItems: "center" } : {}) }}>
+          <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px 14px", gap: 8, overflowX: "auto", alignItems: "center", scrollSnapType: "x mandatory" } : {}) }}>
             {selectMode ? (
               <>
                 <input

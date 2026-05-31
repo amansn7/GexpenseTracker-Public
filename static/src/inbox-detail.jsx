@@ -271,19 +271,20 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     <aside style={{
       ...inboxStyles.panel,
       ...(isMobile ? {
-        position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none",
+        position: "fixed", inset: 0, zIndex: 65, padding: 0, height: "100dvh", borderLeft: "none",
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
         transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
         willChange: swiping ? "transform, opacity" : "auto",
-        touchAction: "pan-y"
+        touchAction: "pan-y",
+        overflow: "hidden"
       } : {})
     }} className="slide-in-right" key={tx.id}
       onTouchStart={isMobile ? handleTouchStart : undefined}
       onTouchMove={isMobile ? handleTouchMove : undefined}
       onTouchEnd={isMobile ? handleTouchEnd : undefined}
     >
-      <div style={inboxStyles.panelBody} className="view-enter">
+      <div style={{ ...inboxStyles.panelBody, ...(isMobile ? { overflowY: "auto", height: "100%", padding: "18px 18px 0", minHeight: 0 } : {}) }} className="view-enter">
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <MerchantLogo merchant={tx.merchant} size={36}/>

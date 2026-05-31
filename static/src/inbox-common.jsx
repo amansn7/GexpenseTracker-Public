@@ -69,6 +69,8 @@ const FilterChip = ({ label, icon, count, active, onClick }) => {
         ...inboxStyles.chip,
         ...(active ? inboxStyles.chipActive : {}),
         ...(!active && hovered ? inboxStyles.chipHover : {}),
+        flexShrink: 0,
+        whiteSpace: "nowrap",
       }}
     >
       {icon && <Icon name={icon} size={13} stroke={active ? "currentColor" : "var(--ink-4)"} style={inboxStyles.chipIcon} />}
