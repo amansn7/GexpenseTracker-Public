@@ -59,7 +59,9 @@ def setup_scheduler() -> None:
     async def _sync_user(user_id: str):
         """Sync a single user, respecting the concurrency semaphore."""
         async with _sync_semaphore:
-            task_id = await task_queue.enqueue("sync", user_id, {"trigger": "scheduled"})
+            # Use Celery task instead of in-memory queue
+            from app.workers.queue import enqueue
+            task_id = await enqueue("sync", user_id, {"trigger": "scheduled"})
             if task_id is None:
                 logger.info("sync_skipped", user_id=user_id, reason="already_in_progress")
             else:
@@ -182,23 +184,6 @@ def setup_scheduler() -> None:
         id="dedup_scan",
         replace_existing=True,
         # Don't run immediately on startup — let server become healthy first
-    )
-
-    async def _idempotency_cleanup_job():
-        logger.info("idempotency_cleanup_starting")
-        try:
-            pruned = task_queue.cleanup_idempotency()
-            if pruned:
-                logger.info("idempotency_cleanup_complete", pruned_count=pruned)
-        except Exception as exc:
-            logger.error("idempotency_cleanup_error", error=str(exc))
-
-    scheduler.add_job(
-        _idempotency_cleanup_job,
-        trigger="interval",
-        minutes=30,
-        id="idempotency_cleanup",
-        replace_existing=True,
     )
 
     async def _rate_limiter_cleanup_job():

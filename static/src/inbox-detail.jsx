@@ -4,7 +4,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   const [hovered, setHovered] = React.useState(false);
   const { isMobile } = useViewport();
   const rowStyle = isMobile
-    ? { ...inboxStyles.row, gridTemplateColumns: "24px 30px minmax(0, 1fr) auto", gap: 10, padding: "13px max(14px, env(safe-area-inset-right, 0px)) 13px max(14px, env(safe-area-inset-left, 0px))", alignItems: "start" }
+    ? { ...inboxStyles.row, gridTemplateColumns: "auto 26px minmax(0, 1fr) auto", gap: 8, padding: "12px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px))", alignItems: "start" }
     : inboxStyles.row;
   return (
     <div
@@ -15,7 +15,7 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
       onMouseLeave={() => setHovered(false)}
     >
       <div
-        style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: 20, justifyContent: "center" }}
+        style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: isMobile ? "auto" : 20, justifyContent: isMobile ? "flex-start" : "center" }}
         onClick={e => { e.stopPropagation(); onCheckbox(); }}
         title="Select"
       >

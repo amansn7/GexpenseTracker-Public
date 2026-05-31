@@ -816,6 +816,12 @@ a.link:hover { text-decoration: underline; }
 
 .flow-toggle-group { background: rgba(255,255,255,0.1); }
 
+/* ── Bulk action bar entrance ── */
+@keyframes bulkBarIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ── Common Utilities (extracted from inline styles) ── */
 .flex-row { display: flex; align-items: center; }
 .flex-row-xs { display: flex; align-items: center; gap: 4px; }

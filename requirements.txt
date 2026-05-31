@@ -27,3 +27,8 @@ structlog>=24.1.0
 # Dev dependencies (CI-only)
 ruff>=0.8.0
 mypy>=1.13.0
+
+# Celery + Redis for task queue
+celery>=5.3.0
+redis>=5.0.0
+flower>=2.0.0
