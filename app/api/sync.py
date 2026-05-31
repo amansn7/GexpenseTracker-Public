@@ -77,10 +77,10 @@ async def update_sync_settings(
 
 @router.post("/sync/trigger")
 async def trigger_sync(current_user=Depends(get_current_user)):
-    from app.workers.queue import enqueue
+    from app.workers.queue import task_queue
 
     user_id = getattr(current_user, "id", None)
-    task_id = await enqueue("sync", user_id, {"trigger": "manual"})
+    task_id = await task_queue.enqueue("sync", user_id, {"trigger": "manual"})
     if task_id is None:
         return {"message": "Sync already in progress"}
     return {"message": "Sync queued", "task_id": task_id}
@@ -410,9 +410,9 @@ async def trigger_fetch_range(
 ):
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
-    from app.workers.queue import enqueue
+    from app.workers.queue import task_queue
 
-    task_id = await enqueue(
+    task_id = await task_queue.enqueue(
         "fetch_range",
         current_user.id,
         {

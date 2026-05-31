@@ -62,33 +62,106 @@ Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `compone
 <claude-mem-context>
 # Memory Context
 
-# [GexpenseTracker] recent context, 2026-05-30 7:00pm GMT+5:30
+# [GexpenseTracker] recent context, 2026-05-27 3:45pm GMT+5:30
 
-Legend: 🎯session 🔴bugfix 🟣feature ✅change 🔵discovery ⚖️decision
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-### May 30, 2026
-885 7:00p 🟣 Feature: merchant inline editing in DetailPanel (inbox-detail.jsx)
-886 " 🟣 Reclassify preview fields made editable (label, amount, merchant, category)
-887 " 🟣 Reclassify now uses PATCH with user edits instead of commit API
-888 " 🟣 Bulk manual reclassify modal (inbox.jsx) — added amount + merchant fields
-889 " 🔴 RowMemo comparison fixed: prev.tx === next.tx for instant re-render
-890 7:01p ✅ Committed + pushed feature work to main (28c231a)
-891 7:02p 🟣 CSS consistency pass: all input/select/textarea → var(--card), 6px radius, 8px 10px padding, outline: none, boxSizing: border-box
-892 " ✅ account.jsx: accountStyles.input + balance/date/AI test select + add email
-893 " ✅ admin.jsx: S.input/S.textarea shared styles
-894 " ✅ onboarding.jsx: S.input shared style
-895 " ✅ inbox-detail.jsx: merchant inline edit, reclassify preview, notes textarea
-896 " ✅ inbox.jsx: bulk manual modal selects + inputs
-897 " ✅ shell.jsx: date range inputs
-898 7:03p ✅ Build passed, committed + pushed CSS fixes to main (a723bd3)
+Stats: 50 obs (16,168t read) | 873,366t work | 98% savings
 
-**Working context**: Recent session covered two work packages:
-    1. Inbox edit UX feature: merchant inline editing in DetailPanel, editable reclassify preview with PATCH-based save (not commit API), amount+merchant fields in bulk manual modal, RowMemo identity comparison for instant re-render
-    2. App-wide CSS consistency for form elements: unified spec (var(--card) bg, 6px radius, 8px 10px padding, outline:none, boxSizing:border-box, fontFamily:inherit) applied via shared style objects first, then inline elements. 13 files changed, 33 lines touched.
+### May 25, 2026
+835 8:14p 🔵 LLMSpendTracker ORM Model Already Has ForeignKey — Deepscan Item #14 Already Done
+836 " 🔵 HTTPSRedirectMiddleware and Sentry Already Implemented — Items #17 and #18 Done
+837 " 🔵 True Open Pre-Launch Items: Only 4 Remain from Original 12
+838 8:15p 🔵 CSP style-src unsafe-inline Required by Inline Style Blocks in Both Templates
+839 " 🔵 CSP style-src: No Inline style= Attributes in index.html — Only Style Block
+840 " 🔴 CSP style-src unsafe-inline Fix: Nonce Added to login.html Style Block, Inline Styles Moved to CSS
+841 8:16p 🔴 login.html Inline Styles Fully Removed, index.html Style Block Gets Nonce — CSP style-src Fix In Progress
+842 8:18p ✅ Git push of pre-launch hardening changes
+843 8:22p 🔵 Full pre-launch diff: 31 files, 381 insertions, 270 deletions
+844 8:23p 🔐 CSP unsafe-inline removal committed and pushed to main
+845 10:01p 🔵 Alembic Migration 0038 Fails on PostgreSQL Boolean Default
+846 10:02p 🔴 Fixed Migration 0038 Boolean Default — PostgreSQL Compatibility
+### May 26, 2026
+847 10:50a 🔵 MoneyFlow (GexpenseTracker) Custom Skill Inventory
+848 11:04a 🔵 Computer-Use MCP Available for Mobile UI Review
+849 11:05a 🔵 Google Chrome Not Installed on Review Machine
+850 " 🔵 Browser Access Constraints for MoneyFlow Mobile Review
+851 11:06a 🔵 MoneyFlow Production URL Confirmed
+852 " 🔵 Screenshot Tool Blocked — macOS Version Too Old
+853 " 🔵 MoneyFlow Frontend Structure — JSX Components and Templates
+854 " 🔵 MoneyFlow Responsive Architecture — JS Viewport Hook, No Tailwind
+855 " 🔵 MoneyFlow Mobile UI Behavior — Sidebar Drawer, Topbar, Row Layout
+856 11:07a 🔵 useViewport Hook — window.innerWidth Resize Listener
+857 " 🔵 Mobile-Specific Layout Patterns — Search, Bulk Bar, Detail Panel
+858 " 🔵 useViewport Breakpoints — isMobile &lt;720px, isTablet &lt;980px
+859 " 🔵 DetailPanel IS Full-Screen on Mobile — Fixed Overlay with slide-in-right
+S139 Mobile view review — Playwright screenshot script running, awaiting user login to capture mobile viewports (May 26, 11:11 AM)
+860 11:11a 🔵 Playwright 1.60.0 Available — Node v24.15.0 via NVM
+862 " 🟣 Playwright Mobile Screenshot Script Created and Launched
+S140 Mobile view review — revised Playwright script relaunched (PID 53076), awaiting user login to capture 6 views × 2 viewports (May 26, 11:11 AM)
+861 11:12a 🔵 Playwright Chromium on macOS 12 — Frozen ffmpeg, Screenshots Still Work
+863 11:13a 🔵 Playwright Mobile Screenshots Captured Successfully
+865 " ✅ mobile-review.mjs Improved — Robust Locators, 6 Screenshots, Error Handling
+866 " 🔵 mobile-review.mjs Exits Immediately — No Screenshots, Process Gone
+864 " 🔵 mobile-screenshots/ Directory Empty — No Screenshots Captured
+S142 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright script hardened against bot detection for Google OAuth (May 26, 11:14 AM)
+S143 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright script hardened with anti-bot-detection flags, relaunched for full screenshot capture (May 26, 11:15 AM)
+S141 Mobile view review for MoneyFlow (GexpenseTracker) — Playwright screenshot capture with OAuth auth gate (May 26, 11:15 AM)
+S145 Mobile view review for MoneyFlow (GexpenseTracker) — iterating through Playwright browser engines to bypass Google OAuth bot detection (May 26, 11:17 AM)
+S146 Mobile view review for MoneyFlow — blocked on auth; pivoting to cookie injection approach via Safari DevTools (May 26, 11:18 AM)
+S144 Mobile view review for MoneyFlow (GexpenseTracker) — switched Playwright to Firefox to bypass Google OAuth bot detection (May 26, 11:18 AM)
+S147 Mobile view review for MoneyFlow — pivoting to cookie injection via Safari DevTools Storage tab to bypass OAuth (May 26, 11:19 AM)
+867 11:19a 🔵 App exposes only CSRF token via document.cookie — session is HttpOnly
+868 11:25a 🟣 Playwright script rewritten to use session cookie injection, bypassing Google OAuth entirely
+869 " 🔵 Write to mobile-review.mjs did not persist — file still contains old webkit content
+### May 27, 2026
+870 11:01a 🔵 GexpenseTracker MoneyFlow Feature — Current State
+871 11:02a 🔵 MoneyFlow Feature — Full Implementation Details and Code Gaps
+872 11:04a 🔵 MoneyFlow UI Components — Architecture Gaps and Design Issues
+873 11:12a 🔵 GexpenseTracker Recent Commit History — 30 Fixes Across Classifier, Inbox, Migrations
+874 " 🔵 Goals and Budgets API Structure Mapped
+875 11:13a 🔵 Shell.jsx Nav Structure — Collapsible Sections with localStorage Persistence
+876 " 🔵 Inbox Polish Plan Exists — P0/P1/P2 Priority Work Pending
+877 " 🔵 httpx External Calls — SSRF Risk Surface Identified in settings.py and currency.py
+878 " 🔵 Frontend Build — esbuild via scripts/build-frontend.mjs
+879 11:37a 🟣 Goals + Budgets Frontend Views — Subagent Dispatched for Implementation
+880 11:41a 🟣 Mobile Viewport Fixes — Second Subagent Dispatched
+881 " 🔵 Frontend Code Patterns — DebtView and RecurringView Reference Implementation
+882 " 🔵 100vh Already Migrated to 100dvh — Mobile Subagent Task 1 Is No-Op
+883 " 🔵 reports.jsx and health.jsx Already Have Savings Rate — Third Subagent May Duplicate
+884 " 🔵 Icons List — "target" and "wallet" Not Available; Goals/Budgets Must Use Alternatives
+S148 GexpenseTracker moneyflow review — fix gaps, add Goals/Budgets views, mobile responsiveness, security audit (May 27, 11:42 AM)
+**Investigated**: - Recent subagent work observed via primary session tool calls
+    - SA-A (Goals+Budgets): goals.jsx (301 lines), budgets.jsx (207 lines) created and wired into app.jsx and shell.jsx
+    - SA-B (Mobile): flow.jsx Sankey mobile branch verified working; 100vh already gone (0 occurrences); stat-grid 720px override in CSS confirmed
+    - SA-D (Backend security): url_utils.py SSRF protection (DNS+IP checks), rate_limiter.py full coverage, pattern_rules/domain_pair_rules have no user_id FK (global tables), oauth_states has no user_id FK, rate limiting had bug where EXEMPT endpoints bypassed rate limits
 
-**Known state**: alembic HEAD 0048 (single head), frontend builds via `node scripts/build-frontend.mjs` (not npm run), ruff lint reports 291 false-positive errors on .jsx files (Python linter on JS — not real issues). 585 tests with pytest.
+**Learned**: - goals.jsx and budgets.jsx: SA-A wrote both files twice (duplicate writes seen in observations) — final state is correct 301/207 lines respectively
+    - shell.jsx: Goals (icon=star) and Budgets (icon=grid) added to BOTH classic mode (Views section) and new mode nav — 4 matches confirmed
+    - app.jsx: titles object + view routing both updated — 4 matches confirmed
+    - flow.jsx: isMobile early-return now renders category list instead of scrollable SVG
+    - main.py: rate limiting had ordering bug — EXEMPT paths (/api/auth/callback, /api/auth/token/refresh) skipped rate limiting; SA-D fixed by moving rate limit block BEFORE the EXEMPT short-circuit, wrapped in `if not os.getenv("TESTING")`
+    - pattern_rules and domain_pair_rules are global ML tables with no user_id — not in GDPR deletion pipeline but correctly not user-owned
+    - oauth_states has no user_id column — ephemeral, expires naturally, acceptable
+    - validate_url() checks: scheme http/https only, DNS resolution, blocks private/loopback/reserved/unspecified IPs
+
+**Completed**: - static/src/goals.jsx: Full GoalsView + GoalModal with contributions (301 lines)
+    - static/src/budgets.jsx: Full BudgetsView + BudgetModal with over-budget highlighting (207 lines)
+    - static/src/app.jsx: titles dict + view routing for goals/budgets
+    - static/src/shell.jsx: Goals+Budgets NavItems in both classic and new mode sidebars
+    - static/src/flow.jsx: Sankey mobile list fallback (isMobile early return)
+    - static/styles.css: @media (max-width: 720px) .stat-grid 2-column override
+    - static/src/reports.jsx: monthly expense trend bar chart (orchestrator direct edit)
+    - app/main.py: rate limiting ordering fix — EXEMPT endpoints now covered
+
+**Next Steps**: All subagents appear to have completed their work based on the observed tool calls. Need to:
+    1. Run `npm run build` to compile all static/src/*.jsx → static/dist/*.js
+    2. Verify no conflicts between parallel agent changes
+    3. Check if templates/index.html needs script tags for goals.js and budgets.js
+    4. Confirm build succeeds without errors
+
 
 Access 873k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
