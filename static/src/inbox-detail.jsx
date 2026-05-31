@@ -290,8 +290,9 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     <aside style={{
       ...inboxStyles.panel,
       ...(isMobile ? {
-        position: "fixed", inset: 0, height: "100dvh", zIndex: 65, borderLeft: "none",
-        padding: "18px 18px 0", overflowY: "auto", minHeight: 0,
+        position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", zIndex: 65, borderLeft: "none",
+        padding: "18px 18px 0", overflowY: "auto",
+        display: "block", boxSizing: "border-box",
         transform: `translateX(${swipeX}px)`,
         opacity: Math.max(0, 1 - swipeX / 300),
         transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
@@ -305,14 +306,14 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     >
       <div style={{ ...inboxStyles.panelBody, ...(isMobile ? { minHeight: 0 } : {}) }} className="view-enter">
       <div style={inboxStyles.panelHeader}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
           <MerchantLogo merchant={tx.merchant} size={36}/>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{tx.merchant}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tx.merchant}</div>
             <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{tx.domain}</div>
           </div>
         </div>
-        <button onClick={onClose} className="focus-ring" style={{ border: "1px solid var(--line)", background: "var(--paper)", padding: 6, borderRadius: 6, color: "var(--ink-3)", cursor:"pointer" }}>
+        <button onClick={onClose} className="focus-ring" style={{ flexShrink: 0, border: "1px solid var(--line)", background: "var(--paper)", padding: 6, borderRadius: 6, color: "var(--ink-3)", cursor:"pointer" }}>
           <Icon name="x" size={14}/>
         </button>
       </div>
