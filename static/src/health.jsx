@@ -1,6 +1,7 @@
 // Health — runway, savings rate, monthly net
 
 const HealthView = () => {
+  const { isMobile, isTablet } = useViewport();
   const [months, setMonths] = React.useState(6);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
@@ -31,13 +32,13 @@ const HealthView = () => {
   );
 
   return (
-    <div style={{ padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 900, margin: "0 auto" }}>
+    <div style={{ padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 900, margin: "0 auto", ...(isMobile ? { padding: "16px 14px 80px", height: mobileStyles.navOffset } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
 
       {/* Stat cards row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
 
         {/* Savings Rate */}
-        <div style={{ padding: "22px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
+        <div style={{ padding: "22px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Savings Rate</div>
           {loading ? skeleton(40) : (
             <>
@@ -52,7 +53,7 @@ const HealthView = () => {
         </div>
 
         {/* Runway */}
-        <div style={{ padding: "22px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
+        <div style={{ padding: "22px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Runway</div>
           {loading ? skeleton(40) : (
             <>
@@ -70,7 +71,7 @@ const HealthView = () => {
       </div>
 
       {/* Current balance */}
-      <div style={{ padding: "18px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, marginBottom: 16 }}>
+      <div style={{ padding: "18px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>Current Balance</div>
         {loading ? skeleton(28, "50%") : (
           <>

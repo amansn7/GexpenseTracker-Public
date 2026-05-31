@@ -767,59 +767,44 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
   };
 
   return (
-    <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
+    <div className="view-enter" style={{ ...flowStyles.wrap, ...(isMobile ? { padding: "16px 14px 80px", height: mobileStyles.navOffset } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
       {flowError && (
         <div className="flow-error" style={{ padding: "10px 16px", background: "var(--neg-soft)", border: "1px solid var(--neg)", borderRadius: "var(--r)", marginBottom: 16, fontSize: 13, color: "var(--neg)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span>Couldn't load flow data. <span style={{ cursor: "pointer", textDecoration: "underline", fontWeight: 600 }} onClick={() => setRetryKey(k => k + 1)}>Retry</span></span>
           <button onClick={() => setFlowError(null)} style={{ background: "none", border: "none", color: "var(--neg)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>Dismiss</button>
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "3fr 2fr", gap: 14, marginBottom: 28 }}>
+      <div style={{ ...flowStyles.kpis, ...(isMobile ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" } : {}) }}>
         {flowLoading
           ? <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {[["Remaining", "var(--pos)"], ["Income", "var(--pos)"]].map(([label, _], i) => (
-                  <div key={i} style={flowStyles.kpi}>
-                    <div style={flowStyles.kpiLabel}>{label}</div>
-                    <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
-                    <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {[["Spent", "var(--ink)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
-                  <div key={i} style={flowStyles.kpi}>
-                    <div style={flowStyles.kpiLabel}>{label}</div>
-                    <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
-                    <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
-                  </div>
-                ))}
-              </div>
+              {[["Remaining", "var(--pos)"], ["Income", "var(--pos)"], ["Spent", "var(--ink)"], ["Daily burn", "var(--ink)"]].map(([label, _], i) => (
+                <div key={i} style={flowStyles.kpi}>
+                  <div style={flowStyles.kpiLabel}>{label}</div>
+                  <div style={{ marginTop: 8 }}>{skeleton(26, "70%")}</div>
+                  <div style={{ marginTop: 8 }}>{skeleton(12, "40%")}</div>
+                </div>
+              ))}
             </>
           : <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>{viewMode === "overspend" && savings < 0 ? "Overspend" : "Remaining"}</div>
-                  <div style={{ ...flowStyles.kpiValue, color: viewMode === "overspend" && savings < 0 ? "var(--neg)" : "var(--pos)" }} title={`₹${savings.toLocaleString("en-IN")}`}>{fmtK(savings)}</div>
-                  <div style={flowStyles.kpiSub}>{viewMode === "overspend" && savings < 0 ? `${Math.abs(parseFloat(savingsRate))}% overspend` : `${savingsRate}% savings rate`}{savDelta != null && <span style={{color: savUp !== isBadUp ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{savUp ? "↑" : "↓"}</span><span aria-label={`${savUp ? "Increased" : "Decreased"} by ${Math.abs(savDelta)}%`}>{Math.abs(savDelta)}%</span></span>}</div>
-                </div>
-                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Income</div>
-                  <div style={{ ...flowStyles.kpiValue, color: "var(--pos)" }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}{incDelta != null && <span style={{color: parseFloat(incDelta) >= 0 ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{parseFloat(incDelta) >= 0 ? "\u2191" : "\u2193"}</span><span aria-label={`${parseFloat(incDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(incDelta)}%`}>{Math.abs(incDelta)}%</span></span>}</div>
-                </div>
+              <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
+                <div style={flowStyles.kpiLabel}>{viewMode === "overspend" && savings < 0 ? "Overspend" : "Remaining"}</div>
+                <div style={{ ...flowStyles.kpiValue, color: viewMode === "overspend" && savings < 0 ? "var(--neg)" : "var(--pos)", ...(isMobile ? { fontSize: 20 } : {}) }} title={`₹${savings.toLocaleString("en-IN")}`}>{fmtK(savings)}</div>
+                <div style={flowStyles.kpiSub}>{viewMode === "overspend" && savings < 0 ? `${Math.abs(parseFloat(savingsRate))}% overspend` : `${savingsRate}% savings rate`}{savDelta != null && <span style={{color: savUp !== isBadUp ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{savUp ? "↑" : "↓"}</span><span aria-label={`${savUp ? "Increased" : "Decreased"} by ${Math.abs(savDelta)}%`}>{Math.abs(savDelta)}%</span></span>}</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div className="anim-row-spring" style={{"--i": 0, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Spent</div>
-                  <div style={flowStyles.kpiValue} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
-                  <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income{expDelta != null && <span style={{color: parseFloat(expDelta) >= 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{parseFloat(expDelta) >= 0 ? "↑" : "↓"}</span><span aria-label={`${parseFloat(expDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(expDelta)}%`}>{Math.abs(expDelta)}%</span></span>}</div>
-                </div>
-                <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
-                  <div style={flowStyles.kpiLabel}>Daily burn</div>
-                  <div style={flowStyles.kpiValue}>{fmtK(daily)}</div>
-                  <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}{expDelta != null && <span style={{fontSize: 11, color: "var(--ink-3)", marginLeft: 4}}>vs prev <span aria-hidden="true">{parseFloat(expDelta) >= 0 ? "↑" : "↓"}</span><span aria-label={`${parseFloat(expDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(expDelta)}%`}>{Math.abs(expDelta)}%</span></span>}</div>
-                </div>
+              <div className="anim-row-spring" style={{"--i": 1, ...flowStyles.kpi}}>
+                <div style={flowStyles.kpiLabel}>Income</div>
+                <div style={{ ...flowStyles.kpiValue, color: "var(--pos)", ...(isMobile ? { fontSize: 20 } : {}) }} title={`₹${totalIncome.toLocaleString("en-IN")}`}>{fmtK(totalIncome)}</div>
+                <div style={flowStyles.kpiSub}><Icon name="trend-u" size={11}/> {incomeSources} source{incomeSources !== 1 ? "s" : ""}{incDelta != null && <span style={{color: parseFloat(incDelta) >= 0 ? "var(--pos)" : "var(--neg)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{parseFloat(incDelta) >= 0 ? "\u2191" : "\u2193"}</span><span aria-label={`${parseFloat(incDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(incDelta)}%`}>{Math.abs(incDelta)}%</span></span>}</div>
+              </div>
+              <div className="anim-row-spring" style={{"--i": 2, ...flowStyles.kpi}}>
+                <div style={flowStyles.kpiLabel}>Spent</div>
+                <div style={{ ...flowStyles.kpiValue, ...(isMobile ? { fontSize: 20 } : {}) }} title={`₹${totalExpense.toLocaleString("en-IN")}`}>{fmtK(totalExpense)}</div>
+                <div style={flowStyles.kpiSub}><Icon name="trend-d" size={11}/> {pctOfIncome}% of income{expDelta != null && <span style={{color: parseFloat(expDelta) >= 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4, fontSize: 11}}><span aria-hidden="true">{parseFloat(expDelta) >= 0 ? "↑" : "↓"}</span><span aria-label={`${parseFloat(expDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(expDelta)}%`}>{Math.abs(expDelta)}%</span></span>}</div>
+              </div>
+              <div className="anim-row-spring" style={{"--i": 3, ...flowStyles.kpi}}>
+                <div style={flowStyles.kpiLabel}>Daily burn</div>
+                <div style={{ ...flowStyles.kpiValue, ...(isMobile ? { fontSize: 20 } : {}) }}>{fmtK(daily)}</div>
+                <div style={flowStyles.kpiSub}>over {rangeDays} day{rangeDays !== 1 ? "s" : ""}{expDelta != null && <span style={{fontSize: 11, color: "var(--ink-3)", marginLeft: 4}}>vs prev <span aria-hidden="true">{parseFloat(expDelta) >= 0 ? "↑" : "↓"}</span><span aria-label={`${parseFloat(expDelta) >= 0 ? "Increased" : "Decreased"} by ${Math.abs(expDelta)}%`}>{Math.abs(expDelta)}%</span></span>}</div>
               </div>
             </>
         }
@@ -923,7 +908,71 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
         </div>
       </div>
 
-      {drillCategory && (
+      {drillCategory && (isMobile ? (
+        <div style={{...bottomSheetStyles.overlay, zIndex: 200}}
+          className={drillClosing ? "backdrop-out" : "backdrop-in"}
+          role="dialog" aria-modal="true" aria-label={drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
+          onClick={closeDrill}>
+          <div style={bottomSheetStyles.sheet} onClick={e => e.stopPropagation()}>
+            <div style={bottomSheetStyles.handle} />
+            <div style={{padding: "0 16px 8px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", flexShrink: 0}}>
+              <span style={{fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-3)"}}>
+                {drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
+              </span>
+              <span style={{marginLeft: 12, fontSize: 12, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace"}}>
+                {drillCategory === "__income__"
+                  ? fmtK(totalIncome)
+                  : (() => {
+                      const c = catBreakdown?.categories?.find(c => normCat(c.category, false) === drillCategory);
+                      return c ? fmtK(c.amount) : "";
+                    })()
+                }
+              </span>
+              <button onClick={closeDrill} aria-label="Close"
+                style={{marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4, display: "flex"}}>
+                <Icon name="x" size={16}/>
+              </button>
+            </div>
+            <div style={{padding: "8px 16px"}}>
+              {drillTxns === null ? (
+                <div style={{padding: "40px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13}}>Loading transactions</div>
+              ) : drillTxns.length === 0 ? (
+                <div style={{padding: "40px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
+              ) : (() => {
+                const nonzero = drillTxns.filter(tx => tx.amount != null && tx.amount !== 0);
+                return nonzero.length === 0 ? (
+                  <div style={{padding: "40px 0", textAlign: "center", color: "var(--ink-4)", fontSize: 13}}>No transactions in this range</div>
+                ) : nonzero.map((tx, i) => (
+                  <div key={tx.id} className="anim-row" style={{"--i": i, display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < nonzero.length - 1 ? "1px solid var(--line)" : "none"}}>
+                    <MerchantLogo merchant={tx.merchant || "?"} size={24}/>
+                    <div style={{flex: 1, minWidth: 0}}>
+                      <div style={{fontSize: 13, fontWeight: 500, color: "var(--ink)"}}>{tx.merchant || "Unknown"}</div>
+                      <div style={{fontSize: 11, color: "var(--ink-4)", marginTop: 1}}>{tx.date}</div>
+                    </div>
+                    <div style={{fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--pos)"}}>
+                      {fmtK(Math.abs(tx.amount))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div style={bottomSheetStyles.footer}>
+              <button onClick={() => {
+                const cat = drillCategory;
+                setDrillCategory(null);
+                if (!onNavigateToView) return;
+                if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
+                if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
+                if (onSetDateRange) onSetDateRange({ from: dateRange.from, to: dateRange.to });
+                onNavigateToView("inbox");
+              }}
+                style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>
+                View all in inbox
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
         <div style={{position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16}}
           className={drillClosing ? "backdrop-out" : "backdrop-in"}
           role="dialog" aria-modal="true" aria-label={drillCategory === "__income__" ? "Income" : (CategoryService.display(drillCategory)?.label || drillCategory)}
@@ -988,7 +1037,7 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 };

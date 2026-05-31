@@ -1,5 +1,25 @@
 # Agent Instructions: Lessons & Patterns
 
+## Frontend CSS Consistency
+
+### Batch Pattern for Form Element Styling Fixes
+1. When fixing form element CSS app-wide, fix **shared style objects first** (`accountStyles.input`, `S.input`, `S.textarea`) — they cascade to the most elements with fewest edits. Then fix inline input/select/textarea elements using `var(--paper)` → `var(--card)`, and finally add missing properties (`outline: "none"`, `boxSizing: "border-box"`, `fontFamily: "inherit"`).
+2. Design spec for form elements: `background: var(--card)`, `border: 1px solid var(--line)`, `border-radius: 6px`, `padding: 8px 10px`, `color: var(--ink)`, `font-family: inherit`, `outline: none`, `box-sizing: border-box`.
+3. Inline editors (merchant, balance) and compact preview rows may use reduced padding (e.g., `6px 10px` or `5px 8px`) — but keep background/border/radius/font/outline/boxSizing consistent.
+4. **Grep tip for CSS variable patterns:** Use `background:\s*"var\(--paper\)"` — the parentheses must be escaped for regex. Without proper escaping, searches miss matches.
+
+## Row Rerender Pattern
+
+### React.memo Object Identity for List Items
+1. When using `React.memo` on transaction rows, compare by **object identity** (`prev.tx === next.tx`) rather than shallow prop diff on sub-properties. This ensures edits to category/amount/merchant on the same object trigger immediate re-render without relying on new object creation or deep comparison.
+2. `RowMemo` with `prev.tx === next.tx` + `prev.selected === next.selected` is sufficient — the tx reference changes when any field is edited via PATCH response, and the selected flag changes on check.
+
+## Edit Flow Pattern
+
+### User-Edited Reclassification
+1. When adding reclassify-as-you-go UX, **decouple AI suggestion from user edit**. Instead of calling the reclassify-commit API (which re-runs AI extraction), use PATCH endpoints with user-edited fields directly. Users can override label/amount/merchant/category independently of the AI.
+2. For bulk operations, offer optional amount + merchant override fields alongside label/category in the modal. Pre-fill from the most recent selection, leave blank = keep current value.
+
 ## Alembic Migrations
 
 ### PostgreSQL DDL Compatibility
@@ -141,3 +161,26 @@
 2. Each `.format()` placeholder in a prompt template MUST have a corresponding keyword argument. Missing placeholders cause hard `KeyError` at runtime — test against production data before shipping.
 3. Post-process LLM outputs that include numeric limit/savings values. LLMs can produce negative `suggested_limit` values when trying to express "reduce by X amount" as `current - X`. Clamp to `max(0, value)`.
 4. The anomaly-adjust endpoint should compute a useful baseline even when LLM analysis fails — use median of all available transactions as fallback rather than returning 0.
+
+## Stats Pipeline
+
+### Case-Insensitive Category Matching
+1. Budget vs expense category matching must normalize case. `dict.get()` with mixed-case keys returns Rs0. Use `.lower()` on both sides and **accumulate** with `dict[key] = dict.get(key, 0) + amount` — last-write-wins silently drops duplicate categories ("food" + "Food" → only one survives).
+2. Apply `.lower()` at the same stage for both budget lookup keys and spend_map accumulation keys, not just one.
+3. The canonical categories in `categories.py` use lowercase (e.g., `rent`, `food`). DB stores mixed case from LLM extraction. Every comparison path must normalize.
+
+### Income Attribution
+4. Late-month income (last 2 working days) should not be shifted to next month. When removing a business rule, verify all downstream consumers (monthly summary, 90-day, health) get the expected data.
+5. Simplify income computation with direct `func.sum()` + `txn_date` range instead of fetching all rows + Python-side filtering — avoids filter drift between income and expense paths.
+
+### Survivorship of Referenced Functions
+6. When replacing old endpoint implementations with a service layer, ensure every referenced helper function (`_monthly_data`, `_compute_confidence`, etc.) still exists or is properly redirected. A deleted function breaks its entire section silently (zeros or 500).
+
+### Fallback Code Must Actually Work
+7. A fallback path that returns all zeros is worse than no fallback. Test fallback code too — `return {"income": 0, "expense": 0}` placeholder is indistinguishable from "no data" errors.
+
+### Verify Against the Database
+8. When numbers don't make sense, query the database directly. Tracing through layers of service code, filter chains, and SQLAlchemy queries is slower than one `SELECT * FROM transactions WHERE category ILIKE '%rent%'`. The case mismatch was sitting in the DB the whole time.
+
+### Production DB Multi-User Awareness
+9. `SELECT LIMIT 1` may return a service/bot user (e.g., `service@localhost`), not the real human user. Always explicitly filter by the target user email in production ad-hoc queries.

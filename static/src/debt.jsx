@@ -5,6 +5,7 @@ const { useState, useEffect } = React;
 const defaultDebtForm = () => ({ name: "", total_amount: "", paid_amount: "0", interest_rate: "", target_date: "", notes: "" });
 
 const DebtModal = ({ item, onSave, onDelete, onClose }) => {
+  const { isMobile } = useViewport();
   const [form, setForm] = useState(item ? {
     name: item.name,
     total_amount: String(item.total_amount),
@@ -62,9 +63,8 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
   const inp = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
   const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+  const formContent = (
+    <>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Debt" : "Add Debt"}</span>
           <button onClick={handleClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
@@ -112,6 +112,22 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+    </>
+  );
+
+  return isMobile ? (
+    <div onClick={handleClose} style={bottomSheetStyles.overlay}>
+      <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
+        <div style={bottomSheetStyles.handle} />
+        <div style={bottomSheetStyles.content}>
+          {formContent}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+        {formContent}
       </div>
     </div>
   );
@@ -128,6 +144,7 @@ const ProgressBar = ({ pct }) => {
 };
 
 const DebtView = () => {
+  const { isMobile, isTablet } = useViewport();
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -177,7 +194,7 @@ const DebtView = () => {
         />
       )}
 
-      <div style={secBand}>
+      <div style={{ ...secBand, ...(isMobile ? { padding: "10px 14px" } : {}) }}>
         <span style={secTitle}>Debt Reduction</span>
         <button onClick={() => setModal("new")} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
           <Icon name="plus" size={12} stroke="var(--paper)"/> Add Debt
@@ -185,7 +202,7 @@ const DebtView = () => {
       </div>
 
       {debts.length > 0 && (
-        <div style={{ padding: "16px 28px 0", display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ padding: "16px 28px 0", ...(isMobile ? { padding: "16px 14px 0" } : {}), display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
           {[["Total Debt", fmt(totalDebt), "var(--ink-2)"], ["Total Paid", fmt(totalPaid), "var(--pos)"], ["Remaining", fmt(totalRemaining), "var(--neg)"]].map(([label, val, color]) => (
             <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)" }}>{label}</span>
@@ -201,7 +218,7 @@ const DebtView = () => {
         </div>
       )}
 
-      <div style={{ padding: "20px 28px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+      <div style={{ padding: "20px 28px", ...(isMobile ? { padding: "20px 14px", gridTemplateColumns: "1fr" } : {}), display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
         {!debts.length ? (
           <div style={{ gridColumn: "1/-1", padding: "48px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             No debts tracked. <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Add a loan, credit card, or EMI</button> to start tracking payoff progress.
@@ -209,7 +226,7 @@ const DebtView = () => {
         ) : debts.map(debt => {
           const isPastDue = debt.target_date && debt.target_date < today;
           return (
-            <div key={debt.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 18, display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
+            <div key={debt.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 18, ...(isMobile ? { padding: "12px 14px" } : {}), display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
               <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 4 }}>
                 <button onClick={() => setModal(debt)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-4)", padding: 4, borderRadius: 4 }}>
                   <Icon name="edit" size={14} />

@@ -115,6 +115,11 @@ const OnboardingView = ({ onComplete }) => {
 
 const ProfileView = ({ transactions, account, setAccount }) => {
   const { isMobile } = useViewport();
+  const mqWrap = isMobile ? { height: mobileStyles.navOffset } : {};
+  const mqInner = isMobile ? { padding: "16px 14px 80px" } : {};
+  const mqSection = isMobile ? { padding: "12px 14px" } : {};
+  const mqRow = isMobile ? { gridTemplateColumns: "1fr", gap: 8, padding: "10px 0" } : {};
+  const mqH1 = isMobile ? { fontSize: 22 } : {};
   const profile = account?.profile || {};
   const user = account?.user || {};
 
@@ -217,15 +222,15 @@ const ProfileView = ({ transactions, account, setAccount }) => {
   ] : [];
 
   return (
-    <div style={accountStyles.wrap}>
-      <div style={accountStyles.inner}>
+    <div style={{ ...accountStyles.wrap, ...mqWrap }}>
+      <div style={{ ...accountStyles.inner, ...mqInner }}>
         <div style={accountStyles.header}>
           <div style={accountStyles.kicker}>Your account</div>
-          <h1 style={accountStyles.h1}>Profile</h1>
+          <h1 style={{ ...accountStyles.h1, ...mqH1 }}>Profile</h1>
         </div>
 
         {/* Hero */}
-        <div style={accountStyles.section}>
+        <div style={{ ...accountStyles.section, ...mqSection }}>
           <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
             {profile.avatar_url
               ? <img src={profile.avatar_url} alt={initials} style={{ width: 72, height: 72, borderRadius: 999, objectFit: "cover", flexShrink: 0 }}/>
@@ -242,7 +247,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
         </div>
 
         {/* Financial snapshot */}
-        <div style={accountStyles.section}>
+        <div style={{ ...accountStyles.section, ...mqSection }}>
           <h3 style={accountStyles.sectionTitle}>Financial snapshot</h3>
           <div style={accountStyles.sectionSub}>— this month & trailing 6-month health</div>
           {statsLoading ? (
@@ -252,7 +257,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
           ) : stats ? (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${isMobile ? 140 : 160}px, 1fr))`, gap: 12, marginTop: 8 }}>
               {kpis.map((k, i) => (
-                <div key={i} style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
+                <div key={i} style={{ padding: isMobile ? "10px 12px" : "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.09em", fontWeight: 500 }}>{k.label}</div>
                   <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 20, fontWeight: 400, marginTop: 5, color: k.color || "var(--ink)", lineHeight: 1.1 }}>{k.value}</div>
                   <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 3 }}>{k.sub}</div>
@@ -266,7 +271,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
 
         {/* Connected accounts */}
         {connectedAccounts.length > 0 && (
-          <div style={accountStyles.section}>
+          <div style={{ ...accountStyles.section, ...mqSection }}>
             <h3 style={accountStyles.sectionTitle}>Connected accounts</h3>
             <div style={accountStyles.sectionSub}>— Gmail inboxes MoneyFlow reads from</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
@@ -280,7 +285,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
                   : `${Math.round(minsAgo / 1440)}d ago`;
                 const isOk = ca.status === "connected";
                 return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--paper-2)", borderRadius: 6 }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: isMobile ? "8px 10px" : "10px 14px", background: "var(--paper-2)", borderRadius: 6 }}>
                     <Icon name="mail" size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }}/>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ca.account_email}</div>
@@ -297,35 +302,35 @@ const ProfileView = ({ transactions, account, setAccount }) => {
         )}
 
         {/* Personal details */}
-        <div style={accountStyles.section}>
+        <div style={{ ...accountStyles.section, ...mqSection }}>
           <h3 style={accountStyles.sectionTitle}>Personal details</h3>
           <div style={accountStyles.sectionSub}>— what we know about you</div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Full name</div><div style={accountStyles.sub}>shown on invoices</div></div>
             <input style={accountStyles.input} value={form.full_name || ""} onChange={e=>patch("full_name", e.target.value)}/>
             <div/>
           </div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Display name</div><div style={accountStyles.sub}>shorter name in the UI</div></div>
             <input style={accountStyles.input} value={form.display_name || ""} onChange={e=>patch("display_name", e.target.value)}/>
             <div/>
           </div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Email address</div><div style={accountStyles.sub}>used for login & digests</div></div>
             <input style={{ ...accountStyles.input, color: "var(--ink-3)" }} value={user.email || ""} disabled/>
             <div/>
           </div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Phone</div><div style={accountStyles.sub}>optional contact detail</div></div>
             <input style={accountStyles.input} value={form.phone || ""} onChange={e=>patch("phone", e.target.value)}/>
             <div/>
           </div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Location</div><div style={accountStyles.sub}>used in digest context</div></div>
             <input style={accountStyles.input} value={form.location || ""} onChange={e=>patch("location", e.target.value)}/>
             <div/>
           </div>
-          <div style={accountStyles.row}>
+          <div style={{ ...accountStyles.row, ...mqRow }}>
             <div><div style={accountStyles.label}>Default currency</div><div style={accountStyles.sub}>how amounts render</div></div>
             <select style={accountStyles.input} value={form.default_currency || "INR"} onChange={e=>patch("default_currency", e.target.value)}>
               <option value="INR">INR — Indian Rupee ₹</option>
@@ -335,7 +340,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
             </select>
             <div/>
           </div>
-          <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+          <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
             <div><div style={accountStyles.label}>Timezone</div><div style={accountStyles.sub}>for daily digest timing</div></div>
             <select style={accountStyles.input} value={form.timezone || "Asia/Kolkata"} onChange={e=>patch("timezone", e.target.value)}>
               <option value="Asia/Kolkata">Asia/Kolkata (UTC+5:30)</option>
@@ -354,9 +359,9 @@ const ProfileView = ({ transactions, account, setAccount }) => {
 
         {/* Trial info */}
         {trialEndsAt && (
-          <div style={accountStyles.section}>
+          <div style={{ ...accountStyles.section, ...mqSection }}>
             <h3 style={accountStyles.sectionTitle}>Trial</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "16px 18px", background: (trialDaysLeft || 0) > 3 ? "var(--accent-soft)" : "var(--neg-soft)", borderRadius: 6, marginTop: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 18, padding: isMobile ? "12px 14px" : "16px 18px", background: (trialDaysLeft || 0) > 3 ? "var(--accent-soft)" : "var(--neg-soft)", borderRadius: 6, marginTop: 10, flexWrap: "wrap" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 16, fontWeight: 500, color: (trialDaysLeft || 0) > 3 ? "var(--accent)" : "var(--neg)" }}>
                   {(trialDaysLeft || 0) > 0 ? `${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} remaining` : "Trial ended"}
@@ -1919,6 +1924,12 @@ const RulesTab = ({ account, categories }) => {
 // ── SettingsView ──────────────────────────────────────────────
 
 const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
+  const { isMobile } = useViewport();
+  const mqWrap = isMobile ? { height: mobileStyles.navOffset } : {};
+  const mqInner = isMobile ? { padding: "16px 14px 80px" } : {};
+  const mqSection = isMobile ? { padding: "12px 14px" } : {};
+  const mqRow = isMobile ? { gridTemplateColumns: "1fr", gap: 8, padding: "10px 0" } : {};
+  const mqH1 = isMobile ? { fontSize: 22 } : {};
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
   const categories = account?.categories || [];
@@ -2097,20 +2108,20 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   };
 
   return (
-    <div style={accountStyles.wrap}>
-      <div style={accountStyles.inner}>
+    <div style={{ ...accountStyles.wrap, ...mqWrap }}>
+      <div style={{ ...accountStyles.inner, ...mqInner }}>
       <div style={accountStyles.header}>
         <div style={accountStyles.kicker}>Preferences</div>
-        <h1 style={accountStyles.h1}>Settings</h1>
+        <h1 style={{ ...accountStyles.h1, ...mqH1 }}>Settings</h1>
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: isMobile ? 4 : 6, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={() => setSettingsTab("general")}
           style={{
-            padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12,
+            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
             background: settingsTab === "general" ? "var(--ink)" : "transparent",
             color: settingsTab === "general" ? "var(--paper)" : "var(--ink-3)",
             fontFamily: "inherit",
@@ -2122,7 +2133,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           type="button"
           onClick={() => setSettingsTab("ai")}
           style={{
-            padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12,
+            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
             background: settingsTab === "ai" ? "var(--ink)" : "transparent",
             color: settingsTab === "ai" ? "var(--paper)" : "var(--ink-3)",
             fontFamily: "inherit",
@@ -2134,7 +2145,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           type="button"
           onClick={() => setSettingsTab("rules")}
           style={{
-            padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12,
+            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
             background: settingsTab === "rules" ? "var(--ink)" : "transparent",
             color: settingsTab === "rules" ? "var(--paper)" : "var(--ink-3)",
             fontFamily: "inherit",
@@ -2147,7 +2158,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             type="button"
             onClick={() => setSettingsTab("admin")}
             style={{
-              padding: "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
+              padding: isMobile ? "5px 10px" : "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 700,
               border: "1.5px dashed var(--red)",
               background: settingsTab === "admin" ? "color-mix(in srgb, var(--red) 10%, transparent)" : "transparent",
               color: "var(--red)",
@@ -2163,10 +2174,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       {settingsTab === "general" && (<>
 
       {/* Gmail connection */}
-      <div style={accountStyles.section}>
+      <div style={{ ...accountStyles.section, ...mqSection }}>
         <h3 style={accountStyles.sectionTitle}>Inbox connection</h3>
         <div style={accountStyles.sectionSub}>— the source of truth for your transactions</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", background: "var(--paper-2)", borderRadius: 6, marginTop: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "12px 14px" : "16px 18px", background: "var(--paper-2)", borderRadius: 6, marginTop: 6, flexWrap: "wrap" }}>
           <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", display: "grid", placeItems: "center" }}>
             <Icon name="gmail" size={18} stroke="var(--accent)"/>
           </div>
@@ -2271,25 +2282,25 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {/* Parsing */}
-      <div style={accountStyles.section}>
+      <div style={{ ...accountStyles.section, ...mqSection }}>
         <h3 style={accountStyles.sectionTitle}>Parsing & AI</h3>
         <div style={accountStyles.sectionSub}>— how smart the inbox should be</div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Auto-categorize new transactions</div><div style={accountStyles.sub}>use the model to guess Food, Rent, etc.</div></div>
           <div/>
           <Toggle on={!!settings.auto_categorize} onChange={v=>updateSetting("auto_categorize", v)}/>
         </div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Show AI confidence on cards</div><div style={accountStyles.sub}>small bar next to each transaction</div></div>
           <div/>
           <Toggle on={!!settings.show_confidence} onChange={v=>updateSetting("show_confidence", v)}/>
         </div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Confidence threshold</div><div style={accountStyles.sub}>flag transactions below this certainty</div></div>
           <input type="range" min="50" max="95" value={settings.confidence_threshold ?? 70} onChange={e=>updateSetting("confidence_threshold", Number(e.target.value))} style={{ width: "100%" }}/>
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-2)", minWidth: 40, textAlign: "right" }}>{settings.confidence_threshold ?? 70}%</span>
         </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div>
             <div style={accountStyles.label}>Rule-based pre-filter</div>
             <div style={accountStyles.sub}>skip LLM for known senders and obvious non-financial emails — saves tokens</div>
@@ -2300,7 +2311,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {/* Auto-Learned Rules — simplified summary, full management in Rules tab */}
-      <div style={accountStyles.section}>
+      <div style={{ ...accountStyles.section, ...mqSection }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h3 style={accountStyles.sectionTitle}>Auto-Learned Rules</h3>
           <button onClick={() => setSettingsTab("rules")} style={{ ...accountStyles.btn, padding: "5px 12px", fontSize: 11 }}>Manage in Rules</button>
@@ -2309,20 +2320,20 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {/* Notifications */}
-      <div style={accountStyles.section}>
+      <div style={{ ...accountStyles.section, ...mqSection }}>
         <h3 style={accountStyles.sectionTitle}>Notifications</h3>
         <div style={accountStyles.sectionSub}>— what we tell you, and when</div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Daily digest email</div><div style={accountStyles.sub}>one summary at 9:00 IST</div></div>
           <div/>
           <Toggle on={!!settings.daily_digest} onChange={v=>updateSetting("daily_digest", v)}/>
         </div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Low-confidence alerts</div><div style={accountStyles.sub}>ping when a new merchant isn't recognized</div></div>
           <div/>
           <Toggle on={!!settings.low_confidence_alerts} onChange={v=>updateSetting("low_confidence_alerts", v)}/>
         </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Sound effects</div><div style={accountStyles.sub}>subtle click on transaction confirm</div></div>
           <div/>
           <Toggle on={!!settings.sound_effects} onChange={v=>updateSetting("sound_effects", v)}/>
@@ -2342,20 +2353,20 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       }} />
 
       {/* Security */}
-      <div style={accountStyles.section}>
+      <div style={{ ...accountStyles.section, ...mqSection }}>
         <h3 style={accountStyles.sectionTitle}>Security & privacy</h3>
         <div style={accountStyles.sectionSub}>— your numbers, locked down</div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Two-factor authentication</div><div style={accountStyles.sub}>TOTP via authenticator app</div></div>
           <div/>
           <Toggle on={!!settings.two_factor_enabled} onChange={v=>updateSetting("two_factor_enabled", v)}/>
         </div>
-        <div style={accountStyles.row}>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Change password</div><div style={accountStyles.sub}>last changed 42 days ago</div></div>
           <div/>
           <button style={accountStyles.btn}>Change…</button>
         </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
+        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
           <div/>
           <button style={accountStyles.btn}><Icon name="arrow-u-r" size={12}/> Export</button>
@@ -2363,7 +2374,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
 
       {/* Danger */}
-      <div style={{ ...accountStyles.section, border: "1px solid var(--neg-soft)" }}>
+      <div style={{ ...accountStyles.section, ...mqSection, border: "1px solid var(--neg-soft)" }}>
         <h3 style={{ ...accountStyles.sectionTitle, color: "var(--neg)" }}>Danger zone</h3>
         <div style={accountStyles.sectionSub}>— irreversible things</div>
 

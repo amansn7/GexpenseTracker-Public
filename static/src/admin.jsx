@@ -95,13 +95,13 @@ const SyncSection = () => {
       <h3 style={S.sectionTitle}>Gmail Sync</h3>
       <div style={S.sectionSub}>— trigger a full Gmail sync and watch live progress</div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 16 }}>
         <span style={{ fontSize: 12, color: status?.last_synced_at ? "var(--ink-3)" : "var(--ink-4)" }}>
           {status?.last_synced_at
             ? `Last synced: ${new Date(status.last_synced_at).toLocaleString("en-IN")}`
             : "Never synced"}
         </span>
-        <button style={{ ...S.btn, ...(running ? {} : S.btnPrimary) }} onClick={trigger} disabled={running}>
+        <button style={{ ...S.btn, ...(running ? {} : S.btnPrimary), width: isMobile ? "100%" : "auto" }} onClick={trigger} disabled={running}>
           {running ? <span style={{ display: "flex", alignItems: "center", gap: 7 }}><Spinner /> Syncing…</span> : "▶ Trigger Sync"}
         </button>
       </div>
@@ -118,7 +118,7 @@ const SyncSection = () => {
             <div className="progress-fill" style={{ ...S.progressFill, transform: `scaleX(${pct / 100})` }} />
           </div>
           {progress.tally && (
-            <div style={{ display: "flex", gap: 10, fontSize: 11 }}>
+            <div style={{ display: "flex", gap: 10, fontSize: 11, flexDirection: isMobile ? "column" : "row" }}>
               {[["expense","var(--neg)","Exp"],["income","var(--pos)","Inc"],["ignore","var(--ink-4)","Ign"]].map(([k,c,lbl])=>(
                 <span key={k} style={{ color: c }}>
                   {lbl}: <strong>{progress.tally[k] || 0}</strong>
@@ -155,6 +155,7 @@ const SyncSection = () => {
 // ── Section: Gmail Fetch Preview ───────────────────────────────────────────────
 
 const FetchPreviewSection = () => {
+  const { isMobile } = useViewport();
   const [limit, setLimit]   = useState(10);
   const [query, setQuery]   = useState("newer_than:7d");
   const [loading, setLoading] = useState(false);
@@ -175,13 +176,13 @@ const FetchPreviewSection = () => {
       <h3 style={S.sectionTitle}>Gmail Fetch Preview</h3>
       <div style={S.sectionSub}>— pull N emails from Gmail without writing to DB, confirms auth + fetch pipeline</div>
 
-      <div style={S.row}>
-        <div style={{ width: 90 }}>
+      <div style={{ ...S.row, ...(isMobile ? { flexDirection: "column", alignItems: "stretch" } : {}) }}>
+        <div style={{ width: isMobile ? "100%" : 90 }}>
           <label style={S.label}>Limit</label>
           <input type="number" min={1} max={100} value={limit} onChange={e => setLimit(+e.target.value)}
-            style={{ ...S.input, width: 90 }} />
+            style={{ ...S.input, width: isMobile ? "100%" : 90 }} />
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 200 }}>
           <label style={S.label}>Gmail Query</label>
           <input value={query} onChange={e => setQuery(e.target.value)} style={S.input}
             placeholder="newer_than:7d, is:unread, from:hdfc…" />
@@ -230,6 +231,7 @@ const FetchPreviewSection = () => {
 // ── Section: Classifier Tester ────────────────────────────────────────────────
 
 const ClassifyTestSection = () => {
+  const { isMobile } = useViewport();
   const [sender,  setSender]  = useState("alerts@hdfcbank.net");
   const [subject, setSubject] = useState("HDFC Bank: Rs.499.00 debited from your account");
   const [body,    setBody]    = useState("Dear Customer,\n\nRs.499.00 has been debited from your HDFC Bank account ending 1234 for payment to Swiggy on 18-Apr-2026.\n\nAvailable balance: Rs.12,340.00");
@@ -275,7 +277,7 @@ const ClassifyTestSection = () => {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
           <div>
             <label style={S.label}>Sender</label>
             <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />
@@ -338,6 +340,7 @@ const ClassifyTestSection = () => {
 // ── Section: LLM Provider Status ──────────────────────────────────────────────
 
 const LLMStatusSection = ({ account, settings }) => {
+  const { isMobile } = useViewport();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const activeId = data?.active_service_id || settings?.active_ai_service_id;
@@ -351,7 +354,7 @@ const LLMStatusSection = ({ account, settings }) => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
         <h3 style={S.sectionTitle}>LLM Providers</h3>
         <button style={{ ...S.btn, ...S.btnPrimary, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
           <Icon name="repeat" size={14}/> Refresh
@@ -428,6 +431,7 @@ const LLMStatusSection = ({ account, settings }) => {
 // ── Section: LLM Provider Test ───────────────────────────────────────────────
 
 const LLMTestSection = ({ account }) => {
+  const { isMobile } = useViewport();
   const [target, setTarget] = useState("");
   const [testType, setTestType] = useState("classify"); // "classify" or "raw"
   const [sender, setSender] = useState("alerts@hdfcbank.net");
@@ -491,7 +495,7 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
             key={t}
             onClick={() => setTestType(t)}
             style={{
-              padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12,
+              padding: isMobile ? "4px 10px" : "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: isMobile ? 11 : 12,
               background: testType === t ? "var(--ink)" : "transparent",
               color: testType === t ? "var(--paper)" : "var(--ink-3)",
               fontFamily: "inherit",
@@ -502,10 +506,10 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 10, marginBottom: 12, alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <label style={S.label}>Provider</label>
-          <select value={target} onChange={e => setTarget(e.target.value)} style={{ ...S.input, width: "100%", maxWidth: 220 }}>
+          <select value={target} onChange={e => setTarget(e.target.value)} style={{ ...S.input, width: "100%", maxWidth: isMobile ? "100%" : 220 }}>
             <option value="">— select a service —</option>
             {allProviders.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -519,7 +523,7 @@ Respond with only valid JSON like: {"label":"expense","amount":499,"merchant":"S
 
       {testType === "classify" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
             <div>
               <label style={S.label}>Sender</label>
               <input value={sender} onChange={e => setSender(e.target.value)} style={S.input} placeholder="noreply@bank.com" />
@@ -576,7 +580,7 @@ const AlertsSection = () => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
         <h3 style={S.sectionTitle}>System Alerts</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load}>
@@ -616,6 +620,8 @@ const AlertsSection = () => {
 // ── Section: Fetch Email Range ─────────────────────────────────────────────────
 
 const FetchRangeSection = () => {
+  const { isMobile } = useViewport();
+  const mqRow = isMobile ? { flexDirection: "column", alignItems: "stretch" } : {};
   const [afterDate,  setAfterDate]  = React.useState("");
   const [beforeDate, setBeforeDate] = React.useState("");
   const [sender, setSender] = React.useState("");
@@ -645,20 +651,20 @@ const FetchRangeSection = () => {
     <>
       <h3 style={S.sectionTitle}>Fetch Email Range</h3>
       <div style={S.sectionSub}>— fetch emails from Gmail in a date range, then backfill missing bodies</div>
-      <div style={S.row}>
-        <div style={{ flex: 1, minWidth: 120 }}>
+      <div style={{ ...S.row, ...mqRow }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 120 }}>
           <label style={S.label}>From (date)</label>
           <input type="date" value={afterDate} onChange={e => setAfterDate(e.target.value)} style={S.input} />
         </div>
-        <div style={{ flex: 1, minWidth: 120 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 120 }}>
           <label style={S.label}>To (date)</label>
           <input type="date" value={beforeDate} onChange={e => setBeforeDate(e.target.value)} style={S.input} />
         </div>
-        <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 160 }}>
           <label style={S.label}>Sender</label>
           <input type="text" value={sender} onChange={e => setSender(e.target.value)} placeholder="axisbank.com" style={S.input} />
         </div>
-        <div style={{ flex: 1, minWidth: 160 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 0 : 160 }}>
           <label style={S.label}>Subject</label>
           <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="debit" style={S.input} />
         </div>
@@ -712,7 +718,7 @@ const FilterRulesSection = () => {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
         <h3 style={S.sectionTitle}>Filter Rules</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ ...S.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={load} disabled={loading}>
@@ -962,24 +968,29 @@ const CleanBodiesSection = () => {
 
 // ── AdminView (exported) ───────────────────────────────────────────────────────
 
-const AdminView = () => (
-  <div style={S.page}>
+const AdminView = () => {
+  const { isMobile } = useViewport();
+  const mqP = isMobile ? { padding: "16px 14px 80px", height: mobileStyles.navOffset } : {};
+  const mqS = isMobile ? { padding: "12px 14px" } : {};
+  return (
+  <div style={{ ...S.page, ...mqP }}>
     <div style={S.header}>
       <div style={S.kicker}>System</div>
-      <h1 style={S.h1}>Admin</h1>
+      <h1 style={{ ...S.h1, ...(isMobile ? { fontSize: 22 } : {}) }}>Admin</h1>
     </div>
-    <div style={S.section}><SyncSection /></div>
-    <div style={S.section}><FetchPreviewSection /></div>
-    <div style={S.section}><ClassifyTestSection /></div>
-    <div style={S.section}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
-    <div style={S.section}><LLMTestSection account={window.currentAccount} /></div>
-    <div style={S.section}><RuleEngineSection /></div>
-    <div style={S.section}><BackfillBodiesSection /></div>
-    <div style={S.section}><CleanBodiesSection /></div>
-    <div style={S.section}><FetchRangeSection /></div>
-    <div style={S.section}><FilterRulesSection /></div>
-    <div style={S.section}><AlertsSection /></div>
+    <div style={{ ...S.section, ...mqS }}><SyncSection /></div>
+    <div style={{ ...S.section, ...mqS }}><FetchPreviewSection /></div>
+    <div style={{ ...S.section, ...mqS }}><ClassifyTestSection /></div>
+    <div style={{ ...S.section, ...mqS }}><LLMStatusSection account={window.currentAccount} settings={window.currentSettings} /></div>
+    <div style={{ ...S.section, ...mqS }}><LLMTestSection account={window.currentAccount} /></div>
+    <div style={{ ...S.section, ...mqS }}><RuleEngineSection /></div>
+    <div style={{ ...S.section, ...mqS }}><BackfillBodiesSection /></div>
+    <div style={{ ...S.section, ...mqS }}><CleanBodiesSection /></div>
+    <div style={{ ...S.section, ...mqS }}><FetchRangeSection /></div>
+    <div style={{ ...S.section, ...mqS }}><FilterRulesSection /></div>
+    <div style={{ ...S.section, ...mqS }}><AlertsSection /></div>
   </div>
-);
+  );
+};
 
 Object.assign(window, { AdminView, SyncSection, FetchPreviewSection, ClassifyTestSection, LLMStatusSection, LLMTestSection, AlertsSection, FetchRangeSection, RuleEngineSection, CleanBodiesSection, BackfillBodiesSection });

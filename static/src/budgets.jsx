@@ -88,6 +88,7 @@ const SuggestionRow = ({ label, amount, sub, accent, onApply }) => (
 );
 
 const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
+  const { isMobile } = useViewport();
   const [appliedSet, setAppliedSet] = useState(new Set());
   const [applyingCategory, setApplyingCategory] = useState(null);
   const [suggestDone, setSuggestDone] = useState(false);
@@ -116,9 +117,8 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
 
   const pendingCount = suggestions?.budgets ? suggestions.budgets.filter(s => !appliedSet.has(s.category)).length : 0;
 
-  return (
-  <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
-    <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+  const formContent = (
+    <>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
         <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>AI-Suggested Budget Plan</span>
         <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
@@ -195,8 +195,24 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>No budget suggestions available.</div>
         )}
       </div>
+    </>
+  );
+
+  return isMobile ? (
+    <div onClick={onClose} style={bottomSheetStyles.overlay}>
+      <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
+        <div style={bottomSheetStyles.handle} />
+        <div style={bottomSheetStyles.content}>
+          {formContent}
+        </div>
+      </div>
     </div>
-  </div>
+  ) : (
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
+      <div className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+        {formContent}
+      </div>
+    </div>
   );
 };
 
@@ -219,6 +235,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [showAdaptiveDetail, setShowAdaptiveDetail] = useState(false);
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmErr, setLlmErr] = useState(null);
+  const { isMobile } = useViewport();
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -332,9 +349,8 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
 
   const adaptiveDetail = showAdaptiveDetail && adaptivePlanResult;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+  const formContent = (
+    <>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Budget" : "Add Budget"}</span>
           <button onClick={handleClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
@@ -489,12 +505,29 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
           <button onClick={handleClose} style={{ marginLeft: confirming ? 0 : "auto", padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1, minHeight: 44 }}>{saving ? "Saving…" : item ? "Save" : "Add Budget"}</button>
         </div>
+    </>
+  );
+
+  return isMobile ? (
+    <div onClick={handleClose} style={bottomSheetStyles.overlay}>
+      <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
+        <div style={bottomSheetStyles.handle} />
+        <div style={bottomSheetStyles.content}>
+          {formContent}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+        {formContent}
       </div>
     </div>
   );
 };
 
 const BudgetsView = () => {
+  const { isMobile, isTablet } = useViewport();
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -722,7 +755,7 @@ const BudgetsView = () => {
         />
       )}
 
-      <div style={secBand}>
+      <div style={{ ...secBand, ...(isMobile ? { padding: "10px 14px", flexWrap: "wrap" } : {}) }}>
         <span style={secTitle}>Budgets</span>
         {budgets.length > 0 && (
           <div style={{ display: "flex", gap: 20, marginLeft: 24 }}>
@@ -856,12 +889,12 @@ const BudgetsView = () => {
         />
       )}
       {goalProcessingDone && goalError && (
-        <div style={{ margin: "12px 28px", padding: "8px 16px", fontSize: 12, color: "var(--neg)", background: "var(--neg-soft)", borderRadius: 6 }}>
+        <div style={{ margin: "12px 28px", ...(isMobile ? { margin: "12px 14px" } : {}), padding: "8px 16px", fontSize: 12, color: "var(--neg)", background: "var(--neg-soft)", borderRadius: 6 }}>
           {goalError} <button onClick={loadGoalOptimize} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", fontFamily: "inherit", minHeight: 44, marginLeft: 8 }}>Retry</button>
         </div>
       )}
       {goalProcessingDone && goalOptimize && (
-        <div style={{ margin: "12px 28px 12px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+        <div style={{ margin: "12px 28px 12px", ...(isMobile ? { margin: "12px 14px" } : {}), border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
           <div onClick={() => setGoalExpanded(h => !h)} className="health-card-header">
             <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>Goal Optimization</span>
             {goalOptimize.total_savings_found != null && (
@@ -933,7 +966,7 @@ const BudgetsView = () => {
         </div>
       )}
 
-      <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "20px 28px", ...(isMobile ? { padding: "20px 14px" } : {}), display: "flex", flexDirection: "column", gap: 8 }}>
         {!budgets.length ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             No budgets set. <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13, minHeight: 44 }}>Add one per category to track monthly spend.</button>
@@ -992,7 +1025,7 @@ const BudgetsView = () => {
       </div>
 
       {/* Category Links */}
-      <div style={{ margin: "0 28px 20px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+      <div style={{ margin: "0 28px 20px", ...(isMobile ? { margin: "0 14px 20px" } : {}), border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
         <div
           onClick={() => setLinksExpanded(e => !e)}
           style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}

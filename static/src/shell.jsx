@@ -39,11 +39,76 @@ const LiveBrand = ({ onNav, mobile, onClose }) => {
   );
 };
 
+const mobileStyles = {
+  topbarHeight: 48,
+  tabBarHeight: 56,
+  navOffset: "calc(100dvh - 48px - 56px)",
+  topbarMobile: { padding: "8px 14px", gap: 8, minHeight: 48, flexWrap: "wrap" },
+  tabBar: {
+    position: "fixed", bottom: 0, left: 0, right: 0, height: 56,
+    background: "var(--paper)", borderTop: "1px solid var(--line)",
+    display: "flex", alignItems: "center", zIndex: 60,
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+  },
+  tabItem: {
+    flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 2, padding: "4px 0", border: "none", background: "transparent", cursor: "pointer",
+    fontSize: 9, fontWeight: 500, letterSpacing: "0.03em",
+    minHeight: 44, fontFamily: "inherit",
+  },
+  badged: { position: "relative" },
+  badge: {
+    position: "absolute", top: -2, right: -8,
+    background: "var(--accent)", color: "var(--paper)",
+    fontSize: 9, fontWeight: 700, borderRadius: 999,
+    padding: "1px 4px", minWidth: 16, textAlign: "center",
+    lineHeight: "14px",
+  },
+};
+
+var bottomSheetStyles = {
+  overlay: {
+    position: "fixed", inset: 0, zIndex: 100,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex", alignItems: "flex-end", justifyContent: "center",
+    animation: "fadeIn 200ms ease"
+  },
+  sheet: {
+    position: "relative",
+    width: "100%", maxWidth: 500,
+    maxHeight: "70vh",
+    background: "var(--card)",
+    borderTopLeftRadius: 12, borderTopRightRadius: 12,
+    padding: "4px 0 24px",
+    overflowY: "auto",
+    boxShadow: "0 -8px 32px -8px var(--shadow-lg)",
+    transform: "translateY(0)",
+    transition: "transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
+  },
+  handle: {
+    width: 32, height: 4,
+    borderRadius: 2,
+    background: "var(--ink-3)",
+    margin: "8px auto 12px",
+    opacity: 0.5,
+    flexShrink: 0
+  },
+  content: {
+    padding: "0 16px"
+  },
+  footer: {
+    padding: "16px",
+    borderTop: "1px solid var(--line)",
+    display: "flex", gap: 8,
+    justifyContent: "flex-end"
+  }
+};
+
 const useViewport = () => {
   const read = () => ({
     width: window.innerWidth,
     isMobile: window.innerWidth < 720,
-    isTablet: window.innerWidth < 980,
+    isTablet: window.innerWidth < 900,
   });
   const [viewport, setViewport] = React.useState(read);
   React.useEffect(() => {
@@ -422,15 +487,15 @@ const SearchBar = ({ mobile, onSelect, onEnter }) => {
 };
 
 const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu = mobile, onMenu = () => {}, onSearchSelect, onSearchEnter }) => (
-  <header style={{ ...shellStyles.topbar, ...(mobile ? { padding: "10px 14px", gap: 10, minHeight: 62, flexWrap: "wrap" } : {}) }}>
+  <header style={{ ...shellStyles.topbar, ...(mobile ? { padding: "8px 14px", gap: 8, minHeight: 48, flexWrap: "wrap" } : {}) }}>
     {showMenu && (
-      <button onClick={onMenu} className="focus-ring" aria-label="Open navigation" style={{ border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", borderRadius: 6, width: 44, height: 44, display: "grid", placeItems: "center", flexShrink: 0 }}>
-        <Icon name="menu" size={18} />
+      <button onClick={onMenu} className="focus-ring" aria-label="Open navigation" style={{ border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", borderRadius: 6, width: 36, height: 36, display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <Icon name="menu" size={16} />
       </button>
     )}
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginRight: mobile ? 0 : 16, minWidth: 0, flex: mobile ? "1 1 180px" : "0 0 auto" }}>
-      <h1 className="serif" style={{ margin: 0, fontSize: mobile ? 20 : 22, fontWeight: 500, letterSpacing: "-0.015em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
-      {subtitle && <div style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 1, marginRight: mobile ? 0 : 16, minWidth: 0, flex: mobile ? "1 1 120px" : "0 0 auto" }}>
+      <h1 className="serif" style={{ margin: 0, fontSize: mobile ? 17 : 22, fontWeight: 500, letterSpacing: "-0.015em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{title}</h1>
+      {subtitle && !mobile && <div style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>}
     </div>
     <SearchBar mobile={mobile} onSelect={onSearchSelect} onEnter={onSearchEnter} />
     <div style={{ flex: "0 0 auto", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
@@ -442,6 +507,92 @@ const Topbar = ({ title, subtitle, children, syncLabel, mobile = false, showMenu
     </div>
   </header>
 );
+
+const BottomTabBar = ({ view, setView, counts, onMenu }) => {
+  const tabs = [
+    { key: "inbox", icon: "inbox", label: "Inbox", badge: counts?.unread },
+    { key: "flow", icon: "flow", label: "Flow" },
+    { key: "dashboard", icon: "dash", label: "Dash" },
+    { key: "more", icon: "grid", label: "More" },
+    { key: "settings", icon: "gear", label: "Settings" },
+  ];
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const moreRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [moreOpen]);
+
+  const extendedViews = [
+    { key: "health", icon: "heart", label: "Health" },
+    { key: "reports", icon: "chart", label: "Reports" },
+    { key: "recurring", icon: "repeat", label: "Recurring" },
+    { key: "debt", icon: "trending-down", label: "Debt" },
+    { key: "goals", icon: "trend-u", label: "Goals" },
+    { key: "budgets", icon: "bank", label: "Budgets" },
+    { key: "profile", icon: "user", label: "Profile" },
+  ];
+
+  const isMore = !["inbox","flow","dashboard","settings"].includes(view);
+
+  const handleTab = (key) => {
+    if (key === "more") { setMoreOpen(o => !o); return; }
+    setMoreOpen(false);
+    setView(key);
+  };
+
+  return (
+    <>
+    <nav style={mobileStyles.tabBar} role="tablist" aria-label="Main navigation">
+      {tabs.map(t => {
+        const active = t.key === "more" ? isMore : view === t.key;
+        return (
+          <button key={t.key} role="tab" aria-selected={active}
+            onClick={() => handleTab(t.key)}
+            style={{ ...mobileStyles.tabItem, color: active ? "var(--accent)" : "var(--ink-3)" }}
+          >
+            <span style={mobileStyles.badged}>
+              <Icon name={t.icon} size={18} stroke={active ? "var(--accent)" : "var(--ink-3)"} />
+              {t.badge > 0 && <span style={mobileStyles.badge}>{t.badge > 99 ? "99+" : t.badge}</span>}
+            </span>
+            <span>{t.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+    {moreOpen && (
+      <div ref={moreRef} className="fade-in"
+        style={{
+          position: "fixed", bottom: 56, left: 0, right: 0,
+          background: "var(--card)", borderTop: "1px solid var(--line)",
+          borderBottom: "1px solid var(--line)",
+          padding: "8px 14px", zIndex: 59,
+          display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4,
+          paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        {extendedViews.map(v => (
+          <button key={v.key} onClick={() => { setMoreOpen(false); setView(v.key); }}
+            style={{
+              ...mobileStyles.tabItem, gap: 4, padding: "8px 4px", borderRadius: 6,
+              color: view === v.key ? "var(--accent)" : "var(--ink-2)",
+              background: view === v.key ? "var(--accent-soft)" : "transparent",
+            }}
+          >
+            <Icon name={v.icon} size={16} stroke={view === v.key ? "var(--accent)" : "var(--ink-3)"} />
+            <span>{v.label}</span>
+          </button>
+        ))}
+      </div>
+    )}
+    </>
+  );
+};
 
 const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
   const fmt = d => { const off = d.getTimezoneOffset() * 60000; return new Date(d - off).toISOString().slice(0, 10); };
@@ -489,4 +640,4 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
   );
 };
 
-Object.assign(window, { Sidebar, Topbar, shellStyles, DateRangeControl, useViewport });
+Object.assign(window, { Sidebar, Topbar, shellStyles, DateRangeControl, useViewport, BottomTabBar, mobileStyles, bottomSheetStyles });

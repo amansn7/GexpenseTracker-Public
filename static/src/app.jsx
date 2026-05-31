@@ -325,13 +325,13 @@ const App = () => {
         </Topbar>
 
         {error ? (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)" }}>
             <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, color:"var(--neg)" }}>Could not load data</div>
             <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{error}</div>
             <button onClick={loadData} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Retry</button>
           </div>
         ) : renderError ? (
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)" }}>
             <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, color:"var(--neg)" }}>Something went wrong</div>
             <div style={{ fontSize:13, color:"var(--ink-3)", maxWidth:400, textAlign:"center" }}>{renderError}</div>
             <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Reload</button>
@@ -339,7 +339,7 @@ const App = () => {
         ) : (
           <div className="view-enter" key={view}>
           {view === "inbox" && !loading && transactions.length === 0 && (
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height:"calc(100dvh - 72px)", textAlign:"center" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)", textAlign:"center" }}>
               <div style={{ fontFamily:"'Geist',sans-serif", fontSize:22, color:"var(--ink)" }}>
                 {totalTransactions > 0 ? `No ${inboxFilter === "all" ? "" : inboxFilter + " "}transactions found` : "Your inbox is quiet"}
               </div>
@@ -381,8 +381,8 @@ const App = () => {
           {view === "debt"      && <DebtView />}
           {view === "goals"     && <GoalsView />}
           {view === "budgets"   && <BudgetsView />}
-          {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
-          {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
+          {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
+          {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
           {/* "new" mode nav aliases — route to nearest functional equivalent */}
           {view === "today"   && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
           {view === "picture" && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
@@ -463,6 +463,15 @@ const App = () => {
           onClose={() => setSyncPanelDismissed(true)}
           onFullView={() => setView("settings")}
           position={syncPanelPosition}
+        />
+      )}
+
+      {viewport.isMobile && (
+        <BottomTabBar
+          view={view}
+          setView={setView}
+          counts={counts}
+          onMenu={() => setNavOpen(true)}
         />
       )}
     </div>

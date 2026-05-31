@@ -13,6 +13,7 @@ const FREQ_COLORS = {
 const defaultForm = () => ({ name: "", amount: "", category: "", frequency: "monthly", notes: "", active: true });
 
 const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
+  const { isMobile } = useViewport();
   const [form, setForm] = useState(item ? { ...item, amount: item.amount ?? "" } : defaultForm());
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -58,9 +59,8 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   const inp = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
   const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+  const formContent = (
+    <>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
           <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Recurring" : "Add Recurring"}</span>
           <button onClick={handleClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
@@ -111,12 +111,29 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
+    </>
+  );
+
+  return isMobile ? (
+    <div onClick={handleClose} style={bottomSheetStyles.overlay}>
+      <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
+        <div style={bottomSheetStyles.handle} />
+        <div style={bottomSheetStyles.content}>
+          {formContent}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+        {formContent}
       </div>
     </div>
   );
 };
 
 const RecurringView = ({ userCategories }) => {
+  const { isMobile, isTablet } = useViewport();
   const [items, setItems] = useState([]);
   const [monthly, setMonthly] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -216,12 +233,12 @@ const RecurringView = ({ userCategories }) => {
         />
       )}
 
-      <div style={secBand}>
+      <div style={{ ...secBand, ...(isMobile ? { padding: "10px 14px", gap: 6, flexWrap: "wrap" } : {}) }}>
         <span style={secTitle}>Recurring Expenses</span>
         <span style={{ marginLeft: 12, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>
           ₹{monthly.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/mo
         </span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, ...(isMobile ? { flexWrap: "wrap", width: "100%", marginTop: 4 } : {}) }}>
           {[["active","Active"],["all","All"]].map(([k, l]) => (
             <button key={k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>{l}</button>
           ))}
@@ -235,21 +252,21 @@ const RecurringView = ({ userCategories }) => {
       </div>
 
       {finding && (
-        <div style={{ margin: "0 28px 8px", padding: 20, textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 20, textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
           <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 10px" }} />
           Analyzing your transactions for recurring patterns…
         </div>
       )}
 
       {suggesting && !finding && suggestions.length === 0 && (
-        <div style={{ margin: "0 28px 8px", padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
           No recurring patterns found in your transactions.
           <button onClick={() => setSuggesting(false)} style={{ marginLeft: 8, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Dismiss</button>
         </div>
       )}
 
       {suggesting && suggestions.length > 0 && (
-        <div style={{ margin: "0 28px 8px", padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>Suggested Recurring</span>
             <button onClick={() => { setSuggesting(false); setSuggestions([]); }} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={14}/></button>
@@ -283,7 +300,7 @@ const RecurringView = ({ userCategories }) => {
         </div>
       )}
 
-      <div style={{ padding: "16px 28px" }}>
+      <div style={{ padding: "16px 28px", ...(isMobile ? { padding: "16px 14px" } : {}) }}>
         {!visible.length ? (
           <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
             {filter === "active" ? "No active recurring items." : "No recurring items yet."} <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>Add one</button>

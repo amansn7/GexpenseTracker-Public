@@ -3,6 +3,7 @@
 const { useState, useEffect } = React;
 
 const ReportsView = () => {
+  const { isMobile, isTablet } = useViewport();
   const [months, setMonths] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,11 +63,11 @@ const ReportsView = () => {
 
   return (
     <div className="fade-in">
-      <div style={secBand}>
+      <div style={{ ...secBand, ...(isMobile ? { padding: "10px 14px" } : {}) }}>
         <span style={secTitle}>Monthly Summary</span>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-4)" }}>Last 12 months</span>
       </div>
-      <div style={secBody}>
+      <div style={{ ...secBody, ...(isMobile ? { padding: "0 14px 24px" } : {}) }}>
         {/* Monthly Expense Trend Bars */}
         {(() => {
           const maxExpense = Math.max(...months.map(m => m.expenses), 1);

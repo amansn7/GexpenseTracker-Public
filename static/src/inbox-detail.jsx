@@ -67,9 +67,8 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
   const [closing, setClosing] = React.useState(false);
   const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
   const groups = CategoryService.grouped();
-  return (
-  <div onClick={handleClose} style={{ position: "fixed", inset: 0, zIndex: 100 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-    <div onClick={(e)=>e.stopPropagation()} className={closing ? "modal-out" : "modal-in"} style={{ position: "absolute", top: isMobile ? 72 : "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: isMobile ? "calc(100vw - 28px)" : 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
+  const content = (
+    <>
       <div style={{ padding: "8px 10px 10px", fontSize: 11, color: "var(--ink-3)", letterSpacing: "0.08em", textTransform: "uppercase", display:"flex", alignItems:"center", gap: 8 }}>
         <Icon name="bolt" size={12} stroke="var(--accent)"/> Recategorize: teaches the model
       </div>
@@ -85,9 +84,44 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
           ))}
         </div>
       ))}
+    </>
+  );
+
+  if (!isMobile) {
+    return (
+      <div onClick={handleClose} style={{ position: "fixed", inset: 0, zIndex: 100 }} className={closing ? "backdrop-out" : "backdrop-in"}>
+        <div onClick={(e)=>e.stopPropagation()} className={closing ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={handleClose} style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: closing ? "transparent" : "rgba(0,0,0,0.4)",
+      transition: "background 200ms"
+    }}>
+      <div onClick={(e)=>e.stopPropagation()} style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101,
+        background: "var(--card)",
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        padding: "4px 8px 24px",
+        maxHeight: "70vh",
+        overflowY: "auto",
+        boxShadow: "0 -8px 32px -8px var(--shadow-lg)",
+        transform: closing ? "translateY(100%)" : "translateY(0)",
+        transition: "transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
+      }}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
+          <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--ink-4)" }}/>
+        </div>
+        {content}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 const DetailPanel = ({ tx, onClose, onUpdate }) => {
@@ -104,6 +138,11 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   const [editingMerchant, setEditingMerchant] = React.useState(false);
   const [merchantDraft, setMerchantDraft] = React.useState(tx.merchant || "");
   const [editDraft, setEditDraft] = React.useState(null);
+  const [swipeX, setSwipeX] = React.useState(0);
+  const [swiping, setSwiping] = React.useState(false);
+  const touchStartX = React.useRef(0);
+  const swipeXRef = React.useRef(0);
+  const swipingRef = React.useRef(false);
 
   React.useEffect(() => {
     setAmtDraft(Math.abs(tx.amount));
@@ -203,8 +242,46 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setTimeout(() => setSaving(false), 600);
   };
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    swipingRef.current = true;
+    setSwiping(true);
+    setSwipeX(0);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!swipingRef.current) return;
+    var dx = e.touches[0].clientX - touchStartX.current;
+    if (dx > 0) {
+      swipeXRef.current = dx;
+      setSwipeX(dx);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    swipingRef.current = false;
+    setSwiping(false);
+    if (swipeXRef.current > 80) {
+      onClose();
+    }
+    setSwipeX(0);
+  };
+
   return (
-    <aside style={{ ...inboxStyles.panel, ...(isMobile ? { position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none" } : {}) }} className="slide-in-right" key={tx.id}>
+    <aside style={{
+      ...inboxStyles.panel,
+      ...(isMobile ? {
+        position: "fixed", inset: 0, zIndex: 65, padding: "18px 18px 0", height: "100dvh", borderLeft: "none",
+        transform: `translateX(${swipeX}px)`,
+        opacity: Math.max(0, 1 - swipeX / 300),
+        transition: swiping ? "none" : "transform 0.2s ease, opacity 0.2s ease",
+        touchAction: "pan-y"
+      } : {})
+    }} className="slide-in-right" key={tx.id}
+      onTouchStart={isMobile ? handleTouchStart : undefined}
+      onTouchMove={isMobile ? handleTouchMove : undefined}
+      onTouchEnd={isMobile ? handleTouchEnd : undefined}
+    >
       <div style={inboxStyles.panelBody} className="view-enter">
       <div style={inboxStyles.panelHeader}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

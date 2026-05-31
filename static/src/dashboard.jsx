@@ -1,24 +1,24 @@
 // Dashboard — minimal monthly summary
 
 const dashStyles = {
-  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 1300, margin: "0 auto" },
-  hero: { padding: "36px 40px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 24, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 40, alignItems: "center" },
+  wrap: { padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 1300, margin: "0 auto" },  // isMobile: 16px 14px 80px, height: mobileStyles.navOffset
+  hero: { padding: "36px 40px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 24, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 40, alignItems: "center" },  // isMobile: 20px 18px, 1fr
   heroLabel: { fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 6 },
-  heroAmount: { fontFamily: "'Geist Mono', monospace", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },
+  heroAmount: { fontFamily: "'Geist Mono', monospace", fontSize: 72, fontWeight: 400, letterSpacing: "-0.035em", lineHeight: 1, margin: "4px 0 8px" },  // isMobile: fontSize 42
   heroSub: { fontFamily: "'Instrument Serif', serif", fontStyle: "italic", fontSize: 16, color: "var(--ink-3)" },
   barSplit: { display: "flex", height: 12, borderRadius: 20, overflow: "hidden", border: "1px solid var(--line)", background: "var(--paper-2)", marginTop: 12 },
-  grid3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 },
+  grid3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 },  // isMobile: repeat(2, 1fr)
   card: { padding: "22px 24px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 },
   cardH: { fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" },
-  cardBig: { fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 },
-  grid2: { display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 },
+  cardBig: { fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 },  // isMobile: fontSize 28
+  grid2: { display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 16 },  // isMobile: 1fr
   // Section band system — editorial dark header + card body
   secHead: { borderRadius: "8px 8px 0 0", background: "var(--ink)", padding: "11px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" },
   secTitle: { fontSize: 11, fontWeight: 600, color: "var(--paper)", textTransform: "uppercase", letterSpacing: "0.1em" },
   secSub: { fontSize: 11, fontFamily: "'Geist Mono', monospace", color: "var(--paper)", opacity: 0.4 },
   secBody: { background: "var(--card)", border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "20px" },
   // Category card grid
-  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(152px, 1fr))", gap: 10 },
+  catGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(152px, 1fr))", gap: 10 },  // isMobile: repeat(2, 1fr)
   catCard: { padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" },
 };
 
@@ -122,7 +122,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   })).sort((a,b) => b.amount - a.amount);
 
   return (
-    <div style={{ ...dashStyles.wrap, ...(isMobile ? { padding: "20px 14px 56px", height: "calc(100dvh - 115px)" } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
+    <div style={{ ...dashStyles.wrap, ...(isMobile ? { padding: "16px 14px 80px", height: mobileStyles.navOffset } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500 }}>{dateRange.from} → {dateRange.to} · Snapshot</div>
@@ -143,10 +143,10 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
         {statsLoading && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Loading…</span>}
       </div>
 
-      <div className="view-enter" style={{ ...dashStyles.hero, ...(isMobile ? { padding: 18, gridTemplateColumns: "1fr", gap: 22, borderRadius: 8 } : isTablet ? { gridTemplateColumns: "1fr", gap: 28 } : {}) }}>
+      <div className="view-enter" style={{ ...dashStyles.hero, ...(isMobile ? { padding: "20px 18px", gridTemplateColumns: "1fr", gap: 22, borderRadius: 8 } : isTablet ? { gridTemplateColumns: "1fr", gap: 28 } : {}) }}>
         <div>
           <div style={dashStyles.heroLabel}>Net position · selected range</div>
-          <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 44 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
+          <div style={{ ...dashStyles.heroAmount, ...(isMobile ? { fontSize: 42 } : {}), color: "var(--pos)" }}>₹{remaining.toLocaleString("en-IN")}</div>
           <div style={dashStyles.heroSub}>
             after ₹{totalExpense.toLocaleString("en-IN")} in expenses{expDelta != null && <span style={{ color: "var(--neg)", marginLeft: 4, fontSize: 13 }}>↑{Math.abs(expDelta)}% vs prev</span>}
             {totalCCPayments > 0 && <span> · ₹{totalCCPayments.toLocaleString("en-IN")} in CC payments</span>}
@@ -237,7 +237,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr 1fr" : "2fr 1fr", gap: 14, marginBottom: 24 }}>
         <div className="anim-row-spring" style={{"--i": 0, ...dashStyles.card, ...(isMobile ? {} : { gridRow: "span 2" }) }}>
           <div style={dashStyles.cardH}><span>Daily burn</span><Icon name="bolt" size={12} stroke="var(--accent)"/></div>
-          <div style={dashStyles.cardBig}>₹{daily.toLocaleString("en-IN")}</div>
+          <div style={{ ...dashStyles.cardBig, ...(isMobile ? { fontSize: 28 } : {}) }}>₹{daily.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             at this pace, <span style={{ color: "var(--ink)", fontWeight: 500 }}>₹{(daily*30).toLocaleString("en-IN")}</span>/month
             {burnTrend != null && <span style={{ color: burnTrend > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 6 }}>{burnTrend > 0 ? "↑" : "↓"} {Math.abs(burnTrend)}%</span>}
@@ -265,14 +265,14 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
         </div>
         <div className="anim-row-spring" style={{"--i": 1, ...dashStyles.card}}>
           <div style={dashStyles.cardH}><span>Subscriptions</span><span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-4)" }}>{subsCount}</span></div>
-          <div style={dashStyles.cardBig}>₹{subsTotal.toLocaleString("en-IN")}</div>
+          <div style={{ ...dashStyles.cardBig, ...(isMobile ? { fontSize: 28 } : {}) }}>₹{subsTotal.toLocaleString("en-IN")}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             Netflix, Spotify, iCloud+ … <span onClick={() => window._goRecurring && window._goRecurring()} style={{ color: "var(--accent)", cursor: "pointer", textDecoration: "underline" }}>review recurring</span>
           </div>
         </div>
         <div className="anim-row-spring" style={{"--i": 2, ...dashStyles.card}}>
           <div style={dashStyles.cardH}><span>Needs attention</span><Icon name="sparkle" size={12} stroke="var(--accent)"/></div>
-          <div style={dashStyles.cardBig}>{unread + flagged}</div>
+          <div style={{ ...dashStyles.cardBig, ...(isMobile ? { fontSize: 28 } : {}) }}>{unread + flagged}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8 }}>
             {unread} unread · {flagged} low-confidence
             {attentionDelta != null && <span style={{ color: attentionDelta > 0 ? "var(--neg)" : "var(--pos)", marginLeft: 4 }}>{attentionDelta > 0 ? "+" : ""}{attentionDelta} vs prev</span>}
@@ -280,7 +280,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
         </div>
       </div>
 
-      <div style={{ ...dashStyles.grid2, gridTemplateColumns: isTablet ? "1fr" : dashStyles.grid2.gridTemplateColumns }}>
+      <div style={{ ...dashStyles.grid2, gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : dashStyles.grid2.gridTemplateColumns }}>
         {/* Category breakdown — banded section + card grid */}
         <div className="anim-row-spring" style={{"--i": 4}}>
           <div style={dashStyles.secHead}>
@@ -290,7 +290,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
           <div style={dashStyles.secBody}>
             {catSorted.length === 0
               ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>
-              : <div style={dashStyles.catGrid}>
+              : <div style={{ ...dashStyles.catGrid, ...(isMobile ? { gridTemplateColumns: "repeat(2, 1fr)" } : {}) }}>
                   {catSorted.filter(c => c.cat !== "card" && c.cat !== "investment").map((e, idx) => {
                     const pct = totalExpense > 0 ? (e.amount / totalExpense) * 100 : 0;
                     const c = CategoryService.display(e.cat);
