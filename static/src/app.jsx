@@ -224,58 +224,69 @@ const App = () => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
+  const startPolling = useCallback(async (initialProgress) => {
+    setSyncing(true);
+    setSyncPanelDismissed(false);
+    if (initialProgress) setSyncProgress(initialProgress);
+
+    let started = !!initialProgress?.running;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 480;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const p = await API.get("/api/sync/progress");
+        setSyncProgress(p);
+        if (p.running) started = true;
+        const done = !p.running && (started || p.phase === "error" || p.phase === "done");
+        if (done) {
+          clearInterval(poll);
+          await loadData();
+          API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
+          setSyncing(false);
+          return;
+        }
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(poll);
+          try {
+            const finalP = await API.get("/api/sync/progress");
+            if (finalP.phase === "done" || finalP.phase === "error") {
+              setSyncProgress(finalP);
+              await loadData();
+              API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
+              setSyncing(false);
+              return;
+            }
+          } catch (_) {}
+          setSyncing(false);
+          setSyncProgress(prev => prev ? { ...prev, phase: "error", error: "Sync timed out — please try again" } : null);
+        }
+      } catch (_) {
+        if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); }
+      }
+    }, 1200);
+  }, [loadData]);
+
   const handleRescan = async () => {
     if (syncing) return;
     setSyncing(true);
     setSyncPanelDismissed(false);
     setSyncProgress(null);
     try {
-      const trigger = await API.post("/api/sync/trigger");
-      let started = false;
-      let attempts = 0;
-      const MAX_ATTEMPTS = 480; // 9.6 min at 1.2s interval — leaves 24s buffer for backend 600s timeout
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          const p = await API.get("/api/sync/progress");
-          setSyncProgress(p);
-          if (p.running) started = true;
-          const done = !p.running && (started || p.phase === "error" || p.phase === "done");
-          if (done) {
-            clearInterval(poll);
-            await loadData();
-            API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-            setSyncing(false);
-            return;
-          }
-          if (attempts >= MAX_ATTEMPTS) {
-            clearInterval(poll);
-            // One final check — backend may have just finished
-            try {
-              const finalP = await API.get("/api/sync/progress");
-              if (finalP.phase === "done" || finalP.phase === "error") {
-                setSyncProgress(finalP);
-                await loadData();
-                API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-                setSyncing(false);
-                return;
-              }
-            } catch (_) {}
-            console.error("Sync polling timed out after", MAX_ATTEMPTS, "attempts");
-            setSyncing(false);
-            setSyncProgress(prev => prev ? { ...prev, phase: "error", error: "Sync timed out — please try again" } : null);
-          }
-        } catch (e) {
-          console.error("Poll error:", e);
-          if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); }
-        }
-      }, 1200);
+      await API.post("/api/sync/trigger");
+      startPolling(null);
     } catch (e) {
-      console.error("Sync trigger error:", e);
-      alert("Failed to start sync: " + (e.message || "Unknown error"));
       setSyncing(false);
+      alert("Failed to start sync: " + (e.message || "Unknown error"));
     }
   };
+
+  // On mount, check if a backend sync is already running
+  useEffect(() => {
+    API.get("/api/sync/progress").then(p => {
+      if (p?.running) startPolling(p);
+    }).catch(() => {});
+  }, []);
 
   const syncLabel = () => {
     if (syncing) return "Syncing…";
