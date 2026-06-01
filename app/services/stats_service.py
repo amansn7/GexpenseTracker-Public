@@ -180,6 +180,7 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
 
     net = total_income - total_expenses - total_cc - total_inv
     savings_rate = round(net / total_income * 100, 1) if total_income > 0 else 0.0
+    savings_rate = max(-9999.9, min(9999.9, savings_rate))
 
     # ── Category breakdown ──
     cat_rows = (
