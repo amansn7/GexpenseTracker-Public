@@ -53,34 +53,27 @@ for (const name of ORDER) {
   bundle += `\n/* ===== ${name} ===== */\n${code}\n`;
 }
 
-// Splice into index.html — replace the big compiled text/babel script block
+// Splice into index.html:
+// Replace ALL <script type="text/babel"> blocks (may be duplicates from original hi-fi)
+// with a single new bundle, keeping only the final ReactDOM.createRoot script.
 let html = fs.readFileSync(HTML, 'utf8');
 
-// The big script block: first <script type="text/babel" ...> that contains component code
-// End marker: the final small script that just calls ReactDOM.createRoot
-const START_MARKER = '<script type="text/babel" data-presets="react">\n// ===';
-const END_MARKER   = '\n</script>\n\n<script type="text/babel" data-presets="react">\nReactDOM.createRoot';
-const START = html.indexOf(START_MARKER);
-const END   = html.indexOf(END_MARKER);
+// START = first occurrence of <script type="text/babel"
+const START = html.indexOf('<script type="text/babel"');
 
-if (START === -1 || END === -1) {
-  // Fallback: find any large text/babel block before ReactDOM.createRoot
-  const rdIdx = html.lastIndexOf('ReactDOM.createRoot');
-  const endScript = html.lastIndexOf('</script>', rdIdx);
-  const startScript = html.lastIndexOf('<script', endScript - 1);
-  if (startScript === -1) { console.error('ERROR: Cannot find script splice points'); process.exit(1); }
-  console.warn('Using fallback splice points:', startScript, endScript + 9);
-  const newHtml2 = html.slice(0, startScript)
-    + `<script type="text/babel" data-presets="react">\n// ===== COMPONENTS =====\n${bundle}\n`
-    + html.slice(endScript + 9);
-  fs.writeFileSync(HTML, newHtml2);
-  const saved2 = html.length - newHtml2.length;
-  console.log(`Done (fallback) — index.html updated (${newHtml2.length} bytes, delta ${saved2 > 0 ? '-' : '+'}${Math.abs(saved2)})`);
-  process.exit(0);
+// END = start of the <script type="text/babel"> that contains ReactDOM.createRoot
+const rdIdx  = html.indexOf('ReactDOM.createRoot');
+const END    = html.lastIndexOf('<script', rdIdx); // last <script before ReactDOM.createRoot
+
+if (START === -1 || END === -1 || START >= END) {
+  console.error('ERROR: Cannot find script splice points', { START, END, rdIdx });
+  process.exit(1);
 }
 
+console.log(`  Splicing: chars ${START}–${END} replaced with new bundle`);
+
 const newHtml = html.slice(0, START)
-  + `<script type="text/babel" data-presets="react">\n// ===== COMPONENTS =====\n${bundle}\n`
+  + `<script type="text/babel" data-presets="react">\n// ===== COMPONENTS =====\n${bundle}\n</script>\n\n`
   + html.slice(END);
 fs.writeFileSync(HTML, newHtml);
 
