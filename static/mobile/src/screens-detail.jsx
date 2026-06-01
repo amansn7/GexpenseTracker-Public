@@ -9,16 +9,49 @@ const TxDetail = ({ tx, onBack, onSaved, onDeleted }) => {
   const [showSource, setShowSource] = useStateN(false);
   const [showSplit, setShowSplit] = useStateN(false);
   const [confirmDel, setConfirmDel] = useStateN(false);
+  const [saving, setSaving] = useStateN(false);
 
   const [draft, setDraft] = useStateN({
     merchant: tx.merchant,
     amount: tx.amount,
     note: tx.note,
     category: tx.category,
+    label: tx.label || (tx.type === 'income' ? 'income' : 'expense'),
     date: tx.date,
   });
 
-  const isIncome = tx.type === 'income';
+  const isIncome = draft.label === 'income';
+
+  const patchTx = async (fields) => {
+    setSaving(true);
+    try {
+      await window.GxAPI.patch('/api/transactions/' + tx.id, fields);
+      onSaved && onSaved('Saved');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCategoryChange = (newCat) => {
+    setDraft(d => ({ ...d, category: newCat }));
+    patchTx({ category: newCat });
+  };
+
+  const handleLabelChange = (newLabel) => {
+    setDraft(d => ({ ...d, label: newLabel }));
+    patchTx({ label: newLabel });
+  };
+
+  const handleDelete = async () => {
+    setConfirmDel(false);
+    setSaving(true);
+    try {
+      await window.GxAPI.patch('/api/transactions/' + tx.id, { status: 'deleted' });
+      onDeleted && onDeleted();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="scroll" data-screen-label="08 Tx Detail" style={{paddingBottom:120}}>
@@ -30,7 +63,7 @@ const TxDetail = ({ tx, onBack, onSaved, onDeleted }) => {
           </button>
           <div className="small mono" style={{color:'var(--ink-3)'}}>{tx.id}</div>
           <button onClick={() => setEditMode(!editMode)} className="btn btn-ghost" style={{padding:'6px 12px', fontSize:12, fontWeight:600, color: editMode ? 'var(--brand)' : 'var(--ink-2)'}}>
-            {editMode ? 'Done' : 'Edit'}
+            {saving ? '…' : editMode ? 'Done' : 'Edit'}
           </button>
         </div>
 
@@ -64,7 +97,43 @@ const TxDetail = ({ tx, onBack, onSaved, onDeleted }) => {
         <div className="card fade-up fade-up-3" style={{padding:0, marginBottom:14}}>
           <DetailRow icon="store" label="Merchant" value={draft.merchant}/>
           <Divider/>
-          <DetailRow icon="folder" label="Category" value={tx.categoryLabel} editable={editMode}/>
+          {editMode ? (
+            <div style={{display:'flex', alignItems:'center', gap:12, padding:'14px 16px'}}>
+              <div style={{width:30, height:30, borderRadius:8, background:'var(--surface-2)', display:'grid', placeItems:'center', color:'var(--ink-3)', flexShrink:0}}>
+                <Icon name="folder" size={14}/>
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div className="label" style={{fontSize:10}}>Category</div>
+                <select value={draft.category} onChange={e => handleCategoryChange(e.target.value)} style={{border:'none', background:'transparent', fontFamily:'inherit', fontSize:14, fontWeight:500, color:'var(--ink)', outline:'none', width:'100%', marginTop:1}}>
+                  {['food','travel','shop','bills','coffee','grocery','subs','fuel','health','entertainment','other'].map(c => (
+                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <Icon name="edit" size={14} style={{color:'var(--ink-3)'}}/>
+            </div>
+          ) : (
+            <DetailRow icon="folder" label="Category" value={tx.categoryLabel || draft.category}/>
+          )}
+          <Divider/>
+          {editMode ? (
+            <div style={{display:'flex', alignItems:'center', gap:12, padding:'14px 16px'}}>
+              <div style={{width:30, height:30, borderRadius:8, background:'var(--surface-2)', display:'grid', placeItems:'center', color:'var(--ink-3)', flexShrink:0}}>
+                <Icon name="tag" size={14}/>
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div className="label" style={{fontSize:10}}>Type</div>
+                <select value={draft.label} onChange={e => handleLabelChange(e.target.value)} style={{border:'none', background:'transparent', fontFamily:'inherit', fontSize:14, fontWeight:500, color:'var(--ink)', outline:'none', width:'100%', marginTop:1}}>
+                  {['expense','income','ignore','transfer'].map(l => (
+                    <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <Icon name="edit" size={14} style={{color:'var(--ink-3)'}}/>
+            </div>
+          ) : (
+            <DetailRow icon="tag" label="Type" value={draft.label}/>
+          )}
           <Divider/>
           <DetailRow icon="card" label="Account" value={tx.account}/>
           <Divider/>
@@ -115,7 +184,7 @@ const TxDetail = ({ tx, onBack, onSaved, onDeleted }) => {
             <div className="body" style={{marginTop:6, color:'var(--ink-2)'}}>This will be removed from your records. The original {tx.source} message stays in your inbox.</div>
             <div style={{display:'flex', gap:10, marginTop:18}}>
               <button onClick={() => setConfirmDel(false)} className="btn btn-ghost" style={{flex:1, padding:12}}>Cancel</button>
-              <button onClick={() => { setConfirmDel(false); onDeleted && onDeleted(); }} className="btn" style={{flex:1, padding:12, background:'var(--err)', color:'#fff', fontWeight:600}}>Delete</button>
+              <button onClick={handleDelete} className="btn" style={{flex:1, padding:12, background:'var(--err)', color:'#fff', fontWeight:600}}>Delete</button>
             </div>
           </div>
         </>

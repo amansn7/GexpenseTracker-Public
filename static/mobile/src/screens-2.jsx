@@ -8,8 +8,10 @@ const QuickAddSheet = ({ open, onClose, onSave }) => {
   const [amount, setAmount] = useState2('');
   const [cat, setCat] = useState2('food');
   const [note, setNote] = useState2('');
+  const [saving, setSaving] = useState2(false);
+  const [error, setError] = useState2(null);
 
-  useEffect2(() => { if (open) { setAmount(''); setCat('food'); setNote(''); } }, [open]);
+  useEffect2(() => { if (open) { setAmount(''); setCat('food'); setNote(''); setError(null); } }, [open]);
 
   const press = (k) => {
     if (k === '⌫') setAmount(s => s.slice(0, -1));
@@ -86,8 +88,27 @@ const QuickAddSheet = ({ open, onClose, onSave }) => {
       </div>
 
       <div style={{padding:'4px 22px 8px'}}>
-        <button className="btn btn-primary" style={{width:'100%', padding:'14px', fontSize:15}} onClick={() => onSave({amount, cat, note})}>
-          Save expense
+        {error && <div style={{marginBottom:8, textAlign:'center', fontSize:13, color:'var(--err)'}}>Failed to save</div>}
+        <button className="btn btn-primary" style={{width:'100%', padding:'14px', fontSize:15, opacity: saving ? 0.6 : 1}} disabled={saving} onClick={async () => {
+          if (!amount) return;
+          setSaving(true);
+          setError(null);
+          try {
+            await window.GxAPI.post('/api/transactions', {
+              amount: parseFloat(amount),
+              category: cat,
+              merchant: note || cat,
+              label: 'expense',
+              status: 'reviewed',
+            });
+            onSave({ amount });
+          } catch (e) {
+            setError(true);
+          } finally {
+            setSaving(false);
+          }
+        }}>
+          {saving ? 'Saving…' : 'Save expense'}
         </button>
       </div>
     </div>
