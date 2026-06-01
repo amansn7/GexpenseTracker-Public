@@ -195,6 +195,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
               const pathFut  = pastPts.length && futPts.length ? `M${toX(pastPts[pastPts.length-1].idx)},${toY(pastPts[pastPts.length-1].val)} ` + futPts.map(c=>`L${toX(c.idx)},${toY(c.val)}`).join(" ") : "";
               const todayIdx = indexedCumulative.findIndex(c => c.d === todayStr);
               const todayPt  = todayIdx >= 0 ? indexedCumulative[todayIdx] : null;
+              const todayX = todayPt ? toX(todayPt.idx) : 0;
               return (
                 <>
                   <line className="chart-gridline" style={{"--anim-delay":"0ms"}} x1="10" y1={toY(0)} x2="410" y2={toY(0)} stroke="var(--line)" strokeDasharray="2 3"/>
@@ -204,7 +205,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
                   {todayPt && (
                     <>
                       <circle className="chart-dot" style={{"--anim-delay":"600ms"}} cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
-                      <text className="chart-label" style={{"--anim-delay":"700ms"}} x={toX(todayPt.idx)} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor="middle" fontFamily="'Geist Mono', monospace">Today</text>
+                      <text className="chart-label" style={{"--anim-delay":"700ms"}} x={todayX < 40 ? todayX + 10 : todayX > 380 ? todayX - 10 : todayX} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor={todayX < 40 ? "start" : todayX > 380 ? "end" : "middle"} fontFamily="'Geist Mono', monospace">Today</text>
                     </>
                   )}
                 </>

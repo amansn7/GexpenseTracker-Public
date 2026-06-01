@@ -1,4 +1,47 @@
 /* Gexpense Hi-Fi — shared primitives & icons */
+
+/* ===== GxAPI — backend client (session cookie + CSRF) ===== */
+const GxAPI = (() => {
+  let _csrf = null;
+
+  const _csrfToken = async () => {
+    if (_csrf) return _csrf;
+    const r = await fetch('/api/auth/csrf-token', { credentials: 'include' });
+    if (!r.ok) return '';
+    const d = await r.json();
+    _csrf = d.csrf_token;
+    return _csrf;
+  };
+
+  const _handle = async (r) => {
+    if (r.status === 401) { window.location.href = '/login?next=/mobile'; return null; }
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  };
+
+  const get  = (path) => fetch(path, { credentials: 'include' }).then(_handle);
+  const post = async (path, body) => {
+    const tok = await _csrfToken();
+    return fetch(path, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': tok }, body: JSON.stringify(body) }).then(_handle);
+  };
+  const patch = async (path, body) => {
+    const tok = await _csrfToken();
+    return fetch(path, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': tok }, body: JSON.stringify(body) }).then(_handle);
+  };
+
+  return { get, post, patch };
+})();
+
+/* Auth gate — call once on app mount */
+const checkAuth = async () => {
+  try {
+    const d = await fetch('/api/auth/me', { credentials: 'include' });
+    if (d.status === 401) { window.location.href = '/login?next=/mobile'; return null; }
+    return d.ok ? d.json() : null;
+  } catch { return null; }
+};
+
+Object.assign(window, { GxAPI, checkAuth });
 const Icon = ({ name, size = 20, stroke = 2, ...rest }) => {
   const paths = {
     home:    <React.Fragment><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M10 20v-5h4v5"/></React.Fragment>,
