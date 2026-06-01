@@ -544,6 +544,68 @@ aside[role="navigation"] { scrollbar-width: thin; scrollbar-color: var(--line) t
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* ── Chart animations ────────────────────────────────────────── */
+.chart-line {
+  stroke-dashoffset: var(--path-len, 1000);
+  animation: chartLineIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0s) both;
+}
+@keyframes chartLineIn {
+  from { stroke-dashoffset: var(--path-len, 1000); }
+  to   { stroke-dashoffset: 0; }
+}
+
+.chart-fill {
+  opacity: 0;
+  animation: chartFade 0.6s ease-out var(--anim-delay, 0.6s) both;
+}
+@keyframes chartFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.chart-dot {
+  opacity: 0;
+  animation: chartDotPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0.8s) both;
+}
+@keyframes chartDotPop {
+  0%   { opacity: 0; transform: scale(0); }
+  60%  { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.chart-label {
+  opacity: 0;
+  animation: chartLabelIn 0.5s ease-out var(--anim-delay, 1s) both;
+}
+@keyframes chartLabelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chart-gridline {
+  opacity: 0;
+  animation: chartFade 0.4s ease-out var(--anim-delay, 0.2s) both;
+}
+
+.chart-projected {
+  stroke-dashoffset: var(--path-len, 1000);
+  animation: chartLineIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) var(--anim-delay, 0.5s) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-line,
+  .chart-fill,
+  .chart-dot,
+  .chart-label,
+  .chart-gridline,
+  .chart-projected {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 /* ── Toasts ──────────────────────────────────────────────────── */
 #toast-container {
   position: fixed; bottom: 24px; right: 24px;

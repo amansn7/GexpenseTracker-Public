@@ -33,6 +33,16 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [budgets, setBudgets] = React.useState([]);
   const [health, setHealth] = React.useState(null);
+  const svgRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!svgRef.current) return;
+    const paths = svgRef.current.querySelectorAll(".chart-line, .chart-projected");
+    paths.forEach(p => {
+      const len = p.getTotalLength();
+      p.style.setProperty("--path-len", len);
+    });
+  }, [cumulative]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -171,7 +181,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
         {/* Cumulative balance line chart */}
         <div>
           <div style={dashStyles.heroLabel}>Balance over time</div>
-          <svg width="100%" height="180" viewBox="0 0 420 180" preserveAspectRatio="none" style={{ marginTop: 10 }}>
+          <svg ref={svgRef} width="100%" height="180" viewBox="0 0 420 180" preserveAspectRatio="none" style={{ marginTop: 10 }}>
             {(() => {
               const maxV = Math.max(...cumulative.map(c=>c.val));
               const minV = Math.min(0, ...cumulative.map(c=>c.val));
@@ -188,14 +198,14 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
               const todayPt  = todayIdx >= 0 ? indexedCumulative[todayIdx] : null;
               return (
                 <>
-                  <line x1="10" y1={toY(0)} x2="410" y2={toY(0)} stroke="var(--line)" strokeDasharray="2 3"/>
-                  <path d={areaPast} fill="var(--pos)" fillOpacity="0.12"/>
-                  <path d={pathPast} fill="none" stroke="var(--pos)" strokeWidth="2" strokeLinecap="round"/>
-                  <path d={pathFut} fill="none" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>
+                  <line className="chart-gridline" style={{"--anim-delay":"0ms"}} x1="10" y1={toY(0)} x2="410" y2={toY(0)} stroke="var(--line)" strokeDasharray="2 3"/>
+                  <path className="chart-fill" style={{"--anim-delay":"300ms"}} d={areaPast} fill="var(--pos)" fillOpacity="0.12"/>
+                  <path className="chart-line" style={{"--anim-delay":"0ms"}} d={pathPast} fill="none" stroke="var(--pos)" strokeWidth="2" strokeLinecap="round"/>
+                  {pathFut && <path className="chart-projected" style={{"--anim-delay":"400ms"}} d={pathFut} fill="none" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>}
                   {todayPt && (
                     <>
-                      <circle cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
-                      <text x={toX(todayPt.idx)} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor="middle" fontFamily="'Geist Mono', monospace">Today</text>
+                      <circle className="chart-dot" style={{"--anim-delay":"600ms"}} cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
+                      <text className="chart-label" style={{"--anim-delay":"700ms"}} x={toX(todayPt.idx)} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor="middle" fontFamily="'Geist Mono', monospace">Today</text>
                     </>
                   )}
                 </>
@@ -252,8 +262,9 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
                   const expH = (exp / maxV) * 30;
                   const incH = (inc / maxV) * 30;
                   const x = i * barW;
+                  const delay = `${40 * i}ms`;
                   return (
-                    <g key={i}>
+                    <g key={i} style={{ animation: `fadeSlideUp 0.35s ease-out ${delay} both` }}>
                       <rect x={x + 1} y={30 - expH} width={barW - 2} height={expH} fill="var(--accent)" rx="1" opacity="0.7"/>
                       {inc > 0 && <rect x={x + 1} y={30 - expH - incH} width={barW - 2} height={incH} fill="var(--pos)" rx="1" opacity="0.5"/>}
                     </g>
