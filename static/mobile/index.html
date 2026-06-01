@@ -794,59 +794,46 @@
 </style>
 
 <style id="mobile-pwa-overrides">
-/* Hide design canvas chrome on mobile PWA */
+/* Hide design canvas chrome */
 .top { display: none !important; }
 .panel-label { display: none !important; }
 
-/* Make stage fill full viewport cleanly */
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg, #F7F7F4);
-}
+/* Desktop: center phone frame on neutral bg */
+body { margin: 0; padding: 0; background: var(--bg, #F7F7F4); }
 [data-theme="dark"] body { background: #0B0B0C; }
-.stage {
-  min-height: 100dvh;
-  padding: 20px 0 40px;
-  gap: 0;
-  background: var(--bg, #F7F7F4);
-}
+.stage { min-height: 100dvh; padding: 20px 0 40px; gap: 0; background: var(--bg, #F7F7F4); }
 [data-app-theme="dark"] .stage { background: #050505; }
 .panel { gap: 0; }
 
-/* On actual mobile: phone fills full viewport (no chrome) */
-@media (max-width: 430px) {
+/* On actual mobile (≤500px): fill full viewport, strip phone chrome */
+@media (max-width: 500px) {
   html, body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     overflow: hidden;
-    width: 100vw;
-    height: 100%;
+    width: 100vw; height: 100%;
   }
   .stage {
     min-height: 0;
-    width: 100vw;
-    height: 100dvh;
+    width: 100vw; height: 100dvh;
     padding: 0 !important;
     overflow: hidden;
     display: flex;
     align-items: stretch;
     justify-content: stretch;
   }
-  .panel {
-    width: 100%;
-    flex: 1;
-  }
-  #root {
-    width: 100% !important;
-    height: 100% !important;
-  }
+  .panel { width: 100%; flex: 1; }
+  #root { width: 100% !important; height: 100% !important; }
   .phone {
     width: 100vw !important;
     height: 100dvh !important;
     border-radius: 0 !important;
     box-shadow: none !important;
   }
+  /* Hide fake iOS status bar — real device has its own */
+  .statusbar { display: none !important; }
+  /* Compensate: push content down by real status bar height */
+  .phone > *:not(.statusbar):first-child,
+  .phone > .scroll:first-child { padding-top: env(safe-area-inset-top, 44px) !important; }
 }
 </style>
 </head>
