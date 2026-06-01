@@ -458,7 +458,7 @@ const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments,
   const totalSpent = totalExpenseNumber + totalInvestments;
   const totalSpentPct = totalIncome > 0 ? ((totalSpent / totalIncome) * 100).toFixed(1) : "0.0";
 
-  const maxAmount = Math.max(...sortedExpenses.map(e => e.amount), cardAmt > 0 ? cardAmt : 0, invAmt > 0 ? invAmt : 0, 1);
+  const maxAmount = Math.max(...data.income.map(i => i.amount), ...sortedExpenses.map(e => e.amount), cardAmt > 0 ? cardAmt : 0, invAmt > 0 ? invAmt : 0, 1);
 
   const isOverspend = savings < 0 && viewMode === "overspend";
   const remainingLabel = isOverspend ? "Overspend" : "Remaining";
