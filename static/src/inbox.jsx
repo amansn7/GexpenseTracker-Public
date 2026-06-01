@@ -125,8 +125,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   // Date range presets
   var datePresets = DateUtils.DATE_PRESETS;
   const currentPreset = datePresets.find(p => {
-    const range = dateRange.from ? dateRange : datePresets[0].get();
-    return range.from === p.get().from && range.to === p.get().to;
+    const range = p.get();
+    return range.from === dateRange.from && range.to === dateRange.to;
   }) || null;
   const [bulkReclassItems, setBulkReclassItems] = React.useState([]);  // each: { id, subject, snippet, current, preview, status }
   const [closingReclass, setClosingReclass] = React.useState(false);
