@@ -33,6 +33,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const [statsLoading, setStatsLoading] = React.useState(false);
   const [budgets, setBudgets] = React.useState([]);
   const [health, setHealth] = React.useState(null);
+  const [tooltip, setTooltip] = React.useState(null);
   const svgRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -124,6 +125,8 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const sparklineDays = Math.min(dailyExpenseSeries.length, 14);
   const sparkIncome = dailyIncomeSeries.slice(-sparklineDays);
   const sparkExpense = dailyExpenseSeries.slice(-sparklineDays);
+  const sparkDates = chartDates.slice(-sparklineDays);
+  const fmtDate = d => { const p=d.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+p[1]-1]} ${+p[2]}`; };
 
   const catSorted = (catBreakdown?.categories || []).map(c => ({
     cat: normCat(c.category, false),
@@ -204,7 +207,10 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
                   {pathFut && <path className="chart-projected" style={{"--anim-delay":"400ms"}} d={pathFut} fill="none" stroke="var(--ink-4)" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 3"/>}
                   {todayPt && (
                     <>
-                      <circle className="chart-dot" style={{"--anim-delay":"600ms"}} cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"/>
+                      <circle className="chart-dot" style={{"--anim-delay":"600ms"}} cx={toX(todayPt.idx)} cy={toY(todayPt.val)} r="4" fill="var(--pos)" stroke="var(--card)" strokeWidth="2"
+                        onMouseEnter={e => { const r=e.currentTarget.closest("svg").getBoundingClientRect(); setTooltip({ x: r.left + toX(todayPt.idx), y: r.top + toY(todayPt.val) - 40, lines: [fmtDate(todayStr), `Balance: ₹${todayPt.val.toLocaleString("en-IN")}`] }); }}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
                       <text className="chart-label" style={{"--anim-delay":"700ms"}} x={todayX < 40 ? todayX + 10 : todayX > 380 ? todayX - 10 : todayX} y={toY(todayPt.val)-10} fontSize="10" fill="var(--ink-2)" textAnchor={todayX < 40 ? "start" : todayX > 380 ? "end" : "middle"} fontFamily="'Geist Mono', monospace">Today</text>
                     </>
                   )}
@@ -263,8 +269,13 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
                   const incH = (inc / maxV) * 30;
                   const x = i * barW;
                   const delay = `${40 * i}ms`;
+                  const lines = [`${fmtDate(sparkDates[i])}`, `Expense: ₹${exp.toLocaleString("en-IN")}`];
+                  if (inc > 0) lines.push(`Income: ₹${inc.toLocaleString("en-IN")}`);
                   return (
-                    <g key={i} style={{ animation: `fadeSlideUp 0.35s ease-out ${delay} both` }}>
+                    <g key={i} style={{ animation: `fadeSlideUp 0.35s ease-out ${delay} both` }}
+                      onMouseEnter={e => { const r=e.currentTarget.closest("svg").getBoundingClientRect(); setTooltip({ x: r.left + x + barW/2, y: r.top - 18, lines }); }}
+                      onMouseLeave={() => setTooltip(null)}
+                    >
                       <rect x={x + 1} y={30 - expH} width={barW - 2} height={expH} fill="var(--accent)" rx="1" opacity="0.7"/>
                       {inc > 0 && <rect x={x + 1} y={30 - expH - incH} width={barW - 2} height={incH} fill="var(--pos)" rx="1" opacity="0.5"/>}
                     </g>
@@ -444,6 +455,12 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
           )}
         </div>
       </div>
+
+      {tooltip && (
+        <div style={{ position: "fixed", left: tooltip.x, top: tooltip.y, transform: "translate(-50%, -100%)", background: "var(--ink)", color: "var(--paper)", fontSize: 11, fontFamily: "'Geist Mono', monospace", padding: "6px 10px", borderRadius: 6, lineHeight: 1.5, whiteSpace: "nowrap", zIndex: 300, pointerEvents: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+          {tooltip.lines.map((l, i) => <div key={i}>{l}</div>)}
+        </div>
+      )}
     </div>
   );
 };

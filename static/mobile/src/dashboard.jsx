@@ -7,24 +7,92 @@ const { useState, useEffect, useRef } = React;
 const Dashboard = ({ onNavigate, onAdd }) => {
   const [pct, setPct] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setPct(70), 200); return () => clearTimeout(t); }, []);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
+  const [totalExpenses, setTotalExpenses] = useState(42180);
+  const [budget, setBudget] = useState(60000);
+  const [txs, setTxs] = useState([]);
+  const [cats, setCats] = useState([]);
 
-  const txs = [
-    ['food','Swiggy','Dinner · Toit','9:12 PM',420, 'Today'],
-    ['travel','Uber','Indiranagar → HSR','3:40 PM',186, 'Today'],
-    ['subs','Spotify','Family · auto-renew','Yesterday',199, 'Yesterday'],
-    ['grocery','BigBasket','Weekly stock-up','Yesterday',1240, 'Yesterday'],
-    ['bills','Airtel','Postpaid · auto-paid','Apr 22',599, 'Apr 22'],
-  ];
+  const CAT_COLORS = ['var(--brand)', 'var(--ink-2)', '#1F4FA8', '#5530A8', 'var(--ink-4)'];
 
-  // donut data
-  const cats = [
-    {n: 'Food',   v: 13500, c: 'var(--brand)',     pct: 32},
-    {n: 'Rent',   v: 10000, c: 'var(--ink-2)',     pct: 24},
-    {n: 'Travel', v: 8400,  c: '#1F4FA8',          pct: 20},
-    {n: 'Shop',   v: 5900,  c: '#5530A8',          pct: 14},
-    {n: 'Other',  v: 4380,  c: 'var(--ink-4)',     pct: 10},
-  ];
+  const fmtDate = (dateStr) => {
+    if (!dateStr) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const d = new Date(dateStr + 'T00:00:00');
+    const diff = Math.round((today - d) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+  };
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [stats, txData, budgetsData, meData, catsData] = await Promise.all([
+          GxAPI.get('/api/stats/summary?period=1m'),
+          GxAPI.get('/api/transactions?limit=5&offset=0'),
+          GxAPI.get('/api/budgets'),
+          GxAPI.get('/api/auth/me'),
+          GxAPI.get('/api/stats/category-breakdown?period=1m'),
+        ]);
+
+        let spent = 42180;
+        let bgt = 60000;
+
+        if (stats) {
+          spent = stats.total_expenses || 42180;
+          setTotalExpenses(spent);
+        }
+
+        if (budgetsData && budgetsData.budgets && budgetsData.budgets.length > 0) {
+          const totalCat = budgetsData.budgets.find(b => b.category === 'total');
+          bgt = totalCat
+            ? totalCat.monthly_limit
+            : budgetsData.budgets.reduce((s, b) => s + (b.monthly_limit || 0), 0) || 60000;
+          setBudget(bgt);
+        }
+
+        const realPct = bgt > 0 ? Math.round((spent / bgt) * 100) : 0;
+        setTimeout(() => setPct(realPct), 200);
+
+        if (txData && txData.items) {
+          setTxs(txData.items.map(tx => [
+            tx.category || 'other',
+            tx.merchant || 'Unknown',
+            '',
+            fmtDate(tx.txn_date),
+            tx.amount,
+            fmtDate(tx.txn_date),
+          ]));
+        }
+
+        if (meData) {
+          setUserName(meData.name || '');
+        }
+
+        if (catsData && catsData.categories && catsData.categories.length > 0) {
+          setCats(catsData.categories.map((cat, i) => ({
+            n: cat.name,
+            v: cat.total,
+            pct: cat.pct,
+            c: CAT_COLORS[i % CAT_COLORS.length],
+          })));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return <div style={{padding:20, textAlign:'center', color:'var(--ink-3)'}}>Loading...</div>;
+  }
+
+  const budgetLeft = budget - totalExpenses;
+  const topCat = cats.length > 0 ? cats[0] : null;
   let cum = 0;
   const C = 2 * Math.PI * 60;
 
@@ -35,7 +103,7 @@ const Dashboard = ({ onNavigate, onAdd }) => {
         <div className="fade-up fade-up-1" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 18}}>
           <div>
             <div className="small">Good evening</div>
-            <div className="h2" style={{marginTop:2}}>Aman Sharma</div>
+            <div className="h2" style={{marginTop:2}}>{userName || 'Aman Sharma'}</div>
           </div>
           <div style={{display:'flex', gap:10, alignItems:'center'}}>
             <button className="btn-ghost btn" style={{padding:'8px', borderRadius: '50%', width: 38, height:38, display:'grid', placeItems:'center'}}>
@@ -53,9 +121,9 @@ const Dashboard = ({ onNavigate, onAdd }) => {
             <div>
               <div className="label">Spent this month · April</div>
               <div style={{display:'flex', alignItems:'baseline', gap:6, marginTop:4}}>
-                <span className="tabular" style={{fontSize: 38, fontWeight: 600, letterSpacing:'-0.025em', color:'var(--ink)'}}>₹42,180</span>
+                <span className="tabular" style={{fontSize: 38, fontWeight: 600, letterSpacing:'-0.025em', color:'var(--ink)'}}>₹{totalExpenses.toLocaleString('en-IN')}</span>
               </div>
-              <div className="small tabular" style={{marginTop:2}}>of ₹60,000 budget</div>
+              <div className="small tabular" style={{marginTop:2}}>of ₹{budget.toLocaleString('en-IN')} budget</div>
             </div>
             <div style={{textAlign:'right'}}>
               <Badge tone="ok">on track</Badge>
@@ -67,7 +135,7 @@ const Dashboard = ({ onNavigate, onAdd }) => {
           </div>
           <div style={{display:'flex', justifyContent:'space-between', marginTop:8}}>
             <div className="small">{pct}% used · 5 days left</div>
-            <div className="mono small tabular" style={{color:'var(--ink)'}}>₹17,820 left</div>
+            <div className="mono small tabular" style={{color:'var(--ink)'}}>₹{budgetLeft.toLocaleString('en-IN')} left</div>
           </div>
         </div>
 
@@ -116,8 +184,8 @@ const Dashboard = ({ onNavigate, onAdd }) => {
               </svg>
               <div style={{position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center'}}>
                 <div className="label">Top</div>
-                <div style={{fontSize:18, fontWeight:600, lineHeight:1, marginTop:2}}>Food</div>
-                <div className="mono small tabular">32%</div>
+                <div style={{fontSize:18, fontWeight:600, lineHeight:1, marginTop:2}}>{topCat ? topCat.n : '—'}</div>
+                <div className="mono small tabular">{topCat ? topCat.pct + '%' : ''}</div>
               </div>
             </div>
             <div style={{flex:1, minWidth:0}}>

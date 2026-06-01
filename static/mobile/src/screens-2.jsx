@@ -101,6 +101,17 @@ const Settings = ({ theme, onTheme }) => {
   const [autoFetch, setAutoFetch] = useState2(true);
   const [sms, setSms] = useState2(true);
   const [notif, setNotif] = useState2(true);
+  const [profile, setProfile] = useState2({ name: null, email: null });
+
+  useEffect2(() => {
+    GxAPI.get('/api/auth/me').then(data => {
+      if (data) setProfile({ name: data.name || null, email: data.email || null });
+    });
+  }, []);
+
+  const avatarInitial = profile.name ? profile.name.charAt(0).toUpperCase() : '•';
+  const displayName = profile.name || '…';
+  const displayEmail = profile.email || '…';
 
   return (
     <div className="scroll" data-screen-label="05 Settings">
@@ -112,10 +123,10 @@ const Settings = ({ theme, onTheme }) => {
         {/* Profile */}
         <div className="card fade-up fade-up-2" style={{padding:16, marginBottom:14}}>
           <div style={{display:'flex', alignItems:'center', gap:14}}>
-            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>A</div>
+            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>{avatarInitial}</div>
             <div style={{flex:1, minWidth:0}}>
-              <div style={{fontWeight:600, fontSize:15}}>Aman Sharma</div>
-              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
+              <div style={{fontWeight:600, fontSize:15}}>{displayName}</div>
+              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{displayEmail}</div>
             </div>
             <button className="btn btn-ghost" style={{padding:'8px 14px', fontSize:12}}>Edit</button>
           </div>
