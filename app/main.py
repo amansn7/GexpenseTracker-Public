@@ -93,7 +93,10 @@ async def lifespan(app: FastAPI):
         )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
+        from app.workers.sync_worker import register, register_fetch_range
 
+        register(task_queue)
+        register_fetch_range(task_queue)
         await task_queue.connect()
         asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
