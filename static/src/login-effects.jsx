@@ -11,10 +11,10 @@
   scene.fog=fog;
   var camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,1,10000);
   camera.position.set(0,355,1220);
-  var renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+  var renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth,window.innerHeight);
-  renderer.setClearColor(fog.color,0);
+  renderer.setClearColor(fog.color,1);
   el.appendChild(renderer.domElement);
 
   var pos=[],col=[],dc=dotRGB();
@@ -30,10 +30,38 @@
   var pts=new THREE.Points(geo,mat);
   scene.add(pts);
 
-  var count=0,frame;
+  var count=0,frame,targetBg=bgHex(),targetDot=dotRGB();
+
+  function lerpHex(cur,target,speed){
+    var cr=(cur>>16)&0xff,cg=(cur>>8)&0xff,cb=cur&0xff;
+    var tr=(target>>16)&0xff,tg=(target>>8)&0xff,tb=target&0xff;
+    var nr=cr+(tr-cr)*speed,ng=cg+(tg-cg)*speed,nb=cb+(tb-cb)*speed;
+    if(Math.abs(nr-tr)<0.5&&Math.abs(ng-tg)<0.5&&Math.abs(nb-tb)<0.5)return target;
+    return (Math.round(nr)<<16)|(Math.round(ng)<<8)|Math.round(nb);
+  }
 
   function animate(){
     frame=requestAnimationFrame(animate);
+    var curHex=fog.color.getHex();
+    if(curHex!==targetBg){
+      var nh=lerpHex(curHex,targetBg,0.06);
+      fog.color.setHex(nh);
+      renderer.setClearColor(nh,1);
+    }
+
+    var tdc=targetDot,ca=colorAttr.array,need=false;
+    for(var j=0;j<ca.length;j+=3){
+      var dr=tdc[0]-ca[j],dg=tdc[1]-ca[j+1],db=tdc[2]-ca[j+2];
+      if(Math.abs(dr)>0.5||Math.abs(dg)>0.5||Math.abs(db)>0.5){
+        ca[j]+=dr*0.06;ca[j+1]+=dg*0.06;ca[j+2]+=db*0.06;
+        need=true;
+      }else if(ca[j]!==tdc[0]||ca[j+1]!==tdc[1]||ca[j+2]!==tdc[2]){
+        ca[j]=tdc[0];ca[j+1]=tdc[1];ca[j+2]=tdc[2];
+        need=true;
+      }
+    }
+    if(need)colorAttr.needsUpdate=true;
+
     var p=geo.attributes.position.array,i=0;
     for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
       var idx=i*3;
@@ -74,11 +102,9 @@
   }
 
   function updateTheme(){
-    var d=dark(),dc2=dotRGB(),ca=colorAttr.array;
-    for(var j=0;j<ca.length;j+=3){ca[j]=dc2[0];ca[j+1]=dc2[1];ca[j+2]=dc2[2];}
-    colorAttr.needsUpdate=true;
-    fog.color.setHex(bgHex());
-    renderer.setClearColor(fog.color,0);
+    var d=dark();
+    targetBg=bgHex();
+    targetDot=dotRGB();
     mc.style.setProperty("cx",d?"17":"33");
     mc.style.setProperty("cy",d?"8":"0");
     bodyEl.style.setProperty("r",d?"9":"5");

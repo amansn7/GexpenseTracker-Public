@@ -11,11 +11,12 @@
 <script src="/static/vendor/three.min.js"></script>
 <style nonce="{{ request.state.nonce }}">
   * { box-sizing:border-box; }
-  html,body { margin:0; padding:0; background:var(--paper); color:var(--ink); font-family:'Geist',system-ui,sans-serif; font-size:14px; min-height:100vh; display:flex; align-items:center; justify-content:center; }
-  .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 32px -8px rgba(0,0,0,0.08); position:relative; z-index:1; }
-  h1 { font-family:'Geist',sans-serif; font-size:40px; font-weight:400; letter-spacing:-0.03em; margin:0 0 8px; }
-  .tagline { font-size:14px; color:var(--ink-3); margin:0 0 40px; }
-  .btn { display:inline-flex; align-items:center; gap:10px; padding:12px 24px; background:var(--ink); color:var(--paper); border:none; border-radius:8px; font-size:14px; font-family:'Geist',sans-serif; font-weight:500; cursor:pointer; text-decoration:none; transition:opacity 120ms; }
+  html { margin:0; padding:0; background:var(--paper); transition:background-color 400ms ease; }
+  body { margin:0; padding:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Geist',system-ui,sans-serif; font-size:14px; color:var(--ink); transition:color 400ms ease,background-color 400ms ease; }
+  .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 32px -8px rgba(0,0,0,0.08); position:relative; z-index:1; transition:background-color 400ms ease,color 400ms ease,border-color 400ms ease; }
+  h1 { font-family:'Geist',sans-serif; font-size:40px; font-weight:400; letter-spacing:-0.03em; margin:0 0 8px; transition:color 400ms ease; }
+  .tagline { font-size:14px; color:var(--ink-3); margin:0 0 40px; transition:color 400ms ease; }
+  .btn { display:inline-flex; align-items:center; gap:10px; padding:12px 24px; background:var(--ink); color:var(--paper); border:none; border-radius:8px; font-size:14px; font-family:'Geist',sans-serif; font-weight:500; cursor:pointer; text-decoration:none; transition:background-color 400ms ease,color 400ms ease,opacity 120ms; }
   .btn:hover { opacity:0.85; }
   .btn svg { flex-shrink:0; }
   .footer { margin-top:48px; font-size:12px; color:var(--ink-3); }
@@ -70,6 +71,6 @@
   </a>
   <p class="footer">Self-hosted · your data stays local</p>
 </div>
-<script src="/static/dist/login-effects.js?v=c6789baa"></script>
+<script src="/static/dist/login-effects.js?v=57a64126"></script>
 </body>
 </html>
