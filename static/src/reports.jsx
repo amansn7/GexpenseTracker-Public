@@ -54,7 +54,7 @@ const ReportsView = () => {
 
   const totalIncome = months.reduce((a, m) => a + m.income, 0);
   const totalExpenses = months.reduce((a, m) => a + m.expenses, 0);
-  const totalNet = totalIncome - totalExpenses;
+  const totalNet = months.reduce((a, m) => a + m.net, 0);
   const avgSavings = months.length ? months.reduce((a, m) => a + m.savings_rate, 0) / months.length : 0;
 
   const colHdr = { padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, textAlign: "right", borderBottom: "1px solid var(--line)", background: "var(--paper-2)" };

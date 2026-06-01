@@ -391,8 +391,8 @@ async def get_monthly_summary(user_id: str, num_months: int, db: AsyncSession) -
         if r and r.period_key == key:
             inc = float(r.total_income)
             exp = float(r.total_expenses)
-            net = round(inc - exp, 2)
-            sr = round(net / inc * 100, 1) if inc > 0 else 0.0
+            net = round(float(r.net_savings), 2)
+            sr = float(r.savings_rate)
             label = m.strftime("%B %Y")
             results.append({
                 "month": key,
@@ -407,8 +407,8 @@ async def get_monthly_summary(user_id: str, num_months: int, db: AsyncSession) -
             live = await _compute_summary(m, end, None, user_id, db)
             inc = live["total_income"]
             exp = live["total_expenses"]
-            net = round(inc - exp, 2)
-            sr = round(net / inc * 100, 1) if inc > 0 else 0.0
+            net = round(live["saved"], 2)
+            sr = live["savings_rate"]
             results.append({
                 "month": key,
                 "label": m.strftime("%B %Y"),
@@ -436,7 +436,7 @@ async def get_health(user_id: str, months: int, db: AsyncSession) -> dict:
     last3 = months_data[-3:] if len(months_data) >= 3 else months_data
     avg_income = sum(m["income"] for m in last3) / max(len(last3), 1)
     avg_expense = sum(m["expenses"] for m in last3) / max(len(last3), 1)
-    avg_net = avg_income - avg_expense
+    avg_net = sum(m["net"] for m in last3) / max(len(last3), 1)
     savings_rate = round(avg_net / avg_income * 100, 1) if avg_income > 0 else 0.0
 
     settings = (
