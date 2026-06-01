@@ -2340,6 +2340,37 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         </div>
       </div>
 
+      {/* Salary Attribution */}
+      <div style={{ ...accountStyles.section, ...mqSection }}>
+        <h3 style={accountStyles.sectionTitle}>Salary Attribution</h3>
+        <div style={accountStyles.sectionSub}>— late-month income is attributed to the next month for cleaner dashboards</div>
+        <div style={{ ...accountStyles.row, ...mqRow }}>
+          <div><div style={accountStyles.label}>Shift late-month income forward</div><div style={accountStyles.sub}>income in the last N days of a month rolls into the next month</div></div>
+          <div/>
+          <Toggle on={!!settings.salary_shift_enabled} onChange={v=>updateSetting("salary_shift_enabled", v)}/>
+        </div>
+        {settings.salary_shift_enabled && (
+          <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
+            <div><div style={accountStyles.label}>Window</div><div style={accountStyles.sub}>salary in the last N calendar days is attributed to the next month</div></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                type="range" min="1" max="7"
+                value={settings.salary_shift_window ?? 3}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setAccount(a => ({ ...a, settings: { ...a.settings, salary_shift_window: v } }));
+                  updateSetting("salary_shift_window", v);
+                }}
+                style={{ width: 100 }}
+              />
+              <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: "var(--ink)", minWidth: 20, textAlign: "right" }}>
+                {settings.salary_shift_window ?? 3}d
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Categories */}
       <CategoriesSection categories={categories} onRefresh={async () => {
         const d = await API.get("/api/account/me");

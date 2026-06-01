@@ -92,6 +92,8 @@ class UserSettings(Base):
     allowed_emails: Mapped[str | None] = mapped_column(Text, nullable=True)
     starting_balance: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     starting_balance_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    salary_shift_enabled: Mapped[bool] = mapped_column(sa.Boolean, default=False, nullable=False, server_default="0")
+    salary_shift_window: Mapped[int] = mapped_column(sa.Integer, default=3, nullable=False, server_default="3")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     user: Mapped["User"] = relationship(back_populates="settings")

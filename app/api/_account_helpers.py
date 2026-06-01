@@ -74,6 +74,8 @@ def _settings_dict(s: UserSettings) -> dict:
         "use_rule_engine": s.use_rule_engine,
         "starting_balance": float(s.starting_balance) if s.starting_balance is not None else None,
         "starting_balance_date": s.starting_balance_date.isoformat() if s.starting_balance_date else None,
+        "salary_shift_enabled": s.salary_shift_enabled,
+        "salary_shift_window": s.salary_shift_window,
     }
 
 
