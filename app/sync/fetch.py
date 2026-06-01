@@ -13,6 +13,7 @@ from app.gmail.client import fetch_new_messages
 from app.models import Email, SyncState
 from app.sync.classify import _apply_pre_filter, _classify_batch
 from app.sync.persist import _persist_transactions, _update_sync_state
+from app.services.stats_service import recompute_month, invalidate_user_cache
 from app.sync.progress import (
     _add_preview,
     _log_event,
@@ -193,6 +194,17 @@ async def _sync_emails_inner(
     # ── Phase 5: update SyncState + commit ──────────────────────────────────
     await _update_sync_state(session, sync_state, new_history_id, user_id)
     await session.commit()
+
+    # Recompute period rollups for affected months so dashboard/money flow
+    # reflect newly synced transactions immediately.
+    if new_transactions and user_id:
+        affected: set[tuple[int, int]] = set()
+        for txn, _ in new_transactions:
+            if txn.txn_date:
+                affected.add((txn.txn_date.year, txn.txn_date.month))
+        for year, month in affected:
+            await recompute_month(user_id, year, month, session)
+        invalidate_user_cache(user_id)
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}
     prog.update(

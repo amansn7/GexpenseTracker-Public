@@ -1,0 +1,25 @@
+{
+  "name": "Gexpense",
+  "short_name": "Gexpense",
+  "description": "Smart expense tracker with Gmail sync",
+  "start_url": "/mobile",
+  "scope": "/mobile",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F7F4",
+  "theme_color": "#0F8A5F",
+  "icons": [
+    {
+      "src": "/static/mobile/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/mobile/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

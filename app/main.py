@@ -146,17 +146,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}'; "
-            f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; "
-            "connect-src 'self'; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'"
-        )
+        if request.url.path == "/mobile" or request.url.path.startswith("/static/mobile"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: blob:; "
+                "connect-src 'self' https://unpkg.com; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                f"script-src 'self' 'nonce-{nonce}'; "
+                f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; "
+                "connect-src 'self'; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            )
         return response
 
 
@@ -199,7 +211,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 class AuthMiddleware(BaseHTTPMiddleware):
     """Block unauthenticated requests: 401 for API calls, redirect for browser pages."""
 
-    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/health"}
+    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/health", "/mobile"}
     CSRF_EXEMPT = {"/api/auth/csrf-token"}
 
     async def dispatch(self, request: StarletteRequest, call_next):
@@ -342,6 +354,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     if os.getenv("DEV_MODE"):
         return JSONResponse({"detail": str(exc), "type": type(exc).__name__}, status_code=500)
     return JSONResponse({"detail": "Internal server error"}, status_code=500)
+
+
+@app.get("/mobile", response_class=HTMLResponse)
+async def mobile_app(request: Request):
+    with open("static/mobile/index.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 
 @app.get("/login", response_class=HTMLResponse)
