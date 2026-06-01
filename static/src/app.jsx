@@ -2,6 +2,67 @@
 
 const { useState, useEffect, useCallback, useRef } = React;
 
+const _isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && window.innerWidth <= 768;
+
+const MobileAppBanner = () => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!_isMobileDevice()) return;
+    if (localStorage.getItem("mf_mobile_banner_dismissed")) return;
+    // Don't show if already on the mobile app
+    if (window.location.pathname === "/mobile") return;
+    // Don't show if running as installed PWA
+    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    setVisible(true);
+  }, []);
+
+  const dismiss = () => {
+    localStorage.setItem("mf_mobile_banner_dismissed", "1");
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+      background: "var(--accent, #0F8A5F)", color: "#fff",
+      padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.18)", fontFamily: "inherit",
+    }}>
+      <div style={{ flex: 1, fontSize: 13, fontWeight: 500, lineHeight: 1.35 }}>
+        Get the mobile app experience
+        <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.88, marginTop: 1 }}>
+          Faster, designed for your phone
+        </div>
+      </div>
+      <a
+        href="/mobile"
+        style={{
+          background: "#fff", color: "var(--accent, #0F8A5F)",
+          borderRadius: 999, padding: "5px 14px",
+          fontSize: 12, fontWeight: 700, textDecoration: "none",
+          whiteSpace: "nowrap", flexShrink: 0,
+        }}
+      >
+        Open
+      </a>
+      <button
+        onClick={dismiss}
+        style={{
+          background: "transparent", border: "none", cursor: "pointer",
+          color: "#fff", opacity: 0.75, padding: 4, display: "grid", placeItems: "center",
+          flexShrink: 0,
+        }}
+        aria-label="Dismiss"
+      >
+        <Icon name="x" size={16} />
+      </button>
+    </div>
+  );
+};
+
 const App = () => {
   const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
   const [transactions, setTransactions] = useState([]);
@@ -260,6 +321,7 @@ const App = () => {
 
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
+      <MobileAppBanner />
       <Sidebar
         view={view}
         setView={setView}
