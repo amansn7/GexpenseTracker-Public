@@ -255,7 +255,7 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
           {sparkExpense.length > 1 && (
             <svg width="100%" height="36" viewBox="0 0 200 36" preserveAspectRatio="none" style={{ marginTop: 10 }}>
               {(() => {
-                const maxV = Math.max(...sparkExpense, ...sparkIncome, 1);
+                const maxV = Math.max(...sparkExpense, 1);
                 const barW = 200 / sparkExpense.length;
                 return sparkExpense.map((exp, i) => {
                   const inc = sparkIncome[i] || 0;
