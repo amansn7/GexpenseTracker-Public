@@ -161,7 +161,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 f"script-src 'self' 'nonce-{nonce}'; "
-                f"style-src 'self' 'nonce-{nonce}' 'unsafe-inline' https://fonts.googleapis.com; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; "
                 "connect-src 'self'; "

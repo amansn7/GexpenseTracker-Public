@@ -41,6 +41,7 @@ rate_limiter = RateLimiter()
 
 RATE_LIMITS = {
     "/api/sync/trigger": (1, 60),
+    "/api/sync/progress": (80, 60),
     "/api/auth/google": (5, 60),
     "/api/auth/callback": (5, 60),
     "/api/transactions/bulk": (10, 60),
