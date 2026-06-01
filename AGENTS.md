@@ -33,6 +33,50 @@ Fall back to `rg`, `find`, or direct file reads only when the graph cannot answe
 - Keep session memory, audit notes, and handoff logs out of this file.
 - Store transient notes in `handoff.md`, `tasks/`, or other explicitly temporary docs.
 
+## Railway & Database Access
+
+### Railway CLI
+
+| Command | Use |
+|---|---|
+| `railway status` | Show project, service, and DB status |
+| `railway variables list` | List all env vars for the active service |
+| `railway deployment list` | List recent deployments |
+| `railway logs --service Gexpense` | Tail app logs |
+| `railway service list` | List all services (app, Postgres, Redis) |
+
+### Querying the Production Database
+
+**psql (simple queries):**
+```bash
+railway connect Postgres -c "SELECT * FROM transactions LIMIT 5;"
+```
+Requires `psql` in PATH (`/opt/local/lib/postgresql16/bin/psql` via MacPorts).
+
+**Python via SSH (complex queries + code):**
+```bash
+railway ssh --service Gexpense -- python3 <<'PYEOF'
+import asyncio, os, asyncpg
+async def run():
+    c = await asyncpg.connect(os.environ['DATABASE_URL'])
+    rows = await c.fetch("SELECT id, label, amount FROM transactions LIMIT 5")
+    for r in rows: print(dict(r))
+    await c.close()
+asyncio.run(run())
+PYEOF
+```
+Use this when you need `asyncpg`, SQLAlchemy ORM, or access to app modules (`from app.services.stats_service import recompute_month`).
+
+**Important:** `railway run` only injects env vars locally — it does NOT resolve `*.railway.internal` hostnames. To reach the DB you must be inside Railway's network (SSH) or use `railway connect` with psql.
+
+### Key Production Details
+
+- **App URL:** `https://gexpense-production.up.railway.app`
+- **User IDs:** There are 2 users — the real human (`2656a055-...`, email `amansn7@gmail.com`) and a service user (`564d8655-...`, email `service@localhost`). Always use the correct user_id in ad-hoc queries.
+- **DB driver:** Always use `+asyncpg` in DATABASE_URL (`postgresql+asyncpg://`). The app's `config.py` auto-converts `postgres://` → `postgresql+asyncpg://`.
+- **Session reuse:** After `session.commit()`, ORM objects are expired. Read needed fields before commit to avoid `MissingGreenlet` errors.
+- **Rollups:** `recompute_month()` ends with `await db.flush()`, not `commit()`. Callers must commit separately.
+
 ## Claude/Codex layout
 
 - `AGENTS.md`: stable agent instructions for the repo

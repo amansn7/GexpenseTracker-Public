@@ -191,3 +191,24 @@
 
 ### Production DB Multi-User Awareness
 9. `SELECT LIMIT 1` may return a service/bot user (e.g., `service@localhost`), not the real human user. Always explicitly filter by the target user email in production ad-hoc queries.
+
+## Sync & Rollup
+
+### recompute_month Not Called After Sync
+1. `recompute_month()` was only called after PATCH/bulk actions in `transactions.py`, NEVER after initial transaction creation during email sync. This means PeriodRollups go stale the moment a new sync creates transactions. Fix: call `recompute_month()` + `invalidate_user_cache()` after `session.commit()` in both `fetch.py` and `range.py` sync paths.
+2. Collect affected months from `new_transactions` list `[(txn, email)]` — check `txn.txn_date` on each, add `(year, month)` to a set, call recompute per month.
+
+### recompute_month Uses flush() Not commit()
+3. `recompute_month()` ends with `await db.flush()`, not `await db.commit()`. Callers must commit afterward, otherwise the upserted PeriodRollup is never persisted. The `transactions.py` callers rely on the endpoint's own commit cycle; inline/repl callers must commit explicitly.
+
+### Querying Production DB During Debugging
+4. Use `railway ssh --service Gexpense -- python3 <<'PYEOF' ... PYEOF` to run ad-hoc queries with asyncpg against the production database. Use `railway connect Postgres -- -c "..."` via psql for simpler queries. `railway run` only injects env vars locally and does NOT resolve `*.railway.internal` hostnames — you must be inside the Railway network (SSH) or use `railway connect` with psql installed.
+
+### sqlalchemy MissingGreenlet After commit()
+5. Accessing ORM model fields after `session.commit()` crashes with `sqlalchemy.exc.MissingGreenlet: greenlet_spawn has not been called` because `expire_on_commit=True` expires all objects and lazy-load triggers async IO outside greenlet context. Always read needed fields BEFORE commit, or use `session.refresh(obj)` with the async session.
+
+### Classifier Pipeline: LLM → Stored Label Mismatch
+6. If the classification_log shows the LLM returned `expense` but the stored Transaction has `label: ignore`, suspect one of:
+   - Phase 3 retry (`classify_email`) returned a different result than the batch LLM
+   - Rule pre-check matched `ignore` with high confidence despite the sender_rule saying `expense` (check `build_domain_rules` merges ALL SenderRules without user_id filter — last-write-wins for multiple rules on same domain)
+   - The `db_rules` dict built during sync may not include the current user's SenderRule if another user's rule overwrote it

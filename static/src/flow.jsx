@@ -463,7 +463,8 @@ const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments,
   const isOverspend = savings < 0 && viewMode === "overspend";
   const remainingLabel = isOverspend ? "Overspend" : "Remaining";
   const savingsAbs = Math.abs(savings);
-  const savingsPct = totalIncome > 0 ? ((savingsAbs / totalIncome) * 100).toFixed(1) : "0.0";
+  const displaySavings = isOverspend ? savingsAbs : savings;
+  const savingsPct = totalIncome > 0 ? ((displaySavings / totalIncome) * 100).toFixed(1) : "0.0";
 
   const Dot = ({ cat }) => (
     <span style={{
@@ -642,7 +643,7 @@ const FlowBreakdown = ({ data, totalIncome, totalExpenseNumber, totalCCPayments,
       )}
 
       <SummaryLine label="Total Spent" amount={totalSpent} pct={totalSpentPct} color="var(--neg)"/>
-      <SummaryLine label={remainingLabel} amount={savingsAbs} pct={savingsPct} color={isOverspend ? "var(--neg)" : "var(--pos)"}/>
+      <SummaryLine label={remainingLabel} amount={displaySavings} pct={savingsPct} color={savings < 0 ? "var(--neg)" : "var(--pos)"}/>
     </div>
   );
 };

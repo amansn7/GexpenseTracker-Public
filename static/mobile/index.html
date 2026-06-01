@@ -7302,5 +7302,115 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<div id="pwa-install-sheet" style="
+  display:none; position:fixed; bottom:0; left:0; right:0; z-index:99999;
+  background:var(--surface,#fff); border-radius:22px 22px 0 0;
+  box-shadow:0 -4px 32px rgba(0,0,0,0.14); padding:0 0 env(safe-area-inset-bottom,16px);
+  font-family:'Geist',system-ui,sans-serif;
+">
+  <div style="width:36px;height:4px;border-radius:2px;background:var(--line,rgba(0,0,0,0.12));margin:12px auto 0;"></div>
+  <div style="padding:20px 24px 24px;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+      <div style="width:48px;height:48px;border-radius:12px;background:#0F8A5F;display:grid;place-items:center;flex-shrink:0;">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><text x="4" y="20" fill="white" font-size="18" font-weight="700" font-family="Geist,system-ui">G</text></svg>
+      </div>
+      <div>
+        <div style="font-size:17px;font-weight:700;color:var(--ink,#131313);">Add Gexpense to Home Screen</div>
+        <div style="font-size:13px;color:var(--ink-3,#6B6B66);margin-top:2px;">Install for fast, app-like access</div>
+      </div>
+    </div>
+    <div id="pwa-steps" style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;"></div>
+    <button id="pwa-dismiss" style="
+      width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--line,rgba(0,0,0,0.1));
+      background:transparent;font-size:15px;font-weight:600;color:var(--ink-2,#3D3D3B);
+      cursor:pointer;font-family:inherit;
+    ">Maybe Later</button>
+  </div>
+</div>
+<div id="pwa-scrim" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.4);"></div>
+
+<script>
+(function() {
+  var DISMISSED_KEY = 'gx_install_dismissed';
+  var sheet = document.getElementById('pwa-install-sheet');
+  var scrim = document.getElementById('pwa-scrim');
+  var stepsEl = document.getElementById('pwa-steps');
+  var btn = document.getElementById('pwa-dismiss');
+
+  // Don't show if standalone (already installed) or dismissed
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  if (window.navigator.standalone) return;
+  if (sessionStorage.getItem(DISMISSED_KEY)) return;
+
+  var ua = navigator.userAgent;
+  var isIOS = /iPhone|iPad|iPod/i.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  if (!isIOS && !isAndroid) return;
+
+  function makeStep(num, icon, text) {
+    return '<div style="display:flex;align-items:flex-start;gap:12px;">'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:var(--brand-50,rgba(15,138,95,0.10));'
+      + 'color:#0F8A5F;font-size:13px;font-weight:700;display:grid;place-items:center;flex-shrink:0;">' + num + '</div>'
+      + '<div style="padding-top:4px;">'
+      + '<div style="font-size:14px;font-weight:600;color:var(--ink,#131313);">' + icon + '</div>'
+      + '<div style="font-size:13px;color:var(--ink-3,#6B6B66);margin-top:2px;">' + text + '</div>'
+      + '</div></div>';
+  }
+
+  var steps = '';
+  if (isIOS) {
+    steps += makeStep('1', 'Tap the Share button ⬆', 'The box-with-arrow icon at the bottom of Safari');
+    steps += makeStep('2', 'Scroll down and tap "Add to Home Screen"', 'Look for the + icon in the share sheet');
+    steps += makeStep('3', 'Tap "Add" in the top-right corner', 'Gexpense will appear on your home screen');
+  } else {
+    steps += makeStep('1', 'Tap the menu button ⋮', 'Three dots in the top-right corner of Chrome');
+    steps += makeStep('2', 'Tap "Add to Home screen" or "Install app"', 'Usually near the top of the menu');
+    steps += makeStep('3', 'Tap "Add" or "Install" to confirm', 'Gexpense will appear on your home screen');
+  }
+  stepsEl.innerHTML = steps;
+
+  function close() {
+    sessionStorage.setItem(DISMISSED_KEY, '1');
+    sheet.style.display = 'none';
+    scrim.style.display = 'none';
+  }
+
+  btn.addEventListener('click', close);
+  scrim.addEventListener('click', close);
+
+  // Android: use native install prompt if available
+  var deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    // Replace steps with native prompt button
+    stepsEl.innerHTML = '<div style="font-size:14px;color:var(--ink-2,#3D3D3B);">Your browser supports one-tap installation.</div>';
+    btn.textContent = 'Install App';
+    btn.style.background = '#0F8A5F';
+    btn.style.color = '#fff';
+    btn.style.border = 'none';
+    btn.removeEventListener('click', close);
+    btn.addEventListener('click', function() {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() { close(); });
+    });
+  });
+
+  // Show after short delay so the app has rendered
+  setTimeout(function() {
+    sheet.style.display = 'block';
+    scrim.style.display = 'block';
+    sheet.style.transform = 'translateY(100%)';
+    sheet.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1)';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        sheet.style.transform = 'translateY(0)';
+      });
+    });
+  }, 1800);
+})();
+</script>
+
 </body>
 </html>
