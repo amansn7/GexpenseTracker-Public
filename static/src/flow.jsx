@@ -725,9 +725,10 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
     setDrillTxns(null);
     let cancelled = false;
     const isIncome = drillCategory === "__income__";
+    const dateQP = (dateRange.from && dateRange.to) ? `&date_from=${dateRange.from}&date_to=${dateRange.to}` : "";
     const qp = isIncome
-      ? `label=income&date_from=${dateRange.from}&date_to=${dateRange.to}&limit=200`
-      : `category=${encodeURIComponent(drillCategory)}&date_from=${dateRange.from}&date_to=${dateRange.to}&limit=200`;
+      ? `label=income${dateQP}&limit=200`
+      : `category=${encodeURIComponent(drillCategory)}${dateQP}&limit=200`;
     API.get(`/api/transactions?${qp}`)
       .then(d => { if (!cancelled) setDrillTxns(d.items || []); })
       .catch(() => { if (!cancelled) setDrillTxns([]); });

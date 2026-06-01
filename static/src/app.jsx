@@ -126,7 +126,7 @@ const App = () => {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams({ offset: 0, limit: 50 });
-      if (dateRange.from) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
+      if (dateRange.from && dateRange.to) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
@@ -148,7 +148,7 @@ const App = () => {
         offset: transactions.length,
         limit: 50,
       });
-      if (dateRange.from) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
+      if (dateRange.from && dateRange.to) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
