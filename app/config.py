@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     FREELLMAPI_MODEL: str = ""  # empty = let proxy auto-select
     TRIAL_DURATION_DAYS: int = 7
     ENABLE_LLM_TRIAL: bool = False
+    OWNER_EMAIL: str = ""  # email of app owner — gets permanent FreeLLMAPI fallback
 
     LLM_CONFIDENCE_THRESHOLD: float = 0.85
     AUTO_CONFIRM_THRESHOLD: float = 0.75

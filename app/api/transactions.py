@@ -40,6 +40,7 @@ class TransactionPatch(BaseModel):
     category: str | None = None
     merchant: str | None = None
     amount: float | None = None
+    txn_date: str | None = None
     user_notes: str | None = None
     read: bool | None = None
     flagged: bool | None = None
@@ -552,6 +553,7 @@ async def patch_transaction(
     t, e = row
 
     changed_fields: dict = {}
+    old_txn_date = t.txn_date
     if patch.label is not None and patch.label != t.label:
         changed_fields["label"] = (t.label, patch.label)
     if patch.category is not None and patch.category != t.category:
@@ -608,6 +610,14 @@ async def patch_transaction(
         t.flagged = patch.flagged
     if patch.status is not None:
         t.status = patch.status
+    if patch.txn_date is not None:
+        try:
+            new_date = date.fromisoformat(patch.txn_date)
+            if new_date != t.txn_date:
+                t.txn_date = new_date
+                changed_fields["txn_date"] = (str(old_txn_date) if old_txn_date else None, patch.txn_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid date format, expected YYYY-MM-DD")
 
     if changed_fields:
         db.add(
@@ -755,6 +765,7 @@ async def reclassify_transaction(
             )
         )
 
+    old_txn_date = t.txn_date
     t.label = cls.label.value
     t.amount = cls.amount
     t.merchant = cls.merchant
@@ -797,11 +808,13 @@ async def reclassify_transaction(
             "label": t.label,
             "category": t.category,
         }
-        await db.commit()
+    await db.commit()
 
     if t.txn_date:
         await recompute_month(current_user.id, t.txn_date.year, t.txn_date.month, db)
         invalidate_user_cache(current_user.id)
+    if old_txn_date and old_txn_date != t.txn_date:
+        await recompute_month(current_user.id, old_txn_date.year, old_txn_date.month, db)
 
     await db.refresh(t)
     result = format_transaction(t, e)

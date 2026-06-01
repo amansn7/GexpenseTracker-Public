@@ -316,6 +316,9 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
         category = CategoryService.resolve(category)
         confidence = llm_result.confidence
         txn_date = _parse_date(llm_result.txn_date)
+        if txn_date is None:
+            pre_date = pre_extraction.get("date")
+            txn_date = _parse_date(pre_date) if pre_date else None
         source_currency = llm_result.source_currency
         if source_currency and source_currency not in SUPPORTED_CURRENCIES:
             source_currency = None
@@ -384,7 +387,8 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
         category = rule_result.category or merchant_category
         category = CategoryService.resolve(category)
         confidence = max(rule_result.confidence, merchant_conf if rule_result.label else 0.0)
-        txn_date = None
+        pre_date = pre_extraction.get("date")
+        txn_date = _parse_date(pre_date) if pre_date else None
 
         if label == Label.ignore and category == "CC Payment":
             txn_type = "cc_payment"

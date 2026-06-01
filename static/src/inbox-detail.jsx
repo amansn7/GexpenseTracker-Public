@@ -205,6 +205,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         amount: Math.abs(draft.amount),
         merchant: draft.merchant,
         category: draft.category,
+        txn_date: draft.txn_date || null,
       });
       setReclass("done");
       const isIgnore = draft.label === "ignore";
@@ -219,6 +220,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         tag:      isIgnore ? "ignore" : isSelfTransfer ? "self_transfer" : isIncome ? "income" : isSub ? "subscription" : "expense",
         conf:     draft.confidence ?? tx.conf,
         merchant: draft.merchant || tx.merchant,
+        date:     draft.txn_date || tx.date,
       });
     } catch (e) {
       setReclass("error");
@@ -509,7 +511,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               </div>
               <div>
                 <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Date</div>
-                <div style={{ fontWeight: 500, color: "var(--ink)", marginTop: 2, fontSize: 12 }}>{editDraft.txn_date || "\u2014"}</div>
+                <input type="date" value={editDraft.txn_date || ""} onChange={e=>setEditDraft(d=>({...d, txn_date:e.target.value}))} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 12, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>

@@ -11,7 +11,7 @@ from app.classifier.llm_client import MultiLLMClient, llm_client
 from app.config import settings
 from app.crypto import decrypt_ai_secret
 from app.models import UserSettings
-from app.models.user import User, UserAIService
+from app.models.user import User, UserAIService, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ async def get_effective_llm_client(user_id: str, db: AsyncSession) -> MultiLLMCl
     Resolution order:
       1. BYOK — user has a configured AI service → user provider + env fallbacks
       2. Trial — user is within their trial window → FreeLLMAPI proxy + env fallbacks
-      3. Fallback — global env-var client (always available if env keys are set)
+      3. Owner — if *user_id* matches ``settings.OWNER_EMAIL`` → FreeLLMAPI proxy + env fallbacks
+      4. Fallback — global env-var client (always available if env keys are set)
 
     Returns ``None`` only if no LLM providers are configured at all (no env keys, no BYOK, no trial key).
     """
@@ -42,7 +43,13 @@ async def get_effective_llm_client(user_id: str, db: AsyncSession) -> MultiLLMCl
         if trial:
             return trial
 
-    # 3. Global fallback
+    # 3. Owner FreeLLMAPI fallback — always available for the app owner
+    if settings.OWNER_EMAIL and settings.FREELLMAPI_API_KEY:
+        owner = await _get_owner_client(user_id, db)
+        if owner:
+            return owner
+
+    # 4. Global fallback
     if llm_client._providers:
         return llm_client
     return None
@@ -94,6 +101,16 @@ async def _get_trial_client(user_id: str, db: AsyncSession) -> MultiLLMClient | 
     if now >= user.trial_ends_at:
         return None
 
+    return build_trial_client(user_id)
+
+
+async def _get_owner_client(user_id: str, db: AsyncSession) -> MultiLLMClient | None:
+    """Return a FreeLLMAPI client if *user_id* matches the configured owner email and role."""
+    user = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+    if not user or user.email != settings.OWNER_EMAIL or user.role != UserRole.owner:
+        return None
     return build_trial_client(user_id)
 
 
