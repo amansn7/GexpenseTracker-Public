@@ -7,6 +7,33 @@
 2. If unintended files are present, use `git reset HEAD <file>` to unstage them, or `git checkout HEAD -- <file>` to revert the working tree version.
 3. This is especially important when switching contexts between feature work (e.g., frontend polish vs. backend infrastructure spikes).
 
+## React: useEffect dependency arrays referencing render-time `const` variables
+
+A `useEffect` dependency array is evaluated **during render**. If it references a `const` or `let` that's declared later in the function body, you'll hit a **Temporal Dead Zone** error (`Cannot access uninitialized variable`), even though the effect callback runs after mount.
+
+**Fix**: Move the `useEffect` call to **after** the variable declaration in the function body. This is valid as long as the `useEffect` is called unconditionally (same position each render) — React only requires consistent hook **order**, not that hooks be at the top of the function.
+
+**Don't** do this:
+```jsx
+const DashboardView = () => {
+  const ref = React.useRef(null);
+  React.useEffect(() => { ... }, [cumulative]); // TDZ! cumulative not yet declared
+  const cumulative = [];
+  // ...
+};
+```
+
+**Do** this:
+```jsx
+const DashboardView = () => {
+  const ref = React.useRef(null);
+  // ... other hooks ...
+  const cumulative = [];
+  React.useEffect(() => { ... }, [cumulative]); // OK — cumulative initialized
+  // ...
+};
+```
+
 ## Frontend CSS Consistency
 
 ### Batch Pattern for Form Element Styling Fixes

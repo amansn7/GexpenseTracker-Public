@@ -36,15 +36,6 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const svgRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!svgRef.current) return;
-    const paths = svgRef.current.querySelectorAll(".chart-line, .chart-projected");
-    paths.forEach(p => {
-      const len = p.getTotalLength();
-      p.style.setProperty("--path-len", len);
-    });
-  }, [cumulative]);
-
-  React.useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       setStatsLoading(true);
@@ -122,6 +113,14 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
     dailyIncomeSeries.push(dayInc);
     dailyExpenseSeries.push(dayExp);
   }
+  React.useEffect(() => {
+    if (!svgRef.current) return;
+    const paths = svgRef.current.querySelectorAll(".chart-line, .chart-projected");
+    paths.forEach(p => {
+      const len = p.getTotalLength();
+      p.style.setProperty("--path-len", len);
+    });
+  }, [cumulative]);
   const sparklineDays = Math.min(dailyExpenseSeries.length, 14);
   const sparkIncome = dailyIncomeSeries.slice(-sparklineDays);
   const sparkExpense = dailyExpenseSeries.slice(-sparklineDays);
