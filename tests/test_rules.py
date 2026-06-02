@@ -35,3 +35,39 @@ def test_unknown_low_confidence():
     result = apply_rules("randomblog.com", "Hello there", "Check this out")
     assert result.confidence == 0.0
     assert result.label is None
+
+
+def test_income_overrides_domain_ignore():
+    """Income signals override domain ignore rules (e.g., Axis Bank salary)."""
+    db_rules = {"axis.bank.in": (Label.ignore, "transfer")}
+    result = apply_rules("axis.bank.in", "Salary credited", "₹138633 credited to your account")
+    assert result.label == Label.income
+    assert result.confidence > 0.60
+
+
+def test_expense_overrides_domain_ignore():
+    """Financial expense signals override domain ignore rules."""
+    db_rules = {"axis.bank.in": (Label.ignore, "transfer")}
+    result = apply_rules("axis.bank.in", "Debit notification", "₹500 debited from account")
+    assert result.label == Label.expense
+
+
+def test_amount_only_no_keywords_is_ambiguous():
+    """Email with amount but no income/expense keywords returns None (LLM decides)."""
+    result = apply_rules("merchant.co", "Your receipt", "Total: ₹1,299")
+    assert result.label is None
+    assert result.confidence == 0.0
+
+
+def test_non_financial_respects_domain_ignore():
+    """Non-financial email from an ignore domain stays ignored."""
+    db_rules = {"marketing.co": (Label.ignore, None)}
+    result = apply_rules("marketing.co", "Newsletter", "Latest updates and offers")
+    assert result.label == Label.ignore
+
+
+def test_non_financial_with_keywords_but_no_amount():
+    """Keywords without amount/verb context return keyword-based result."""
+    result = apply_rules("newsletter.co", "Special offer", "You are credited with bonus points")
+    assert result.label == Label.income
+    assert result.confidence > 0.50
