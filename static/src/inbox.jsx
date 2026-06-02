@@ -853,11 +853,11 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                     <button onClick={() => { if (window._goSync) window._goSync(); }} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, background: "var(--accent)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>
                       Run sync
                     </button>
-                    <button onClick={() => setFilter("all")} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
+                    <button onClick={() => setFilter("all")} style={{ fontSize: 13, padding: "10px 20px", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
                       View transactions
                     </button>
                     {needsReviewCount > 0 && (
-                      <button onClick={() => setFilter("needs_review")} style={{ fontSize: 12, padding: "8px 18px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
+                      <button onClick={() => setFilter("needs_review")} style={{ fontSize: 13, padding: "10px 20px", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", cursor: "pointer", fontWeight: 500 }}>
                         Legacy review ({needsReviewCount})
                       </button>
                     )}
@@ -1223,7 +1223,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                           }
                         }}
                         className="focus-ring"
-                        style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink-3)", fontSize: 11, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>
+                        style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", fontSize: 11, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>
                         Undo
                       </button>
                     </div>
@@ -1383,8 +1383,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={closeBulk} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                  <button onClick={bulkManualApply} style={{ flex: 2, padding: "9px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
+                  <button onClick={closeBulk} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                  <button onClick={bulkManualApply} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
                 </div>
               </div>
             </div>
@@ -1419,8 +1419,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={closeBulk} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                <button onClick={bulkManualApply} style={{ flex: 2, padding: "9px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
+                <button onClick={closeBulk} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                <button onClick={bulkManualApply} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
               </div>
             </div>
           </div>
@@ -1617,24 +1617,24 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   if (isAllDone) {
                     return (
                       <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
-                        <button onClick={closeReclass} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Close</button>
+                        <button onClick={closeReclass} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Close</button>
                       </div>
                     );
                   }
                   if (item.status !== "preview") return null;
                   return (
                     <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
-                      <button onClick={bulkSkipAll} style={{ padding: "9px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-3)", fontSize: 12, cursor: "pointer" }}>
+                      <button onClick={bulkSkipAll} style={{ padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 13, cursor: "pointer" }}>
                         Skip all
                       </button>
-                      <button onClick={bulkAcceptAll} style={{ padding: "9px 14px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      <button onClick={bulkAcceptAll} style={{ padding: "10px 20px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                         Accept all
                       </button>
                       <div style={{ flex: 1 }}/>
-                      <button onClick={bulkSkip} style={{ padding: "9px 16px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
+                      <button onClick={bulkSkip} style={{ padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>
                         Skip
                       </button>
-                      <button onClick={bulkAccept} style={{ padding: "9px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      <button onClick={bulkAccept} style={{ padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                         Accept & Next
                       </button>
                     </div>
@@ -1831,24 +1831,24 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 if (isAllDone) {
                   return (
                     <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
-                      <button onClick={closeReclass} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>Close</button>
+                      <button onClick={closeReclass} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Close</button>
                     </div>
                   );
                 }
                 if (item.status !== "preview") return null;
                 return (
                   <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8, flexShrink: 0 }}>
-                    <button onClick={bulkSkipAll} style={{ padding: "9px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-3)", fontSize: 12, cursor: "pointer" }}>
+                    <button onClick={bulkSkipAll} style={{ padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-3)", fontSize: 13, cursor: "pointer" }}>
                       Skip all
                     </button>
-                    <button onClick={bulkAcceptAll} style={{ padding: "9px 14px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    <button onClick={bulkAcceptAll} style={{ padding: "10px 20px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--accent-soft)", color: "var(--accent)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                       Accept all
                     </button>
                     <div style={{ flex: 1 }}/>
-                    <button onClick={bulkSkip} style={{ padding: "9px 16px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>
+                    <button onClick={bulkSkip} style={{ padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>
                       Skip
                     </button>
-                    <button onClick={bulkAccept} style={{ padding: "9px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    <button onClick={bulkAccept} style={{ padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                       Accept & Next
                     </button>
                   </div>

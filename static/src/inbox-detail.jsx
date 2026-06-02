@@ -315,7 +315,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{tx.domain}</div>
           </div>
         </div>
-        <button onClick={onClose} className="focus-ring" style={{ flexShrink: 0, border: "1px solid var(--line)", background: "var(--paper)", padding: 6, borderRadius: 6, color: "var(--ink-3)", cursor:"pointer" }}>
+        <button onClick={onClose} className="focus-ring" style={{ flexShrink: 0, border: "1px solid var(--line)", background: "transparent", padding: 6, borderRadius: 6, color: "var(--ink-3)", cursor:"pointer" }}>
           <Icon name="x" size={14}/>
         </button>
       </div>
@@ -560,7 +560,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
             className="focus-ring"
             onClick={()=>{ if(reclass==="idle"||reclass==="done"||reclass==="error") handlePreview(); }}
             disabled={reclass==="previewing"||reclass==="saving"||reclass==="preview"}
-            style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "var(--paper)", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
+            style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: (reclass==="previewing"||reclass==="preview") ? "var(--paper-2)" : "transparent", color: (reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "var(--ink-2)", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: (reclass==="previewing"||reclass==="saving"||reclass==="preview") ? "default" : "pointer" }}>
             <Icon name={reclassMethod === "rules" ? "check" : "bolt"} size={13} stroke={(reclass==="previewing"||reclass==="preview") ? "var(--ink-4)" : "currentColor"}/>
             {reclass === "previewing" ? "Classifying..." : "Recategorize"}
           </button>

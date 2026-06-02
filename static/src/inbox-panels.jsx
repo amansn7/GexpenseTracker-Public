@@ -301,7 +301,7 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
         <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
           <button onClick={handleKeepAll} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--accent)", color: "var(--paper)", cursor: busy ? "wait" : "pointer", fontWeight: 500, opacity: busy ? 0.6 : 1 }}>Keep all</button>
           {!confirmDiscard ? (
-            <button onClick={() => setConfirmDiscard(true)} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
+            <button onClick={() => setConfirmDiscard(true)} disabled={busy} style={{ fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.6 : 1 }}>Discard all</button>
           ) : (
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
               {hasTxs ? (
@@ -310,7 +310,7 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
                 <span style={{ fontSize: 10, color: "var(--ink-3)", maxWidth: 180, lineHeight: 1.3 }}>Discard {emails.length} email{emails.length > 1 ? "s" : ""}?</span>
               )}
               <button onClick={handleDiscardAll} disabled={busy} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 6, background: "var(--neg)", color: "var(--paper)", cursor: "pointer", fontWeight: 600 }}>Yes</button>
-              <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
+              <button onClick={() => setConfirmDiscard(false)} style={{ fontSize: 10, padding: "2px 6px", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", cursor: "pointer" }}>No</button>
             </div>
           )}
         </div>
@@ -417,7 +417,7 @@ const ReviewDetailPanel = ({ email, onKeep, onDiscard, onClose }) => {
         <button disabled={loading} onClick={() => handleAction("keep")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--accent)", color: "var(--paper)", cursor: loading ? "wait" : "pointer", fontWeight: 600, opacity: loading ? 0.6 : 1 }}>
           Keep as transaction
         </button>
-        <button disabled={loading} onClick={() => handleAction("discard")} style={{ flex: 1, fontSize: 12, padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>
+        <button disabled={loading} onClick={() => handleAction("discard")} style={{ flex: 1, fontSize: 13, padding: "10px 20px", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-2)", cursor: loading ? "wait" : "pointer", fontWeight: 500, opacity: loading ? 0.6 : 1 }}>
           Discard as noise
         </button>
       </div>
