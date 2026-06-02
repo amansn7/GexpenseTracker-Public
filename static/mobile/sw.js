@@ -1,4 +1,4 @@
-const CACHE = 'gexpense-mobile-v1';
+const CACHE = 'gexpense-mobile-v3';
 
 const PRECACHE = [
   '/mobile',

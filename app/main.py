@@ -359,7 +359,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/mobile", response_class=HTMLResponse)
 async def mobile_app(request: Request):
     with open("static/mobile/index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-store"})
 
 
 @app.get("/login", response_class=HTMLResponse)
