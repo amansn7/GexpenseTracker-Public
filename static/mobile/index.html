@@ -844,6 +844,16 @@ body { margin: 0; padding: 0; background: var(--bg, #F7F7F4); }
 (function() {
   var el = document.getElementById('err-overlay');
   el.textContent += 'Step 1: HTML loaded\n';
+  // Intercept React's internal error logging
+  var _origErr = console.error.bind(console);
+  console.error = function() {
+    _origErr.apply(console, arguments);
+    var msg = Array.from(arguments).map(function(a){ return typeof a === 'object' ? (a && a.message ? a.message : JSON.stringify(a)) : String(a); }).join(' ');
+    if (msg.length > 10) {
+      el.style.color = '#c00';
+      el.textContent += 'CONSOLE.ERR: ' + msg.substring(0, 300) + '\n\n';
+    }
+  };
   window.onerror = function(msg, src, line, col, err) {
     el.style.color = '#c00';
     el.textContent += 'JS ERROR: ' + msg + '\n  at ' + (src||'').split('/').pop() + ':' + line + '\n\n';
@@ -2310,7 +2320,12 @@ Object.assign(window, { App });
 
 <script>
 // App is exported to window by the bundle via Object.assign(window, { App })
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.App));
+try {
+  ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.App));
+} catch(e) {
+  var el = document.getElementById('err-overlay');
+  if (el) { el.style.color = '#c00'; el.style.display = 'block'; el.textContent += 'RENDER CRASH: ' + e.message + '\n' + (e.stack||'') + '\n'; }
+}
 </script>
 
 
