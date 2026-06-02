@@ -3,27 +3,42 @@ const { useState: useStateA, useEffect: useEffectA, useRef: useRefA } = React;
 
 const App = () => {
   const [theme, setTheme] = useStateA('light');
+  const [themeAnim, setThemeAnim] = useStateA(null); // { dir, origin }
   useEffectA(() => { window.checkAuth && window.checkAuth(); }, []);
-  const [screen, setScreen] = useStateA('home'); // home | transactions | insights | settings | onboarding
+  const [screen, setScreen] = useStateA('home');
   const [sheet, setSheet] = useStateA(false);
   const [toast, setToast] = useStateA('');
   const [aiMode, setAiMode] = useStateA(false);
   const [budgetsMode, setBudgetsMode] = useStateA(false);
   const [txPreset, setTxPreset] = useStateA(null);
-
-  // Modal/detail stack — pushed on top of base screen
-  const [overlay, setOverlay] = useStateA(null); // { kind, data }
-  // Sheet state for AI explain
+  const [overlay, setOverlay] = useStateA(null);
   const [aiExplain, setAiExplain] = useStateA(null);
-
-  // Empty state mode (toggled per screen)
   const [emptyMode, setEmptyMode] = useStateA(false);
-
   const toastTimer = useRefA(null);
 
   useEffectA(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Theme toggle with lightsaber transition animation
+  const handleTheme = (newTheme, event) => {
+    if (event && typeof ThemeTransition !== 'undefined') {
+      try {
+        const phone = document.querySelector('.phone');
+        const pRect = phone ? phone.getBoundingClientRect() : { left:0, top:0, width:390, height:844 };
+        const tRect = event.currentTarget ? event.currentTarget.getBoundingClientRect() : { left: pRect.left + 195, top: pRect.top + 400, width:40, height:40 };
+        const origin = {
+          x: tRect.left + tRect.width/2 - pRect.left,
+          y: tRect.top  + tRect.height/2 - pRect.top,
+          w: pRect.width, h: pRect.height,
+        };
+        setThemeAnim({ dir: newTheme === 'dark' ? 'toDark' : 'toLight', origin });
+        setTimeout(() => { setTheme(newTheme); setThemeAnim(null); }, 1400);
+      } catch (_) { setTheme(newTheme); }
+    } else {
+      setTheme(newTheme);
+    }
+  };
 
   const onAdd = () => setSheet(true);
   const closeSheet = () => setSheet(false);
@@ -85,7 +100,7 @@ const App = () => {
     if (screen === 'settings') {
       if (aiMode) return <div onClick={(e) => { if (e.target.closest('.small') && e.target.textContent.includes('Settings')) setAiMode(false); }}><SettingsAI/></div>;
       if (budgetsMode) return <Budgets onBack={() => setBudgetsMode(false)} onGoalOpen={openGoal} onAddBudget={() => setOverlay({ kind:'addBudget' })}/>;
-      return <SettingsWrapper theme={theme} onTheme={setTheme} onAi={() => setAiMode(true)} onBudgets={() => setBudgetsMode(true)} onOnboarding={() => setScreen('onboarding')} onEmpty={(k) => setEmptyMode(k)}/>;
+      return <SettingsWrapper theme={theme} onTheme={handleTheme} onAi={() => setAiMode(true)} onBudgets={() => setBudgetsMode(true)} onOnboarding={() => setScreen('onboarding')} onEmpty={(k) => setEmptyMode(k)}/>;
     }
     return null;
   };
@@ -113,6 +128,11 @@ const App = () => {
       {/* AI Explain sheet */}
       {aiExplain && <AIExplain insight={aiExplain} onClose={() => setAiExplain(null)}/>}
 
+      {/* Theme transition animation */}
+      {themeAnim && typeof ThemeTransition !== 'undefined' && (
+        <ThemeTransition dir={themeAnim.dir} origin={themeAnim.origin}/>
+      )}
+
       <div className={`toast ${toast ? 'show' : ''}`}>
         <span className="check"><Icon name="check" size={11} stroke={3}/></span>
         {toast || 'Saved'}
@@ -130,6 +150,10 @@ const PatchedSettings = ({ theme, onTheme, onAi, onBudgets, onOnboarding, onEmpt
   const [autoFetch, setAutoFetch] = useStateA(true);
   const [sms, setSms] = useStateA(true);
   const [notif, setNotif] = useStateA(true);
+  const [profile, setProfile] = useStateA({ name: '', email: '' });
+  useEffectA(() => {
+    GxAPI.get('/api/auth/me').then(d => { if (d) setProfile({ name: d.name || '', email: d.email || '' }); }).catch(()=>{});
+  }, []);
 
   return (
     <div className="scroll" data-screen-label="05 Settings">
@@ -140,10 +164,10 @@ const PatchedSettings = ({ theme, onTheme, onAi, onBudgets, onOnboarding, onEmpt
 
         <div className="card fade-up fade-up-2" style={{padding:16, marginBottom:14}}>
           <div style={{display:'flex', alignItems:'center', gap:14}}>
-            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>A</div>
+            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>{profile.name ? profile.name.charAt(0).toUpperCase() : '?'}</div>
             <div style={{flex:1, minWidth:0}}>
-              <div style={{fontWeight:600, fontSize:15}}>Aman Sharma</div>
-              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
+              <div style={{fontWeight:600, fontSize:15}}>{profile.name || '—'}</div>
+              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{profile.email || '—'}</div>
             </div>
             <button className="btn btn-ghost" style={{padding:'8px 14px', fontSize:12}}>Edit</button>
           </div>
@@ -160,7 +184,7 @@ const PatchedSettings = ({ theme, onTheme, onAi, onBudgets, onOnboarding, onEmpt
 
         <div className="label" style={{margin:'14px 4px 8px'}}>Auto-tracking</div>
         <div className="card fade-up fade-up-3" style={{padding:0, marginBottom:14}}>
-          <Row icon="mail" label="Gmail extraction" sub="Connected · aman@gmail.com" right={<Toggle on={autoFetch} onClick={() => setAutoFetch(!autoFetch)}/>}/>
+          <Row icon="mail" label="Gmail extraction" sub={`Connected · ${profile.email || '…'}`} right={<Toggle on={autoFetch} onClick={() => setAutoFetch(!autoFetch)}/>}/>
           <Divider/>
           <Row icon="zap" label="SMS parsing" sub="Bank & UPI alerts" right={<Toggle on={sms} onClick={() => setSms(!sms)}/>}/>
           <Divider/>
@@ -171,7 +195,7 @@ const PatchedSettings = ({ theme, onTheme, onAi, onBudgets, onOnboarding, onEmpt
 
         <div className="label" style={{margin:'14px 4px 8px'}}>Preferences</div>
         <div className="card fade-up fade-up-4" style={{padding:0, marginBottom:14}}>
-          <Row icon={theme==='dark' ? 'moon' : 'sun'} label="Dark mode" sub={theme==='dark' ? 'On' : 'Off · tap to enable'} right={<Toggle on={theme==='dark'} onClick={() => onTheme(theme==='dark'?'light':'dark')}/>}/>
+          <Row icon={theme==='dark' ? 'moon' : 'sun'} label="Dark mode" sub={theme==='dark' ? 'On' : 'Off · tap to enable'} right={<Toggle on={theme==='dark'} onClick={(e) => onTheme(theme==='dark'?'light':'dark', e)}/>}/>
           <Divider/>
           <Row icon="bell" label="Notifications" sub="Daily summary at 9 PM" right={<Toggle on={notif} onClick={() => setNotif(!notif)}/>}/>
           <Divider/>

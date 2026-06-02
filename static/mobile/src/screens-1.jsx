@@ -47,7 +47,11 @@ const Dashboard = ({ onNavigate, onAdd }) => {
       GxAPI.get('/api/auth/me'),
       GxAPI.get('/api/stats/category-breakdown?' + _liveMonthParams()),
     ]).then(([stats, txData, budgetsData, me, catsData]) => {
-      const s = stats?.total_expenses || 42180;
+      // Total outflows = expenses + investments + cc_payments
+      const expenses   = stats?.total_expenses    || 0;
+      const invest     = stats?.total_investments || 0;
+      const ccPay      = stats?.total_cc_payments || 0;
+      const s = expenses + invest + ccPay || 42180;
       const b = budgetsData?.budgets?.length
         ? budgetsData.budgets.reduce((a,x)=>a+(x.monthly_limit||0),0)||60000
         : 60000;
@@ -56,19 +60,22 @@ const Dashboard = ({ onNavigate, onAdd }) => {
       if (me?.name) setUserName(me.name);
       if (txData?.items?.length) {
         setTxs(txData.items.slice(0,5).map(t=>
-          // [category, merchant, note, time, amount, dayLabel, id, txn_date, label]
           [t.category||'other', t.merchant||'Unknown', t.user_notes||'', '', Math.abs(t.amount||0), _fmtDay(t.txn_date), t.id, t.txn_date, t.label||'expense']
         ));
       } else {
         setTimeout(() => setPct(70), 200);
       }
       if (catsData?.categories?.length) {
-        setCats(catsData.categories.slice(0,5).map((c,i)=>({
+        const builtCats = catsData.categories.slice(0,4).map((c,i)=>({
           n: (c.category||'other').replace(/^\w/,x=>x.toUpperCase()),
           v: Math.round(c.amount||0),
           c: _CAT_COLORS[i%_CAT_COLORS.length],
           pct: Math.round(c.pct||0),
-        })));
+        }));
+        // Append Investment + CC Payment as synthetic categories if present
+        if (invest > 0) builtCats.push({ n:'Investment', v:Math.round(invest), c:'#1F6FEB', pct: Math.round((invest/s)*100) });
+        if (ccPay  > 0) builtCats.push({ n:'CC Payment', v:Math.round(ccPay),  c:'#9B6BBF', pct: Math.round((ccPay/s)*100)  });
+        setCats(builtCats);
       }
     }).catch(()=>{ setTimeout(()=>setPct(70),200); });
   }, []);
@@ -88,7 +95,9 @@ const Dashboard = ({ onNavigate, onAdd }) => {
             <button className="btn-ghost btn" style={{padding:'8px', borderRadius: '50%', width: 38, height:38, display:'grid', placeItems:'center'}}>
               <Icon name="bell" size={18}/>
             </button>
-            <button onClick={() => setProfileOpen(true)} className="btn" style={{padding:0, width:38, height:38, borderRadius:'50%', background:'var(--surface-2)', border:'1px solid var(--line)', display:'grid', placeItems:'center', fontWeight:600, cursor:'pointer'}}>A</button>
+            <button onClick={() => setProfileOpen(true)} className="btn" style={{padding:0, width:38, height:38, borderRadius:'50%', background:'var(--brand-soft)', border:'1px solid var(--brand)', display:'grid', placeItems:'center', fontWeight:700, fontSize:15, color:'var(--brand)', cursor:'pointer'}}>
+              {userName ? userName.charAt(0).toUpperCase() : '?'}
+            </button>
           </div>
         </div>
 
@@ -485,7 +494,7 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
       GxAPI.get('/api/insights'),
     ]).then(([stats, catsData, trendData, insightsData]) => {
       // Trend chart
-      if (stats?.total_expenses) setTrendTotal(Math.round(stats.total_expenses));
+      if (stats) setTrendTotal(Math.round((stats.total_expenses||0) + (stats.total_investments||0) + (stats.total_cc_payments||0)));
 
       if (trendData?.months?.length) {
         const months = trendData.months;
