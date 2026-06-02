@@ -65,17 +65,20 @@ const Dashboard = ({ onNavigate, onAdd }) => {
       } else {
         setTimeout(() => setPct(70), 200);
       }
-      if (catsData?.categories?.length) {
-        const builtCats = catsData.categories.slice(0,4).map((c,i)=>({
-          n: (c.category||'other').replace(/^\w/,x=>x.toUpperCase()),
-          v: Math.round(c.amount||0),
-          c: _CAT_COLORS[i%_CAT_COLORS.length],
-          pct: Math.round(c.pct||0),
-        }));
-        // Append Investment + CC Payment as synthetic categories if present
-        if (invest > 0) builtCats.push({ n:'Investment', v:Math.round(invest), c:'#1F6FEB', pct: Math.round((invest/s)*100) });
-        if (ccPay  > 0) builtCats.push({ n:'CC Payment', v:Math.round(ccPay),  c:'#9B6BBF', pct: Math.round((ccPay/s)*100)  });
-        setCats(builtCats);
+      // Build cats with pct relative to total outflows (s), not just expenses
+      const rawCatItems = catsData?.categories?.length
+        ? catsData.categories.slice(0,4).map((c,i)=>({
+            n: (c.category||'other').replace(/^\w/,x=>x.toUpperCase()),
+            v: Math.round(c.amount||0),
+            c: _CAT_COLORS[i%_CAT_COLORS.length],
+            rawAmt: c.amount||0,
+          }))
+        : [];
+      if (invest > 0) rawCatItems.push({ n:'Investment', v:Math.round(invest), c:'#1F6FEB', rawAmt:invest });
+      if (ccPay  > 0) rawCatItems.push({ n:'CC Payment', v:Math.round(ccPay),  c:'#9B6BBF', rawAmt:ccPay  });
+      if (rawCatItems.length > 0) {
+        const totalV = rawCatItems.reduce((a,c)=>a+c.rawAmt,0) || 1;
+        setCats(rawCatItems.map(c=>({ ...c, pct: Math.round((c.rawAmt/totalV)*100) })));
       }
     }).catch(()=>{ setTimeout(()=>setPct(70),200); });
   }, []);
@@ -107,7 +110,7 @@ const Dashboard = ({ onNavigate, onAdd }) => {
         <div className="card fade-up fade-up-2" style={{padding:20, marginBottom: 14, background:'linear-gradient(180deg, var(--surface), var(--surface) 60%, var(--brand-50))'}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
             <div>
-              <div className="label">Spent this month · April</div>
+              <div className="label">Spent this month · {new Date().toLocaleString('en-IN',{month:'long'})}</div>
               <div style={{display:'flex', alignItems:'baseline', gap:6, marginTop:4}}>
                 <span className="tabular" style={{fontSize: 38, fontWeight: 600, letterSpacing:'-0.025em', color:'var(--ink)'}}>₹{spent.toLocaleString('en-IN')}</span>
               </div>
@@ -121,10 +124,19 @@ const Dashboard = ({ onNavigate, onAdd }) => {
           <div className="progress" style={{marginTop:16}}>
             <i style={{width: `${pct}%`}} />
           </div>
-          <div style={{display:'flex', justifyContent:'space-between', marginTop:8}}>
-            <div className="small">{pct}% used · 5 days left</div>
-            <div className="mono small tabular" style={{color:'var(--ink)'}}>₹17,820 left</div>
-          </div>
+          {(() => {
+            const today = new Date();
+            const daysLeft = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate() - today.getDate();
+            const amtLeft = Math.max(0, budget - spent);
+            return (
+              <div style={{display:'flex', justifyContent:'space-between', marginTop:8}}>
+                <div className="small">{pct}% used · {daysLeft} day{daysLeft!==1?'s':''} left</div>
+                <div className="mono small tabular" style={{color: amtLeft < 0 ? 'var(--err)' : 'var(--ink)'}}>
+                  {amtLeft >= 0 ? `₹${amtLeft.toLocaleString('en-IN')} left` : `₹${Math.abs(amtLeft).toLocaleString('en-IN')} over`}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* AI insight */}
@@ -170,11 +182,16 @@ const Dashboard = ({ onNavigate, onAdd }) => {
                   );
                 })}
               </svg>
-              <div style={{position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center'}}>
-                <div className="label">Top</div>
-                <div style={{fontSize:18, fontWeight:600, lineHeight:1, marginTop:2}}>Food</div>
-                <div className="mono small tabular">32%</div>
-              </div>
+              {(() => {
+                const topCat = cats.reduce((a,c)=>c.pct>a.pct?c:a, cats[0]||{n:'—',pct:0});
+                return (
+                  <div style={{position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center'}}>
+                    <div className="label">Top</div>
+                    <div style={{fontSize:16, fontWeight:600, lineHeight:1, marginTop:2}}>{topCat.n}</div>
+                    <div className="mono small tabular">{topCat.pct}%</div>
+                  </div>
+                );
+              })()}
             </div>
             <div style={{flex:1, minWidth:0}}>
               {cats.map(c => (
