@@ -1,4 +1,25 @@
 /* Gexpense Hi-Fi — shared primitives & icons */
+
+/* ===== GxAPI — session-cookie fetch client ===== */
+const GxAPI = (() => {
+  let _csrf = null;
+  const _tok = async () => {
+    if (_csrf) return _csrf;
+    try { const r = await fetch('/api/auth/csrf-token',{credentials:'include'}); _csrf=(await r.json()).csrf_token||''; } catch{_csrf='';}
+    return _csrf;
+  };
+  const _h = async r => { if(r.status===401){window.location.href='/login?next=/mobile';return null;} return r.ok?r.json():null; };
+  const get  = p => fetch(p,{credentials:'include'}).then(_h).catch(()=>null);
+  const post = async(p,b)=>{ const t=await _tok(); return fetch(p,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-CSRF-Token':t},body:JSON.stringify(b)}).then(_h).catch(()=>null); };
+  const patch= async(p,b)=>{ const t=await _tok(); return fetch(p,{method:'PATCH',credentials:'include',headers:{'Content-Type':'application/json','X-CSRF-Token':t},body:JSON.stringify(b)}).then(_h).catch(()=>null); };
+  return {get,post,patch};
+})();
+
+const checkAuth = async () => {
+  try { const r=await fetch('/api/auth/me',{credentials:'include'}); if(r.status===401){window.location.href='/login?next=/mobile';return null;} return r.ok?r.json():null; } catch{return null;}
+};
+
+Object.assign(window, { GxAPI, checkAuth });
 const Icon = ({ name, size = 20, stroke = 2, ...rest }) => {
   const paths = {
     home:    <React.Fragment><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/><path d="M10 20v-5h4v5"/></React.Fragment>,

@@ -4,27 +4,62 @@ const { useState, useEffect, useRef } = React;
 // ============================================================
 // DASHBOARD
 // ============================================================
+const _CAT_COLORS = ['var(--brand)','var(--ink-2)','#1F4FA8','#5530A8','var(--ink-4)','#C77A0F','#C0392B'];
+const _fmtDay = d => { if(!d) return ''; const t=new Date(); t.setHours(0,0,0,0); const v=new Date(d+'T00:00:00'); const df=Math.round((t-v)/86400000); return df===0?'Today':df===1?'Yesterday':v.toLocaleDateString('en-IN',{month:'short',day:'numeric'}); };
+
 const Dashboard = ({ onNavigate, onAdd }) => {
   const [pct, setPct] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setPct(70), 200); return () => clearTimeout(t); }, []);
+  const [spent, setSpent] = useState(42180);
+  const [budget, setBudget] = useState(60000);
+  const [userName, setUserName] = useState('Aman Sharma');
+  const [txs, setTxs] = useState([
+    ['food','Swiggy','Dinner · Toit','9:12 PM',420,'Today'],
+    ['travel','Uber','Indiranagar → HSR','3:40 PM',186,'Today'],
+    ['subs','Spotify','Family · auto-renew','Yesterday',199,'Yesterday'],
+    ['grocery','BigBasket','Weekly stock-up','Yesterday',1240,'Yesterday'],
+    ['bills','Airtel','Postpaid · auto-paid','Apr 22',599,'Apr 22'],
+  ]);
+  const [cats, setCats] = useState([
+    {n:'Food',  v:13500,c:'var(--brand)',pct:32},
+    {n:'Rent',  v:10000,c:'var(--ink-2)',pct:24},
+    {n:'Travel',v:8400, c:'#1F4FA8',    pct:20},
+    {n:'Shop',  v:5900, c:'#5530A8',    pct:14},
+    {n:'Other', v:4380, c:'var(--ink-4)',pct:10},
+  ]);
 
-  const txs = [
-    ['food','Swiggy','Dinner · Toit','9:12 PM',420, 'Today'],
-    ['travel','Uber','Indiranagar → HSR','3:40 PM',186, 'Today'],
-    ['subs','Spotify','Family · auto-renew','Yesterday',199, 'Yesterday'],
-    ['grocery','BigBasket','Weekly stock-up','Yesterday',1240, 'Yesterday'],
-    ['bills','Airtel','Postpaid · auto-paid','Apr 22',599, 'Apr 22'],
-  ];
-
-  // donut data
-  const cats = [
-    {n: 'Food',   v: 13500, c: 'var(--brand)',     pct: 32},
-    {n: 'Rent',   v: 10000, c: 'var(--ink-2)',     pct: 24},
-    {n: 'Travel', v: 8400,  c: '#1F4FA8',          pct: 20},
-    {n: 'Shop',   v: 5900,  c: '#5530A8',          pct: 14},
-    {n: 'Other',  v: 4380,  c: 'var(--ink-4)',     pct: 10},
-  ];
+  useEffect(() => {
+    Promise.all([
+      GxAPI.get('/api/stats/summary?period=1m'),
+      GxAPI.get('/api/transactions?limit=5&offset=0'),
+      GxAPI.get('/api/budgets'),
+      GxAPI.get('/api/auth/me'),
+      GxAPI.get('/api/stats/category-breakdown?period=1m'),
+    ]).then(([stats, txData, budgetsData, me, catsData]) => {
+      const s = stats?.total_expenses || 42180;
+      const b = budgetsData?.budgets?.length
+        ? budgetsData.budgets.reduce((a,x)=>a+(x.monthly_limit||0),0)||60000
+        : 60000;
+      setSpent(s); setBudget(b);
+      setTimeout(() => setPct(Math.min(100,Math.round((s/b)*100))), 200);
+      if (me?.name) setUserName(me.name);
+      if (txData?.items?.length) {
+        setTxs(txData.items.slice(0,5).map(t=>
+          [t.category||'other', t.merchant||'Unknown', '', _fmtDay(t.txn_date), Math.abs(t.amount||0), _fmtDay(t.txn_date)]
+        ));
+      } else {
+        setTimeout(() => setPct(70), 200);
+      }
+      if (catsData?.categories?.length) {
+        setCats(catsData.categories.slice(0,5).map((c,i)=>({
+          n: (c.category||'other').replace(/^\w/,x=>x.toUpperCase()),
+          v: Math.round(c.amount||0),
+          c: _CAT_COLORS[i%_CAT_COLORS.length],
+          pct: Math.round(c.pct||0),
+        })));
+      }
+    }).catch(()=>{ setTimeout(()=>setPct(70),200); });
+  }, []);
   let cum = 0;
   const C = 2 * Math.PI * 60;
 
@@ -35,7 +70,7 @@ const Dashboard = ({ onNavigate, onAdd }) => {
         <div className="fade-up fade-up-1" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 18}}>
           <div>
             <div className="small">Good evening</div>
-            <div className="h2" style={{marginTop:2}}>Aman Sharma</div>
+            <div className="h2" style={{marginTop:2}}>{userName}</div>
           </div>
           <div style={{display:'flex', gap:10, alignItems:'center'}}>
             <button className="btn-ghost btn" style={{padding:'8px', borderRadius: '50%', width: 38, height:38, display:'grid', placeItems:'center'}}>
@@ -53,9 +88,9 @@ const Dashboard = ({ onNavigate, onAdd }) => {
             <div>
               <div className="label">Spent this month · April</div>
               <div style={{display:'flex', alignItems:'baseline', gap:6, marginTop:4}}>
-                <span className="tabular" style={{fontSize: 38, fontWeight: 600, letterSpacing:'-0.025em', color:'var(--ink)'}}>₹42,180</span>
+                <span className="tabular" style={{fontSize: 38, fontWeight: 600, letterSpacing:'-0.025em', color:'var(--ink)'}}>₹{spent.toLocaleString('en-IN')}</span>
               </div>
-              <div className="small tabular" style={{marginTop:2}}>of ₹60,000 budget</div>
+              <div className="small tabular" style={{marginTop:2}}>of ₹{budget.toLocaleString('en-IN')} budget</div>
             </div>
             <div style={{textAlign:'right'}}>
               <Badge tone="ok">on track</Badge>
@@ -171,43 +206,53 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
     type: filterPreset === 'this-month' ? 'all' : 'all',
   });
   const [showMore, setShowMore] = useState(false);
+  const [allRows, setAllRows] = useState([
+    { day:'Today', dayOffset:0, items:[
+      {category:'food',merchant:'Swiggy',note:'Dinner — Toit',time:'9:12 PM',amount:420,source:'gmail',account:'cards',type:'expense'},
+      {category:'travel',merchant:'Uber',note:'Indiranagar → HSR',time:'3:40 PM',amount:186,source:'sms',account:'upi',type:'expense'},
+    ]},
+    {day:'Yesterday',dayOffset:1,items:[
+      {category:'grocery',merchant:'BigBasket',note:'Weekly stock-up',time:'7:20 PM',amount:1240,source:'gmail',account:'cards',type:'expense'},
+      {category:'subs',merchant:'Spotify Family',note:'Auto-renew',time:'12:00 AM',amount:199,source:'gmail',account:'cards',type:'expense'},
+    ]},
+    {day:'Mon · Mar 31',dayOffset:35,items:[
+      {category:'income',merchant:'Salary · Acme Corp',note:'Direct deposit',time:'9:30 AM',amount:142500,source:'gmail',account:'cards',type:'income'},
+    ]},
+  ]);
 
-  // base data — each row has all fields needed by the universal filter
-  // dayOffset: days back from today (0=today, 1=yesterday)
-  const allRows = [
-    { day:'Today',         dayOffset: 0, items: [
-      { category:'food',    merchant:'Swiggy',      note:'Dinner — Toit',          time:'9:12 PM', amount:420,    source:'gmail', account:'cards', type:'expense' },
-      { category:'travel',  merchant:'Uber',        note:'Indiranagar → HSR',      time:'3:40 PM', amount:186,    source:'sms',   account:'upi',   type:'expense' },
-    ]},
-    { day:'Yesterday',     dayOffset: 1, items: [
-      { category:'grocery', merchant:'BigBasket',   note:'Weekly stock-up',        time:'7:20 PM', amount:1240,   source:'gmail', account:'cards', type:'expense' },
-      { category:'subs',    merchant:'Spotify Family', note:'Auto-renew',          time:'12:00 AM', amount:199,   source:'gmail', account:'cards', type:'expense' },
-    ]},
-    { day:'Tue · Apr 22',  dayOffset: 3, items: [
-      { category:'bills',   merchant:'Airtel',      note:'Postpaid · auto-paid',   time:'5:30 PM', amount:599,    source:'gmail', account:'cards', type:'expense' },
-      { category:'fuel',    merchant:'Shell',       note:'MG Rd · Card ••42',      time:'8:15 AM', amount:1200,   source:'sms',   account:'cards', type:'expense' },
-      { category:'coffee',  merchant:'Blue Tokai',  note:'Morning latte',          time:'7:50 AM', amount:359,    source:'gmail', account:'upi',   type:'expense' },
-    ]},
-    { day:'Mon · Apr 21',  dayOffset: 4, items: [
-      { category:'food',    merchant:'Zomato',      note:'Lunch — Burma Burma',    time:'1:08 PM', amount:480,    source:'gmail', account:'upi',   type:'expense' },
-    ]},
-    { day:'Fri · Apr 18',  dayOffset: 7, items: [
-      { category:'shop',    merchant:'Decathlon',   note:'Running shoes',          time:'6:42 PM', amount:4290,   source:'gmail', account:'cards', type:'expense' },
-      { category:'food',    merchant:'Toit',        note:'Friday pints',           time:'10:20 PM', amount:1850,  source:'sms',   account:'cards', type:'expense' },
-    ]},
-    { day:'Wed · Apr 16',  dayOffset: 9, items: [
-      { category:'travel',  merchant:'IndiGo',      note:'BLR → BOM',              time:'11:00 AM', amount:6480,  source:'gmail', account:'cards', type:'expense' },
-    ]},
-    { day:'Mon · Mar 31',  dayOffset: 35, items: [
-      { category:'income',  merchant:'Salary · Acme Corp', note:'Direct deposit · HDFC ••1042', time:'9:30 AM', amount:142500, source:'gmail', account:'cards', type:'income' },
-    ]},
-    { day:'Fri · Mar 28',  dayOffset: 38, items: [
-      { category:'income',  merchant:'Freelance · Notion review', note:'UPI from rohan@okhdfc', time:'2:14 PM', amount:8400, source:'sms', account:'upi', type:'income' },
-    ]},
-    { day:'Wed · Mar 26',  dayOffset: 40, items: [
-      { category:'income',  merchant:'Cashback · CRED', note:'Rewards credit',     time:'11:02 AM', amount:2200,  source:'gmail', account:'cards', type:'income' },
-    ]},
-  ];
+  useEffect(() => {
+    GxAPI.get('/api/transactions?limit=50&offset=0').then(data => {
+      if (!data?.items?.length) return;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const grouped = {};
+      data.items.forEach(tx => {
+        const key = tx.txn_date || '';
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push({
+          category: tx.category || 'other',
+          merchant: tx.merchant || 'Unknown',
+          note: '',
+          time: '',
+          amount: Math.abs(tx.amount || 0),
+          source: tx.source || 'manual',
+          account: '',
+          type: tx.label === 'income' ? 'income' : tx.label === 'self_transfer' ? 'self_transfer' : 'expense',
+          id: tx.id,
+          status: tx.status,
+          label: tx.label,
+          txn_date: tx.txn_date,
+        });
+      });
+      const rows = Object.entries(grouped)
+        .sort(([a],[b]) => b.localeCompare(a))
+        .map(([date, items], i) => {
+          const d = new Date(date + 'T00:00:00');
+          const off = Math.round((today - d) / 86400000);
+          return { day: _fmtDay(date), dayOffset: off, items };
+        });
+      setAllRows(rows);
+    }).catch(() => {});
+  }, []);
 
   // apply filters
   const groups = allRows
@@ -333,9 +378,45 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
   );
 };
 // ============================================================
+const _SPARKLINES = {
+  food:   'M0 18 L24 14 L48 16 L72 10 L96 12 L120 6 L144 4 L168 2',
+  travel: 'M0 4 L24 6 L48 8 L72 6 L96 10 L120 12 L144 14 L168 18',
+  subs:   'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12',
+  shop:   'M0 16 L24 14 L48 12 L72 8 L96 10 L120 6 L144 8 L168 4',
+  bills:  'M0 14 L24 12 L48 14 L72 10 L96 12 L120 8 L144 10 L168 8',
+  fuel:   'M0 6 L24 8 L48 10 L72 12 L96 14 L120 12 L144 14 L168 16',
+};
+const _DEFAULT_SPARK = 'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12';
+
 const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
   const filters = useFilters({ time: 'month', type: 'expense' });
   const [showMore, setShowMore] = useState(false);
+  const [insightTotal, setInsightTotal] = useState(42180);
+  const [allCats, setAllCats] = useState([
+    ['food','Food','₹13,500','+22%','up',_SPARKLINES.food],
+    ['travel','Travel','₹8,400','−8%','down',_SPARKLINES.travel],
+    ['subs','Subscriptions','₹3,200','+0%','flat',_SPARKLINES.subs],
+    ['shop','Shopping','₹5,900','+14%','up',_SPARKLINES.shop],
+    ['bills','Bills','₹2,100','+5%','up',_SPARKLINES.bills],
+    ['fuel','Fuel','₹1,800','−12%','down',_SPARKLINES.fuel],
+  ]);
+
+  useEffect(() => {
+    Promise.all([
+      GxAPI.get('/api/stats/category-breakdown?period=1m'),
+      GxAPI.get('/api/stats/summary?period=1m'),
+    ]).then(([catsData, stats]) => {
+      if (stats?.total_expenses) setInsightTotal(Math.round(stats.total_expenses));
+      if (catsData?.categories?.length) {
+        setAllCats(catsData.categories.slice(0, 6).map(c => {
+          const k = c.category || 'other';
+          const v = Math.round(c.amount || 0);
+          return [k, k.replace(/^\w/, x=>x.toUpperCase()), `₹${v.toLocaleString('en-IN')}`, '+0%', 'flat', _SPARKLINES[k] || _DEFAULT_SPARK];
+        }));
+      }
+    }).catch(()=>{});
+  }, []);
+
   const pts = [42, 28, 56, 36, 64, 50, 72, 58, 82, 66, 74, 92];
   const w = 320, h = 140, padX = 8, padY = 16;
   const max = 100;
@@ -365,7 +446,7 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
             <div>
               <div className="label">Spend trend · 12 weeks</div>
               <div style={{display:'flex', alignItems:'baseline', gap:8, marginTop:4}}>
-                <span className="tabular" style={{fontSize: 26, fontWeight:600, letterSpacing:'-0.02em'}}>₹42,180</span>
+                <span className="tabular" style={{fontSize: 26, fontWeight:600, letterSpacing:'-0.02em'}}>₹{insightTotal.toLocaleString('en-IN')}</span>
                 <span className="mono small tabular" style={{color:'var(--err)'}}>↑ 12%</span>
               </div>
             </div>
@@ -406,14 +487,6 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
         {/* category deltas — filtered by selected cats (if any) */}
         <div className="label" style={{margin:'14px 4px 8px'}}>By category</div>
         {(() => {
-          const allCats = [
-            ['food','Food','₹13,500','+22%','up','M0 18 L24 14 L48 16 L72 10 L96 12 L120 6 L144 4 L168 2'],
-            ['travel','Travel','₹8,400','−8%','down','M0 4 L24 6 L48 8 L72 6 L96 10 L120 12 L144 14 L168 18'],
-            ['subs','Subscriptions','₹3,200','+0%','flat','M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12'],
-            ['shop','Shopping','₹5,900','+14%','up','M0 16 L24 14 L48 12 L72 8 L96 10 L120 6 L144 8 L168 4'],
-            ['bills','Bills','₹2,100','+5%','up','M0 14 L24 12 L48 14 L72 10 L96 12 L120 8 L144 10 L168 8'],
-            ['fuel','Fuel','₹1,800','−12%','down','M0 6 L24 8 L48 10 L72 12 L96 14 L120 12 L144 14 L168 16'],
-          ];
           const visible = filters.values.cats.length > 0 ? allCats.filter(c => filters.values.cats.includes(c[0])) : allCats.slice(0, 4);
           if (visible.length === 0) return <div className="card" key="empty" style={{padding:'18px', textAlign:'center', color:'var(--ink-3)', fontSize:13}}>No categories match selected filters</div>;
           return visible.map(([k, n, v, delta, dir, path], i) => (

@@ -3,6 +3,7 @@ const { useState: useStateA, useEffect: useEffectA, useRef: useRefA } = React;
 
 const App = () => {
   const [theme, setTheme] = useStateA('light');
+  useEffectA(() => { window.checkAuth && window.checkAuth(); }, []);
   const [screen, setScreen] = useStateA('home'); // home | transactions | insights | settings | onboarding
   const [sheet, setSheet] = useStateA(false);
   const [toast, setToast] = useStateA('');
