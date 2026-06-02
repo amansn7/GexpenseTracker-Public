@@ -682,7 +682,7 @@ const skeleton = (h, w) => (
   <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
 );
 
-const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange }) => {
+const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange, onSetInboxDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [activePreset, setActivePreset] = React.useState(null);
@@ -972,6 +972,7 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
                 if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
                 if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
                 if (onSetDateRange) onSetDateRange({ from: dateRange.from, to: dateRange.to });
+                if (onSetInboxDateRange) onSetInboxDateRange({ from: dateRange.from, to: dateRange.to });
                 onNavigateToView("inbox");
               }}
                 style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>
@@ -1037,6 +1038,7 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
                 if (onSetCategoryFilter) onSetCategoryFilter(cat === "__income__" ? "income" : cat);
                 if (onSetFilter) onSetFilter(cat === "__income__" ? "all" : "all");
                 if (onSetDateRange) onSetDateRange({ from: dateRange.from, to: dateRange.to });
+                if (onSetInboxDateRange) onSetInboxDateRange({ from: dateRange.from, to: dateRange.to });
                 onNavigateToView("inbox");
               }}
                 style={{border: "none", background: "none", color: "var(--accent)", fontSize: 12, cursor: "pointer", fontWeight: 500}}>

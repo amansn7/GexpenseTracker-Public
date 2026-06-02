@@ -84,6 +84,7 @@ const App = () => {
   const [catOpen, setCatOpen] = useState(false);
   const catRef = useRef(null);
   const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
+  const [inboxDateRange, setInboxDateRange] = useState(DateUtils.getCurrentMonthRange());
 
   // Fetch review emails on mount AND when switching to the review tab
   React.useEffect(() => {
@@ -113,6 +114,7 @@ const App = () => {
   useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
+  const effectiveDateRange = view === "inbox" || view === "review" ? inboxDateRange : dateRange;
   useEffect(() => { if (view !== "flow") return; setCategoryFilter(null); }, [view]);
   useEffect(() => {
     window._goSettings = () => setView("settings");
@@ -126,7 +128,7 @@ const App = () => {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams({ offset: 0, limit: 50 });
-      if (dateRange.from && dateRange.to) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
+      if (effectiveDateRange.from && effectiveDateRange.to) { params.append("date_from", effectiveDateRange.from); params.append("date_to", effectiveDateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
@@ -136,7 +138,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, categoryFilter]);
+  }, [effectiveDateRange, categoryFilter]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -148,7 +150,7 @@ const App = () => {
         offset: transactions.length,
         limit: 50,
       });
-      if (dateRange.from && dateRange.to) { params.append("date_from", dateRange.from); params.append("date_to", dateRange.to); }
+      if (effectiveDateRange.from && effectiveDateRange.to) { params.append("date_from", effectiveDateRange.from); params.append("date_to", effectiveDateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const data = await API.get(`/api/transactions?${params}`);
       setTransactions(ts => {
@@ -435,8 +437,8 @@ const App = () => {
               filter={inboxFilter}
               setFilter={setInboxFilter}
               categoryFilter={categoryFilter}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
+              dateRange={inboxDateRange}
+              setDateRange={setInboxDateRange}
               loadMore={loadMore}
               loadData={loadData}
               totalTransactions={totalTransactions}
@@ -446,7 +448,7 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange}/>}
+          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}
           {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
           {view === "health"    && <HealthView />}
           {view === "reports"   && <ReportsView />}
@@ -467,8 +469,8 @@ const App = () => {
               filter="review"
               setFilter={setInboxFilter}
               categoryFilter={categoryFilter}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
+              dateRange={inboxDateRange}
+              setDateRange={setInboxDateRange}
               loadMore={loadMore}
               loadData={loadData}
               totalTransactions={totalTransactions}
