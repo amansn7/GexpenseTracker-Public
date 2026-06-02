@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.classifier.classifier import (
-    _COST_PER_CALL_ESTIMATE,
+    _compute_cost,
+    _ESTIMATE_FALLBACK,
     batch_classify_emails,
     check_llm_budget,
     classify_email,
@@ -269,10 +270,24 @@ async def test_budget_resets_at_midnight():
 
 
 @pytest.mark.asyncio
-async def test_cost_per_call_estimate_is_positive():
-    """_COST_PER_CALL_ESTIMATE should be a small positive number."""
-    assert _COST_PER_CALL_ESTIMATE > 0
-    assert _COST_PER_CALL_ESTIMATE < 0.01
+async def test_compute_cost_uses_fallback_for_unknown_provider():
+    """_compute_cost should return _ESTIMATE_FALLBACK for unknown provider/models."""
+    cost = _compute_cost("unknown", "unknown-model", 100, 50)
+    assert cost == _ESTIMATE_FALLBACK
+
+@pytest.mark.asyncio
+async def test_compute_cost_returns_zero_for_free_tiers():
+    """_compute_cost should return _ESTIMATE_FALLBACK for free-tier providers."""
+    cost = _compute_cost("openrouter", "google/gemini-2.0-flash-exp:free", 500, 200)
+    assert cost == _ESTIMATE_FALLBACK
+
+@pytest.mark.asyncio
+async def test_compute_cost_scales_with_tokens():
+    """_compute_cost should scale with token count for known providers."""
+    cost = _compute_cost("google", "gemini-2.0-flash-exp", 1_000_000, 0)
+    assert cost > 0
+    cost2 = _compute_cost("google", "gemini-2.0-flash-exp", 2_000_000, 0)
+    assert cost2 == pytest.approx(cost * 2, rel=0.01)
 
 
 @pytest.mark.asyncio

@@ -160,7 +160,7 @@ class PreFilterEngine:
         try:
             system = "You are an email pre-filter for a personal finance app."
             user = f"Subject: {subject}\nBody: {snippet[:200]}\n\nIs this email a financial transaction where money moved? Reply with exactly one word: pass or review."
-            raw = await user_llm_client.chat(
+            raw, _provider, _model, _tin, _tout = await user_llm_client.chat(
                 system_prompt=system,
                 user_prompt=user,
                 max_tokens=50,

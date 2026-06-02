@@ -31,14 +31,10 @@ def test_get_groq_limiter_returns_cached_on_repeat_call():
     limiter1.stop()
 
 
-def test_get_groq_limiter_raises_when_no_global_key():
+def test_get_groq_limiter_returns_none_when_no_global_key():
     _mod._groq_limiter = None
-    from unittest.mock import patch
-
-    with patch("app.classifier.groq_rate_limiter.settings") as mock_settings:
-        mock_settings.GROQ_API_KEY = None
-        with pytest.raises(RuntimeError, match="GROQ_API_KEY not configured"):
-            get_groq_limiter()
+    result = get_groq_limiter()
+    assert result is None
 
 
 def test_maybe_reset_buckets_resets_rpm_after_minute():

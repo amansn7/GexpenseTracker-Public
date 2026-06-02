@@ -378,55 +378,123 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
   );
 };
 // ============================================================
-const _SPARKLINES = {
-  food:   'M0 18 L24 14 L48 16 L72 10 L96 12 L120 6 L144 4 L168 2',
-  travel: 'M0 4 L24 6 L48 8 L72 6 L96 10 L120 12 L144 14 L168 18',
-  subs:   'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12',
-  shop:   'M0 16 L24 14 L48 12 L72 8 L96 10 L120 6 L144 8 L168 4',
-  bills:  'M0 14 L24 12 L48 14 L72 10 L96 12 L120 8 L144 10 L168 8',
-  fuel:   'M0 6 L24 8 L48 10 L72 12 L96 14 L120 12 L144 14 L168 16',
-};
 const _DEFAULT_SPARK = 'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12';
+
+// Build an SVG path from an array of values
+const _makePath = (vals) => {
+  if (!vals || vals.length < 2) return _DEFAULT_SPARK;
+  const w = 168, h = 22, pad = 2;
+  const max = Math.max(...vals) || 1;
+  const step = (w - pad*2) / (vals.length - 1);
+  return 'M' + vals.map((v, i) => {
+    const x = (pad + i * step).toFixed(1);
+    const y = (h - pad - ((v / max) * (h - pad*2))).toFixed(1);
+    return `${x} ${y}`;
+  }).join(' L');
+};
 
 const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
   const filters = useFilters({ time: 'month', type: 'expense' });
   const [showMore, setShowMore] = useState(false);
-  const [insightTotal, setInsightTotal] = useState(42180);
-  const [allCats, setAllCats] = useState([
-    ['food','Food','₹13,500','+22%','up',_SPARKLINES.food],
-    ['travel','Travel','₹8,400','−8%','down',_SPARKLINES.travel],
-    ['subs','Subscriptions','₹3,200','+0%','flat',_SPARKLINES.subs],
-    ['shop','Shopping','₹5,900','+14%','up',_SPARKLINES.shop],
-    ['bills','Bills','₹2,100','+5%','up',_SPARKLINES.bills],
-    ['fuel','Fuel','₹1,800','−12%','down',_SPARKLINES.fuel],
-  ]);
+  const [period, setPeriod] = useState('M');
 
-  useEffect(() => {
-    Promise.all([
-      GxAPI.get('/api/stats/category-breakdown?period=1m'),
-      GxAPI.get('/api/stats/summary?period=1m'),
-    ]).then(([catsData, stats]) => {
-      if (stats?.total_expenses) setInsightTotal(Math.round(stats.total_expenses));
-      if (catsData?.categories?.length) {
-        setAllCats(catsData.categories.slice(0, 6).map(c => {
-          const k = c.category || 'other';
-          const v = Math.round(c.amount || 0);
-          return [k, k.replace(/^\w/, x=>x.toUpperCase()), `₹${v.toLocaleString('en-IN')}`, '+0%', 'flat', _SPARKLINES[k] || _DEFAULT_SPARK];
-        }));
-      }
-    }).catch(()=>{});
-  }, []);
+  // Trend chart state
+  const [trendPts, setTrendPts] = useState([42,28,56,36,64,50,72,58,82,66,74,92]);
+  const [trendTotal, setTrendTotal] = useState(0);
+  const [trendDelta, setTrendDelta] = useState(null); // null = no data
+  const [trendLabels, setTrendLabels] = useState(['','','']);
 
-  const pts = [42, 28, 56, 36, 64, 50, 72, 58, 82, 66, 74, 92];
-  const w = 320, h = 140, padX = 8, padY = 16;
-  const max = 100;
-  const step = (w - padX*2) / (pts.length-1);
-  const xy = pts.map((v,i)=>[padX + i*step, h - padY - (v/max)*(h-padY*2)]);
-  const linePath = "M" + xy.map(p=>p.map(n=>n.toFixed(1)).join(",")).join(" L");
-  const areaPath = linePath + ` L${xy[xy.length-1][0].toFixed(1)},${h-padY} L${padX},${h-padY} Z`;
+  // Category list state
+  const [allCats, setAllCats] = useState([]);
+
+  // AI insights state
+  const [aiPatterns, setAiPatterns] = useState([]);
 
   const [drawn, setDrawn] = useState(false);
   useEffect(() => { const t = setTimeout(() => setDrawn(true), 300); return () => clearTimeout(t); }, []);
+
+  // Fetch everything when period changes
+  useEffect(() => {
+    setDrawn(false);
+    const apiPeriod = period === 'W' ? '1m' : period === 'Y' ? '1y' : '1m';
+
+    Promise.all([
+      GxAPI.get(`/api/stats/summary?period=${apiPeriod}`),
+      GxAPI.get(`/api/stats/category-breakdown?period=${apiPeriod}`),
+      GxAPI.get(`/api/stats/income-vs-expense?period=${apiPeriod}`),
+      GxAPI.get('/api/insights'),
+    ]).then(([stats, catsData, trendData, insightsData]) => {
+      // Trend chart
+      if (stats?.total_expenses) setTrendTotal(Math.round(stats.total_expenses));
+
+      if (trendData?.months?.length) {
+        const months = trendData.months;
+        let pts;
+        if (period === 'W') {
+          // Use last 7 entries if available
+          pts = months.slice(-7).map(m => Math.round(m.expenses || 0));
+        } else {
+          pts = months.map(m => Math.round(m.expenses || 0));
+        }
+        if (pts.length > 1) setTrendPts(pts);
+
+        // Delta: compare last vs second-to-last
+        if (months.length >= 2) {
+          const last = months[months.length-1]?.expenses || 0;
+          const prev = months[months.length-2]?.expenses || 1;
+          const pct = prev > 0 ? Math.round(((last - prev) / prev) * 100) : 0;
+          setTrendDelta(pct);
+        }
+
+        // Labels: first, mid, last month labels
+        const fmt = (m) => {
+          if (!m?.month) return '';
+          const [y, mo] = m.month.split('-');
+          return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][(parseInt(mo)-1)] || '';
+        };
+        const mid = Math.floor(months.length / 2);
+        setTrendLabels([fmt(months[0]), fmt(months[mid]), fmt(months[months.length-1])]);
+      }
+
+      // Categories
+      if (catsData?.categories?.length) {
+        setAllCats(catsData.categories.slice(0, 6).map((c, i) => {
+          const k = c.category || 'other';
+          const v = Math.round(c.amount || 0);
+          return [k, k.charAt(0).toUpperCase() + k.slice(1), `₹${v.toLocaleString('en-IN')}`, null, null, _DEFAULT_SPARK, v];
+        }));
+      }
+
+      // AI insights
+      if (insightsData?.insights?.length) {
+        setAiPatterns(insightsData.insights.slice(0, 3).map(ins => ({
+          icon: 'sparkle',
+          title: ins.title || 'Insight',
+          body: ins.body || '',
+          id: ins.id,
+        })));
+      } else if (insightsData?.patterns?.length) {
+        setAiPatterns(insightsData.patterns.slice(0, 3).map(p => ({
+          icon: 'sparkle',
+          title: p.label || p.title || 'Pattern',
+          body: p.description || p.body || '',
+          id: p.id,
+        })));
+      }
+
+      setTimeout(() => setDrawn(true), 300);
+    }).catch(() => { setTimeout(() => setDrawn(true), 300); });
+  }, [period]);
+
+  // Trend chart geometry
+  const w = 320, h = 140, padX = 8, padY = 16;
+  const maxPt = Math.max(...trendPts) || 1;
+  const step = trendPts.length > 1 ? (w - padX*2) / (trendPts.length-1) : 1;
+  const xy = trendPts.map((v,i)=>[padX + i*step, h - padY - (v/maxPt)*(h-padY*2)]);
+  const linePath = "M" + xy.map(p=>p.map(n=>n.toFixed(1)).join(",")).join(" L");
+  const areaPath = xy.length > 1 ? linePath + ` L${xy[xy.length-1][0].toFixed(1)},${h-padY} L${padX},${h-padY} Z` : '';
+
+  const periodLabel = period === 'W' ? 'Spend trend · 7 days' : period === 'Y' ? 'Spend trend · 12 months' : 'Spend trend · 12 months';
 
   return (
     <div className="scroll" data-screen-label="04 Insights">
@@ -444,19 +512,24 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
         <div className="card fade-up fade-up-2" style={{padding:18, marginBottom:14}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
             <div>
-              <div className="label">Spend trend · 12 weeks</div>
+              <div className="label">{periodLabel}</div>
               <div style={{display:'flex', alignItems:'baseline', gap:8, marginTop:4}}>
-                <span className="tabular" style={{fontSize: 26, fontWeight:600, letterSpacing:'-0.02em'}}>₹{insightTotal.toLocaleString('en-IN')}</span>
-                <span className="mono small tabular" style={{color:'var(--err)'}}>↑ 12%</span>
+                {trendTotal > 0
+                  ? <span className="tabular" style={{fontSize:26,fontWeight:600,letterSpacing:'-0.02em'}}>₹{trendTotal.toLocaleString('en-IN')}</span>
+                  : <span className="tabular" style={{fontSize:26,fontWeight:600,letterSpacing:'-0.02em',color:'var(--ink-4)'}}>—</span>
+                }
+                {trendDelta !== null && trendDelta !== 0 && (
+                  <span className="mono small tabular" style={{color: trendDelta > 0 ? 'var(--err)' : 'var(--ok)'}}>
+                    {trendDelta > 0 ? '↑' : '↓'} {Math.abs(trendDelta)}%
+                  </span>
+                )}
               </div>
             </div>
             <div style={{display:'flex', gap:4}}>
-              <Chip>W</Chip>
-              <Chip active>M</Chip>
-              <Chip>Y</Chip>
+              {['W','M','Y'].map(p => <Chip key={p} active={period===p} onClick={() => setPeriod(p)}>{p}</Chip>)}
             </div>
           </div>
-          <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%', marginTop:14, height: h}}>
+          <svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%', marginTop:14, height:h}}>
             <defs>
               <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.32"/>
@@ -465,86 +538,69 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
             </defs>
             <line x1={padX} y1={h*0.35} x2={w-padX} y2={h*0.35} stroke="var(--line)" strokeDasharray="2 4"/>
             <line x1={padX} y1={h*0.65} x2={w-padX} y2={h*0.65} stroke="var(--line)" strokeDasharray="2 4"/>
-            <path d={areaPath} fill="url(#grad)" style={{opacity: drawn ? 1 : 0, transition: 'opacity 0.6s ease 0.4s'}}/>
+            {areaPath && <path d={areaPath} fill="url(#grad)" style={{opacity:drawn?1:0,transition:'opacity 0.6s ease 0.4s'}}/>}
             <path d={linePath} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{
-                strokeDasharray: 1000, strokeDashoffset: drawn ? 0 : 1000,
-                transition: 'stroke-dashoffset 1.4s cubic-bezier(0.4, 0.8, 0.4, 1)'
-              }}
-            />
-            {xy.map((p,i)=>i%3===2 && <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="var(--surface)" stroke="var(--brand)" strokeWidth="2" style={{opacity: drawn ? 1 : 0, transition: `opacity 0.3s ease ${0.6 + i*0.05}s`}}/>)}
+              style={{strokeDasharray:1000,strokeDashoffset:drawn?0:1000,transition:'stroke-dashoffset 1.4s cubic-bezier(0.4,0.8,0.4,1)'}}/>
+            {xy.map((p,i)=>i%Math.max(1,Math.floor(xy.length/4))===0 && <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="var(--surface)" stroke="var(--brand)" strokeWidth="2" style={{opacity:drawn?1:0,transition:`opacity 0.3s ease ${0.6+i*0.05}s`}}/>)}
           </svg>
           <div style={{display:'flex', justifyContent:'space-between', marginTop:6}}>
-            <span className="small mono">Feb</span>
-            <span className="small mono">Mar</span>
-            <span className="small mono">Apr</span>
+            {trendLabels.map((l,i) => <span key={i} className="small mono">{l}</span>)}
           </div>
         </div>
 
         {/* MONEY FLOW */}
         <MoneyFlow drawn={drawn}/>
 
-        {/* category deltas — filtered by selected cats (if any) */}
+        {/* category deltas */}
         <div className="label" style={{margin:'14px 4px 8px'}}>By category</div>
-        {(() => {
-          const visible = filters.values.cats.length > 0 ? allCats.filter(c => filters.values.cats.includes(c[0])) : allCats.slice(0, 4);
-          if (visible.length === 0) return <div className="card" key="empty" style={{padding:'18px', textAlign:'center', color:'var(--ink-3)', fontSize:13}}>No categories match selected filters</div>;
-          return visible.map(([k, n, v, delta, dir, path], i) => (
-          <div key={k} onClick={() => onCategoryOpen({ k, name:n, spent:Number(v.replace(/[^\d]/g,'')), budget: Number(v.replace(/[^\d]/g,'')) * (dir==='up' ? 0.85 : 1.2) | 0 })} className={`card fade-up fade-up-${i+3}`} style={{padding:'12px 14px', marginBottom:8, cursor:'pointer'}}>
-            <div style={{display:'flex', alignItems:'center', gap:12}}>
-              <CatIcon kind={k}/>
-              <div style={{flex:1, minWidth:0}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
-                  <div style={{fontWeight:600, fontSize:14}}>{n}</div>
-                  <div className="tabular" style={{fontWeight:600, fontSize:14}}>{v}</div>
-                </div>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:6}}>
-                  <svg viewBox="0 0 168 22" width="110" height="18">
-                    <path d={path} fill="none" stroke={dir==='up' ? 'var(--err)' : dir==='down' ? 'var(--ok)' : 'var(--ink-3)'} strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                  <div className="mono tabular" style={{fontSize: 12, fontWeight:600, color: dir==='up' ? 'var(--err)' : dir==='down' ? 'var(--ok)' : 'var(--ink-3)', display:'flex', alignItems:'center', gap:2}}>
-                    {dir === 'up' ? <Icon name="arrowUp" size={12} stroke={2.5}/> : dir === 'down' ? <Icon name="arrowDn" size={12} stroke={2.5}/> : '→'}
-                    {delta}
+        {allCats.length === 0 ? (
+          <div className="card" style={{padding:18,textAlign:'center',color:'var(--ink-3)',fontSize:13}}>Loading categories…</div>
+        ) : (() => {
+          const visible = filters.values.cats.length > 0
+            ? allCats.filter(c => filters.values.cats.includes(c[0]))
+            : allCats.slice(0, 4);
+          if (visible.length === 0) return <div className="card" style={{padding:18,textAlign:'center',color:'var(--ink-3)',fontSize:13}}>No categories match selected filters</div>;
+          return visible.map(([k, n, v, delta, dir, path, rawAmt], i) => (
+            <div key={k} onClick={() => onCategoryOpen({k, name:n, spent:rawAmt||0, budget:Math.round((rawAmt||0)*1.2)})} className={`card fade-up fade-up-${i+3}`} style={{padding:'12px 14px',marginBottom:8,cursor:'pointer'}}>
+              <div style={{display:'flex', alignItems:'center', gap:12}}>
+                <CatIcon kind={k}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                    <div style={{fontWeight:600,fontSize:14}}>{n}</div>
+                    <div className="tabular" style={{fontWeight:600,fontSize:14}}>{v}</div>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
+                    <svg viewBox="0 0 168 22" width="110" height="18">
+                      <path d={path} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <div className="mono small tabular" style={{color:'var(--ink-3)'}}>this month</div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ));
+          ));
         })()}
 
         {/* AI patterns */}
         <div className="label" style={{margin:'18px 4px 8px'}}>Patterns we spotted</div>
-        {[
-          ['sparkle','Weekend spender','You spend ~2.4× more on Sat/Sun. Mostly food & travel.'],
-          ['repeat','₹3,200/mo on subscriptions','Spotify, Netflix, iCloud, NYT. 4 active.'],
-          ['sun','Mornings are cheapest','Avg ₹120 before noon vs ₹680 after 7 PM.'],
-        ].map(([ico, t, b], i)=>(
-          <div key={i} onClick={() => onAIExplain({ text:t, reasoning:[
-            'Looked at all transactions in the last 30 days.',
-            'Grouped by day-of-week and time-of-day.',
-            'Compared weekday vs weekend patterns and computed the ratio.',
-            'Filtered to recurring patterns (≥3 occurrences) to avoid one-off noise.'
-          ], sources:[
-            { k:'food', merchant:'Swiggy', date:'Sat Apr 19', amount:680 },
-            { k:'travel', merchant:'Uber', date:'Sat Apr 19', amount:340 },
-            { k:'food', merchant:'Toit', date:'Sun Apr 20', amount:1240 },
-            { k:'shop', merchant:'Decathlon', date:'Sat Apr 26', amount:2890 },
-          ]})} className={`card fade-up fade-up-${i+5}`} style={{padding:14, marginBottom:8, background:'var(--brand-soft)', border:'1px solid color-mix(in srgb, var(--brand) 22%, transparent)', cursor:'pointer'}}>
-            <div style={{display:'flex', gap:12, alignItems:'flex-start'}}>
-              <div style={{width:32, height:32, borderRadius:9, background:'var(--brand)', color:'#fff', display:'grid', placeItems:'center', flexShrink:0}}>
-                <Icon name={ico} size={16}/>
+        {aiPatterns.length === 0 ? (
+          <div className="card" style={{padding:18,textAlign:'center',color:'var(--ink-3)',fontSize:13}}>No patterns yet — sync more transactions to generate insights</div>
+        ) : aiPatterns.map((ins, i) => (
+          <div key={ins.id || i} onClick={() => onAIExplain({text:ins.title, reasoning:[], sources:[]})} className={`card fade-up fade-up-${i+5}`} style={{padding:14,marginBottom:8,background:'var(--brand-soft)',border:'1px solid color-mix(in srgb, var(--brand) 22%, transparent)',cursor:'pointer'}}>
+            <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+              <div style={{width:32,height:32,borderRadius:9,background:'var(--brand)',color:'#fff',display:'grid',placeItems:'center',flexShrink:0}}>
+                <Icon name="sparkle" size={16}/>
               </div>
-              <div style={{flex:1, minWidth:0}}>
-                <div style={{fontWeight:600, fontSize:14}}>{t}</div>
-                <div className="body" style={{marginTop:2, fontSize:13}}>{b}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14}}>{ins.title}</div>
+                <div className="body" style={{marginTop:2,fontSize:13}}>{ins.body}</div>
               </div>
-              <Icon name="chevron" size={16} style={{color:'var(--ink-3)', marginTop:6}}/>
+              <Icon name="chevron" size={16} style={{color:'var(--ink-3)',marginTop:6}}/>
             </div>
           </div>
         ))}
 
-        <div style={{height: 30}}/>
+        <div style={{height:30}}/>
       </div>
       <FilterSheet open={showMore} onClose={() => setShowMore(false)} filters={filters} presets={[
         ['Food spending · this month', { time:'month', type:'expense', cats:['food','coffee'] }],

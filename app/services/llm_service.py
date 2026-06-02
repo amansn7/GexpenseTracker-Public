@@ -25,12 +25,12 @@ async def get_effective_llm_client(user_id: str, db: AsyncSession) -> MultiLLMCl
     """Return the most appropriate LLM client for *user_id*.
 
     Resolution order:
-      1. BYOK — user has a configured AI service → user provider + env fallbacks
-      2. Trial — user is within their trial window → FreeLLMAPI proxy + env fallbacks
-      3. Owner — if *user_id* matches ``settings.OWNER_EMAIL`` → FreeLLMAPI proxy + env fallbacks
-      4. Fallback — global env-var client (always available if env keys are set)
+      1. BYOK — user has a configured AI service
+      2. Trial — user is within their trial window → FreeLLMAPI proxy
+      3. Owner — if *user_id* matches ``settings.OWNER_EMAIL`` → FreeLLMAPI proxy
 
-    Returns ``None`` only if no LLM providers are configured at all (no env keys, no BYOK, no trial key).
+    Returns ``None`` if no LLM providers are configured at all.
+    Built-in env-var providers are not used — all providers come from BYOK or FreeLLMAPI.
     """
     # 1. BYOK
     byok = await _get_byok_client(user_id, db)
@@ -49,9 +49,6 @@ async def get_effective_llm_client(user_id: str, db: AsyncSession) -> MultiLLMCl
         if owner:
             return owner
 
-    # 4. Global fallback
-    if llm_client._providers:
-        return llm_client
     return None
 
 

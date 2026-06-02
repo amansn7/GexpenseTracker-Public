@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -65,6 +65,39 @@ _llm_spend_tracker = LLMSpendTracker()
 def _escape(s: str) -> str:
     """Escape curly braces in user-controlled strings before str.format() calls."""
     return s.replace("{", "{{").replace("}", "}}")
+
+
+def _sanitize(s: str, max_length: int = 2000) -> str:
+    """Sanitize user-controlled strings against prompt injection.
+
+    Escapes curly braces, strips control characters, removes common injection
+    patterns, and truncates to max_length.
+    """
+    s = _escape(s)
+    result = []
+    for c in s:
+        if c == "\n" or c == "\t" or (ord(c) >= 32 and ord(c) != 127):
+            result.append(c)
+    s = "".join(result)
+    injections = [
+        "ignore all previous instructions",
+        "forget your instructions",
+        "system prompt:",
+        "system:",
+        "you are now",
+        "new instructions:",
+    ]
+    lower = s.lower()
+    for pattern in injections:
+        while True:
+            idx = lower.find(pattern)
+            if idx == -1:
+                break
+            s = s[:idx] + "[redacted]" + s[idx + len(pattern):]
+            lower = s.lower()
+    if len(s) > max_length:
+        s = s[:max_length] + "..."
+    return s
 
 
 class MultiLLMClient:
@@ -163,70 +196,67 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=_escape(sender),
-            subject=_escape(subject),
-            body_snippet=_escape(body_snippet),
+            sender=_sanitize(sender),
+            subject=_sanitize(subject, max_length=500),
+            body_snippet=_sanitize(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if correction_hint:
-            prompt += _CORRECTION_BLOCK.format(errors=correction_hint)
+            prompt += _CORRECTION_BLOCK.format(errors=_sanitize(correction_hint))
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
         last_error: Exception | None = None
         for provider in ranked:
-            try:
-                result = await self._call_provider_raw(provider, prompt)
-                provider.success_count += 1
-                provider.decrement_rate_limit_count()
-                return result
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    retry_delay = min(retry_after, 5)
-                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
-                    await asyncio.sleep(retry_delay)
-                    try:
-                        result = await self._call_provider_raw(provider, prompt)
-                        provider.success_count += 1
-                        provider.decrement_rate_limit_count()
-                        return result
-                    except httpx.HTTPStatusError as exc2:
-                        if exc2.response.status_code == 429:
-                            provider.mark_rate_limited(max(retry_after, 60))
-                        else:
-                            provider.fail_count += 1
-                            logger.error(
-                                "Provider '%s' HTTP %d: %s",
-                                provider.name,
-                                exc2.response.status_code,
-                                exc2.response.text[:200],
-                            )
-                        last_error = exc2
-                    except Exception as exc2:
+            result, error = await self._call_with_retry(
+                provider, lambda p: self._call_provider_verbose(p, prompt)
+            )
+            if error is None:
+                llm_result, _, _, _ = result
+                return llm_result
+            last_error = error
+        raise last_error or RuntimeError("No LLM providers available")
+
+    async def _call_with_retry(
+        self,
+        provider: Provider,
+        call_fn,
+        provider_label: str = "",
+    ) -> tuple[Any, Exception | None]:
+        """Call a provider with one automatic retry on 429. Returns (result, error)."""
+        try:
+            result = await call_fn(provider)
+            provider.success_count += 1
+            provider.decrement_rate_limit_count()
+            return result, None
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 429:
+                retry_after = int(exc.response.headers.get("Retry-After", "60"))
+                retry_delay = min(retry_after, 5)
+                logger.info("Provider '%s'%s rate limited, retrying in %ds", provider.name, provider_label, retry_delay)
+                await asyncio.sleep(retry_delay)
+                try:
+                    result = await call_fn(provider)
+                    provider.success_count += 1
+                    provider.decrement_rate_limit_count()
+                    return result, None
+                except httpx.HTTPStatusError as exc2:
+                    if exc2.response.status_code == 429:
+                        provider.mark_rate_limited(max(retry_after, 60))
+                    else:
                         provider.fail_count += 1
-                        logger.error("Provider '%s' error: %s", provider.name, exc2)
-                        last_error = exc2
-                    continue
-                provider.fail_count += 1
-                logger.error(
-                    "Provider '%s' HTTP %d: %s",
-                    provider.name,
-                    exc.response.status_code,
-                    exc.response.text[:200],
-                )
-                last_error = exc
-                continue
-            except Exception as exc:
-                provider.fail_count += 1
-                logger.error("Provider '%s' error: %s", provider.name, exc)
-                last_error = exc
-                continue
-
-        raise last_error or RuntimeError("All LLM providers failed")
-
-    async def _call_provider_raw(self, provider: Provider, user_prompt: str) -> LLMClassification:
-        result, _ = await self._call_provider_verbose(provider, user_prompt)
-        return result
+                        logger.error("Provider '%s' HTTP %d: %s", provider.name, exc2.response.status_code, exc2.response.text[:200])
+                    return None, exc2
+                except Exception as exc2:
+                    provider.fail_count += 1
+                    logger.error("Provider '%s'%s error: %s", provider.name, provider_label, exc2)
+                    return None, exc2
+            provider.fail_count += 1
+            logger.error("Provider '%s' HTTP %d: %s", provider.name, exc.response.status_code, exc.response.text[:200])
+            return None, exc
+        except Exception as exc:
+            provider.fail_count += 1
+            logger.error("Provider '%s'%s error: %s", provider.name, provider_label, exc)
+            return None, exc
 
     async def _provider_http_call(
         self,
@@ -235,14 +265,20 @@ class MultiLLMClient:
         timeout: float = 30.0,
         max_tokens: int = 500,
         system_override: str | None = None,
-    ) -> str:
-        """Execute HTTP call to a provider and return raw response text."""
+        response_format: dict | None = None,
+    ) -> tuple[str, int, int]:
+        """Execute HTTP call to a provider and return (response_text, prompt_tokens, completion_tokens).
+
+        Args:
+            response_format: Optional JSON schema enforcement (e.g. {"type": "json_object"}).
+                             Only applied to non-Cloudflare providers.
+        """
         system = system_override or _SYSTEM
         if provider.name == "groq":
             try:
                 limiter = get_groq_limiter(user_id=self._user_id, api_key=provider.api_key)
                 if limiter is not None and not await limiter.acquire(
-                    provider.model, estimated_tokens=150, timeout=30.0
+                    provider.model, estimated_tokens=max(50, len(user_prompt) // 4), timeout=30.0
                 ):
                     provider.mark_rate_limited(retry_after=60)
                     provider.fail_count += 1
@@ -298,6 +334,8 @@ class MultiLLMClient:
                 "temperature": 0.1,
                 "max_tokens": max_tokens,
             }
+            if response_format is not None:
+                payload["response_format"] = response_format
 
         async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
             response = await client.post(url, json=payload)
@@ -307,15 +345,21 @@ class MultiLLMClient:
             raw = response.json()
             result = raw.get("result", {})
             text = result.get("response", "") if isinstance(result, dict) else str(result)
-            return str(text).strip()
-        return response.json()["choices"][0]["message"]["content"].strip()
+            return str(text).strip(), 0, 0
+
+        usage = response.json().get("usage", {})
+        tokens_in = usage.get("prompt_tokens", 0) if usage else 0
+        tokens_out = usage.get("completion_tokens", 0) if usage else 0
+        return response.json()["choices"][0]["message"]["content"].strip(), tokens_in, tokens_out
 
     async def _call_provider_verbose(self, provider: Provider, user_prompt: str) -> tuple:
-        """Returns (LLMClassification, raw_response_str)."""
-        raw = await self._provider_http_call(provider, user_prompt)
+        """Returns (LLMClassification, raw_response_str, tokens_in, tokens_out)."""
+        raw, tokens_in, tokens_out = await self._provider_http_call(
+            provider, user_prompt, response_format={"type": "json_object"}
+        )
         logger.debug("Raw LLM response: %s", raw[:500])
         _llm_spend_tracker.add_call()
-        return parse_response(raw), raw
+        return parse_response(raw), raw, tokens_in, tokens_out
 
     async def classify_verbose(
         self,
@@ -340,65 +384,34 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
 
         prompt = _USER_TEMPLATE.format(
-            sender=_escape(sender),
-            subject=_escape(subject),
-            body_snippet=_escape(body_snippet),
+            sender=_sanitize(sender),
+            subject=_sanitize(subject, max_length=500),
+            body_snippet=_sanitize(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
         if correction_hint:
-            prompt += _CORRECTION_BLOCK.format(errors=correction_hint)
+            prompt += _CORRECTION_BLOCK.format(errors=_sanitize(correction_hint))
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
         last_error: Exception | None = None
         logger.debug("classify_verbose: trying %d providers: %s", len(ranked), [p.name for p in ranked])
         for provider in ranked:
             logger.debug("  Trying provider: %s", provider.name)
-            try:
-                result, raw = await self._call_provider_verbose(provider, prompt)
-                provider.success_count += 1
-                provider.decrement_rate_limit_count()
+            result, error = await self._call_with_retry(
+                provider, lambda p: self._call_provider_verbose(p, prompt)
+            )
+            if error is None:
+                llm_result, raw, tokens_in, tokens_out = result
                 return {
-                    "result": result,
+                    "result": llm_result,
                     "provider": provider.name,
                     "model": provider.model,
                     "prompt": prompt,
                     "raw_response": raw,
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
                 }
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    retry_delay = min(retry_after, 5)
-                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
-                    await asyncio.sleep(retry_delay)
-                    try:
-                        result, raw = await self._call_provider_verbose(provider, prompt)
-                        provider.success_count += 1
-                        provider.decrement_rate_limit_count()
-                        return {
-                            "result": result,
-                            "provider": provider.name,
-                            "model": provider.model,
-                            "prompt": prompt,
-                            "raw_response": raw,
-                        }
-                    except httpx.HTTPStatusError as exc2:
-                        if exc2.response.status_code == 429:
-                            provider.mark_rate_limited(max(retry_after, 60))
-                        else:
-                            provider.fail_count += 1
-                        last_error = exc2
-                    except Exception as exc2:
-                        provider.fail_count += 1
-                        last_error = exc2
-                    continue
-                provider.fail_count += 1
-                last_error = exc
-                continue
-            except Exception as exc:
-                logger.warning("Provider %s failed: %s", provider.name, str(exc)[:200])
-                provider.fail_count += 1
-                last_error = exc
-                continue
+            last_error = error
         raise last_error or RuntimeError("All LLM providers failed")
 
     _MAX_BATCH_TOKENS = 2500
@@ -424,7 +437,7 @@ class MultiLLMClient:
         email_blocks: list[str] = []
         for i, (sender, subject, body, pre) in enumerate(email_list, 1):
             body = (body or "")[:600]
-            block = f"Email {i}:\nFrom: {sender}\nSubject: {subject}\nBody: {body}"
+            block = f"Email {i}:\nFrom: {_sanitize(sender)}\nSubject: {_sanitize(subject, max_length=500)}\nBody: {_sanitize(body)}"
             if pre:
                 pre_text = build_pre_extraction_block(pre)
                 if pre_text:
@@ -442,15 +455,17 @@ class MultiLLMClient:
         last_error: Exception | None = None
         for provider in ranked:
             logger.debug("  Trying batch provider: %s", provider.name)
-            try:
-                raw = await self._provider_http_call(
-                    provider,
-                    prompt,
-                    timeout=60.0,
+            result, error = await self._call_with_retry(
+                provider,
+                lambda p: self._provider_http_call(
+                    p, prompt, timeout=60.0,
                     max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
-                )
-                provider.success_count += 1
-                provider.decrement_rate_limit_count()
+                    response_format={"type": "json_object"},
+                ),
+                provider_label=" batch",
+            )
+            if error is None:
+                raw, tokens_in, tokens_out = result
                 _llm_spend_tracker.add_call()
                 results = parse_batch_response(raw, len(email_list))
                 return {
@@ -459,49 +474,10 @@ class MultiLLMClient:
                     "model": provider.model,
                     "raw_response": raw,
                     "prompt": prompt,
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
                 }
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    retry_delay = min(retry_after, 5)
-                    logger.info("Provider '%s' batch rate limited, retrying in %ds", provider.name, retry_delay)
-                    await asyncio.sleep(retry_delay)
-                    try:
-                        raw = await self._provider_http_call(
-                            provider,
-                            prompt,
-                            timeout=60.0,
-                            max_tokens=min(max(500, 500 * len(email_list)), self._MAX_BATCH_TOKENS),
-                        )
-                        provider.success_count += 1
-                        provider.decrement_rate_limit_count()
-                        _llm_spend_tracker.add_call()
-                        results = parse_batch_response(raw, len(email_list))
-                        return {
-                            "results": results,
-                            "provider": provider.name,
-                            "model": provider.model,
-                            "raw_response": raw,
-                            "prompt": prompt,
-                        }
-                    except httpx.HTTPStatusError as exc2:
-                        if exc2.response.status_code == 429:
-                            provider.mark_rate_limited(max(retry_after, 60))
-                        else:
-                            provider.fail_count += 1
-                        last_error = exc2
-                    except Exception as exc2:
-                        provider.fail_count += 1
-                        last_error = exc2
-                    continue
-                provider.fail_count += 1
-                last_error = exc
-                continue
-            except Exception as exc:
-                logger.warning("Provider %s batch failed: %s", provider.name, str(exc)[:200])
-                provider.fail_count += 1
-                last_error = exc
-                continue
+            last_error = error
         raise last_error or RuntimeError("All LLM providers failed")
 
     async def batch_classify(
@@ -518,8 +494,11 @@ class MultiLLMClient:
         user_prompt: str,
         max_tokens: int = 1000,
         timeout: float = 45.0,
-    ) -> str:
-        """Send a generic chat prompt to the best available provider. Returns raw text response."""
+    ) -> tuple[str, str, str, int, int]:
+        """Send a generic chat prompt to the best available provider.
+
+        Returns (response_text, provider_name, model, tokens_in, tokens_out).
+        """
         ranked = self._ranked_providers()
         if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
             logger.warning(
@@ -532,47 +511,18 @@ class MultiLLMClient:
             raise RuntimeError("No LLM providers available")
         last_error: Exception | None = None
         for provider in ranked:
-            try:
-                raw = await self._provider_http_call(
-                    provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt
-                )
-                provider.success_count += 1
-                provider.decrement_rate_limit_count()
+            result, error = await self._call_with_retry(
+                provider,
+                lambda p: self._provider_http_call(
+                    p, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt
+                ),
+                provider_label=" chat",
+            )
+            if error is None:
+                raw, tokens_in, tokens_out = result
                 _llm_spend_tracker.add_call()
-                return raw
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429:
-                    retry_after = int(exc.response.headers.get("Retry-After", "60"))
-                    retry_delay = min(retry_after, 5)
-                    logger.info("Provider '%s' rate limited, retrying in %ds", provider.name, retry_delay)
-                    await asyncio.sleep(retry_delay)
-                    try:
-                        raw = await self._provider_http_call(
-                            provider, user_prompt, timeout=timeout, max_tokens=max_tokens, system_override=system_prompt
-                        )
-                        provider.success_count += 1
-                        provider.decrement_rate_limit_count()
-                        _llm_spend_tracker.add_call()
-                        return raw
-                    except httpx.HTTPStatusError as exc2:
-                        if exc2.response.status_code == 429:
-                            provider.mark_rate_limited(max(retry_after, 60))
-                        else:
-                            provider.fail_count += 1
-                        last_error = exc2
-                    except Exception as exc2:
-                        provider.fail_count += 1
-                        logger.error("Provider '%s' chat error: %s", provider.name, exc2)
-                        last_error = exc2
-                    continue
-                provider.fail_count += 1
-                last_error = exc
-                continue
-            except Exception as exc:
-                provider.fail_count += 1
-                logger.error("Provider '%s' chat error: %s", provider.name, exc)
-                last_error = exc
-                continue
+                return raw, provider.name, provider.model, tokens_in, tokens_out
+            last_error = error
         raise last_error or RuntimeError("All LLM providers failed")
 
 

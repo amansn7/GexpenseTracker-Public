@@ -16,7 +16,8 @@ def build_user_client(
     api_key: str,
     model_id: str,
 ) -> MultiLLMClient:
-    """Return a MultiLLMClient with the user's DB-configured provider first, env-var providers as fallback."""
+    """Return a MultiLLMClient with only the user's DB-configured provider.
+    No built-in fallbacks are appended — users bring their own keys exclusively."""
     if not api_key:
         logger.warning("No API key for provider %r - skipping user provider", provider)
         from app.classifier.llm.client import llm_client
@@ -31,31 +32,23 @@ def build_user_client(
     if provider_str == "cloudflare" and not base_url and settings.CLOUDFLARE_ACCOUNT_ID:
         resolved_url = f"https://api.cloudflare.com/client/v4/accounts/{settings.CLOUDFLARE_ACCOUNT_ID}/ai/v1/run"
     if not resolved_url:
-        logger.warning("No base_url for provider %r and not in known list - using env-var client only", provider_str)
-        from app.classifier.llm.client import llm_client
-
-        return llm_client
+        logger.warning("No base_url for provider %r and not in known list", provider_str)
+        return None
 
     client = MultiLLMClient(user_id=user_id)
     user_provider = Provider(name=provider_str, base_url=str(resolved_url), api_key=str(api_key), model=str(model_id))
-    # Add user's provider first, then fallbacks from global llm_client (exclude duplicate provider names)
-    from app.classifier.llm.client import llm_client
-
-    global_fallbacks = [p for p in llm_client._providers if p.name != provider_str]
-    client._providers = [user_provider] + global_fallbacks
+    client._providers = [user_provider]
     return client
 
 
 def build_trial_client(user_id: str) -> MultiLLMClient | None:
-    """Build a client with FreeLLMAPI proxy first, then env-var providers as fallback.
+    """Build a client with the FreeLLMAPI proxy as the sole provider.
 
     Returns None if the FreeLLMAPI proxy is not configured.
     """
     if not settings.FREELLMAPI_API_KEY:
         logger.warning("FREELLMAPI_API_KEY not configured — cannot build trial client")
         return None
-
-    from app.classifier.llm.client import llm_client
 
     client = MultiLLMClient(user_id=user_id)
     model = settings.FREELLMAPI_MODEL or "auto"
@@ -65,7 +58,7 @@ def build_trial_client(user_id: str) -> MultiLLMClient | None:
         api_key=settings.FREELLMAPI_API_KEY,
         model=model,
     )
-    client._providers = [trial_provider] + list(llm_client._providers)
+    client._providers = [trial_provider]
     return client
 
 

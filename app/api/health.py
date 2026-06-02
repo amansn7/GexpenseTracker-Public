@@ -60,26 +60,17 @@ async def health_detailed(
     except Exception as exc:
         components["gmail_auth"] = {"status": "error", "detail": str(exc)}
 
-    # LLM providers — check config
+    # LLM providers — check configuration
     try:
         from app.config import settings
 
         available = []
-        if settings.GOOGLE_AI_API_KEY:
-            available.append("gemini")
-        if settings.GROK_API_KEY:
-            available.append("grok")
-        if settings.GROQ_API_KEY:
-            available.append("groq")
-        if settings.SCALEWAY_API_KEY:
-            available.append("scaleway")
-        if settings.OPENROUTER_API_KEY:
-            available.append("openrouter")
-        if settings.CLOUDFLARE_API_TOKEN:
-            available.append("cloudflare")
+        if settings.FREELLMAPI_API_KEY:
+            available.append("freellmapi (trial proxy)")
         components["llm_providers"] = {
             "status": "ok" if available else "no_keys_configured",
             "available": available,
+            "note": "Built-in providers removed. Users configure their own keys via BYOK (UserAIService).",
         }
     except Exception as exc:
         components["llm_providers"] = {"status": "error", "detail": str(exc)}

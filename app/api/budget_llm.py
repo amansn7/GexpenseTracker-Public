@@ -15,6 +15,7 @@ from app.api.stats import (
     _compute_top_merchants,
 )
 from app.auth_deps import get_current_user
+from app.classifier.classifier import record_llm_spend, _compute_cost
 from app.classifier.llm import llm_client
 from app.classifier.llm.budget_prompts import (
     SYSTEM_ADAPTIVE_PLAN,
@@ -169,7 +170,16 @@ async def suggest_budget_plan(
     )
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_BUDGET_PLAN, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_BUDGET_PLAN, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
     if parsed:
         for b in parsed.get("budgets") or []:
@@ -216,7 +226,16 @@ async def anomaly_adjust(
     user_prompt = USER_ANOMALY_TRANSACTION_TEMPLATE.format(category=category, transactions=txns_text)
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_ANOMALY_ADJUST, user_prompt=user_prompt, max_tokens=800, timeout=20.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_ANOMALY_ADJUST, user_prompt=user_prompt, max_tokens=800, timeout=20.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
 
     # Compute adjusted baseline: exclude flagged indices, average the rest
@@ -280,7 +299,16 @@ async def merchant_split(
     user_prompt = USER_MERCHANT_SPLIT_TEMPLATE.format(merchant_category_matrix=json.dumps(matrix, indent=2))
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_MERCHANT_SPLIT, user_prompt=user_prompt, max_tokens=1000, timeout=25.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_MERCHANT_SPLIT, user_prompt=user_prompt, max_tokens=1000, timeout=25.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
     return parsed or {"reallocations": [], "error": "Could not parse LLM response"}
 
@@ -333,7 +361,16 @@ async def goal_optimize(
     )
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_GOAL_OPTIMIZE, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_GOAL_OPTIMIZE, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
     if parsed:
         # Clamp negative suggested_limit values
@@ -399,7 +436,16 @@ async def adaptive_plan(
     )
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_ADAPTIVE_PLAN, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_ADAPTIVE_PLAN, user_prompt=user_prompt, max_tokens=1500, timeout=30.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
     return parsed or {"error": "Could not parse LLM response", "raw": raw}
 
@@ -476,7 +522,16 @@ async def budget_health_check(
     )
 
     client = await llm_client.get_user_client(current_user.id) or llm_client
-    raw = await client.chat(system_prompt=SYSTEM_HEALTH_CHECK, user_prompt=user_prompt, max_tokens=1200, timeout=25.0)
+    raw, provider, model_name, tokens_in, tokens_out = await client.chat(system_prompt=SYSTEM_HEALTH_CHECK, user_prompt=user_prompt, max_tokens=1200, timeout=25.0)
+    try:
+        await record_llm_spend(
+            db, current_user.id, provider, model_name,
+            tokens_in=tokens_in, tokens_out=tokens_out,
+            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
+        )
+        await db.flush()
+    except Exception:
+        logger.warning("Failed to record LLM spend for budget endpoint", exc_info=True)
     parsed = _maybe_parse_json(raw)
     if parsed:
         if parsed.get("projection"):

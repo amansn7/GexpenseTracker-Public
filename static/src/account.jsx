@@ -949,7 +949,7 @@ const AdminLLMSection = ({ account, settings }) => {
       {!loading && (
         <>
           {(!data?.providers || data.providers.length === 0) ? (
-            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No AI services configured.</div>
+            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No AI services configured. Add your own API key below, or use the FreeLLMAPI trial.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -984,9 +984,9 @@ const AdminLLMSection = ({ account, settings }) => {
                         <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-4)" }}>—</td>
                       </tr>
                     ) : (
-                      <tr key={`builtin-${p.name}`}>
-                        <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--paper-2)", color: "var(--ink-3)", fontWeight: 600, textTransform: "uppercase" }}>Built-in</span></td>
-                        <td style={{ ...TD, fontWeight: 600 }}>{p.name}</td>
+                      <tr key="freellmapi">
+                        <td style={TD}><span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--pos-soft)", color: "var(--pos)", fontWeight: 600, textTransform: "uppercase" }}>Free</span></td>
+                        <td style={{ ...TD, fontWeight: 600 }}>{p.display_name || p.name}</td>
                         <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{p.model || "—"}</td>
                         <td style={TD}><span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: p.available ? "var(--pos-soft)" : "var(--neg-soft)", color: p.available ? "var(--pos)" : "var(--neg)" }}>{p.available ? "Ready" : "Limited"}</span></td>
                         <td style={{ ...TD, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: p.rate_limited_secs > 0 ? "var(--neg)" : "var(--ink-4)" }}>{p.rate_limited_secs > 0 ? `${p.rate_limited_secs}s` : "—"}</td>
@@ -1016,7 +1016,7 @@ const AdminLLMSection = ({ account, settings }) => {
 };
 
 const AdminLLMTestSection = ({ account }) => {
-  const [target, setTarget] = React.useState("builtin:openai");
+  const [target, setTarget] = React.useState("");
   const [testType, setTestType] = React.useState("classify");
   const [sender, setSender] = React.useState("alerts@hdfcbank.net");
   const [subject, setSubject] = React.useState("HDFC Bank: Rs.499.00 debited");

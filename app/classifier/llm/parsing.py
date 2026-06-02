@@ -1,5 +1,6 @@
 """Response parsing, JSON extraction, and validation."""
 
+import ast
 import json
 import logging
 import re
@@ -55,7 +56,7 @@ _REPAIRERS = [
     ("trailing commas", lambda t: re.sub(r",(\s*[}\]])", r"\1", t)),
     (
         "single quotes",
-        lambda t: t.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false"),
+        lambda t: t.replace("None", "null").replace("True", "true").replace("False", "false"),
     ),
     ("unquoted keys", lambda t: re.sub(r"([{,])\s*(\w+)\s*:", r'\1"\2":', t)),
     (
@@ -99,7 +100,15 @@ def parse_response(raw: str) -> LLMClassification:
         except json.JSONDecodeError:
             continue
     else:
-        raise ValueError(f"Cannot parse response: {cleaned[:200]}")
+        try:
+            data = ast.literal_eval(cleaned)
+            if isinstance(data, dict):
+                data = {str(k): v for k, v in data.items()}
+                logger.info("Repair strategy 'ast.literal_eval' succeeded")
+            else:
+                raise ValueError(f"ast.literal_eval returned non-dict: {type(data)}")
+        except (ValueError, SyntaxError, MemoryError):
+            raise ValueError(f"Cannot parse response: {cleaned[:200]}")
     source_currency = data.get("source_currency") or data.get("currency")
     if source_currency:
         source_currency = source_currency.upper() if len(source_currency) <= 3 else source_currency
@@ -125,7 +134,13 @@ def parse_batch_response(raw: str, expected_count: int) -> list[LLMClassificatio
         except json.JSONDecodeError:
             continue
     else:
-        raise ValueError(f"Cannot parse batch response: {cleaned[:200]}")
+        try:
+            data = ast.literal_eval(cleaned)
+            if not isinstance(data, (list, dict)):
+                raise ValueError(f"ast.literal_eval returned unexpected type: {type(data)}")
+            logger.info("Repair strategy 'ast.literal_eval' succeeded")
+        except (ValueError, SyntaxError, MemoryError):
+            raise ValueError(f"Cannot parse batch response: {cleaned[:200]}")
 
     if not isinstance(data, list):
         data = [data]

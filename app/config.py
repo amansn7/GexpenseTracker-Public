@@ -19,18 +19,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/auth/callback"
 
-    LLM_PROVIDER: str = "openrouter"
-    LLM_MODEL: str = "google/gemini-2.0-flash-exp:free"
-    OPENROUTER_API_KEY: str = ""
-    ANTHROPIC_API_KEY: str = ""
-
-    # Additional free-tier LLM providers (OpenAI-compatible)
-    GROK_API_KEY: str = ""  # xAI Grok  — https://api.x.ai/v1
-    GROQ_API_KEY: str = ""  # Groq    — https://api.groq.com/openai/v1
-    GOOGLE_AI_API_KEY: str = ""  # Gemini  — https://generativelanguage.googleapis.com/v1beta/openai
-    SCALEWAY_API_KEY: str = ""  # Scaleway   — https://api.scaleway.ai/v1
-    CLOUDFLARE_ACCOUNT_ID: str = ""  # Cloudflare — https://api.cloudflare.com/client/v4/accounts/
-    CLOUDFLARE_API_TOKEN: str = ""  # Workers AI token
+    # BYOK Cloudflare — account ID needed for base URL construction when a user
+    # brings their own Cloudflare Workers AI key (without specifying a custom URL).
+    CLOUDFLARE_ACCOUNT_ID: str = ""
 
     # FreeLLMAPI proxy — trial-tier LLM provider (bring-your-own-key after trial)
     FREELLMAPI_BASE_URL: str = "https://humble-wholeness-production.up.railway.app"

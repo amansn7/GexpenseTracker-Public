@@ -140,8 +140,8 @@ class TestGetEffectiveLLMClient:
         mock_build_trial.assert_called_once_with("user-1")
 
     @pytest.mark.asyncio
-    async def test_global_fallback_when_trial_expired_and_no_byok(self):
-        """User with expired trial and no BYOK should get global client."""
+    async def test_returns_none_when_trial_expired_and_no_byok(self):
+        """User with expired trial and no BYOK should get None (no global fallback)."""
         mock_db = AsyncMock()
 
         # No BYOK
@@ -155,19 +155,15 @@ class TestGetEffectiveLLMClient:
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
-        with (
-            patch.object(settings, "ENABLE_LLM_TRIAL", True),
-            patch("app.services.llm_service.llm_client") as mock_global,
-        ):
+        with patch.object(settings, "ENABLE_LLM_TRIAL", True):
             mock_db.execute = AsyncMock(side_effect=[mock_user_settings, mock_user_result])
-            mock_global._providers = [MagicMock()]
             result = await get_effective_llm_client("user-1", mock_db)
 
-        assert result is mock_global
+        assert result is None
 
     @pytest.mark.asyncio
-    async def test_global_fallback_when_no_trial_dates(self):
-        """User with no trial at all should get global client."""
+    async def test_returns_none_when_no_trial_dates(self):
+        """User with no trial at all should get None (no global fallback)."""
         mock_db = AsyncMock()
 
         # No BYOK
@@ -181,15 +177,11 @@ class TestGetEffectiveLLMClient:
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
-        with (
-            patch.object(settings, "ENABLE_LLM_TRIAL", True),
-            patch("app.services.llm_service.llm_client") as mock_global,
-        ):
+        with patch.object(settings, "ENABLE_LLM_TRIAL", True):
             mock_db.execute = AsyncMock(side_effect=[mock_user_settings, mock_user_result])
-            mock_global._providers = [MagicMock()]
             result = await get_effective_llm_client("user-1", mock_db)
 
-        assert result is mock_global
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_returns_none_when_no_providers_at_all(self):
@@ -215,7 +207,7 @@ class TestGetEffectiveLLMClient:
 
     @pytest.mark.asyncio
     async def test_byok_when_service_disabled(self):
-        """User with disabled AI service should not count as BYOK."""
+        """User with disabled AI service should fall through to trial/owner, not global."""
         mock_db = AsyncMock()
 
         user_settings_mock = MagicMock()
@@ -235,15 +227,11 @@ class TestGetEffectiveLLMClient:
         mock_user_result = MagicMock()
         mock_user_result.scalar_one_or_none.return_value = mock_user
 
-        with (
-            patch.object(settings, "ENABLE_LLM_TRIAL", True),
-            patch("app.services.llm_service.llm_client") as mock_global,
-        ):
+        with patch.object(settings, "ENABLE_LLM_TRIAL", True):
             mock_db.execute = AsyncMock(side_effect=[mock_user_settings, mock_ai_svc, mock_user_result])
-            mock_global._providers = [MagicMock()]
             result = await get_effective_llm_client("user-1", mock_db)
 
-        assert result is mock_global
+        assert result is None
 
 
 # ── trial_status — unit tests ────────────────────────────────────────────

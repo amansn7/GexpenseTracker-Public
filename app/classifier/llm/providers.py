@@ -84,66 +84,16 @@ class Provider:
 
 
 def build_default_providers() -> list[Provider]:
-    """Register providers in default priority order (lowest score = tried first)."""
+    """Build the global provider list. Only FreeLLMAPI is configured this way;
+    all user-specific providers are managed via BYOK (UserAIService)."""
     providers: list[Provider] = []
-    if settings.GOOGLE_AI_API_KEY:
+    if settings.FREELLMAPI_API_KEY:
         providers.append(
             Provider(
-                name="google",
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-                api_key=settings.GOOGLE_AI_API_KEY,
-                model="gemini-2.0-flash-exp",
-            )
-        )
-    if settings.GROK_API_KEY:
-        providers.append(
-            Provider(
-                name="grok",
-                base_url="https://api.x.ai/v1",
-                api_key=settings.GROK_API_KEY,
-                model="grok-3-mini",
-            )
-        )
-    if settings.GROQ_API_KEY:
-        providers.append(
-            Provider(
-                name="groq",
-                base_url="https://api.groq.com/openai/v1",
-                api_key=settings.GROQ_API_KEY,
-                model="llama-3.3-70b-versatile",
-            )
-        )
-    if settings.SCALEWAY_API_KEY:
-        providers.append(
-            Provider(
-                name="scaleway",
-                base_url="https://api.scaleway.ai/v1",
-                api_key=settings.SCALEWAY_API_KEY,
-                model="llama-3.3-70b-instruct",
-            )
-        )
-    if settings.OPENROUTER_API_KEY:
-        providers.append(
-            Provider(
-                name="openrouter",
-                base_url="https://openrouter.ai/api/v1",
-                api_key=settings.OPENROUTER_API_KEY,
-                model=settings.LLM_MODEL,
-                extra_headers={
-                    "HTTP-Referer": "http://localhost:8000",
-                    "X-Title": "Expense Tracker",
-                },
-            )
-        )
-    if settings.CLOUDFLARE_API_TOKEN and settings.CLOUDFLARE_ACCOUNT_ID:
-        account_id_str = str(settings.CLOUDFLARE_ACCOUNT_ID)
-        api_token_str = str(settings.CLOUDFLARE_API_TOKEN)
-        providers.append(
-            Provider(
-                name="cloudflare",
-                base_url=f"https://api.cloudflare.com/client/v4/accounts/{account_id_str}/ai/v1/run",
-                api_key=api_token_str,
-                model="@cf/meta/llama-3.1-8b-instruct",
+                name="freellmapi",
+                base_url=settings.FREELLMAPI_BASE_URL,
+                api_key=settings.FREELLMAPI_API_KEY,
+                model=settings.FREELLMAPI_MODEL or "auto",
             )
         )
     return providers

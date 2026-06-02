@@ -489,68 +489,66 @@ async def llm_status(
 ):
     if not is_owner(current_user):
         raise HTTPException(status_code=403, detail="Owner only")
-    from app.classifier.llm_client import llm_client
     from app.models import UserAIService
 
-    providers = llm_client.get_status()
-    for p in providers:
-        p["source"] = "builtin"
+    providers: list[dict] = []
 
-    user_client = None
-    try:
-        user_client = await llm_client.get_user_client(current_user.id)
-    except Exception as exc:
-        logger.warning("llm_status: get_user_client failed: %s", exc)
-    provider_runtime = {}
-    if user_client and user_client is not llm_client:
-        for p in user_client.get_status():
-            provider_runtime[p["name"]] = p
+    # FreeLLMAPI global proxy (available to owner via OWNER_EMAIL fallback)
+    if settings.FREELLMAPI_API_KEY:
+        providers.append({
+            "source": "freellmapi",
+            "name": "freellmapi",
+            "display_name": "FreeLLMAPI Proxy",
+            "model": settings.FREELLMAPI_MODEL or "auto",
+            "available": True,
+            "rate_limited_secs": 0,
+            "rate_limit_count": 0,
+            "priority_score": 0.0,
+            "success": 0,
+            "fail": 0,
+            "error_rate": 0.0,
+        })
 
-    # Include FreeLLMAPI trial provider if user is within their trial window
+    # FreeLLMAPI trial provider if user is within their trial window
     from app.services.llm_service import trial_status
 
     ts = await trial_status(current_user.id, db)
     if ts["in_trial"] and settings.FREELLMAPI_API_KEY:
-        providers.insert(
-            0,
-            {
-                "source": "trial",
-                "name": "freellmapi",
-                "display_name": "FreeLLMAPI Proxy",
-                "model": settings.FREELLMAPI_MODEL or "auto",
-                "available": True,
-                "rate_limited_secs": 0,
-                "rate_limit_count": 0,
-                "priority_score": 0.0,
-                "success": 0,
-                "fail": 0,
-                "error_rate": 0.0,
-            },
-        )
+        providers.append({
+            "source": "trial",
+            "name": "freellmapi",
+            "display_name": "FreeLLMAPI Trial",
+            "model": settings.FREELLMAPI_MODEL or "auto",
+            "available": True,
+            "rate_limited_secs": 0,
+            "rate_limit_count": 0,
+            "priority_score": 0.0,
+            "success": 0,
+            "fail": 0,
+            "error_rate": 0.0,
+        })
 
+    # Custom BYOK services from DB
     services_result = await db.execute(select(UserAIService).where(UserAIService.user_id == current_user.id))
     custom_services = services_result.scalars().all()
 
     for svc in custom_services:
-        runtime = provider_runtime.get(svc.provider, {})
-        providers.append(
-            {
-                "source": "custom",
-                "service_id": svc.id,
-                "name": svc.display_name,
-                "display_name": svc.display_name,
-                "model": svc.model_id,
-                "model_id": svc.model_id,
-                "enabled": svc.enabled,
-                "available": svc.enabled,
-                "rate_limited_secs": runtime.get("rate_limited_secs", 0),
-                "rate_limit_count": runtime.get("rate_limit_count", 0),
-                "priority_score": runtime.get("priority_score", 0),
-                "success": runtime.get("success", 0),
-                "fail": runtime.get("fail", 0),
-                "error_rate": runtime.get("error_rate", 0),
-            }
-        )
+        providers.append({
+            "source": "custom",
+            "service_id": svc.id,
+            "name": svc.display_name,
+            "display_name": svc.display_name,
+            "model": svc.model_id,
+            "model_id": svc.model_id,
+            "enabled": svc.enabled,
+            "available": svc.enabled,
+            "rate_limited_secs": 0,
+            "rate_limit_count": 0,
+            "priority_score": 0.0,
+            "success": 0,
+            "fail": 0,
+            "error_rate": 0.0,
+        })
 
     result = {
         "providers": providers,
@@ -560,16 +558,4 @@ async def llm_status(
             "auto_confirm_threshold": settings.AUTO_CONFIRM_THRESHOLD,
         },
     }
-    if settings.GROQ_API_KEY:
-        try:
-            from app.classifier.groq_rate_limiter import get_groq_limiter
-
-            limiter = get_groq_limiter()
-            result["groq"] = {
-                "llama-3.3-70b-versatile": limiter.get_status("llama-3.3-70b-versatile"),
-                "llama-3.1-8b-instant": limiter.get_status("llama-3.1-8b-instant"),
-                "qwen/qwen3-32b": limiter.get_status("qwen/qwen3-32b"),
-            }
-        except Exception as e:
-            result["groq_error"] = str(e)
     return result

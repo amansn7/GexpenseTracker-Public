@@ -241,8 +241,8 @@ async def test_provider(
             return {"error": "No available providers"}
 
         p = ranked[0]
-        result = await client._call_provider_raw(p, test_prompt)
-        return {"provider": p.name, "model": p.model, "response": result}
+        _, raw, _, _ = await client._call_provider_verbose(p, test_prompt)
+        return {"provider": p.name, "model": p.model, "response": raw}
     except Exception as e:
         return {"error": str(e)}
 

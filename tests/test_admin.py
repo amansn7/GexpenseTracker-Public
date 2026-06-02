@@ -53,7 +53,7 @@ async def test_admin_test_provider_uses_service_id_for_user_services(db_session)
     user_client = SimpleNamespace(
         _providers=[provider],
         _ranked_providers=lambda: [provider],
-        _call_provider_raw=AsyncMock(return_value="OK"),
+        _call_provider_verbose=AsyncMock(return_value=(None, "OK", 10, 20)),
     )
 
     try:

@@ -366,7 +366,7 @@ const LLMStatusSection = ({ account, settings }) => {
       {!loading && data && (
         <>
           {data.providers.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No built-in providers configured (no API keys set).</div>
+            <div style={{ fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", padding: "12px 0" }}>No providers configured. Users can add their own via BYOK or use the FreeLLMAPI trial.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={S.table}>

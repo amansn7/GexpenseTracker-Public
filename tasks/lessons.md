@@ -259,3 +259,8 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
    - Phase 3 retry (`classify_email`) returned a different result than the batch LLM
    - Rule pre-check matched `ignore` with high confidence despite the sender_rule saying `expense` (check `build_domain_rules` merges ALL SenderRules without user_id filter — last-write-wins for multiple rules on same domain)
    - The `db_rules` dict built during sync may not include the current user's SenderRule if another user's rule overwrote it
+
+### Dynamic Sender Rule Pipeline: Content-First Decision Flow
+7. Sender rules should be hints, not hard overrides for financial emails. The correct decision flow is: (1) determine if the email is financial (has amount OR has verb + keyword hits), (2) if financial → route by content signal strength (income always wins over domain ignore), (3) if not financial → domain rules apply (preserving noise-suppression benefit).
+8. `_FINANCIAL_AMOUNT_RE` must match the rupee symbol `₹`, not just `Rs.` and `INR` — many Indian bank emails use `₹`. The pre_filter's `_AMOUNT_RE` didn't include `₹`, which worked for scoring but would fail for binary "is financial?" checks.
+9. `_FINANCIAL_VERB_RE` must match past-tense variants (`credited`, `debited`, `charged`) not just base forms (`credit`, `debit`, `charge`). Word boundary `\bcredit\b` does NOT match "credited" — use `credit(?:ed)?` to match both.

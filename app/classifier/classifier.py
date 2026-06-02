@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.classifier.context import ClassificationContext
+from app.classifier.llm.parsing import LLMClassification
 from app.classifier.llm.prompts import _DEFAULT_CATEGORIES
 from app.classifier.llm_client import MultiLLMClient, llm_client
 from app.classifier.merchant import extract_raw_merchant
@@ -134,7 +135,32 @@ def _validate_llm_classification(
 logger = structlog.get_logger()
 _stdlib_logger = logging.getLogger(__name__)
 
-_COST_PER_CALL_ESTIMATE = 0.0001  # rough average cost per LLM call in USD
+_PROVIDER_PRICING: dict[str, dict[str, dict[str, float]]] = {
+    "google": {"gemini-2.0-flash-exp": {"input": 0.10, "output": 0.40}},
+    "grok": {"grok-3-mini": {"input": 0.10, "output": 0.40}},
+    "groq": {"llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79}},
+    "scaleway": {"llama-3.3-70b-instruct": {"input": 0.59, "output": 0.79}},
+    "openrouter": {"*": {"input": 0, "output": 0}},
+    "cloudflare": {"*": {"input": 0, "output": 0}},
+}
+
+_ESTIMATE_FALLBACK = 0.0001  # per-call fallback when provider/model not in pricing table
+
+
+def _compute_cost(provider: str, model: str, tokens_in: int, tokens_out: int) -> float:
+    """Compute estimated cost in USD from actual token counts using per-provider pricing.
+
+    Pricing is per-1M tokens. Returns fallback estimate if provider/model not mapped.
+    """
+    prov_prices = _PROVIDER_PRICING.get(provider, {})
+    if model in prov_prices:
+        model_prices = prov_prices[model]
+    elif "*" in prov_prices:
+        model_prices = prov_prices["*"]
+    else:
+        return _ESTIMATE_FALLBACK
+    cost = (tokens_in * model_prices["input"] + tokens_out * model_prices["output"]) / 1_000_000
+    return max(cost, _ESTIMATE_FALLBACK)
 
 
 async def check_llm_budget(session: AsyncSession, user_id: str) -> bool:
@@ -242,6 +268,118 @@ async def _resolve_client(
     return llm_client  # global fallback (may have empty providers → caught downstream)
 
 
+async def _build_classification_result(
+    llm_res: LLMClassification,
+    sender_domain: str,
+    subject: str,
+    body_snippet: str,
+    body_text: str | None,
+    user_categories: str | None,
+    default_currency: str,
+    session,
+    email_id: str,
+    llm_provider: str,
+    llm_model: str,
+    llm_raw: str,
+    batch_ts: float,
+) -> tuple[ClassificationResult, str | None]:
+    raw_merchant = llm_res.merchant
+    merchant_info = (
+        resolve_merchant(raw_merchant)
+        if raw_merchant
+        else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+    )
+    merchant = merchant_info["canonical"] or None
+    try:
+        label = Label(llm_res.label)
+    except ValueError:
+        logger.warning("llm_unknown_label", label=llm_res.label, email_id=email_id)
+        label = Label.ignore
+    amount = llm_res.amount
+    category = llm_res.category
+    confidence = llm_res.confidence
+    txn_date = _parse_date(llm_res.txn_date)
+    source_currency = llm_res.source_currency
+    if source_currency and source_currency not in SUPPORTED_CURRENCIES:
+        source_currency = None
+
+    if amount is not None and source_currency and source_currency != default_currency:
+        try:
+            converted = await convert_amount(amount, source_currency, default_currency)
+            logger.info(
+                "batch_currency_converted",
+                amount=amount,
+                source_currency=source_currency,
+                target_currency=default_currency,
+                converted_amount=converted,
+                email_id=email_id,
+            )
+            amount = converted
+        except Exception as exc:
+            logger.warning("batch_currency_conversion_failed", email_id=email_id, error=str(exc))
+            source_currency = None
+
+    if label == Label.ignore and category == "CC Payment":
+        txn_type = "cc_payment"
+    elif category == "Investment":
+        txn_type = "investment"
+    elif label == Label.income:
+        txn_type = "income"
+    elif label == Label.expense:
+        txn_type = "purchase"
+    else:
+        txn_type = None
+
+    status = (
+        TransactionStatus.auto
+        if confidence >= settings.AUTO_CONFIRM_THRESHOLD
+        else TransactionStatus.needs_review
+    )
+
+    amount, status, _ = _validate_llm_amount(amount, confidence, status)
+
+    result = ClassificationResult(
+        label=label,
+        amount=amount,
+        merchant=merchant,
+        category=category,
+        txn_date=txn_date,
+        confidence=confidence,
+        status=status,
+        classifier_method=ClassifierMethod.llm,
+        transaction_type=txn_type,
+        payment_mode=_detect_payment_mode(body_text),
+        currency=default_currency,
+        source_currency=source_currency,
+    )
+
+    latency_ms = round((time.monotonic() - batch_ts) * 1000)
+    if session is not None:
+        try:
+            session.add(
+                ClassificationLog(
+                    email_id=email_id,
+                    sender_domain=sender_domain,
+                    subject=subject,
+                    body_snippet=body_snippet,
+                    provider=llm_provider,
+                    model=llm_model,
+                    latency_ms=latency_ms,
+                    llm_label=llm_res.label if llm_res else None,
+                    llm_amount=llm_res.amount if llm_res else None,
+                    llm_merchant=raw_merchant,
+                    llm_category=llm_res.category if llm_res else None,
+                    llm_confidence=llm_res.confidence if llm_res else None,
+                    llm_txn_date=_parse_date(llm_res.txn_date) if llm_res else None,
+                    raw_response=llm_raw,
+                )
+            )
+        except Exception as log_exc:
+            logger.warning("Failed to write batch classification log: %s", log_exc)
+
+    return result, raw_merchant
+
+
 async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
     t0 = time.monotonic()
     body_snippet = (ctx.body_text or "")[:3000]
@@ -318,12 +456,16 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
                     model_name = verbose["model"]
                     raw_response = verbose["raw_response"]
                     if ctx.session and ctx.user_id:
+                        tokens_in = verbose.get("tokens_in", 0)
+                        tokens_out = verbose.get("tokens_out", 0)
                         await record_llm_spend(
                             ctx.session,
                             ctx.user_id,
                             provider,
                             model_name,
-                            estimated_cost=_COST_PER_CALL_ESTIMATE,
+                            tokens_in=tokens_in,
+                            tokens_out=tokens_out,
+                            estimated_cost=_compute_cost(provider, model_name, tokens_in, tokens_out),
                         )
                     logger.info(
                         "llm_classification_success",
@@ -393,12 +535,16 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
                         raw_response = retry_verbose["raw_response"]
                         logger.info("llm_validation_retry_accepted", email_id=ctx.email_id)
                         if ctx.session and ctx.user_id:
+                            tokens_in_r = retry_verbose.get("tokens_in", 0)
+                            tokens_out_r = retry_verbose.get("tokens_out", 0)
                             await record_llm_spend(
                                 ctx.session,
                                 ctx.user_id,
                                 provider,
                                 model_name,
-                                estimated_cost=_COST_PER_CALL_ESTIMATE,
+                                tokens_in=tokens_in_r,
+                                tokens_out=tokens_out_r,
+                                estimated_cost=_compute_cost(provider, model_name, tokens_in_r, tokens_out_r),
                             )
                     else:
                         logger.info("llm_validation_retry_rejected", email_id=ctx.email_id, errors=retry_errors)
@@ -701,74 +847,21 @@ async def batch_classify_emails(
                         batch_results = verbose["results"]
 
                         if session and user_id:
+                            tokens_in_b = verbose.get("tokens_in", 0)
+                            tokens_out_b = verbose.get("tokens_out", 0)
                             await record_llm_spend(
                                 session,
                                 user_id,
                                 llm_provider,
                                 llm_model,
-                                estimated_cost=_COST_PER_CALL_ESTIMATE * len(batch_results),
+                                tokens_in=tokens_in_b,
+                                tokens_out=tokens_out_b,
+                                estimated_cost=_compute_cost(llm_provider, llm_model, tokens_in_b, tokens_out_b),
                             )
 
                         for offset, llm_res in enumerate(batch_results):
                             idx, email_id, sender, sender_domain, subject, _ = batch[offset]
                             snippet = body_snippets[idx]
-
-                            raw_merchant = llm_res.merchant
-                            merchant_info = (
-                                resolve_merchant(raw_merchant)
-                                if raw_merchant
-                                else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
-                            )
-                            merchant = merchant_info["canonical"] or None
-                            try:
-                                label = Label(llm_res.label)
-                            except ValueError:
-                                logger.warning("llm_unknown_label", label=llm_res.label, email_id=email_id)
-                                label = Label.ignore
-                            amount = llm_res.amount
-                            category = llm_res.category
-                            confidence = llm_res.confidence
-                            txn_date = _parse_date(llm_res.txn_date)
-                            source_currency_batch = llm_res.source_currency
-                            if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
-                                source_currency_batch = None
-
-                            # Currency conversion
-                            if amount is not None and source_currency_batch and source_currency_batch != default_currency:
-                                try:
-                                    converted = await convert_amount(amount, source_currency_batch, default_currency)
-                                    logger.info(
-                                        "batch_currency_converted",
-                                        amount=amount,
-                                        source_currency=source_currency_batch,
-                                        target_currency=default_currency,
-                                        converted_amount=converted,
-                                        email_id=email_id,
-                                    )
-                                    amount = converted
-                                except Exception as exc:
-                                    logger.warning("batch_currency_conversion_failed", email_id=email_id, error=str(exc))
-                                    source_currency_batch = None
-
-                            if label == Label.ignore and category == "CC Payment":
-                                txn_type = "cc_payment"
-                            elif category == "Investment":
-                                txn_type = "investment"
-                            elif label == Label.income:
-                                txn_type = "income"
-                            elif label == Label.expense:
-                                txn_type = "purchase"
-                            else:
-                                txn_type = None
-
-                            status = (
-                                TransactionStatus.auto
-                                if confidence >= settings.AUTO_CONFIRM_THRESHOLD
-                                else TransactionStatus.needs_review
-                            )
-
-                            # Validate LLM-extracted amount
-                            amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
                             # Validate full LLM output and retry individual item if needed
                             errors = _validate_llm_classification(llm_res, user_categories)
@@ -787,88 +880,28 @@ async def batch_classify_emails(
                                         retry_errors = _validate_llm_classification(retry_res, user_categories)
                                         if len(retry_errors) < len(errors):
                                             llm_res = retry_res
-                                            raw_merchant = llm_res.merchant
-                                            merchant_info = (
-                                                resolve_merchant(raw_merchant)
-                                                if raw_merchant
-                                                else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
-                                            )
-                                            merchant = merchant_info["canonical"] or None
-                                            try:
-                                                label = Label(llm_res.label)
-                                            except ValueError:
-                                                label = Label.ignore
-                                            amount = llm_res.amount
-                                            category = llm_res.category
-                                            confidence = llm_res.confidence
-                                            txn_date = _parse_date(llm_res.txn_date)
-                                            source_currency_batch = llm_res.source_currency
-                                            if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
-                                                source_currency_batch = None
-                                            if amount is not None and source_currency_batch and source_currency_batch != default_currency:
-                                                try:
-                                                    converted = await convert_amount(amount, source_currency_batch, default_currency)
-                                                    amount = converted
-                                                except Exception:
-                                                    source_currency_batch = None
-                                            if label == Label.ignore and category == "CC Payment":
-                                                txn_type = "cc_payment"
-                                            elif category == "Investment":
-                                                txn_type = "investment"
-                                            elif label == Label.income:
-                                                txn_type = "income"
-                                            elif label == Label.expense:
-                                                txn_type = "purchase"
-                                            else:
-                                                txn_type = None
-                                            status = (
-                                                TransactionStatus.auto
-                                                if confidence >= settings.AUTO_CONFIRM_THRESHOLD
-                                                else TransactionStatus.needs_review
-                                            )
-                                            amount, status, _ = _validate_llm_amount(amount, confidence, status)
                                             logger.info("batch_llm_validation_retry_accepted", email_id=email_id)
+                                        else:
+                                            logger.info("batch_llm_validation_retry_rejected", email_id=email_id, errors=retry_errors)
                                     except Exception as exc:
                                         logger.warning("batch_llm_validation_retry_failed", email_id=email_id, error=str(exc))
 
-                            results[idx] = ClassificationResult(
-                                label=label,
-                                amount=amount,
-                                merchant=merchant,
-                                category=category,
-                                txn_date=txn_date,
-                                confidence=confidence,
-                                status=status,
-                                classifier_method=ClassifierMethod.llm,
-                                transaction_type=txn_type,
-                                payment_mode=_detect_payment_mode(items[idx][4]),
-                                currency=default_currency,
-                                source_currency=source_currency_batch,
+                            result, _ = await _build_classification_result(
+                                llm_res=llm_res,
+                                sender_domain=sender_domain,
+                                subject=subject,
+                                body_snippet=snippet,
+                                body_text=items[idx][4],
+                                user_categories=user_categories,
+                                default_currency=default_currency,
+                                session=session,
+                                email_id=email_id,
+                                llm_provider=llm_provider,
+                                llm_model=llm_model,
+                                llm_raw=llm_raw,
+                                batch_ts=batch_ts,
                             )
-
-                            latency_ms = round((time.monotonic() - batch_ts) * 1000)
-                            if session is not None:
-                                try:
-                                    session.add(
-                                    ClassificationLog(
-                                        email_id=email_id,
-                                        sender_domain=sender_domain,
-                                        subject=subject,
-                                        body_snippet=snippet,
-                                        provider=llm_provider,
-                                        model=llm_model,
-                                        latency_ms=latency_ms,
-                                        llm_label=llm_res.label if llm_res else None,
-                                        llm_amount=llm_res.amount if llm_res else None,
-                                        llm_merchant=raw_merchant,
-                                        llm_category=llm_res.category if llm_res else None,
-                                        llm_confidence=llm_res.confidence if llm_res else None,
-                                        llm_txn_date=_parse_date(llm_res.txn_date) if llm_res else None,
-                                        raw_response=llm_raw,
-                                    )
-                                )
-                                except Exception as log_exc:
-                                    logger.warning("Failed to write batch classification log: %s", log_exc)
+                            results[idx] = result
 
                     except Exception as exc:
                         logger.error("batch_classification_failed", batch_size=len(batch), error=str(exc))

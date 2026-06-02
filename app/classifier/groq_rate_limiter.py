@@ -10,7 +10,6 @@ import threading
 import time
 from dataclasses import dataclass
 
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +230,7 @@ def get_groq_limiter(user_id: str | None = None, api_key: str | None = None) -> 
     Get or create a GroqRateLimiter.
 
     If user_id provided: returns per-user limiter (creates one if api_key given, else None if not cached).
-    If no user_id: returns global limiter from settings.GROQ_API_KEY.
+    If no user_id: returns the global limiter (None unless previously created via BYOK).
     """
     if user_id:
         if user_id not in _user_limiters:
@@ -242,8 +241,7 @@ def get_groq_limiter(user_id: str | None = None, api_key: str | None = None) -> 
         return _user_limiters[user_id]
 
     global _groq_limiter
-    if _groq_limiter is None and settings.GROQ_API_KEY:
-        _groq_limiter = GroqRateLimiter(settings.GROQ_API_KEY)
+    # Global limiter is no longer created from env — only per-user via BYOK
     if _groq_limiter is None:
-        raise RuntimeError("GROQ_API_KEY not configured")
+        return None
     return _groq_limiter
