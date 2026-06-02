@@ -18,7 +18,7 @@ const _liveMonthParams = () => {
 const _CAT_COLORS = ['var(--brand)','var(--ink-2)','#1F4FA8','#5530A8','var(--ink-4)','#C77A0F','#C0392B'];
 const _fmtDay = d => { if(!d) return ''; const t=new Date(); t.setHours(0,0,0,0); const v=new Date(d+'T00:00:00'); const df=Math.round((t-v)/86400000); return df===0?'Today':df===1?'Yesterday':v.toLocaleDateString('en-IN',{month:'short',day:'numeric'}); };
 
-const Dashboard = ({ onNavigate, onAdd }) => {
+const Dashboard = ({ onNavigate, onAdd, theme, onTheme }) => {
   const [pct, setPct] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [spent, setSpent] = useState(42180);
@@ -104,7 +104,7 @@ const Dashboard = ({ onNavigate, onAdd }) => {
           </div>
         </div>
 
-        <ProfileMenu open={profileOpen} onClose={() => setProfileOpen(false)} onNavigate={onNavigate}/>
+        <ProfileMenu open={profileOpen} onClose={() => setProfileOpen(false)} onNavigate={onNavigate} theme={theme} onTheme={onTheme}/>
 
         {/* monthly summary card — hero */}
         <div className="card fade-up fade-up-2" style={{padding:20, marginBottom: 14, background:'linear-gradient(180deg, var(--surface), var(--surface) 60%, var(--brand-50))'}}>

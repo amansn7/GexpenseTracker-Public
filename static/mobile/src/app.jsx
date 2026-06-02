@@ -88,7 +88,7 @@ const App = () => {
 
   // Render base screen
   const renderScreen = () => {
-    if (screen === 'home') return <Dashboard onAdd={onAdd} onNavigate={(s, preset) => {
+    if (screen === 'home') return <Dashboard theme={theme} onTheme={handleTheme} onAdd={onAdd} onNavigate={(s, preset) => {
       if (s === 'tx') return openTx(preset);
       if (s === 'settings' && preset === 'ai') { setScreen('settings'); setAiMode(true); setBudgetsMode(false); return; }
       if (s === 'settings' && preset === 'budgets') { setScreen('settings'); setBudgetsMode(true); setAiMode(false); return; }
@@ -109,7 +109,7 @@ const App = () => {
     <div className="phone app" style={{background:'var(--bg)'}}>
       <StatusBar/>
       {renderScreen()}
-      <TabBar active={screen} onChange={(s) => { setScreen(s); if (s === 'settings') { setAiMode(false); setBudgetsMode(false); } if (s !== 'transactions') setTxPreset(null); }} onAdd={onAdd}/>
+      <TabBar active={screen} onChange={(s) => { setScreen(s); if (s === 'settings') { setAiMode(false); setBudgetsMode(false); } if (s !== 'transactions') setTxPreset(null); }} onAdd={onAdd} onSettingsLongPress={() => { setScreen('settings'); setAiMode(true); setBudgetsMode(false); }}/>
 
       {/* Quick add */}
       <div className={`scrim ${sheet ? 'open' : ''}`} onClick={closeSheet}/>

@@ -105,27 +105,42 @@ const StatusBar = () => (
   </div>
 );
 
-const TabBar = ({ active, onChange, onAdd }) => (
-  <div className="tabbar">
-    {[
-      ['home', 'Home', 'home'],
-      ['transactions', 'Activity', 'list'],
-      ['add', '', 'plus'],
-      ['insights', 'Insights', 'chart'],
-      ['settings', 'Settings', 'cog'],
-    ].map(([k, label, icon]) => (
-      k === 'add'
-        ? <div key={k} className="fab-tab"><button className="fab" onClick={onAdd} aria-label="Add expense"><Icon name="plus" size={26} stroke={2.4}/></button></div>
-        : <div key={k} className={`tab ${active === k ? 'active' : ''}`} onClick={() => onChange(k)}>
-            <Icon name={icon} size={22} stroke={active === k ? 2.4 : 2}/>
-            <span>{label}</span>
-          </div>
-    ))}
-  </div>
-);
+const TabBar = ({ active, onChange, onAdd, onSettingsLongPress }) => {
+  const pressTimer = React.useRef(null);
+  const handleTabDown = (k) => {
+    if (k === 'settings' && onSettingsLongPress) {
+      pressTimer.current = setTimeout(() => { onSettingsLongPress(); pressTimer.current = null; }, 500);
+    }
+  };
+  const handleTabUp = () => { if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  return (
+    <div className="tabbar">
+      {[
+        ['home', 'Home', 'home'],
+        ['transactions', 'Activity', 'list'],
+        ['add', '', 'plus'],
+        ['insights', 'Insights', 'chart'],
+        ['settings', 'Settings', 'cog'],
+      ].map(([k, label, icon]) => (
+        k === 'add'
+          ? <div key={k} className="fab-tab"><button className="fab" onClick={onAdd} aria-label="Add expense"><Icon name="plus" size={26} stroke={2.4}/></button></div>
+          : <div key={k} className={`tab ${active === k ? 'active' : ''}`}
+              onClick={() => onChange(k)}
+              onMouseDown={() => handleTabDown(k)}
+              onMouseUp={handleTabUp}
+              onTouchStart={() => handleTabDown(k)}
+              onTouchEnd={handleTabUp}
+              onTouchCancel={handleTabUp}>
+              <Icon name={icon} size={22} stroke={active === k ? 2.4 : 2}/>
+              <span>{label}</span>
+            </div>
+      ))}
+    </div>
+  );
+};
 
 const Toggle = ({ on, onClick }) => (
-  <div className={`toggle ${on ? 'on' : ''}`} onClick={onClick} role="switch" aria-checked={on} />
+  <div className={`toggle ${on ? 'on' : ''}`} onClick={(e) => onClick && onClick(e)} role="switch" aria-checked={on} />
 );
 
 const Badge = ({ tone = 'ok', children }) => (
@@ -160,8 +175,23 @@ Object.assign(window, { Icon, Monogram, StatusBar, TabBar, Toggle, Badge, Chip, 
 // ============================================================
 // PROFILE MENU — popover from avatar
 // ============================================================
-const ProfileMenu = ({ open, onClose, onNavigate }) => {
+const ProfileMenu = ({ open, onClose, onNavigate, onTheme, theme }) => {
+  const [profile, setProfile] = React.useState({ name: '', email: '' });
+  const [signingOut, setSigningOut] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    GxAPI.get('/api/auth/me').then(d => { if (d) setProfile({ name: d.name||'', email: d.email||'' }); }).catch(()=>{});
+  }, [open]);
+
   if (!open) return null;
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await GxAPI.post('/api/auth/logout', {}).catch(()=>{});
+    window.location.href = '/login';
+  };
+
   const item = (icon, label, sub, onClick, danger) => (
     <button onClick={() => { onClick && onClick(); onClose(); }} className="btn" style={{display:'flex', alignItems:'center', gap:12, padding:'12px 14px', width:'100%', textAlign:'left', background:'transparent', border:'none', cursor:'pointer', color: danger ? 'var(--err)' : 'var(--ink)'}}>
       <div style={{width:30, height:30, borderRadius:8, background: danger ? 'color-mix(in srgb, var(--err) 12%, transparent)' : 'var(--surface-2)', color: danger ? 'var(--err)' : 'var(--ink-2)', display:'grid', placeItems:'center', flexShrink:0}}>
@@ -173,26 +203,52 @@ const ProfileMenu = ({ open, onClose, onNavigate }) => {
       </div>
     </button>
   );
+
+  const initial = profile.name ? profile.name.charAt(0).toUpperCase() : '?';
+
   return (
     <React.Fragment>
       <div onClick={onClose} style={{position:'absolute', inset:0, zIndex:40, background:'transparent'}}/>
-      <div className="card" style={{position:'absolute', top:78, right:18, zIndex:50, width:248, padding:0, boxShadow:'0 12px 32px rgba(0,0,0,0.18)', overflow:'hidden', animation:'fadeUp 160ms ease-out'}}>
+      <div className="card" style={{position:'absolute', top:78, right:18, zIndex:50, width:252, padding:0, boxShadow:'var(--sh-3)', overflow:'hidden', animation:'fadeUp 160ms ease-out'}}>
+        {/* User header */}
         <div style={{padding:'14px 14px 12px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:11}}>
-          <div style={{width:40, height:40, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:16, fontWeight:600, flexShrink:0}}>A</div>
+          <div style={{width:40, height:40, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:16, fontWeight:700, flexShrink:0}}>
+            {initial}
+          </div>
           <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:13, fontWeight:600}}>Aman Sharma</div>
-            <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
+            <div style={{fontSize:13, fontWeight:600}}>{profile.name || '—'}</div>
+            <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color:'var(--ink-3)'}}>{profile.email || '—'}</div>
           </div>
         </div>
+
         <div style={{padding:'4px 0'}}>
-          {item('user', 'Profile & account', 'Name, email, plan', () => onNavigate && onNavigate('settings'))}
-          {item('wallet', 'Budgets & goals', '6 categories · 3 goals', () => onNavigate && onNavigate('settings', 'budgets'))}
-          {item('sparkle', 'AI settings', 'Privacy, model, monthly cap', () => onNavigate && onNavigate('settings', 'ai'))}
-          {item('mail', 'Connections', 'Gmail · SMS · Manual', () => onNavigate && onNavigate('settings'))}
-          {item('moon', 'Appearance', 'Light / Dark', () => onNavigate && onNavigate('settings'))}
+          {item('user',    'Profile & account', null,                        () => onNavigate && onNavigate('settings'))}
+          {item('wallet',  'Budgets & goals',   null,                        () => onNavigate && onNavigate('settings', 'budgets'))}
+          {item('sparkle', 'AI settings',       null,                        () => onNavigate && onNavigate('settings', 'ai'))}
+          {item('mail',    'Connections',        'Gmail · SMS',               () => onNavigate && onNavigate('settings'))}
+
+          {/* Appearance — inline theme toggle, no navigation */}
+          <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 14px'}}>
+            <div style={{width:30, height:30, borderRadius:8, background:'var(--surface-2)', color:'var(--ink-2)', display:'grid', placeItems:'center', flexShrink:0}}>
+              <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={14}/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13, fontWeight:600}}>Appearance</div>
+              <div className="small" style={{color:'var(--ink-3)'}}>{theme === 'dark' ? 'Dark mode on' : 'Light mode on'}</div>
+            </div>
+            <Toggle on={theme === 'dark'} onClick={(e) => {
+              if (onTheme) onTheme(theme === 'dark' ? 'light' : 'dark', e);
+            }}/>
+          </div>
+
           <div style={{height:1, background:'var(--line)', margin:'4px 0'}}/>
-          {item('download', 'Export data', 'CSV · last 12 months')}
-          {item('x', 'Sign out', null, null, true)}
+          {item('download', 'Export data', 'CSV · last 12 months', null)}
+          <button onClick={handleSignOut} disabled={signingOut} className="btn" style={{display:'flex', alignItems:'center', gap:12, padding:'12px 14px', width:'100%', textAlign:'left', background:'transparent', border:'none', cursor:'pointer', color:'var(--err)', opacity: signingOut ? 0.6 : 1}}>
+            <div style={{width:30, height:30, borderRadius:8, background:'color-mix(in srgb, var(--err) 12%, transparent)', color:'var(--err)', display:'grid', placeItems:'center', flexShrink:0}}>
+              <Icon name="logout" size={14}/>
+            </div>
+            <div style={{fontSize:13, fontWeight:600}}>{signingOut ? 'Signing out…' : 'Sign out'}</div>
+          </button>
         </div>
       </div>
     </React.Fragment>
