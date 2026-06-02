@@ -8,10 +8,8 @@ const QuickAddSheet = ({ open, onClose, onSave }) => {
   const [amount, setAmount] = useState2('');
   const [cat, setCat] = useState2('food');
   const [note, setNote] = useState2('');
-  const [saving, setSaving] = useState2(false);
-  const [error, setError] = useState2(null);
 
-  useEffect2(() => { if (open) { setAmount(''); setCat('food'); setNote(''); setError(null); } }, [open]);
+  useEffect2(() => { if (open) { setAmount(''); setCat('food'); setNote(''); } }, [open]);
 
   const press = (k) => {
     if (k === '⌫') setAmount(s => s.slice(0, -1));
@@ -88,27 +86,8 @@ const QuickAddSheet = ({ open, onClose, onSave }) => {
       </div>
 
       <div style={{padding:'4px 22px 8px'}}>
-        {error && <div style={{marginBottom:8, textAlign:'center', fontSize:13, color:'var(--err)'}}>Failed to save</div>}
-        <button className="btn btn-primary" style={{width:'100%', padding:'14px', fontSize:15, opacity: saving ? 0.6 : 1}} disabled={saving} onClick={async () => {
-          if (!amount) return;
-          setSaving(true);
-          setError(null);
-          try {
-            await window.GxAPI.post('/api/transactions', {
-              amount: parseFloat(amount),
-              category: cat,
-              merchant: note || cat,
-              label: 'expense',
-              status: 'reviewed',
-            });
-            onSave({ amount });
-          } catch (e) {
-            setError(true);
-          } finally {
-            setSaving(false);
-          }
-        }}>
-          {saving ? 'Saving…' : 'Save expense'}
+        <button className="btn btn-primary" style={{width:'100%', padding:'14px', fontSize:15}} onClick={() => onSave({amount, cat, note})}>
+          Save expense
         </button>
       </div>
     </div>
@@ -122,17 +101,6 @@ const Settings = ({ theme, onTheme }) => {
   const [autoFetch, setAutoFetch] = useState2(true);
   const [sms, setSms] = useState2(true);
   const [notif, setNotif] = useState2(true);
-  const [profile, setProfile] = useState2({ name: null, email: null });
-
-  useEffect2(() => {
-    GxAPI.get('/api/auth/me').then(data => {
-      if (data) setProfile({ name: data.name || null, email: data.email || null });
-    });
-  }, []);
-
-  const avatarInitial = profile.name ? profile.name.charAt(0).toUpperCase() : '•';
-  const displayName = profile.name || '…';
-  const displayEmail = profile.email || '…';
 
   return (
     <div className="scroll" data-screen-label="05 Settings">
@@ -144,10 +112,10 @@ const Settings = ({ theme, onTheme }) => {
         {/* Profile */}
         <div className="card fade-up fade-up-2" style={{padding:16, marginBottom:14}}>
           <div style={{display:'flex', alignItems:'center', gap:14}}>
-            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>{avatarInitial}</div>
+            <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>A</div>
             <div style={{flex:1, minWidth:0}}>
-              <div style={{fontWeight:600, fontSize:15}}>{displayName}</div>
-              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{displayEmail}</div>
+              <div style={{fontWeight:600, fontSize:15}}>Aman Sharma</div>
+              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
             </div>
             <button className="btn btn-ghost" style={{padding:'8px 14px', fontSize:12}}>Edit</button>
           </div>

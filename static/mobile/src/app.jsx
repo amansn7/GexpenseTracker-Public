@@ -2,7 +2,6 @@
 const { useState: useStateA, useEffect: useEffectA, useRef: useRefA } = React;
 
 const App = () => {
-  const [user, setUser] = useStateA(null);
   const [theme, setTheme] = useStateA('light');
   const [screen, setScreen] = useStateA('home'); // home | transactions | insights | settings | onboarding
   const [sheet, setSheet] = useStateA(false);
@@ -20,10 +19,6 @@ const App = () => {
   const [emptyMode, setEmptyMode] = useStateA(false);
 
   const toastTimer = useRefA(null);
-
-  useEffectA(() => {
-    window.checkAuth().then(setUser);
-  }, []);
 
   useEffectA(() => {
     document.documentElement.setAttribute('data-theme', theme);

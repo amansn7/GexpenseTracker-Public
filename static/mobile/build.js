@@ -18,12 +18,10 @@ const HTML = path.join(ROOT, 'index.html');
 // Load order matters — later files can reference earlier globals
 const ORDER = [
   'components',
-  'helpers',      // extracted components missing from source JSX files
+  'helpers',        // 18 extra components not in source JSX files
   'filterbar',
   'money-flow',
-  'dashboard',
-  'transactions',
-  'insights',
+  'screens-1',      // Dashboard + Transactions + Insights (original combined)
   'screens-2',
   'budgets',
   'screens-detail',
