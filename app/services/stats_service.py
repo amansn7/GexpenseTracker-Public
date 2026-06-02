@@ -99,52 +99,20 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         )).scalar_one() or 0
     )
 
-    # ── Income salary shift check ──
-    settings_row = await db.execute(
-        select(UserSettings.salary_shift_enabled, UserSettings.salary_shift_window)
-        .where(UserSettings.user_id == user_id)
-    )
-    s = settings_row.one_or_none()
-    salary_shift_enabled = s.salary_shift_enabled if s else False
-    salary_shift_window = s.salary_shift_window if s else 3
-
+    # ── Income ──
     income_base = [
         Email.user_id == user_id,
         Transaction.label == "income",
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
-
-    if salary_shift_enabled:
-        this_shift = end - timedelta(days=salary_shift_window - 1)
-        if this_shift < start:
-            this_shift = start
-        prev_end = start - timedelta(days=1)
-        prev_shift = prev_end - timedelta(days=salary_shift_window - 1)
-        prev_start = prev_end.replace(day=1)
-        if prev_shift < prev_start:
-            prev_shift = prev_start
-
-        inc_normal = await db.execute(
+    total_income = float(
+        (await db.execute(
             select(func.sum(Transaction.amount))
             .join(Email, Transaction.email_id == Email.id)
-            .where(*income_base, Transaction.txn_date >= start, Transaction.txn_date < this_shift)
-        )
-        inc_shift = await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*income_base,
-                   Transaction.txn_date >= prev_shift, Transaction.txn_date <= prev_end)
-        )
-        total_income = float(inc_normal.scalar_one() or 0) + float(inc_shift.scalar_one() or 0)
-    else:
-        total_income = float(
-            (await db.execute(
-                select(func.sum(Transaction.amount))
-                .join(Email, Transaction.email_id == Email.id)
-                .where(*income_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
-            )).scalar_one() or 0
-        )
+            .where(*income_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
+        )).scalar_one() or 0
+    )
 
     # ── CC payments ──
     cc_row = (
@@ -214,74 +182,26 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         Transaction.txn_date.isnot(None),
         Transaction.status != "needs_review",
     ]
-    if salary_shift_enabled:
-        inc_rows = (
-            await db.execute(
-                select(
-                    Transaction.category,
-                    func.sum(Transaction.amount).label("total"),
-                    func.count(Transaction.id).label("txn_count"),
-                )
-                .join(Email, Transaction.email_id == Email.id)
-                .where(*inc_cat_base, Transaction.txn_date >= start, Transaction.txn_date < this_shift)
-                .group_by(Transaction.category)
-                .order_by(desc("total"))
+    inc_rows = (
+        await db.execute(
+            select(
+                Transaction.category,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("txn_count"),
             )
-        ).all()
-        inc_shift_rows = (
-            await db.execute(
-                select(
-                    Transaction.category,
-                    func.sum(Transaction.amount).label("total"),
-                    func.count(Transaction.id).label("txn_count"),
-                )
-                .join(Email, Transaction.email_id == Email.id)
-                .where(*inc_cat_base,
-                       Transaction.txn_date >= prev_shift, Transaction.txn_date <= prev_end)
-                .group_by(Transaction.category)
-                .order_by(desc("total"))
-            )
-        ).all()
-        inc_by_cat: dict[str, dict] = {}
-        for r in inc_rows:
-            cat = r.category or "Income"
-            inc_by_cat[cat] = {"amount": float(r.total or 0), "txn_count": r.txn_count}
-        for r in inc_shift_rows:
-            cat = r.category or "Income"
-            amt = float(r.total or 0)
-            if cat in inc_by_cat:
-                inc_by_cat[cat]["amount"] += amt
-                inc_by_cat[cat]["txn_count"] += r.txn_count
-            else:
-                inc_by_cat[cat] = {"amount": amt, "txn_count": r.txn_count}
-        inc_total = sum(v["amount"] for v in inc_by_cat.values())
-        income_by_category = [
-            {"category": cat, "amount": round(v["amount"], 2),
-             "pct": round(v["amount"] / inc_total * 100, 1) if inc_total > 0 else 0.0,
-             "txn_count": v["txn_count"]}
-            for cat, v in sorted(inc_by_cat.items(), key=lambda x: -x[1]["amount"])
-        ]
-    else:
-        inc_rows = (
-            await db.execute(
-                select(
-                    Transaction.category,
-                    func.sum(Transaction.amount).label("total"),
-                    func.count(Transaction.id).label("txn_count"),
-                )
-                .join(Email, Transaction.email_id == Email.id)
-                .where(*inc_cat_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
-                .group_by(Transaction.category)
-                .order_by(desc("total"))
-            )
-        ).all()
-        inc_total = sum(float(r.total or 0) for r in inc_rows)
-        income_by_category = [
-            {"category": r.category or "Income", "amount": round(float(r.total or 0), 2),
-             "pct": round(float(r.total or 0) / inc_total * 100, 1) if inc_total > 0 else 0.0,
-             "txn_count": r.txn_count}
-            for r in inc_rows
-        ]
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*inc_cat_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
+            .group_by(Transaction.category)
+            .order_by(desc("total"))
+        )
+    ).all()
+    inc_total = sum(float(r.total or 0) for r in inc_rows)
+    income_by_category = [
+        {"category": r.category or "Income", "amount": round(float(r.total or 0), 2),
+         "pct": round(float(r.total or 0) / inc_total * 100, 1) if inc_total > 0 else 0.0,
+         "txn_count": r.txn_count}
+        for r in inc_rows
+    ]
 
     # ── Top merchants ──
     merch_rows = (

@@ -57,9 +57,6 @@ class SettingsPatch(BaseModel):
     use_rule_engine: bool | None = None
     starting_balance: float | None = Field(default=None, ge=0, le=999_999_999)
     starting_balance_date: date | None = None
-    salary_shift_enabled: bool | None = None
-    salary_shift_window: int | None = Field(default=None, ge=1, le=10)
-
     @field_validator("starting_balance_date")
     @classmethod
     def _date_not_future(cls, v: date | None) -> date | None:
