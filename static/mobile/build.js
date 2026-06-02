@@ -18,6 +18,7 @@ const HTML = path.join(ROOT, 'index.html');
 // Load order matters — later files can reference earlier globals
 const ORDER = [
   'components',
+  'helpers',      // extracted components missing from source JSX files
   'filterbar',
   'money-flow',
   'dashboard',
@@ -58,8 +59,11 @@ for (const name of ORDER) {
 // with a single new bundle, keeping only the final ReactDOM.createRoot script.
 let html = fs.readFileSync(HTML, 'utf8');
 
-// START = first occurrence of <script type="text/babel"
-const START = html.indexOf('<script type="text/babel"');
+// START = the bundle script (plain <script> containing our compiled components)
+// Try text/babel first (before first run), then plain script with our marker
+const START = html.indexOf('<script type="text/babel"') !== -1
+  ? html.indexOf('<script type="text/babel"')
+  : html.indexOf('<script>\n// ===== COMPONENTS =====');
 
 // END = start of the <script type="text/babel"> that contains ReactDOM.createRoot
 const rdIdx  = html.indexOf('ReactDOM.createRoot');

@@ -848,10 +848,15 @@ body { margin: 0; padding: 0; background: var(--bg, #F7F7F4); }
   var _origErr = console.error.bind(console);
   console.error = function() {
     _origErr.apply(console, arguments);
-    var msg = Array.from(arguments).map(function(a){ return typeof a === 'object' ? (a && a.message ? a.message : JSON.stringify(a)) : String(a); }).join(' ');
-    if (msg.length > 10) {
+    var parts = Array.from(arguments).map(function(a) {
+      if (a instanceof Error) return a.message + '\n' + (a.stack || '').substring(0, 300);
+      if (typeof a === 'object' && a !== null) try { return JSON.stringify(a).substring(0, 200); } catch(e) { return String(a); }
+      return String(a);
+    });
+    var msg = parts.join(' ').trim();
+    if (msg.length > 2 && msg !== '[object Object]') {
       el.style.color = '#c00';
-      el.textContent += 'CONSOLE.ERR: ' + msg.substring(0, 300) + '\n\n';
+      el.textContent += 'ERR: ' + msg.substring(0, 400) + '\n\n';
     }
   };
   window.onerror = function(msg, src, line, col, err) {
@@ -1087,6 +1092,579 @@ const ProfileMenu = ({ open, onClose, onNavigate }) => {
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { onClick: onClose, style: { position: "absolute", inset: 0, zIndex: 40, background: "transparent" } }), /* @__PURE__ */ React.createElement("div", { className: "card", style: { position: "absolute", top: 78, right: 18, zIndex: 50, width: 248, padding: 0, boxShadow: "0 12px 32px rgba(0,0,0,0.18)", overflow: "hidden", animation: "fadeUp 160ms ease-out" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px 14px 12px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 11 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 40, height: 40, borderRadius: "50%", background: "var(--brand-50)", color: "var(--brand)", display: "grid", placeItems: "center", fontSize: 16, fontWeight: 600, flexShrink: 0 } }, "A"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, "Aman Sharma"), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, "aman@gmail.com"))), /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 0" } }, item("user", "Profile & account", "Name, email, plan", () => onNavigate && onNavigate("settings")), item("wallet", "Budgets & goals", "6 categories \xB7 3 goals", () => onNavigate && onNavigate("settings", "budgets")), item("sparkle", "AI settings", "Privacy, model, monthly cap", () => onNavigate && onNavigate("settings", "ai")), item("mail", "Connections", "Gmail \xB7 SMS \xB7 Manual", () => onNavigate && onNavigate("settings")), item("moon", "Appearance", "Light / Dark", () => onNavigate && onNavigate("settings")), /* @__PURE__ */ React.createElement("div", { style: { height: 1, background: "var(--line)", margin: "4px 0" } }), item("download", "Export data", "CSV \xB7 last 12 months"), item("x", "Sign out", null, null, true))));
 };
 Object.assign(window, { ProfileMenu });
+
+
+/* ===== helpers ===== */
+const TwkToggle = ({ on, onClick }) => /* @__PURE__ */ React.createElement("div", { role: "switch", "aria-checked": on, className: "twk-toggle" + (on ? " on" : ""), onClick });
+window.TweaksPanel = function TweaksPanel({ tweaks, setTweak, visible, onClose }) {
+  if (!visible) return null;
+  const g = tweaks.gestures || {};
+  const d = tweaks.demo || {};
+  return /* @__PURE__ */ React.createElement("div", { className: "tweaks-panel", "data-tweaks-panel": true }, /* @__PURE__ */ React.createElement("header", null, /* @__PURE__ */ React.createElement("div", { className: "ttl" }, "Tweaks"), /* @__PURE__ */ React.createElement("button", { className: "x", onClick: onClose, "aria-label": "Close tweaks" }, "\xD7")), /* @__PURE__ */ React.createElement("div", { className: "section-label" }, "Gestures"), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Pull-to-refresh"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, "Dashboard & Activity")), /* @__PURE__ */ React.createElement(TwkToggle, { on: !!g.pullToRefresh, onClick: () => setTweak("gestures.pullToRefresh", !g.pullToRefresh) })), /* @__PURE__ */ React.createElement("div", { className: "section-label" }, "Demo"), /* @__PURE__ */ React.createElement("div", { className: "row" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "lbl" }, "Synced timestamp"), /* @__PURE__ */ React.createElement("div", { className: "sub" }, 'Show "Synced 2m ago" on Activity')), /* @__PURE__ */ React.createElement(TwkToggle, { on: !!d.showSyncedTimestamp, onClick: () => setTweak("demo.showSyncedTimestamp", !d.showSyncedTimestamp) })), /* @__PURE__ */ React.createElement("div", { className: "footer" }, "Changes persist across reloads."));
+};
+const SyncPill = () => {
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState(2);
+  useEffect(() => {
+    const t = setInterval(() => setLastSync((x) => x + 1), 6e4);
+    return () => clearInterval(t);
+  }, []);
+  const handleSync = () => {
+    if (syncing) return;
+    setSyncing(true);
+    setTimeout(() => {
+      setSyncing(false);
+      setLastSync(0);
+    }, 1400);
+  };
+  return /* @__PURE__ */ React.createElement("div", { onClick: handleSync, "data-sync-pill": true, style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 99, background: "var(--surface-2)", border: "1px solid var(--line)", marginBottom: 12, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: "50%", background: syncing ? "var(--brand)" : "var(--ok)", boxShadow: syncing ? "0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent)" : "none", transition: "all 0.3s" } }), /* @__PURE__ */ React.createElement("span", { className: "small", style: { fontWeight: 500, color: "var(--ink-2)" } }, syncing ? "Syncing from Gmail & SMS\u2026" : `Last synced ${lastSync === 0 ? "just now" : lastSync + "m ago"}`)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, color: "var(--ink-3)" } }, /* @__PURE__ */ React.createElement(Icon, { name: "refresh", size: 12, style: { animation: syncing ? "spin 1s linear infinite" : "none" } })));
+};
+const AIInsightTicker = ({ onNavigate = () => {
+} }) => {
+  const [paused, setPaused] = useState(false);
+  const insights = [
+    {
+      kind: "food",
+      label: "Food",
+      body: /* @__PURE__ */ React.createElement(React.Fragment, null, "You spent ", /* @__PURE__ */ React.createElement("b", null, "32% more on food"), " this week \u2014 mostly weekend dinners."),
+      chips: [
+        ["Set a limit", () => window.__openMonthly && window.__openMonthly()],
+        ["Why?", () => window.__openInsight && window.__openInsight("food")]
+      ]
+    },
+    {
+      kind: "subs",
+      label: "Subscriptions",
+      body: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("b", null, "\u20B92,499"), " on subs this month \xB7 1 unused since Feb."),
+      chips: [
+        ["Review", () => window.__openInsight && window.__openInsight("subs")],
+        ["Cancel one", () => window.__toast && window.__toast("Apple TV+ paused \xB7 save \u20B9229/mo", () => window.__toast && window.__toast("Restored"))]
+      ]
+    },
+    {
+      kind: "saving",
+      label: "Saving",
+      body: /* @__PURE__ */ React.createElement(React.Fragment, null, "On pace to save ", /* @__PURE__ */ React.createElement("b", null, "\u20B917,820"), " this month \u2014 best in 4 months."),
+      chips: [
+        ["Add to goal", () => window.__openAddGoal && window.__openAddGoal()],
+        ["See trend", () => onNavigate("insights")]
+      ]
+    },
+    {
+      kind: "cashflow",
+      label: "Cashflow",
+      body: /* @__PURE__ */ React.createElement(React.Fragment, null, "Salary lands ", /* @__PURE__ */ React.createElement("b", null, "in 5 days"), " \xB7 \u20B918,400 in pending bills."),
+      chips: [
+        ["Plan", () => onNavigate("settings", "budgets")],
+        ["Snooze", () => window.__toast && window.__toast("Snoozed for 7 days")]
+      ]
+    }
+  ];
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => setI((x) => (x + 1) % insights.length), 4200);
+    return () => clearInterval(t);
+  }, [paused]);
+  const cur = insights[i];
+  const open = () => window.__openInsight && window.__openInsight(cur.kind);
+  return /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      style: { padding: 14, cursor: "pointer" },
+      onClick: open,
+      onMouseEnter: () => setPaused(true),
+      onMouseLeave: () => setPaused(false)
+    },
+    /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", flexShrink: 0 } }, /* @__PURE__ */ React.createElement(Icon, { name: "sparkle", size: 16 })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { color: "var(--brand)" } }, "Smart insight \xB7 ", cur.label), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 3 } }, insights.map((_, j) => /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        key: j,
+        onClick: (e) => {
+          e.stopPropagation();
+          setI(j);
+          setPaused(true);
+        },
+        style: { width: j === i ? 14 : 5, height: 5, borderRadius: 99, cursor: "pointer", background: j === i ? "var(--brand)" : "color-mix(in srgb, var(--brand) 30%, transparent)", transition: "all 0.4s cubic-bezier(0.4,0.8,0.4,1)" }
+      }
+    )))), /* @__PURE__ */ React.createElement("div", { key: i, className: "ticker-msg", style: { color: "var(--ink)", marginTop: 4, fontWeight: 500, fontSize: 14, lineHeight: 1.4 } }, cur.body), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } }, cur.chips.map(([label, onClick]) => /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        key: label,
+        className: "chip",
+        style: { cursor: "pointer" },
+        onClick: (e) => {
+          e.stopPropagation();
+          onClick && onClick();
+        }
+      },
+      label
+    )))))
+  );
+};
+const WhereItWent = ({ cats, onNavigate }) => {
+  const [active, setActive] = useState(0);
+  const [drawn, setDrawn] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDrawn(true), 120);
+    return () => clearTimeout(t);
+  }, []);
+  const total = cats.reduce((a, c) => a + c.v, 0);
+  const max = Math.max(...cats.map((c) => c.pct));
+  const cur = cats[active];
+  const C = 2 * Math.PI * 56;
+  const deltas = [
+    { dir: "up", value: 4, color: "var(--err)" },
+    { dir: "flat", value: null, color: "var(--ink-3)" },
+    { dir: "down", value: 8, color: "var(--ok)" },
+    { dir: "up", value: 12, color: "var(--err)" },
+    { dir: "down", value: 3, color: "var(--ok)" }
+  ];
+  const dirGlyph = {
+    up: /* @__PURE__ */ React.createElement("svg", { width: "7", height: "8", viewBox: "0 0 8 9", style: { flexShrink: 0, display: "block" } }, /* @__PURE__ */ React.createElement("path", { d: "M4 1 L7.2 7 L0.8 7 Z", fill: "currentColor" })),
+    down: /* @__PURE__ */ React.createElement("svg", { width: "7", height: "8", viewBox: "0 0 8 9", style: { flexShrink: 0, display: "block" } }, /* @__PURE__ */ React.createElement("path", { d: "M4 8 L0.8 2 L7.2 2 Z", fill: "currentColor" })),
+    flat: /* @__PURE__ */ React.createElement("svg", { width: "8", height: "8", viewBox: "0 0 8 8", style: { flexShrink: 0, display: "block" } }, /* @__PURE__ */ React.createElement("rect", { x: "1", y: "3.25", width: "6", height: "1.5", rx: "0.75", fill: "currentColor" }))
+  };
+  let cumPct = 0;
+  return /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-4", style: { padding: 18, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "h3", style: { lineHeight: 1.1 } }, "Where it went"), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 2 } }, "April \xB7 ", cats.length, " categories \xB7 \u20B9", total.toLocaleString("en-IN"))), /* @__PURE__ */ React.createElement("span", { className: "chip", onClick: () => onNavigate("transactions", "this-month"), style: { cursor: "pointer" } }, "This month ", /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 12 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 18, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", width: 132, height: 132, flexShrink: 0 } }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 132 132", width: "132", height: "132", style: { transform: "rotate(-90deg)" } }, /* @__PURE__ */ React.createElement("circle", { cx: "66", cy: "66", r: "56", fill: "none", stroke: "var(--surface-2)", strokeWidth: "16" }), cats.map((c, i) => {
+    const dash = drawn ? c.pct / 100 * C : 0;
+    const offset = -(cumPct / 100 * C);
+    cumPct += c.pct;
+    const isActive = i === active;
+    return /* @__PURE__ */ React.createElement(
+      "circle",
+      {
+        key: i,
+        cx: "66",
+        cy: "66",
+        r: "56",
+        fill: "none",
+        stroke: c.c,
+        strokeWidth: isActive ? 20 : 16,
+        strokeDasharray: `${dash} ${C}`,
+        strokeDashoffset: offset,
+        onClick: () => setActive(i),
+        style: {
+          transition: "stroke-dasharray 0.9s ease-out, stroke-width 220ms",
+          cursor: "pointer",
+          opacity: isActive ? 1 : 0.55
+        }
+      }
+    );
+  })), /* @__PURE__ */ React.createElement("div", { onClick: () => onNavigate("insights"), style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 9, color: cur.c, marginBottom: 2 } }, cur.pct === Math.max(...cats.map((x) => x.pct)) ? "TOP" : `#${active + 1}`), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 16, fontWeight: 600, lineHeight: 1 } }, cur.n), /* @__PURE__ */ React.createElement("div", { className: "mono tabular", style: { fontSize: 11, color: "var(--ink-3)", marginTop: 4 } }, cur.pct, "%"), /* @__PURE__ */ React.createElement("div", { className: "tabular", style: { fontSize: 13, fontWeight: 600, marginTop: 2 } }, "\u20B9", cur.v.toLocaleString("en-IN")))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, cats.map((c, i) => {
+    const isActive = i === active;
+    const d = deltas[i] || deltas[0];
+    return /* @__PURE__ */ React.createElement("div", { key: c.n, onClick: () => setActive(i), style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "5px 6px",
+      marginLeft: -6,
+      marginRight: -6,
+      borderRadius: 6,
+      cursor: "pointer",
+      background: isActive ? "var(--surface-2)" : "transparent",
+      transition: "background 180ms"
+    } }, /* @__PURE__ */ React.createElement("span", { style: { width: 8, height: 8, borderRadius: 2, background: c.c, flexShrink: 0, opacity: isActive ? 1 : 0.7 } }), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, fontWeight: isActive ? 600 : 500, color: isActive ? "var(--ink)" : "var(--ink-2)", width: 48, flexShrink: 0 } }, c.n), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, height: 5, borderRadius: 99, background: "color-mix(in srgb, var(--ink) 6%, transparent)", overflow: "hidden", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: {
+      height: "100%",
+      width: drawn ? `${c.pct / max * 100}%` : "0%",
+      background: c.c,
+      borderRadius: 99,
+      transition: `width 800ms ${i * 80}ms cubic-bezier(0.2, 0.8, 0.2, 1)`
+    } })), /* @__PURE__ */ React.createElement("span", { style: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 3,
+      color: d.color,
+      fontWeight: 600,
+      fontSize: 10,
+      minWidth: 42,
+      flexShrink: 0,
+      whiteSpace: "nowrap",
+      fontVariantNumeric: "tabular-nums",
+      fontFamily: "var(--mono, monospace)",
+      lineHeight: 1
+    } }, dirGlyph[d.dir], d.value != null && /* @__PURE__ */ React.createElement("span", null, d.value, "%")));
+  }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)" } }, "Tap a slice or row to focus"), /* @__PURE__ */ React.createElement("button", { onClick: () => onNavigate("insights"), className: "btn btn-ghost", style: { padding: "5px 10px", fontSize: 11, fontWeight: 600, color: "var(--brand)", display: "flex", alignItems: "center", gap: 4 } }, "See trends ", /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 11 }))));
+};
+const AddProvider = ({ onBack, onAdd = () => {
+} }) => {
+  const [picked, setPicked] = useState2(null);
+  const [apiKey, setApiKey] = useState2("");
+  const [customToken, setCustomToken] = useState2("");
+  const [customEmoji, setCustomEmoji] = useState2("\u{1F9E0}");
+  const [model, setModel] = useState2("");
+  const catalog = [
+    { id: "anth", name: "Anthropic", desc: "Claude Sonnet / Haiku \xB7 best parsing", ini: "A", bg: "#F5E5D4", models: ["Sonnet 4.5", "Haiku 4.5", "Opus 4"] },
+    { id: "oai", name: "OpenAI", desc: "GPT-4o / o3-mini \xB7 broad capabilities", ini: "O", bg: "#DEEFE2", models: ["GPT-4o", "GPT-4o mini", "o3-mini"] },
+    { id: "gem", name: "Google", desc: "Gemini \xB7 fast & cheap classification", ini: "G", bg: "#DCE6F4", models: ["Gemini 2.5 Flash", "Gemini 2.5 Pro"] },
+    { id: "mist", name: "Mistral", desc: "Open-weight EU models", ini: "M", bg: "#EADAF2", models: ["Mistral Large", "Codestral", "Nemo"] },
+    { id: "cohere", name: "Cohere", desc: "Command R+ \xB7 embeddings & rerank", ini: "C", bg: "#F2DAE2", models: ["Command R+", "Command R"] },
+    { id: "oll", name: "Ollama (local)", desc: "Runs on your device \xB7 zero cost", ini: "L", bg: "#ECECE7", models: ["Llama 3.3", "Mistral 7B", "Qwen 2.5"] },
+    { id: "custom", name: "Custom endpoint", desc: "Any OpenAI-compatible URL", ini: "\xB7", bg: "transparent", models: [] }
+  ];
+  const cur = catalog.find((c) => c.id === picked);
+  const keyOk = picked === "oll" ? true : apiKey.trim().length >= 8;
+  return /* @__PURE__ */ React.createElement("div", { className: "scroll", "data-screen-label": "07 Add Provider", style: { background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 22px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-1", style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 18 } }, /* @__PURE__ */ React.createElement("button", { onClick: picked ? () => {
+    setPicked(null);
+    setApiKey("");
+    setCustomToken("");
+    setModel("");
+  } : onBack, "aria-label": "Back", className: "btn btn-ghost", style: { padding: 0, width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 16, style: { transform: "rotate(180deg)" } })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "h2", style: { lineHeight: 1.1 } }, picked ? cur.name : "Add provider"), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 2 } }, picked ? `Step 2 of 2 \xB7 ${cur.desc}` : `Step 1 of 2 \xB7 Pick a model provider`)), picked && /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    if (keyOk) onAdd({ vendor: cur.name, model: model || cur.models[0] || "default" });
+  }, disabled: !keyOk, className: "btn btn-primary", style: { padding: "8px 14px", fontSize: 13, cursor: keyOk ? "pointer" : "not-allowed", opacity: keyOk ? 1 : 0.5 } }, "Add")), !picked && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "4px 4px 8px" } }, "Cloud providers"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-2", style: { padding: 0, marginBottom: 14, overflow: "hidden" } }, catalog.filter((c) => !["oll", "custom"].includes(c.id)).map((c, i, a) => /* @__PURE__ */ React.createElement("div", { key: c.id, onClick: () => setPicked(c.id), style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: i < a.length - 1 ? "1px solid var(--line)" : "none", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, borderRadius: 10, background: c.bg, color: "var(--ink)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 15, flexShrink: 0 } }, c.ini), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, c.name), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 1 } }, c.desc)), /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 14, style: { color: "var(--ink-4)" } })))), /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "4px 4px 8px" } }, "On-device & custom"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: 0, marginBottom: 30, overflow: "hidden" } }, catalog.filter((c) => ["oll", "custom"].includes(c.id)).map((c, i, a) => /* @__PURE__ */ React.createElement("div", { key: c.id, onClick: () => setPicked(c.id), style: { display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: i < a.length - 1 ? "1px solid var(--line)" : "none", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, borderRadius: 10, background: c.bg, color: "var(--ink)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 15, flexShrink: 0, border: c.id === "custom" ? "1px dashed var(--line-strong)" : "none" } }, c.ini), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, c.name), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 1 } }, c.desc)), /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 14, style: { color: "var(--ink-4)" } }))))), picked && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-2", style: { padding: 18, marginBottom: 14, display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 48, height: 48, borderRadius: 12, background: cur.bg, color: "var(--ink)", display: "grid", placeItems: "center", fontWeight: 700, fontSize: picked === "custom" ? 22 : 18, flexShrink: 0, border: picked === "custom" ? "1px dashed var(--line-strong)" : "none" } }, picked === "custom" ? customEmoji : cur.ini), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 600 } }, cur.name), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 2 } }, cur.desc))), picked === "custom" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Icon"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: "12px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 48, height: 48, borderRadius: 12, background: "var(--surface-2)", display: "grid", placeItems: "center", fontSize: 24, flexShrink: 0, border: "1px dashed var(--line-strong)" } }, customEmoji), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexWrap: "wrap", gap: 6 } }, ["\u{1F9E0}", "\u{1F916}", "\u2728", "\u26A1", "\u{1F6F0}", "\u{1F999}", "\u{1F310}", "\u{1F52E}", "\u{1F3AF}", "\u{1FA84}"].map((e) => /* @__PURE__ */ React.createElement("button", { key: e, onClick: () => setCustomEmoji(e), "aria-label": `Pick ${e}`, style: {
+    width: 32,
+    height: 32,
+    fontSize: 18,
+    padding: 0,
+    lineHeight: 1,
+    borderRadius: 8,
+    cursor: "pointer",
+    background: customEmoji === e ? "var(--brand-soft)" : "var(--surface-2)",
+    border: customEmoji === e ? "1px solid var(--brand)" : "1px solid var(--line)",
+    display: "grid",
+    placeItems: "center"
+  } }, e)))))), picked !== "oll" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, picked === "custom" ? "Endpoint URL" : "API key"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: "12px 14px", marginBottom: picked === "custom" ? 10 : 14 } }, /* @__PURE__ */ React.createElement("input", { value: apiKey, onChange: (e) => setApiKey(e.target.value), placeholder: picked === "custom" ? "https://api.example.com/v1" : "sk-\u2026", className: "mono", style: { border: "none", background: "transparent", width: "100%", fontFamily: "var(--font-mono)", fontSize: 13, outline: "none", color: "var(--ink)" } })), picked === "custom" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "10px 4px 8px" } }, "API token"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: "12px 14px", marginBottom: 14 } }, /* @__PURE__ */ React.createElement("input", { value: customToken, onChange: (e) => setCustomToken(e.target.value), placeholder: "Bearer token \xB7 optional for public endpoints", className: "mono", style: { border: "none", background: "transparent", width: "100%", fontFamily: "var(--font-mono)", fontSize: 13, outline: "none", color: "var(--ink)" } }))), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", padding: "0 4px", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "lock", size: 11 }), "Stored on-device \xB7 never sent to Gexpense servers")), cur.models.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Default model"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-4", style: { padding: 0, marginBottom: 14, overflow: "hidden" } }, cur.models.map((m, i, a) => /* @__PURE__ */ React.createElement("div", { key: m, onClick: () => setModel(m), style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < a.length - 1 ? "1px solid var(--line)" : "none", cursor: "pointer", background: (model || cur.models[0]) === m ? "var(--brand-soft)" : "transparent" } }, /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 13, fontWeight: (model || cur.models[0]) === m ? 600 : 500 } }, m), (model || cur.models[0]) === m && /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 14, style: { color: "var(--brand)" } }))))), /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Capabilities"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-5", style: { padding: 14, marginBottom: 30 } }, [
+    ["Parse receipts", "Extract merchant, amount, date"],
+    ["Classify spend", "Auto-categorize transactions"],
+    ["Detect duplicates", "Match across SMS + email"],
+    ["Generate insights", "Weekly trend summaries"]
+  ].map((c, i, a) => /* @__PURE__ */ React.createElement("div", { key: c[0], style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < a.length - 1 ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } }, c[0]), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 1 } }, c[1])), /* @__PURE__ */ React.createElement(Toggle, { on: true })))))));
+};
+const SmartInsight = ({ kind = "subs", onBack, onAction = () => {
+} }) => {
+  const d = SI_DATA[kind] || SI_DATA.subs;
+  const max = Math.max(...d.trend.map((v) => Math.abs(v))) * 1.15;
+  const w = 320, h = 70, padX = 4, padY = 8;
+  const step = (w - padX * 2) / (d.trend.length - 1);
+  const pts = d.trend.map((v, i) => [padX + i * step, h - padY - Math.abs(v) / max * (h - padY * 2)]);
+  const linePath = "M" + pts.map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" L");
+  const areaPath = linePath + ` L${pts[pts.length - 1][0].toFixed(1)},${h - padY} L${pts[0][0].toFixed(1)},${h - padY} Z`;
+  const lastPt = pts[pts.length - 1];
+  const otherKinds = Object.keys(SI_DATA).filter((k) => k !== kind);
+  return /* @__PURE__ */ React.createElement("div", { className: "scroll", "data-screen-label": `Smart insight \xB7 ${d.eyebrow}`, style: { background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 18px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-1", style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("button", { onClick: onBack, "aria-label": "Back", className: "btn btn-ghost", style: { padding: 0, width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 16, style: { transform: "rotate(180deg)" } })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", letterSpacing: "0.06em", textTransform: "uppercase" } }, "Smart insight"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginTop: 1 } }, d.eyebrow)), /* @__PURE__ */ React.createElement("button", { "aria-label": "Share", className: "btn btn-ghost", style: { padding: 0, width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: "external", size: 15 }))), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-2", style: { padding: 18, marginBottom: 12, background: d.bg, border: `1px solid color-mix(in srgb, ${d.accent} 22%, transparent)` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 99, background: "color-mix(in srgb, var(--surface) 70%, transparent)", border: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, color: d.accent, letterSpacing: "0.04em", textTransform: "uppercase" } }, /* @__PURE__ */ React.createElement(Icon, { name: "sparkle", size: 10 }), d.confidence, " confidence"), /* @__PURE__ */ React.createElement("span", { className: "small mono", style: { color: "var(--ink-3)" } }, "\xB7 generated 2m ago")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, fontWeight: 600, lineHeight: 1.22, letterSpacing: "-0.01em" } }, d.title), /* @__PURE__ */ React.createElement("div", { className: "small", style: { color: "var(--ink-2)", marginTop: 4, marginBottom: 14 } }, d.subtitle), /* @__PURE__ */ React.createElement("svg", { width: "100%", height: h, viewBox: `0 0 ${w} ${h}`, preserveAspectRatio: "none", style: { display: "block" } }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: `si-grad-${kind}`, x1: "0", x2: "0", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0%", stopColor: d.accent, stopOpacity: "0.32" }), /* @__PURE__ */ React.createElement("stop", { offset: "100%", stopColor: d.accent, stopOpacity: "0" }))), /* @__PURE__ */ React.createElement("path", { d: areaPath, fill: `url(#si-grad-${kind})`, style: { opacity: 0, animation: "mrFadeIn 600ms 200ms forwards" } }), /* @__PURE__ */ React.createElement(
+    "path",
+    {
+      d: linePath,
+      fill: "none",
+      stroke: d.accent,
+      strokeWidth: "2.2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      style: { strokeDasharray: 600, strokeDashoffset: 600, animation: "mrDraw 700ms 100ms forwards" }
+    }
+  ), lastPt && /* @__PURE__ */ React.createElement("circle", { cx: lastPt[0], cy: lastPt[1], r: "3.5", fill: d.accent, style: { opacity: 0, animation: "mrFadeIn 300ms 700ms forwards" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--ink-4)" } }, d.trendLabels.map((l, i) => /* @__PURE__ */ React.createElement("span", { key: i }, l))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { padding: "2px 8px", borderRadius: 99, background: `color-mix(in srgb, ${d.deltaColor} 14%, transparent)`, color: d.deltaColor, fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 600 } }, d.delta))), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: 16, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 10 } }, "How we got this"), /* @__PURE__ */ React.createElement("ol", { style: { margin: 0, padding: 0, listStyle: "none" } }, d.reasoning.map((r, i) => /* @__PURE__ */ React.createElement("li", { key: i, style: { display: "flex", gap: 10, marginBottom: i < d.reasoning.length - 1 ? 10 : 0 } }, /* @__PURE__ */ React.createElement("span", { style: { flexShrink: 0, width: 18, height: 18, borderRadius: 99, background: "var(--surface-2)", color: "var(--ink-2)", fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 600, display: "grid", placeItems: "center", marginTop: 1 } }, i + 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, lineHeight: 1.5, color: "var(--ink-2)" } }, r))))), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-4", style: { padding: 14, marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 2 } }, "What you can do"), d.actions.map((a, i) => {
+    const isPrimary = a.kind === "primary";
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: a.label,
+        onClick: () => onAction(a, d),
+        className: isPrimary ? "btn btn-primary" : "btn btn-ghost",
+        style: {
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          justifyContent: "space-between",
+          fontWeight: 600,
+          fontSize: 13,
+          background: isPrimary ? d.accent : "var(--surface-2)",
+          color: isPrimary ? "#fff" : "var(--ink)",
+          border: isPrimary ? "none" : "1px solid var(--line)",
+          cursor: "pointer"
+        }
+      },
+      /* @__PURE__ */ React.createElement("span", { style: { display: "flex", alignItems: "center", gap: 10 } }, a.icon && /* @__PURE__ */ React.createElement(Icon, { name: a.icon, size: 14 }), a.label),
+      /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 13, style: { opacity: 0.6 } })
+    );
+  })), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-5", style: { padding: 0, marginBottom: 12, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, padding: "14px 16px 6px" } }, d.sourcesLabel), d.sources.map((s, i, a) => {
+    const isDelta = s.kind === "delta";
+    const amtColor = isDelta ? s.amt < 0 ? "var(--ok)" : "var(--warn)" : "var(--ink)";
+    const amtPrefix = isDelta ? s.amt < 0 ? "\u2212" : "+" : "";
+    return /* @__PURE__ */ React.createElement("div", { key: s.name, style: { display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderTop: i === 0 ? "none" : "1px solid var(--line)", cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 600 } }, s.name), s.badge && /* @__PURE__ */ React.createElement(Badge, { tone: s.badge === "unused" ? "err" : "warn" }, s.badge)), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 2 } }, s.sub)), /* @__PURE__ */ React.createElement("div", { className: "tabular", style: { fontSize: 13.5, fontWeight: 600, color: amtColor } }, amtPrefix, "\u20B9", Math.abs(s.amt).toLocaleString("en-IN")), /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 13, style: { color: "var(--ink-4)" } }));
+  })), /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, padding: "6px 4px 8px" } }, "Related insights"), /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-6", style: { display: "flex", gap: 10, overflowX: "auto", marginBottom: 18, paddingBottom: 6, scrollbarWidth: "none" } }, otherKinds.map((k) => {
+    const r = SI_DATA[k];
+    return /* @__PURE__ */ React.createElement("div", { key: k, onClick: () => window.__openInsight && window.__openInsight(k), style: { minWidth: 220, padding: 14, borderRadius: 12, background: r.bg, border: `1px solid color-mix(in srgb, ${r.accent} 22%, transparent)`, cursor: "pointer" } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, color: r.accent, marginBottom: 6 } }, r.eyebrow), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 600, lineHeight: 1.35 } }, r.title));
+  })), /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-7", style: { display: "flex", justifyContent: "space-between", gap: 8, padding: "10px 4px 30px", flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => onAction({ kind: "feedback", value: "unhelpful" }, d), className: "btn btn-ghost", style: { padding: "8px 12px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 11 }), " Not useful"), /* @__PURE__ */ React.createElement("button", { onClick: () => onAction({ kind: "mute" }, d), className: "btn btn-ghost", style: { padding: "8px 12px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "bell", size: 11 }), " Mute ", d.eyebrow.toLowerCase(), " insights"), /* @__PURE__ */ React.createElement("button", { onClick: () => onAction({ kind: "why" }, d), className: "btn btn-ghost", style: { padding: "8px 12px", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "sparkle", size: 11 }), " Why am I seeing this?"))));
+};
+const ProfileEdit = ({ onBack, onSave }) => {
+  const [name, setName] = React.useState("Aman Sharma");
+  const [email, setEmail] = React.useState("aman@gmail.com");
+  const [phone, setPhone] = React.useState("+91 98\u2022\u2022\u2022 \u2022\u2022432");
+  const [currency, setCurrency] = React.useState("INR");
+  const [country, setCountry] = React.useState("India");
+  const [plan] = React.useState("Free");
+  const Field = ({ label, value, onChange, mono, placeholder, readOnly }) => /* @__PURE__ */ React.createElement("label", { style: { display: "block", padding: "12px 14px" } }, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 4 } }, label), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      value,
+      onChange: (e) => onChange && onChange(e.target.value),
+      placeholder,
+      readOnly,
+      className: mono ? "mono" : "",
+      style: { width: "100%", border: "none", outline: "none", background: "transparent", fontSize: 14, fontWeight: 500, color: "var(--ink)", padding: 0 }
+    }
+  ));
+  return /* @__PURE__ */ React.createElement("div", { className: "scroll", "data-screen-label": "13 Profile Edit", style: { background: "var(--bg)" } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 22px 0" } }, /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-1", style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 } }, /* @__PURE__ */ React.createElement("button", { onClick: onBack, className: "btn btn-ghost", style: { padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 16, style: { transform: "rotate(180deg)" } }), " Settings"), /* @__PURE__ */ React.createElement("button", { onClick: onSave, className: "btn btn-primary", style: { padding: "8px 14px", fontSize: 12, fontWeight: 600 } }, "Save")), /* @__PURE__ */ React.createElement("div", { className: "fade-up fade-up-2", style: { marginBottom: 18 } }, /* @__PURE__ */ React.createElement("div", { className: "h2" }, "Profile"), /* @__PURE__ */ React.createElement("div", { className: "small", style: { marginTop: 4 } }, "Your account info & preferences")), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-3", style: { padding: 18, marginBottom: 14, display: "flex", alignItems: "center", gap: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 72, height: 72, borderRadius: "50%", background: "var(--brand-50)", color: "var(--brand)", display: "grid", placeItems: "center", fontSize: 28, fontWeight: 600 } }, "A"), /* @__PURE__ */ React.createElement("button", { style: { position: "absolute", bottom: -2, right: -2, width: 26, height: 26, borderRadius: "50%", background: "var(--ink)", color: "var(--bg)", border: "2px solid var(--bg)", display: "grid", placeItems: "center", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "edit", size: 11, stroke: 2.4 }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, name), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { marginTop: 2 } }, email), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6, display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 8px", borderRadius: 99, background: "var(--surface-2)", fontSize: 10, fontWeight: 600, color: "var(--ink-2)" } }, /* @__PURE__ */ React.createElement(Icon, { name: "shield", size: 10 }), " ", plan, " plan"))), /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Identity"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-4", style: { padding: 0, marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Field, { label: "Name", value: name, onChange: setName }), /* @__PURE__ */ React.createElement(Divider, null), /* @__PURE__ */ React.createElement(Field, { label: "Email", value: email, onChange: setEmail, mono: true }), /* @__PURE__ */ React.createElement(Divider, null), /* @__PURE__ */ React.createElement(Field, { label: "Phone", value: phone, onChange: setPhone, mono: true })), /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Region"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-5", style: { padding: 0, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 4 } }, "Currency"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 500 } }, currency, " \xB7 \u20B9 Indian Rupee")), /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 16, style: { color: "var(--ink-3)" } })), /* @__PURE__ */ React.createElement(Divider, null), /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 4 } }, "Country"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 500 } }, country)), /* @__PURE__ */ React.createElement(Icon, { name: "chevron", size: 16, style: { color: "var(--ink-3)" } }))), /* @__PURE__ */ React.createElement("div", { className: "label", style: { margin: "14px 4px 8px" } }, "Plan"), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-6", style: { padding: 14, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "Free"), /* @__PURE__ */ React.createElement("div", { className: "small", style: { marginTop: 2 } }, "3 connections \xB7 6 mo history")), /* @__PURE__ */ React.createElement("button", { className: "btn btn-primary", style: { padding: "8px 14px", fontSize: 12, fontWeight: 600 } }, "Upgrade")), /* @__PURE__ */ React.createElement("div", { style: { padding: 10, background: "var(--surface-2)", borderRadius: 8, fontSize: 11, color: "var(--ink-2)", display: "flex", gap: 8, alignItems: "flex-start" } }, /* @__PURE__ */ React.createElement(Icon, { name: "sparkle", size: 12, style: { marginTop: 1, color: "var(--brand)", flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", null, "Pro: unlimited bank links, 5-yr history, exports, custom AI rules \xB7 \u20B9199/mo"))), /* @__PURE__ */ React.createElement("div", { className: "card fade-up fade-up-7", style: { padding: 0, marginBottom: 20 } }, /* @__PURE__ */ React.createElement("div", { style: { padding: "14px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "logout", size: 16, style: { color: "var(--err)" } }), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--err)", fontWeight: 600, fontSize: 13 } }, "Sign out")))));
+};
+window.ProfileEdit = ProfileEdit;
+const CounterUp = ({ value, format = (n) => n.toLocaleString("en-IN"), prefix = "", suffix = "", dur = 900, className = "", style = {} }) => {
+  const [n, setN] = useStateV3(0);
+  const ref = useRefV3({ start: 0, target: value, t0: 0 });
+  useEffectV3(() => {
+    ref.current = { start: 0, target: value, t0: performance.now() };
+    let raf;
+    const tick = (now) => {
+      const t = Math.min(1, (now - ref.current.t0) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      setN(Math.round(ref.current.target * e));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return /* @__PURE__ */ React.createElement("span", { className: `tabular ${className}`, style }, prefix, format(n), suffix);
+};
+const Skeleton = ({ w = "100%", h = 16, r = 8, style = {} }) => /* @__PURE__ */ React.createElement("div", { className: "sk", style: { width: w, height: h, borderRadius: r, ...style } });
+const QuickActions = ({ onClose, onPick }) => {
+  const items = [
+    { k: "scan", ico: "receipt", label: "Scan receipt" },
+    { k: "recurring", ico: "repeat", label: "Add recurring" },
+    { k: "split", ico: "split", label: "Split with friends" },
+    { k: "manual", ico: "edit", label: "Quick manual entry" }
+  ];
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "qa-scrim", onClick: onClose }), /* @__PURE__ */ React.createElement("div", { className: "qa-menu" }, items.map((it) => /* @__PURE__ */ React.createElement("div", { key: it.k, className: "qa-item", onClick: (e) => {
+    e.stopPropagation();
+    onPick(it.k);
+  } }, /* @__PURE__ */ React.createElement("div", { className: "ico" }, /* @__PURE__ */ React.createElement(Icon, { name: it.ico, size: 16 })), /* @__PURE__ */ React.createElement("span", null, it.label)))));
+};
+const ReceiptCapture = ({ onBack, onSave }) => {
+  const [phase, setPhase] = useStateV3("aim");
+  const [fields, setFields] = useStateV3(null);
+  useEffectV3(() => {
+    if (phase === "scanning") {
+      const t = setTimeout(() => {
+        setFields({ merchant: "Blue Tokai \xB7 Indiranagar", amount: 540, date: "Today \xB7 9:42 PM", items: ["Cappuccino", "Almond croissant"], category: "Food & coffee", confidence: 0.96 });
+        setPhase("done");
+      }, 1850);
+      return () => clearTimeout(t);
+    }
+  }, [phase]);
+  return /* @__PURE__ */ React.createElement("div", { className: "scroll", "data-screen-label": "13 Receipt Capture", style: { background: "#0b0b0e", color: "#fff" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "relative", minHeight: "100%", display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, position: "relative", overflow: "hidden", minHeight: 460 } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", inset: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { width: "72%", height: "82%", background: "linear-gradient(180deg, #f3efe6 0%, #ecdfc8 100%)", borderRadius: 6, transform: phase === "aim" ? "rotate(-2deg) scale(0.92)" : "rotate(0deg) scale(1)", transition: "transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)", color: "#3a2f1a", padding: "18px 16px", fontFamily: "var(--mono)", fontSize: 9, lineHeight: 1.6 } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", fontWeight: 700, fontSize: 12, marginBottom: 8 } }, "BLUE TOKAI \xB7 INDIRANAGAR"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginBottom: 10 } }, "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Cappuccino"), /* @__PURE__ */ React.createElement("span", null, "320")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Almond croissant"), /* @__PURE__ */ React.createElement("span", null, "220")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", margin: "8px 0" } }, "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontWeight: 700 } }, /* @__PURE__ */ React.createElement("span", null, "TOTAL"), /* @__PURE__ */ React.createElement("span", null, "\u20B9540")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: 12, fontSize: 8 } }, "27 APR 2026 \xB7 9:42 PM"))), phase !== "done" && (() => {
+    const positions = {
+      tl: { top: "18%", left: "14%" },
+      tr: { top: "18%", right: "14%" },
+      bl: { bottom: "14%", left: "14%" },
+      br: { bottom: "14%", right: "14%" }
+    };
+    const corners = {
+      tl: { borderLeftWidth: 3, borderTopWidth: 3, borderTopLeftRadius: 8 },
+      tr: { borderRightWidth: 3, borderTopWidth: 3, borderTopRightRadius: 8 },
+      bl: { borderLeftWidth: 3, borderBottomWidth: 3, borderBottomLeftRadius: 8 },
+      br: { borderRightWidth: 3, borderBottomWidth: 3, borderBottomRightRadius: 8 }
+    };
+    return ["tl", "tr", "bl", "br"].map((k) => /* @__PURE__ */ React.createElement("div", { key: k, style: { position: "absolute", width: 36, height: 36, borderColor: phase === "scanning" ? "var(--brand)" : "#fff", borderStyle: "solid", borderWidth: 0, transition: "border-color 200ms", ...corners[k], ...positions[k] } }));
+  })(), phase === "scanning" && /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: "18%", bottom: "14%", left: "18%", right: "18%", overflow: "hidden", pointerEvents: "none" } }, /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, var(--brand), transparent)", boxShadow: "0 0 16px var(--brand)", animation: "scanLine 1.7s ease-in-out" } })), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 14, left: 0, right: 0, padding: "0 18px", display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: onBack, style: { width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 16 })), /* @__PURE__ */ React.createElement("div", { style: { padding: "6px 12px", borderRadius: 99, background: "rgba(0,0,0,0.45)", fontSize: 11, fontFamily: "var(--mono)" } }, phase === "aim" ? "AIM AT RECEIPT" : phase === "scanning" ? "SCANNING\u2026" : "DONE"), /* @__PURE__ */ React.createElement("button", { style: { width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.45)", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: "zap", size: 16 })))), phase !== "done" && /* @__PURE__ */ React.createElement("div", { style: { padding: "22px 22px 32px", background: "#0b0b0e" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", color: "rgba(255,255,255,0.72)", fontSize: 13, marginBottom: 18 } }, phase === "aim" ? "Position receipt inside the frame" : "Reading merchant, amount, items\u2026"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 36 } }, /* @__PURE__ */ React.createElement("button", { style: { color: "#fff", background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.7, cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "download", size: 20 }), "Library"), /* @__PURE__ */ React.createElement("button", { onClick: () => phase === "aim" && setPhase("scanning"), style: { width: 72, height: 72, borderRadius: "50%", background: "#fff", border: "4px solid rgba(255,255,255,0.4)", cursor: phase === "aim" ? "pointer" : "default" } }, phase === "scanning" && /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: 20, height: 20, border: "3px solid var(--brand)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" } })), /* @__PURE__ */ React.createElement("button", { style: { color: "#fff", background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.7, cursor: "pointer" } }, /* @__PURE__ */ React.createElement(Icon, { name: "edit", size: 20 }), "Manual"))), phase === "done" && fields && /* @__PURE__ */ React.createElement("div", { style: { padding: "22px 22px 28px", background: "var(--surface)", color: "var(--ink)", borderTopLeftRadius: 24, borderTopRightRadius: 24, marginTop: -24, position: "relative", zIndex: 2, animation: "fadeUp 280ms ease-out" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14 } }, /* @__PURE__ */ React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: "check", size: 12, stroke: 3 })), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 14 } }, "Extracted"), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--ink-3)" } }, Math.round(fields.confidence * 100), "% confidence")), /* @__PURE__ */ React.createElement("div", { className: "card", style: { padding: 0, marginBottom: 14, background: "var(--surface-2)" } }, [
+    ["Merchant", fields.merchant],
+    ["Amount", `\u20B9${fields.amount}`],
+    ["Date", fields.date],
+    ["Category", fields.category],
+    ["Items", fields.items.join(" \xB7 ")]
+  ].map(([k, v], i, a) => /* @__PURE__ */ React.createElement("div", { key: k, style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", borderBottom: i < a.length - 1 ? "1px solid var(--line)" : "none", gap: 12 } }, /* @__PURE__ */ React.createElement("span", { className: "small", style: { flexShrink: 0 } }, k), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: 13, textAlign: "right" } }, v)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setPhase("aim"), className: "btn btn-ghost", style: { flex: 1, padding: 13, fontWeight: 600 } }, "Retake"), /* @__PURE__ */ React.createElement("button", { onClick: () => onSave(fields), className: "btn btn-primary", style: { flex: 2, padding: 13, fontWeight: 600 } }, "Save expense")))));
+};
+const MRSparkline = ({ data, highlight, max, w = 320, h = 56 }) => {
+  const m = max || Math.max(...data) * 1.1;
+  const bw = (w - 4) / data.length;
+  return /* @__PURE__ */ React.createElement("svg", { width: "100%", height: h, viewBox: `0 0 ${w} ${h}`, preserveAspectRatio: "none", style: { display: "block" } }, data.map((v, i) => {
+    const bh = v / m * (h - 6);
+    const x = 2 + i * bw;
+    const y = h - bh - 2;
+    const active = i === highlight;
+    return /* @__PURE__ */ React.createElement("g", { key: i }, /* @__PURE__ */ React.createElement(
+      "rect",
+      {
+        x: x + bw * 0.18,
+        y,
+        width: bw * 0.64,
+        height: bh,
+        fill: active ? "var(--ink)" : "color-mix(in srgb, var(--ink) 18%, transparent)",
+        rx: 2
+      }
+    ), active && /* @__PURE__ */ React.createElement("circle", { cx: x + bw * 0.5, cy: y - 5, r: 2.4, fill: "var(--ink)" }));
+  }));
+};
+const MRBarRow = ({ label, sub, value, pct, color = "var(--ink)", delay = 0 }) => /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 12, animation: `fadeUp 540ms ${delay}ms both` } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, label), sub && /* @__PURE__ */ React.createElement("span", { className: "small mono", style: { color: "var(--ink-3)", flexShrink: 0 } }, sub)), /* @__PURE__ */ React.createElement("span", { className: "tabular", style: { fontSize: 13.5, fontWeight: 600 } }, value)), /* @__PURE__ */ React.createElement("div", { style: { height: 6, background: "color-mix(in srgb, var(--ink) 8%, transparent)", borderRadius: 99, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: `${pct}%`, background: color, borderRadius: 99, animation: `barGrow 800ms ${delay + 120}ms cubic-bezier(0.2, 0.8, 0.2, 1) both` } })));
+const MRStatCell = ({ label, value, color, delay = 0 }) => /* @__PURE__ */ React.createElement("div", { style: { flex: 1, animation: `fadeUp 540ms ${delay}ms both` } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.06em", color: "var(--ink-3)", textTransform: "uppercase" } }, label), /* @__PURE__ */ React.createElement("div", { className: "tabular", style: { fontSize: 17, fontWeight: 600, marginTop: 3, color: color || "var(--ink)" } }, value));
+const MRTrajectory = ({ actual, projected }) => {
+  const all = [...actual, ...projected];
+  const max = Math.max(...all) * 1.1;
+  const w = 320, h = 100, padX = 6, padY = 8;
+  const step = (w - padX * 2) / (all.length - 1);
+  const pts = all.map((v, i) => [padX + i * step, h - padY - v / max * (h - padY * 2)]);
+  const actualPath = "M" + pts.slice(0, actual.length).map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" L");
+  const projPath = "M" + pts.slice(actual.length - 1).map((p) => p.map((n) => n.toFixed(1)).join(",")).join(" L");
+  return /* @__PURE__ */ React.createElement("svg", { width: "100%", height: h, viewBox: `0 0 ${w} ${h}`, preserveAspectRatio: "none", style: { display: "block" } }, /* @__PURE__ */ React.createElement(
+    "path",
+    {
+      d: actualPath,
+      fill: "none",
+      stroke: "var(--ink)",
+      strokeWidth: "2.2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      style: { strokeDasharray: 800, strokeDashoffset: 800, animation: "mrDraw 900ms 100ms forwards" }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "path",
+    {
+      d: projPath,
+      fill: "none",
+      stroke: "var(--brand)",
+      strokeWidth: "2.2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeDasharray: "4 4",
+      style: { opacity: 0, animation: "mrFadeIn 600ms 900ms forwards" }
+    }
+  ), pts[actual.length - 1] && /* @__PURE__ */ React.createElement(
+    "circle",
+    {
+      cx: pts[actual.length - 1][0],
+      cy: pts[actual.length - 1][1],
+      r: "4",
+      fill: "var(--ink)",
+      style: { opacity: 0, animation: "mrFadeIn 400ms 800ms forwards" }
+    }
+  ));
+};
+const MonthlyReview = ({ onBack }) => {
+  const SlideSpend = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)", marginBottom: 10 } }, "APRIL 2026"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 6 } }, "You spent ", /* @__PURE__ */ React.createElement(CounterUp, { value: 54180, prefix: "\u20B9" })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 22 } }, /* @__PURE__ */ React.createElement("span", { style: { padding: "4px 10px", borderRadius: 99, background: "color-mix(in srgb, var(--ok) 16%, transparent)", color: "var(--ok)", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)" } }, "\u2193 12% vs Mar"), /* @__PURE__ */ React.createElement("span", { className: "small", style: { color: "var(--ink-2)" } }, "\u20B97,420 less than last month")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "label", style: { fontSize: 10 } }, "12-month trend"), /* @__PURE__ */ React.createElement("span", { className: "small mono", style: { color: "var(--ink-3)" } }, "Apr highlighted")), /* @__PURE__ */ React.createElement(MRSparkline, { data: [42800, 51200, 47900, 58300, 49600, 55100, 52800, 48400, 56700, 53200, 61600, 54180], highlight: 11 }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 4, fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--ink-4)", letterSpacing: "0.04em" } }, /* @__PURE__ */ React.createElement("span", null, "MAY '25"), /* @__PURE__ */ React.createElement("span", null, "SEP"), /* @__PURE__ */ React.createElement("span", null, "JAN '26"), /* @__PURE__ */ React.createElement("span", null, "APR"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(MRStatCell, { label: "Avg / day", value: "\u20B91,806", delay: 80 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Budget left", value: "\u20B95,820", color: "var(--ok)", delay: 160 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Savings rate", value: "65%", color: "var(--brand)", delay: 240 })));
+  const SlideCategory = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)", marginBottom: 10 } }, "TOP CATEGORY"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 6 } }, "Food took ", /* @__PURE__ */ React.createElement(CounterUp, { value: 13500, prefix: "\u20B9" })), /* @__PURE__ */ React.createElement("div", { className: "small", style: { color: "var(--ink-2)", marginBottom: 22 } }, "25% of all spending \xB7 14 Swiggy orders, 8 caf\xE9s"), /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 10 } }, "Where food money went"), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Swiggy", sub: "14 orders", value: "\u20B95,400", pct: 100, color: "#E07A5F", delay: 60 }), /* @__PURE__ */ React.createElement(MRBarRow, { label: "BigBasket", sub: "grocery", value: "\u20B93,900", pct: 72, color: "#E07A5F", delay: 140 }), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Toit", sub: "3 visits", value: "\u20B92,100", pct: 39, color: "#E07A5F", delay: 220 }), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Blue Tokai", sub: "8 cups", value: "\u20B91,200", pct: 22, color: "#E07A5F", delay: 300 }), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Zomato", sub: "2 orders", value: "\u20B9900", pct: 17, color: "#E07A5F", delay: 380 }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(MRStatCell, { label: "Eat out", value: "\u20B99,600", delay: 440 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Grocery", value: "\u20B93,900", delay: 500 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "vs Mar", value: "\u2191 4%", color: "var(--warn)", delay: 560 })));
+  const SlideGoals = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)", marginBottom: 10 } }, "A WIN"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 6 } }, "You saved ", /* @__PURE__ */ React.createElement(CounterUp, { value: 17820, prefix: "\u20B9" })), /* @__PURE__ */ React.createElement("div", { className: "small", style: { color: "var(--ink-2)", marginBottom: 22 } }, "Across 3 goals \xB7 your best month of 2026"), /* @__PURE__ */ React.createElement("div", { className: "label", style: { fontSize: 10, marginBottom: 10 } }, "Goal progress"), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Japan trip", sub: "Dec 2026", value: "74%", pct: 74, color: "var(--brand)", delay: 60 }), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { marginTop: -8, marginBottom: 14, color: "var(--ink-3)", paddingLeft: 2 } }, "\u20B92,40,000 / \u20B93,25,000"), /* @__PURE__ */ React.createElement(MRBarRow, { label: "Emergency fund", sub: "6 months", value: "92%", pct: 92, color: "var(--ok)", delay: 160 }), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { marginTop: -8, marginBottom: 14, color: "var(--ink-3)", paddingLeft: 2 } }, "\u20B91,84,000 / \u20B92,00,000"), /* @__PURE__ */ React.createElement(MRBarRow, { label: "New laptop", sub: "M4 Pro", value: "31%", pct: 31, color: "var(--info)", delay: 260 }), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { marginTop: -8, marginBottom: 6, color: "var(--ink-3)", paddingLeft: 2 } }, "\u20B946,000 / \u20B91,50,000"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(MRStatCell, { label: "This month", value: "+\u20B917,820", color: "var(--ok)", delay: 360 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "YTD saved", value: "\u20B962,400", delay: 420 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "On track", value: "3 / 3", color: "var(--ok)", delay: 480 })));
+  const SlideSubs = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)", marginBottom: 10 } }, "WORTH A REVIEW"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 6 } }, "4 subs you didn't open"), /* @__PURE__ */ React.createElement("div", { className: "small", style: { color: "var(--ink-2)", marginBottom: 22 } }, "\u20B93,200 / month \xB7 cancel these and save \u20B938,400/yr"), [
+    { name: "Notion", sub: "last opened 47 days ago", price: "\u20B9890", tone: "var(--err)" },
+    { name: "NYT", sub: "last opened 33 days ago", price: "\u20B9599", tone: "var(--warn)" },
+    { name: "Headspace", sub: "last opened 62 days ago", price: "\u20B9999", tone: "var(--err)" },
+    { name: "Hotstar", sub: "last opened 28 days ago", price: "\u20B9699", tone: "var(--warn)" }
+  ].map((s2, i) => /* @__PURE__ */ React.createElement("div", { key: s2.name, style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < 3 ? "1px solid var(--line)" : "none", animation: `fadeUp 540ms ${80 + i * 80}ms both` } }, /* @__PURE__ */ React.createElement("div", { style: { width: 8, height: 8, borderRadius: 99, background: s2.tone, flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, s2.name), /* @__PURE__ */ React.createElement("div", { className: "small mono", style: { color: "var(--ink-3)", marginTop: 1 } }, s2.sub)), /* @__PURE__ */ React.createElement("div", { className: "tabular", style: { fontSize: 14, fontWeight: 600 } }, s2.price, /* @__PURE__ */ React.createElement("span", { className: "small mono", style: { color: "var(--ink-3)", fontWeight: 400 } }, "/mo")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 22, paddingTop: 14, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(MRStatCell, { label: "Active subs", value: "11", delay: 420 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Monthly cost", value: "\u20B94,890", delay: 480 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Could save", value: "\u20B93,200", color: "var(--ok)", delay: 540 })));
+  const SlideOutlook = () => /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.08em", color: "var(--ink-3)", marginBottom: 10 } }, "MAY OUTLOOK"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28, fontWeight: 600, lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 6 } }, "On pace for ", /* @__PURE__ */ React.createElement(CounterUp, { value: 48500, prefix: "\u20B9" })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 22 } }, /* @__PURE__ */ React.createElement("span", { style: { padding: "4px 10px", borderRadius: 99, background: "color-mix(in srgb, var(--brand) 16%, transparent)", color: "var(--brand)", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)" } }, "under budget"), /* @__PURE__ */ React.createElement("span", { className: "small", style: { color: "var(--ink-2)" } }, "\u20B911,500 below your monthly cap")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 6 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", { className: "label", style: { fontSize: 10 } }, "Weekly pace \xB7 April \u2192 May"), /* @__PURE__ */ React.createElement("span", { className: "small mono", style: { color: "var(--ink-3)" } }, "actual \xB7 projected")), /* @__PURE__ */ React.createElement(MRTrajectory, { actual: [11200, 23e3, 35900, 48700, 54180], projected: [54180, 65400, 77e3, 88200, 102680] })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 14, marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement(MRStatCell, { label: "Days in", value: "30 / 30", delay: 80 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "May cap", value: "\u20B960,000", delay: 160 }), /* @__PURE__ */ React.createElement(MRStatCell, { label: "Daily target", value: "\u20B91,565", color: "var(--brand)", delay: 240 })));
+  const slides = [
+    { bg: "linear-gradient(160deg, color-mix(in srgb, var(--brand) 18%, var(--bg)) 0%, var(--bg) 50%)", chip: "Total spend", Content: SlideSpend },
+    { bg: "linear-gradient(160deg, color-mix(in srgb, #E07A5F 22%, var(--bg)) 0%, var(--bg) 50%)", chip: "Where it went", Content: SlideCategory },
+    { bg: "linear-gradient(160deg, color-mix(in srgb, var(--ok) 18%, var(--bg)) 0%, var(--bg) 50%)", chip: "Goals", Content: SlideGoals },
+    { bg: "linear-gradient(160deg, color-mix(in srgb, var(--err) 16%, var(--bg)) 0%, var(--bg) 50%)", chip: "Subscriptions", Content: SlideSubs },
+    { bg: "linear-gradient(160deg, color-mix(in srgb, var(--brand) 22%, var(--bg)) 0%, var(--bg) 50%)", chip: "Outlook", Content: SlideOutlook }
+  ];
+  const [idx, setIdx] = useStateV3(0);
+  const [paused, setPaused] = useStateV3(false);
+  const refKey = useRefV3(0);
+  const slideDuration = 6800;
+  useEffectV3(() => {
+    if (paused) return;
+    refKey.current += 1;
+    const k = refKey.current;
+    const t = setTimeout(() => {
+      if (k === refKey.current) setIdx((i) => i < slides.length - 1 ? i + 1 : i);
+    }, slideDuration);
+    return () => clearTimeout(t);
+  }, [idx, paused]);
+  const s = slides[idx];
+  const Content = s.Content;
+  return /* @__PURE__ */ React.createElement("div", { className: "scroll", "data-screen-label": "14 Monthly Review", style: { padding: 0, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", display: "flex", flexDirection: "column", position: "relative", background: s.bg, transition: "background 600ms ease" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, padding: "14px 18px 0" } }, slides.map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { flex: 1, height: 3, background: "rgba(0,0,0,0.12)", borderRadius: 2, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: i < idx ? "100%" : i === idx ? "100%" : "0%", background: "var(--ink)", animation: i === idx && !paused ? `progFill ${slideDuration}ms linear forwards` : "none" } })))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px 0" } }, /* @__PURE__ */ React.createElement("button", { onClick: onBack, className: "btn btn-ghost", style: { width: 34, height: 34, padding: 0, borderRadius: "50%", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: "x", size: 16 })), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)" } }, s.chip, " \xB7 ", idx + 1, "/", slides.length), /* @__PURE__ */ React.createElement("button", { onClick: () => setPaused((p) => !p), className: "btn btn-ghost", style: { width: 34, height: 34, padding: 0, borderRadius: "50%", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(Icon, { name: paused ? "play" : "clock", size: 14 }))), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 60, left: 0, width: "28%", bottom: 0, zIndex: 2, cursor: "pointer" }, onClick: () => setIdx((i) => Math.max(0, i - 1)) }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", top: 60, right: 0, width: "28%", bottom: 0, zIndex: 2, cursor: "pointer" }, onClick: () => setIdx((i) => Math.min(slides.length - 1, i + 1)) }), /* @__PURE__ */ React.createElement("div", { key: idx, style: { flex: 1, padding: "22px 24px 18px", display: "flex", flexDirection: "column", overflow: "auto", animation: "fadeUp 460ms cubic-bezier(0.2, 0.8, 0.2, 1)" } }, /* @__PURE__ */ React.createElement(Content, null)), idx === slides.length - 1 && /* @__PURE__ */ React.createElement("div", { style: { padding: "0 22px 22px", position: "relative", zIndex: 3 } }, /* @__PURE__ */ React.createElement("button", { onClick: onBack, className: "btn btn-primary", style: { width: "100%", padding: 14, fontWeight: 600, animation: "fadeUp 460ms 200ms both" } }, "Close review"))), /* @__PURE__ */ React.createElement("style", null, `
+        @keyframes progFill { from { width: 0%; } to { width: 100%; } }
+        @keyframes barGrow { from { width: 0%; } }
+        @keyframes mrDraw { to { stroke-dashoffset: 0; } }
+        @keyframes mrFadeIn { to { opacity: 1; } }
+      `));
+};
+const Coachmarks = ({ steps, onDone }) => {
+  const [i, setI] = useStateV3(0);
+  const [rect, setRect] = useStateV3(null);
+  useEffectV3(() => {
+    const step2 = steps[i];
+    if (!step2) return;
+    const find = () => {
+      const phone = document.querySelector(".phone.app");
+      const el = document.querySelector(step2.selector);
+      if (!phone || !el) return null;
+      const pr = phone.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      return {
+        top: er.top - pr.top - 6,
+        left: er.left - pr.left - 6,
+        width: er.width + 12,
+        height: er.height + 12
+      };
+    };
+    const r = find();
+    if (r) setRect(r);
+    const t = setTimeout(() => {
+      const r2 = find();
+      if (r2) setRect(r2);
+    }, 80);
+    return () => clearTimeout(t);
+  }, [i]);
+  if (!steps || !steps[i]) return null;
+  const step = steps[i];
+  if (!rect) return null;
+  const placeBelow = rect.top < 200;
+  const bubbleStyle = placeBelow ? { top: rect.top + rect.height + 14, left: 18, right: 18 } : { bottom: "calc(100% - " + rect.top + "px + 14px)", left: 18, right: 18, top: "auto" };
+  const bs = placeBelow ? { top: rect.top + rect.height + 14, left: Math.max(14, Math.min(rect.left, 134)), maxWidth: 260 } : { top: Math.max(60, rect.top - 14 - 130), left: Math.max(14, Math.min(rect.left, 134)), maxWidth: 260 };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "coachmark-scrim", onClick: () => setI(i + 1 < steps.length ? i + 1 : onDone()) }), /* @__PURE__ */ React.createElement("div", { className: "coachmark-hole", style: { top: rect.top, left: rect.left, width: rect.width, height: rect.height } }), /* @__PURE__ */ React.createElement("div", { className: "coachmark-bubble", style: bs }, /* @__PURE__ */ React.createElement("div", { className: "step" }, "Step ", i + 1, " of ", steps.length), /* @__PURE__ */ React.createElement("div", { className: "title" }, step.title), /* @__PURE__ */ React.createElement("div", { className: "body" }, step.body), /* @__PURE__ */ React.createElement("div", { className: "actions" }, /* @__PURE__ */ React.createElement("button", { className: "skip", onClick: onDone }, "Skip tour"), /* @__PURE__ */ React.createElement("button", { className: "next", onClick: () => i + 1 < steps.length ? setI(i + 1) : onDone() }, i + 1 < steps.length ? "Next" : "Got it"))));
+};
+const ThemeTransition = ({ dir, origin }) => {
+  const saberColor = dir === "toDark" ? "#FF3838" : "#7FE0FF";
+  const wipeColor = dir === "toDark" ? "#0B0B0C" : "#F7F7F4";
+  const fw = origin && origin.w || 390;
+  const fh = origin && origin.h || 844;
+  const cx = origin && origin.x != null ? origin.x : fw / 2;
+  const cy = origin && origin.y != null ? origin.y : fh / 2;
+  const margin = 22;
+  const toRightX = fw - margin - cx;
+  const toBotY = fh - cy + 24;
+  const toTopOnlyY = -cy + margin;
+  const sparks = React.useMemo(() => Array.from({ length: 16 }, () => {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 70 + Math.random() * 150;
+    return {
+      sx: Math.cos(angle) * dist,
+      sy: Math.sin(angle) * dist,
+      delay: Math.random() * 120,
+      size: 2 + Math.random() * 3.5
+    };
+  }), []);
+  const arcs = React.useMemo(() => Array.from({ length: 5 }, () => ({
+    // Arcs spit toward the blade direction (leftward from hilt)
+    rot: 150 + Math.random() * 60,
+    delay: Math.random() * 100,
+    len: 28 + Math.random() * 36
+  })), []);
+  const stageStyle = {
+    "--cx": `${cx}px`,
+    "--cy": `${cy}px`,
+    "--saber": saberColor,
+    "--wipe": wipeColor,
+    "--toRightX": `${toRightX}px`,
+    "--toBotY": `${toBotY}px`,
+    "--toTopOnlyY": `${toTopOnlyY}px`
+  };
+  return /* @__PURE__ */ React.createElement("div", { "aria-hidden": true, className: "saber-stage", style: stageStyle }, /* @__PURE__ */ React.createElement("div", { className: "saber-reveal-band" }), /* @__PURE__ */ React.createElement("div", { className: "saber-rig" }, /* @__PURE__ */ React.createElement("div", { className: "saber-trail" }), /* @__PURE__ */ React.createElement("div", { className: "saber-bloom" }), /* @__PURE__ */ React.createElement("div", { className: "saber-blade ghost-2 ghost" }), /* @__PURE__ */ React.createElement("div", { className: "saber-blade ghost" }), /* @__PURE__ */ React.createElement("div", { className: "saber-blade" }), arcs.map((a, i) => /* @__PURE__ */ React.createElement("div", { key: "a" + i, className: "saber-arc", style: {
+    position: "absolute",
+    left: 4,
+    top: -0.75,
+    width: `${a.len}px`,
+    transform: `rotate(${a.rot}deg)`,
+    animationDelay: `${a.delay}ms`
+  } })), /* @__PURE__ */ React.createElement("div", { className: "saber-hilt" })), /* @__PURE__ */ React.createElement("div", { className: "saber-origin" }), /* @__PURE__ */ React.createElement("div", { className: "saber-shockwave" }), /* @__PURE__ */ React.createElement("div", { className: "saber-shockwave s2" }), sparks.map((s, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "saber-spark", style: {
+    "--sx": `${s.sx}px`,
+    "--sy": `${s.sy}px`,
+    width: s.size,
+    height: s.size,
+    animationDelay: `${s.delay}ms`
+  } })));
+};
 
 
 /* ===== filterbar ===== */
