@@ -498,6 +498,17 @@ Respond ONLY with a JSON array — one object per email, in order:
 [{{"label":"expense|income|ignore","amount":0.00,"merchant":"...","category":"...","txn_date":"...","confidence":0.0,"email_type":"...","source_currency":"USD or null"}},...]"""
 
 
+_CORRECTION_BLOCK = """
+═══════════════════════════════════════════════════════════════
+CORRECTION REQUEST — Your previous response had errors
+═══════════════════════════════════════════════════════════════
+{errors}
+
+Please re-classify this email. Follow the CLASSIFICATION RULES exactly.
+Use ONLY the categories listed above. Use ONLY valid JSON output format.
+Respond ONLY with corrected JSON. No explanation, no markdown, no code blocks.
+"""
+
 _DEFAULT_CATEGORIES = (
     "Food & Dining, Groceries, Rent, Transport, Travel, Shopping, "
     "Entertainment, Healthcare, Education, Subscriptions, Utilities, "

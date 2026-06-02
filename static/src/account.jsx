@@ -15,7 +15,7 @@ const accountStyles = {
   label: { fontSize: 13, fontWeight: 500, color: "var(--ink)" },
   sub: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 },
   input: { padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" },
-  btn: { padding: "8px 14px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
+  btn: { padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
   btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
   btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
   toggle: { width: 36, height: 20, borderRadius: 20, padding: 2, border: "none", cursor: "pointer", transition: "background 160ms", display: "flex", alignItems: "center" },

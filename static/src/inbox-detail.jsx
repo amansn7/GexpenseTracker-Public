@@ -432,7 +432,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       <div style={inboxStyles.panelSection}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Email excerpt</div>
-          <button onClick={handleFetchBody} style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "var(--paper)", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}>
+          <button onClick={handleFetchBody} style={{ fontSize: 11, padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}>
             Fetch body
           </button>
         </div>
@@ -515,8 +515,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "8px 0", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}>Discard</button>
-              <button onClick={handleConfirm} style={{ flex: 2, padding: "8px 0", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply changes</button>
+              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>Discard</button>
+              <button onClick={handleConfirm} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply changes</button>
             </div>
           </div>
         )}
@@ -552,7 +552,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
           <div style={{ flex: 1, padding: "4px 8px", textAlign: "center", fontSize: 11, fontWeight: 600, color: reclassMethod === "rules" ? "var(--paper)" : "var(--ink-3)", position: "relative", zIndex: 1 }}>Rules</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
-          <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "var(--paper)", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          <button className="focus-ring" onClick={()=>onUpdate({ flag: !tx.flag })} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: tx.flag ? "var(--accent-soft)" : "transparent", color: tx.flag ? "var(--accent)" : "var(--ink-2)", fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
             <Icon name={tx.flag ? "star-f" : "star"} size={13} stroke={tx.flag ? "var(--accent)" : "currentColor"} />
             {tx.flag ? "Flagged" : "Flag"}
           </button>

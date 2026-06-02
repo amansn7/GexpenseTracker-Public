@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.classifier.context import ClassificationContext
+from app.classifier.llm.prompts import _DEFAULT_CATEGORIES
 from app.classifier.llm_client import MultiLLMClient, llm_client
 from app.classifier.merchant import extract_raw_merchant
 from app.classifier.merchant_entity import resolve_merchant
@@ -87,6 +88,47 @@ def _validate_llm_amount(amount, confidence, status):
         # Flag for review even if confidence is high
         return amount, TransactionStatus.needs_review, True
     return amount, status, False
+
+
+def _validate_llm_classification(
+    llm_result,
+    user_categories: str | None,
+) -> list[str]:
+    """Validate LLM classification output against application standards.
+
+    Returns a list of human-readable error descriptions (empty = valid).
+    These errors are fed back to the LLM for a correction retry.
+    """
+    errors: list[str] = []
+
+    # 1. Label must be a known value
+    if llm_result.label not in ("expense", "income", "ignore", "self_transfer"):
+        errors.append(
+            f"label '{llm_result.label}' is not valid. "
+            "Must be exactly one of: expense, income, ignore, self_transfer."
+        )
+        return errors
+
+    # 2. Category must be recognized by the application
+    if llm_result.label in ("expense", "income") and llm_result.category:
+        resolved = CategoryService.resolve(llm_result.category, is_income=llm_result.label == "income")
+        raw_lower = llm_result.category.strip().lower()
+        if resolved == "other" and raw_lower not in ("other", "cash"):
+            valid = user_categories or _DEFAULT_CATEGORIES
+            errors.append(
+                f"category '{llm_result.category}' is not recognized. "
+                f"Choose EXACTLY from this list: {valid}. "
+                "Do not modify or invent categories."
+            )
+
+    # 3. Merchant should be present for expense transactions
+    if llm_result.label == "expense" and not llm_result.merchant:
+        errors.append(
+            "merchant is missing for an expense transaction. "
+            "Extract the merchant/payee name from the email body."
+        )
+
+    return errors
 
 
 logger = structlog.get_logger()
@@ -322,6 +364,46 @@ async def classify_email(ctx: ClassificationContext) -> ClassificationResult:
         source_currency = llm_result.source_currency
         if source_currency and source_currency not in SUPPORTED_CURRENCIES:
             source_currency = None
+
+        # ── Validate LLM output and retry if needed ────────────────────────
+        if not result_warnings:
+            validation_errors = _validate_llm_classification(llm_result, user_categories)
+            if validation_errors and active_client:
+                logger.info(
+                    "llm_validation_retry",
+                    email_id=ctx.email_id,
+                    errors=validation_errors,
+                )
+                correction_hint = "\n".join(f"- {e}" for e in validation_errors)
+                try:
+                    retry_verbose = await active_client.classify_verbose(
+                        ctx.sender,
+                        ctx.subject,
+                        body_snippet,
+                        categories=user_categories,
+                        pre_extraction=pre_extraction,
+                        correction_hint=correction_hint,
+                    )
+                    retry_result = retry_verbose["result"]
+                    retry_errors = _validate_llm_classification(retry_result, user_categories)
+                    if len(retry_errors) < len(validation_errors):
+                        llm_result = retry_result
+                        provider = retry_verbose["provider"]
+                        model_name = retry_verbose["model"]
+                        raw_response = retry_verbose["raw_response"]
+                        logger.info("llm_validation_retry_accepted", email_id=ctx.email_id)
+                        if ctx.session and ctx.user_id:
+                            await record_llm_spend(
+                                ctx.session,
+                                ctx.user_id,
+                                provider,
+                                model_name,
+                                estimated_cost=_COST_PER_CALL_ESTIMATE,
+                            )
+                    else:
+                        logger.info("llm_validation_retry_rejected", email_id=ctx.email_id, errors=retry_errors)
+                except Exception as exc:
+                    logger.warning("llm_validation_retry_failed", email_id=ctx.email_id, error=str(exc))
 
         # Override LLM amount with pre-extraction (regex is more reliable for amounts)
         if pre_extraction.get("amount") is not None:
@@ -687,6 +769,67 @@ async def batch_classify_emails(
 
                             # Validate LLM-extracted amount
                             amount, status, _ = _validate_llm_amount(amount, confidence, status)
+
+                            # Validate full LLM output and retry individual item if needed
+                            errors = _validate_llm_classification(llm_res, user_categories)
+                            if errors and client:
+                                    logger.info("batch_llm_validation_retry", email_id=email_id, errors=errors)
+                                    correction_hint = "\n".join(f"- {e}" for e in errors)
+                                    try:
+                                        retry_verbose = await client.classify_verbose(
+                                            sender,
+                                            subject,
+                                            snippet,
+                                            categories=user_categories,
+                                            correction_hint=correction_hint,
+                                        )
+                                        retry_res = retry_verbose["result"]
+                                        retry_errors = _validate_llm_classification(retry_res, user_categories)
+                                        if len(retry_errors) < len(errors):
+                                            llm_res = retry_res
+                                            raw_merchant = llm_res.merchant
+                                            merchant_info = (
+                                                resolve_merchant(raw_merchant)
+                                                if raw_merchant
+                                                else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+                                            )
+                                            merchant = merchant_info["canonical"] or None
+                                            try:
+                                                label = Label(llm_res.label)
+                                            except ValueError:
+                                                label = Label.ignore
+                                            amount = llm_res.amount
+                                            category = llm_res.category
+                                            confidence = llm_res.confidence
+                                            txn_date = _parse_date(llm_res.txn_date)
+                                            source_currency_batch = llm_res.source_currency
+                                            if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
+                                                source_currency_batch = None
+                                            if amount is not None and source_currency_batch and source_currency_batch != default_currency:
+                                                try:
+                                                    converted = await convert_amount(amount, source_currency_batch, default_currency)
+                                                    amount = converted
+                                                except Exception:
+                                                    source_currency_batch = None
+                                            if label == Label.ignore and category == "CC Payment":
+                                                txn_type = "cc_payment"
+                                            elif category == "Investment":
+                                                txn_type = "investment"
+                                            elif label == Label.income:
+                                                txn_type = "income"
+                                            elif label == Label.expense:
+                                                txn_type = "purchase"
+                                            else:
+                                                txn_type = None
+                                            status = (
+                                                TransactionStatus.auto
+                                                if confidence >= settings.AUTO_CONFIRM_THRESHOLD
+                                                else TransactionStatus.needs_review
+                                            )
+                                            amount, status, _ = _validate_llm_amount(amount, confidence, status)
+                                            logger.info("batch_llm_validation_retry_accepted", email_id=email_id)
+                                    except Exception as exc:
+                                        logger.warning("batch_llm_validation_retry_failed", email_id=email_id, error=str(exc))
 
                             results[idx] = ClassificationResult(
                                 label=label,

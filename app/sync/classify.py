@@ -42,7 +42,7 @@ async def _apply_pre_filter(
 
         pf_result = await pre_filter_engine.evaluate(
             subject=msg.get("subject", ""),
-            snippet=msg.get("body_snippet", ""),
+            snippet=msg.get("body_text") or msg.get("body_snippet", ""),
             sender_domain=msg.get("sender_domain", ""),
             session=session,
             user_llm_client=user_llm_client,

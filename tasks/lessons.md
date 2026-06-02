@@ -54,6 +54,21 @@ const DashboardView = () => {
 1. When adding reclassify-as-you-go UX, **decouple AI suggestion from user edit**. Instead of calling the reclassify-commit API (which re-runs AI extraction), use PATCH endpoints with user-edited fields directly. Users can override label/amount/merchant/category independently of the AI.
 2. For bulk operations, offer optional amount + merchant override fields alongside label/category in the modal. Pre-fill from the most recent selection, leave blank = keep current value.
 
+## Production DB: Transaction Queries
+
+### Always JOIN via emails for user-scoped queries
+Transactions have no `user_id` column — user ownership is through `emails.user_id`. Any user-scoped transaction query must `JOIN emails ON t.email_id = e.id WHERE e.user_id = $1`.
+
+### Use correct user UUID
+The real user's ID is `2656a055-97be-441a-8071-1782b42b51ba` (amansn7@gmail.com). The service user is `564d8655-d7fa-4024-9248-4a1d619a9929` (service@localhost). Double-check before querying.
+
+### asyncpg with Railway SSH
+- asyncpg connections run in autocommit mode by default — `await c.commit()` is not needed and will raise `AttributeError`.
+- Use `await c.fetch()` / `await c.fetchrow()` for SELECT, `await c.execute()` for UPDATE — changes take effect immediately.
+
+### Redeploy after frontend fixes
+Frontend JS changes require a manual `railway up --detach` — Railway does not auto-deploy from every git push if the build hook differs from the deploy trigger.
+
 ## Alembic Migrations
 
 ### PostgreSQL DDL Compatibility

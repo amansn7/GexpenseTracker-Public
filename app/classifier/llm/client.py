@@ -10,6 +10,7 @@ import httpx
 from app.classifier.llm.parsing import LLMClassification, parse_batch_response, parse_response
 from app.classifier.llm.prompts import (
     _BATCH_USER_TEMPLATE,
+    _CORRECTION_BLOCK,
     _DEFAULT_CATEGORIES,
     _SYSTEM,
     _USER_TEMPLATE,
@@ -140,6 +141,7 @@ class MultiLLMClient:
         body_snippet: str,
         categories: str | None = None,
         pre_extraction: dict | None = None,
+        correction_hint: str | None = None,
     ) -> LLMClassification:
         ranked = self._ranked_providers()
         if ranked and not _llm_spend_tracker.within_budget(settings.DAILY_LLM_BUDGET):
@@ -166,6 +168,8 @@ class MultiLLMClient:
             body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
+        if correction_hint:
+            prompt += _CORRECTION_BLOCK.format(errors=correction_hint)
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
         last_error: Exception | None = None
@@ -320,6 +324,7 @@ class MultiLLMClient:
         body_snippet: str,
         categories: str | None = None,
         pre_extraction: dict | None = None,
+        correction_hint: str | None = None,
     ) -> dict:
         """Like classify() but also returns prompt, raw response, and provider name."""
         ranked = self._ranked_providers()
@@ -340,6 +345,8 @@ class MultiLLMClient:
             body_snippet=_escape(body_snippet),
             categories=categories or _DEFAULT_CATEGORIES,
         )
+        if correction_hint:
+            prompt += _CORRECTION_BLOCK.format(errors=correction_hint)
         if pre_extraction:
             prompt = build_pre_extraction_block(pre_extraction) + prompt
         last_error: Exception | None = None

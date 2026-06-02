@@ -55,7 +55,15 @@ async def run_sync_range(
             creds = await get_credentials_for_user(session, user_id)
             if not creds:
                 raise RuntimeError("Gmail not authenticated")
-            messages, _ = await fetch_new_messages(None, "all", creds, after_date, before_date, query_extra)
+
+            existing_ids_result = await session.execute(
+                select(Email.gmail_id).where(Email.user_id == user_id) if user_id else select(Email.gmail_id)
+            )
+            existing_gmail_ids = {row[0] for row in existing_ids_result.all()}
+
+            messages, _ = await fetch_new_messages(
+                None, "all", creds, after_date, before_date, query_extra, existing_gmail_ids=existing_gmail_ids
+            )
         except Exception as exc:
             logger.error("fetch-range: Gmail fetch failed: %s", exc)
             prog.update({"phase": "error", "running": False, "error": str(exc)})
@@ -112,6 +120,10 @@ async def run_sync_range(
             from app.dedup.service import batch_detect_duplicates
 
             await batch_detect_duplicates(new_transactions, session, user_id)
+
+            from app.classifier.merchant import learn_pending_aliases
+
+            await learn_pending_aliases(session)
 
         prog["phase_detail"] = "Backfilling missing body text..."
 
