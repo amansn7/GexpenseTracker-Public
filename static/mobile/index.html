@@ -839,18 +839,40 @@ body { margin: 0; padding: 0; background: var(--bg, #F7F7F4); }
 </head>
 <body>
 
-<div id="err-overlay" style="display:none;position:fixed;inset:0;z-index:999999;background:#fff;padding:20px;font-family:monospace;font-size:12px;color:#c00;overflow:auto;white-space:pre-wrap;"></div>
+<div id="err-overlay" style="position:fixed;inset:0;z-index:999999;background:#fff;padding:20px;font-family:monospace;font-size:12px;color:#333;overflow:auto;white-space:pre-wrap;">Loading Gexpense...\n\n</div>
 <script>
-window.onerror = function(msg, src, line, col, err) {
+(function() {
   var el = document.getElementById('err-overlay');
-  el.style.display = 'block';
-  el.textContent += 'ERROR: ' + msg + '\n  at ' + src + ':' + line + ':' + col + '\n\n';
-};
-window.addEventListener('unhandledrejection', function(e) {
-  var el = document.getElementById('err-overlay');
-  el.style.display = 'block';
-  el.textContent += 'PROMISE REJECTION: ' + (e.reason?.message || e.reason) + '\n' + (e.reason?.stack || '') + '\n\n';
-});
+  el.textContent += 'Step 1: HTML loaded\n';
+  window.onerror = function(msg, src, line, col, err) {
+    el.style.color = '#c00';
+    el.textContent += 'JS ERROR: ' + msg + '\n  at ' + (src||'').split('/').pop() + ':' + line + '\n\n';
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    el.style.color = '#c00';
+    el.textContent += 'UNHANDLED: ' + (e.reason?.message || String(e.reason)) + '\n\n';
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    el.textContent += 'Step 2: DOM ready\n';
+    el.textContent += 'React: ' + (typeof React !== 'undefined' ? 'OK' : 'MISSING') + '\n';
+    el.textContent += 'window.App: ' + (typeof window.App) + '\n';
+  });
+  window.addEventListener('load', function() {
+    el.textContent += 'Step 3: Window loaded\n';
+    el.textContent += 'React: ' + (typeof React !== 'undefined' ? React.version : 'MISSING') + '\n';
+    el.textContent += 'window.App: ' + (typeof window.App) + '\n';
+    // Hide overlay if React mounted something
+    setTimeout(function() {
+      var root = document.getElementById('root');
+      if (root && root.children.length > 0) {
+        el.style.display = 'none';
+      } else {
+        el.textContent += '\nERROR: #root is empty after 2s\n';
+        el.style.color = '#c00';
+      }
+    }, 2000);
+  });
+})();
 </script>
 <div class="top">
   <div class="brand-pill">
