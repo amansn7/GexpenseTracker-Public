@@ -653,13 +653,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
 
     // Build API patch object
     const apiPatch = {};
-    if (patch.tag   !== undefined) apiPatch.label     = patch.tag;
-    if (patch.cat    !== undefined) apiPatch.category   = patch.cat;
-    if (patch.note   !== undefined) apiPatch.user_notes = patch.note;
-    if (patch.amount !== undefined) apiPatch.amount     = Math.abs(patch.amount);
-    if (patch.read   !== undefined) apiPatch.read       = patch.read;
-    if (patch.flag   !== undefined) apiPatch.flagged    = patch.flag;
-    if (patch.status !== undefined) apiPatch.status     = patch.status;
+    if (patch.tag      !== undefined) apiPatch.label      = patch.tag;
+    if (patch.cat       !== undefined) apiPatch.category    = patch.cat;
+    if (patch.note      !== undefined) apiPatch.user_notes  = patch.note;
+    if (patch.amount    !== undefined) apiPatch.amount      = Math.abs(patch.amount);
+    if (patch.merchant  !== undefined) apiPatch.merchant    = patch.merchant;
+    if (patch.read      !== undefined) apiPatch.read        = patch.read;
+    if (patch.flag      !== undefined) apiPatch.flagged     = patch.flag;
+    if (patch.status    !== undefined) apiPatch.status      = patch.status;
     if (Object.keys(apiPatch).length === 0) return;
 
     // Debounce: clear pending timer for this id, set new one
@@ -2085,12 +2086,13 @@ const SearchView = ({ query, categoryFilter }) => {
     setResults(rs => rs.map(t => t.id === id ? { ...t, ...patch } : t));
     if (patch._skipApi || patch._delete) return;
     const api = {};
-    if (patch.tag   !== undefined) api.label       = patch.tag;
-    if (patch.cat    !== undefined) api.category   = patch.cat;
-    if (patch.note   !== undefined) api.user_notes = patch.note;
-    if (patch.amount !== undefined) api.amount     = Math.abs(patch.amount);
-    if (patch.read   !== undefined) api.read       = patch.read;
-    if (patch.flag   !== undefined) api.flagged    = patch.flag;
+    if (patch.tag      !== undefined) api.label       = patch.tag;
+    if (patch.cat       !== undefined) api.category   = patch.cat;
+    if (patch.note      !== undefined) api.user_notes = patch.note;
+    if (patch.amount    !== undefined) api.amount     = Math.abs(patch.amount);
+    if (patch.merchant  !== undefined) api.merchant   = patch.merchant;
+    if (patch.read      !== undefined) api.read       = patch.read;
+    if (patch.flag      !== undefined) api.flagged    = patch.flag;
     if (Object.keys(api).length > 0)
       API.patch(`/api/transactions/${id}`, api)
         .then(data => {

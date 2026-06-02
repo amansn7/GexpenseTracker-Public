@@ -182,7 +182,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
       const result = await API.post(`/api/transactions/${tx.id}/reclassify/preview?method=${reclassMethod}`);
       setReclassResult(result);
       setEditDraft({
-        label: result.label || tx.tag,
+        label: tx.tag,
         amount: result.amount != null ? Math.abs(result.amount) : Math.abs(tx.amount),
         merchant: result.merchant || tx.merchant,
         category: result.category || tx.cat,
