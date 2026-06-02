@@ -1967,6 +1967,11 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState(null);
   const closeDelete = () => { if (closingDelete) return; setClosingDelete(true); setTimeout(() => { setShowDeleteModal(false); setClosingDelete(false); }, 150); };
+  const [thresholdLocal, setThresholdLocal] = React.useState(null);
+  const thresholdTimer = React.useRef(null);
+  React.useEffect(() => {
+    setThresholdLocal(null);
+  }, [settings.confidence_threshold]);
   const [show2faModal, setShow2faModal] = React.useState(false);
   const [show2faDisableConfirm, setShow2faDisableConfirm] = React.useState(false);
   const [twoFactorSecret, setTwoFactorSecret] = React.useState("");
@@ -2352,8 +2357,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         </div>
         <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Confidence threshold</div><div style={accountStyles.sub}>flag transactions below this certainty</div></div>
-          <input type="range" min="50" max="95" value={settings.confidence_threshold ?? 70} onChange={e=>updateSetting("confidence_threshold", Number(e.target.value))} style={{ width: "100%" }}/>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-2)", minWidth: 40, textAlign: "right" }}>{settings.confidence_threshold ?? 70}%</span>
+          <input type="range" min="50" max="95" value={thresholdLocal ?? settings.confidence_threshold ?? 70} onChange={e => { const v = Number(e.target.value); setThresholdLocal(v); if (thresholdTimer.current) clearTimeout(thresholdTimer.current); thresholdTimer.current = setTimeout(() => updateSetting("confidence_threshold", v), 250); }} style={{ width: "100%" }}/>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-2)", minWidth: 40, textAlign: "right" }}>{thresholdLocal ?? settings.confidence_threshold ?? 70}%</span>
         </div>
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div>
@@ -2447,15 +2452,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           <div/>
           <Toggle on={!!account?.user?.totp_enabled} onChange={handle2faToggle}/>
         </div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Change password</div><div style={accountStyles.sub}>last changed 42 days ago</div></div>
-          <div/>
-          <button style={accountStyles.btn}>Change…</button>
-        </div>
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
           <div/>
-          <button style={accountStyles.btn}><Icon name="arrow-u-r" size={12}/> Export</button>
+          <button style={accountStyles.btn} onClick={() => window.location.href = "/api/transactions/export"}><Icon name="arrow-u-r" size={12}/> Export</button>
         </div>
       </div>
 
