@@ -1967,6 +1967,13 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState(null);
   const closeDelete = () => { if (closingDelete) return; setClosingDelete(true); setTimeout(() => { setShowDeleteModal(false); setClosingDelete(false); }, 150); };
+  const [show2faModal, setShow2faModal] = React.useState(false);
+  const [show2faDisableConfirm, setShow2faDisableConfirm] = React.useState(false);
+  const [twoFactorSecret, setTwoFactorSecret] = React.useState("");
+  const [twoFactorQrUrl, setTwoFactorQrUrl] = React.useState("");
+  const [twoFactorCode, setTwoFactorCode] = React.useState("");
+  const [twoFactorError, setTwoFactorError] = React.useState(null);
+  const [twoFactorVerifying, setTwoFactorVerifying] = React.useState(false);
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
@@ -1981,8 +1988,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     try {
       const result = await API.patch("/api/account/settings", { [key]: value });
       setAccount(a => ({ ...a, settings: result.settings }));
-    } catch (_) {
+    } catch (e) {
       setAccount(a => ({ ...a, settings }));
+      showToast(e?.message || "Could not save setting");
     }
   };
 
@@ -2005,6 +2013,53 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       setSyncStatus(s => ({ ...(s || {}), email_filter: result.email_filter }));
     } finally {
       setFilterSaving(false);
+    }
+  };
+
+  const handle2faToggle = async () => {
+    if (!account?.user?.totp_enabled) {
+      try {
+        const result = await API.post("/api/account/2fa/setup");
+        setTwoFactorSecret(result.secret);
+        setTwoFactorQrUrl(result.qr_url);
+        setTwoFactorCode("");
+        setTwoFactorError(null);
+        setShow2faModal(true);
+      } catch (e) {
+        showToast(e.message || "Failed to start 2FA setup");
+      }
+    } else {
+      setShow2faDisableConfirm(true);
+    }
+  };
+
+  const handleVerify2fa = async () => {
+    setTwoFactorVerifying(true);
+    setTwoFactorError(null);
+    try {
+      const result = await API.post("/api/account/2fa/verify", { code: twoFactorCode });
+      if (result.ok) {
+        setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: true }, settings: { ...a.settings, two_factor_enabled: true } }));
+        setShow2faModal(false);
+        showToast("2FA enabled");
+      } else {
+        setTwoFactorError(result.error || "Invalid code");
+      }
+    } catch (e) {
+      setTwoFactorError(e.message || "Verification failed");
+    } finally {
+      setTwoFactorVerifying(false);
+    }
+  };
+
+  const handleDisable2fa = async () => {
+    try {
+      await API.delete("/api/account/2fa");
+      setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: false }, settings: { ...a.settings, two_factor_enabled: false } }));
+      setShow2faDisableConfirm(false);
+      showToast("2FA disabled");
+    } catch (e) {
+      showToast(e.message || "Failed to disable 2FA");
     }
   };
 
@@ -2390,7 +2445,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Two-factor authentication</div><div style={accountStyles.sub}>TOTP via authenticator app</div></div>
           <div/>
-          <Toggle on={!!settings.two_factor_enabled} onChange={v=>updateSetting("two_factor_enabled", v)}/>
+          <Toggle on={!!account?.user?.totp_enabled} onChange={handle2faToggle}/>
         </div>
         <div style={{ ...accountStyles.row, ...mqRow }}>
           <div><div style={accountStyles.label}>Change password</div><div style={accountStyles.sub}>last changed 42 days ago</div></div>
@@ -2487,6 +2542,61 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               >
                 {deleting ? "Scheduling…" : "Delete account"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {show2faModal && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up two-factor authentication</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+              Scan the QR code with your authenticator app or enter the secret key manually.
+            </div>
+            {twoFactorQrUrl && (
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <img src={twoFactorQrUrl} alt="2FA QR Code" style={{ width: 180, height: 180, borderRadius: 8 }}/>
+              </div>
+            )}
+            {twoFactorSecret && (
+              <div style={{ marginBottom: 16, background: "var(--paper)", borderRadius: 6, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Manual secret key</div>
+                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: "var(--ink)", wordBreak: "break-all", userSelect: "all" }}>{twoFactorSecret}</div>
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Enter the 6-digit code from your authenticator app:</div>
+            <input
+              value={twoFactorCode}
+              onChange={e => setTwoFactorCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace", textAlign: "center", fontSize: 18, letterSpacing: 4, marginBottom: 16 }}
+              maxLength={6}
+              autoFocus
+            />
+            {twoFactorError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{twoFactorError}</div>}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShow2faModal(false)} disabled={twoFactorVerifying}>Cancel</button>
+              <button
+                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: (twoFactorCode.length === 6 && !twoFactorVerifying) ? 1 : 0.4 }}
+                disabled={twoFactorCode.length !== 6 || twoFactorVerifying}
+                onClick={handleVerify2fa}
+              >
+                {twoFactorVerifying ? "Verifying…" : "Verify & Enable"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {show2faDisableConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable two-factor authentication?</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+              Are you sure you want to disable two-factor authentication? Your account will be less secure.
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShow2faDisableConfirm(false)}>Cancel</button>
+              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisable2fa}>Disable</button>
             </div>
           </div>
         </div>

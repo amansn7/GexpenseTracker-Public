@@ -207,6 +207,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
         category: draft.category,
         txn_date: draft.txn_date || null,
       });
+      window.playConfirmSound();
       setReclass("done");
       const isIgnore = draft.label === "ignore";
       const isIncome = draft.label === "income";

@@ -178,8 +178,9 @@ const App = () => {
           if (data.has_seed_data) setShowSeedModal(true);
           API.get("/api/account/me").then(bundle => {
             if (bundle) {
-              setAccount(prev => ({ ...prev, ...bundle }));
-              CategoryService.init(bundle);
+          setAccount(prev => ({ ...prev, ...bundle }));
+          window._soundEffects = bundle?.settings?.sound_effects;
+          CategoryService.init(bundle);
             }
           }).catch(() => {});
         })

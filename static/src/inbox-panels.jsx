@@ -139,6 +139,7 @@ const IncomeRow = ({ tx, onUpdate }) => {
     onUpdate(tx.id, { status: newStatus, _skipApi: true });
     try {
       await API.patch(`/api/transactions/${tx.id}`, { status: newStatus });
+      window.playConfirmSound();
     } catch (_) {
       onUpdate(tx.id, { status: tx.status, _skipApi: true });
     }

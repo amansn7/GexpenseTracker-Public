@@ -571,6 +571,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const resolveDup = async (pairId, action, primaryTxId) => {
     try {
       await API.patch(`/api/duplicates/${pairId}`, { action, primary_tx_id: primaryTxId });
+      window.playConfirmSound();
       setDupPairs(prev => prev.filter(p => p.id !== pairId));
       setDupSelected(prev => { const n = new Set(prev); n.delete(pairId); return n; });
     } catch (e) {
@@ -592,6 +593,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       } catch (_) {}
     });
     await Promise.allSettled(promises);
+    window.playConfirmSound();
     setDupSelected(new Set());
     setDupBulkResolving(false);
   };
@@ -674,6 +676,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           if (data && data.learned_rule) {
             showToast(<span><Icon name="check" size={12} stroke="var(--pos)"/> Learned: {data.learned_rule.domain} → {data.learned_rule.label} / {data.learned_rule.category}</span>);
           }
+          if (patch.status === "confirmed") window.playConfirmSound();
         })
         .catch(err => {
           console.error("patch failed:", err);
