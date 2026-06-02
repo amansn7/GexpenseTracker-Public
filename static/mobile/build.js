@@ -72,9 +72,17 @@ if (START === -1 || END === -1 || START >= END) {
 
 console.log(`  Splicing: chars ${START}–${END} replaced with new bundle`);
 
-const newHtml = html.slice(0, START)
-  + `<script type="text/babel" data-presets="react">\n// ===== COMPONENTS =====\n${bundle}\n</script>\n\n`
+// Bundle is already compiled by esbuild — use plain <script>, no Babel re-processing
+let newHtml = html.slice(0, START)
+  + `<script>\n// ===== COMPONENTS =====\n${bundle}\n</script>\n\n`
   + html.slice(END);
+
+// Replace text/babel ReactDOM boot with plain script (Babel no longer needed)
+newHtml = newHtml.replace(
+  `<script type="text/babel" data-presets="react">\nReactDOM.createRoot(document.getElementById('root')).render(<App/>);\n</script>`,
+  `<script>\nReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.App));\n</script>`
+);
+
 fs.writeFileSync(HTML, newHtml);
 
 const saved = html.length - newHtml.length;

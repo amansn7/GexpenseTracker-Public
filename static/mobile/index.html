@@ -897,7 +897,7 @@ body { margin: 0; padding: 0; background: var(--bg, #F7F7F4); }
 
 
 <!-- hi-fi/components.jsx -->
-<script type="text/babel" data-presets="react">
+<script>
 // ===== COMPONENTS =====
 
 /* ===== components ===== */
@@ -2272,8 +2272,9 @@ Object.assign(window, { App });
 
 </script>
 
-<script type="text/babel" data-presets="react">
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+<script>
+// App is exported to window by the bundle via Object.assign(window, { App })
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.App));
 </script>
 
 
