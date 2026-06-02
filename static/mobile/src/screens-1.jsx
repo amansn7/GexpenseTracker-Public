@@ -45,7 +45,8 @@ const Dashboard = ({ onNavigate, onAdd }) => {
       if (me?.name) setUserName(me.name);
       if (txData?.items?.length) {
         setTxs(txData.items.slice(0,5).map(t=>
-          [t.category||'other', t.merchant||'Unknown', '', _fmtDay(t.txn_date), Math.abs(t.amount||0), _fmtDay(t.txn_date)]
+          // [category, merchant, note, time, amount, dayLabel, id, txn_date, label]
+          [t.category||'other', t.merchant||'Unknown', t.user_notes||'', '', Math.abs(t.amount||0), _fmtDay(t.txn_date), t.id, t.txn_date, t.label||'expense']
         ));
       } else {
         setTimeout(() => setPct(70), 200);
@@ -177,7 +178,12 @@ const Dashboard = ({ onNavigate, onAdd }) => {
 
         <div className="card fade-up fade-up-5" style={{padding:'4px 0', marginBottom: 30}}>
           {txs.map((r, i) => (
-            <div key={i} onClick={() => onNavigate('tx', { merchant:r[1], note:r[2], time:r[3], amount:r[4], category:r[0], categoryLabel:r[0][0].toUpperCase()+r[0].slice(1), source:'Gmail', sourceDetail:'Gmail receipt', dateLong:'Apr 27, 2026', account:'HDFC ••1042', id:'tx_'+i, type:'expense', aiTags:['Auto-categorized'] })} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<txs.length-1 ? '1px solid var(--line)' : 'none', cursor:'pointer'}}>
+            <div key={i} onClick={() => onNavigate('tx', {
+                id: r[6] || null, merchant: r[1], note: r[2], time: r[3],
+                amount: r[4], category: r[0], label: r[8] || 'expense',
+                type: r[8]==='income'?'income':'expense',
+                source: 'gmail', txn_date: r[7], dateLong: r[5],
+              })} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<txs.length-1 ? '1px solid var(--line)' : 'none', cursor:'pointer'}}>
               <CatIcon kind={r[0]}/>
               <div style={{flex:1, minWidth:0}}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8}}>
@@ -201,11 +207,10 @@ const Dashboard = ({ onNavigate, onAdd }) => {
 // TRANSACTIONS
 // ============================================================
 const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen = () => {}, onSearch = () => {} }) => {
-  const filters = useFilters({
-    time: filterPreset === 'this-month' ? 'month' : 'month',
-    type: filterPreset === 'this-month' ? 'all' : 'all',
-  });
-  const [showMore, setShowMore] = useState(false);
+  const filters = useFilters({ time: 'month', type: 'all' });
+  const [showMore,    setShowMore]    = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch,  setShowSearch]  = useState(false);
   const [allRows, setAllRows] = useState([
     { day:'Today', dayOffset:0, items:[
       {category:'food',merchant:'Swiggy',note:'Dinner — Toit',time:'9:12 PM',amount:420,source:'gmail',account:'cards',type:'expense'},
@@ -231,7 +236,7 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
         grouped[key].push({
           category: tx.category || 'other',
           merchant: tx.merchant || 'Unknown',
-          note: '',
+          note: tx.user_notes || '',
           time: '',
           amount: Math.abs(tx.amount || 0),
           source: tx.source || 'manual',
@@ -241,6 +246,7 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
           status: tx.status,
           label: tx.label,
           txn_date: tx.txn_date,
+          user_notes: tx.user_notes || '',
         });
       });
       const rows = Object.entries(grouped)
@@ -254,9 +260,15 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
     }).catch(() => {});
   }, []);
 
-  // apply filters
+  const _matchesSearch = (r) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (r.merchant||'').toLowerCase().includes(q) || (r.note||'').toLowerCase().includes(q) || (r.category||'').toLowerCase().includes(q);
+  };
+
+  // apply filters + search
   const groups = allRows
-    .map(g => ({ ...g, items: g.items.filter(r => rowMatches({ ...r, dayOffset: g.dayOffset }, filters.values)) }))
+    .map(g => ({ ...g, items: g.items.filter(r => rowMatches({ ...r, dayOffset: g.dayOffset }, filters.values) && _matchesSearch(r)) }))
     .filter(g => g.items.length > 0);
 
   const totalShown = groups.reduce((acc, g) => acc + g.items.length, 0);
@@ -270,49 +282,77 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
     ['Income this month', { time:'month', type:'income', cats:[] }],
   ];
 
+  const _curMonth = () => new Date().toLocaleString('en-IN', { month:'long' });
+
   return (
     <div className="scroll" data-screen-label="03 Transactions">
       <div style={{padding:'8px 22px 0'}}>
-        <div className="fade-up fade-up-1" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 16}}>
-          <div className="h2">Activity</div>
-          <div style={{display:'flex', gap:8}}>
-            <button className="btn-ghost btn" style={{padding:'8px', borderRadius:'50%', width:36, height:36, display:'grid', placeItems:'center'}}><Icon name="search" size={16}/></button>
-            <button className="btn-ghost btn" style={{padding:'8px', borderRadius:'50%', width:36, height:36, display:'grid', placeItems:'center'}}><Icon name="filter" size={16}/></button>
-          </div>
+
+        {/* header + search toggle */}
+        <div className="fade-up fade-up-1" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+          {showSearch ? (
+            <div style={{flex:1, display:'flex', gap:8, alignItems:'center'}}>
+              <input autoFocus value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search transactions…"
+                style={{flex:1, padding:'8px 12px', borderRadius:10, border:'1.5px solid var(--brand)', background:'var(--surface-2)', fontFamily:'inherit', fontSize:14, outline:'none', color:'var(--ink)'}}
+              />
+              <button onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="btn btn-ghost" style={{padding:'8px 10px', fontSize:12, fontWeight:600, color:'var(--brand)'}}>Done</button>
+            </div>
+          ) : (
+            <>
+              <div className="h2">Activity</div>
+              <div style={{display:'flex', gap:6}}>
+                <button onClick={() => setShowSearch(true)} className="btn-ghost btn" style={{padding:8, borderRadius:'50%', width:36, height:36, display:'grid', placeItems:'center'}}>
+                  <Icon name="search" size={16}/>
+                </button>
+                <button onClick={() => setShowMore(true)} className="btn-ghost btn" style={{padding:8, borderRadius:'50%', width:36, height:36, display:'grid', placeItems:'center'}}>
+                  <Icon name="filter" size={16}/>
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
-        {filterPreset === 'this-month' && (
+        {/* filter preset banner */}
+        {filterPreset && (
           <div className="card fade-up fade-up-1" style={{padding:'10px 14px', marginBottom:12, background:'var(--brand-soft)', border:'1px solid color-mix(in srgb, var(--brand) 22%, transparent)', display:'flex', alignItems:'center', gap:10}}>
-            <div style={{width:28, height:28, borderRadius:8, background:'var(--brand)', color:'#fff', display:'grid', placeItems:'center', flexShrink:0}}>
-              <Icon name="filter" size={14}/>
-            </div>
-            <div style={{flex:1, minWidth:0}}>
-              <div style={{fontSize:13, fontWeight:600, color:'var(--ink)'}}>April expenses · late-March income</div>
-              <div className="small" style={{marginTop:1}}>Showing this month's spend & last week of March income</div>
-            </div>
-            <button className="btn-ghost btn" onClick={onClearPreset} style={{padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--brand)'}}>Clear</button>
+            <div style={{flex:1, fontSize:13, fontWeight:600, color:'var(--ink)'}}>Filtered view</div>
+            <button onClick={onClearPreset} className="btn btn-ghost" style={{padding:'6px 10px', fontSize:11, fontWeight:600, color:'var(--brand)'}}>Clear</button>
           </div>
         )}
 
-        {/* summary tile — driven by filtered totals */}
+        {/* search active indicator */}
+        {searchQuery && (
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+            <span className="small" style={{color:'var(--ink-3)'}}>Results for "{searchQuery}"</span>
+            <button onClick={() => setSearchQuery('')} className="btn-ghost btn" style={{padding:'2px 8px', fontSize:11, color:'var(--err)'}}>Clear</button>
+          </div>
+        )}
+
+        {/* summary tile */}
         <div className="card fade-up fade-up-2" style={{padding:14, marginBottom:14}}>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
+          <div style={{display:'grid', gridTemplateColumns: sumInc > 0 && filters.values.type === 'all' ? '1fr 1fr 1fr' : '1fr 1fr', gap:8, alignItems:'baseline'}}>
             <div>
-              <div className="label">{filters.values.type === 'income' ? 'Income' : filters.values.type === 'expense' ? 'Spent' : 'Net'}</div>
-              <div className="tabular" style={{fontSize: 26, fontWeight: 600, letterSpacing:'-0.02em', marginTop:2}}>
-                {filters.values.type === 'income' ? '+' : filters.values.type === 'expense' ? '−' : ''}₹{(filters.values.type==='income'?sumInc:filters.values.type==='expense'?sumExp:Math.abs(sumInc-sumExp)).toLocaleString('en-IN')}
+              <div className="label">Expenses</div>
+              <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ink)'}}>
+                −₹{sumExp.toLocaleString('en-IN')}
               </div>
-            </div>
-            <div style={{textAlign:'right'}}>
-              <div className="label">Transactions</div>
-              <div className="tabular" style={{fontSize: 18, fontWeight:600, marginTop:2}}>{totalShown}</div>
             </div>
             {sumInc > 0 && filters.values.type === 'all' && (
-              <div style={{textAlign:'right'}}>
+              <div>
                 <div className="label">Income</div>
-                <div className="tabular" style={{fontSize: 18, fontWeight:600, marginTop:2, color:'var(--ok)'}}>+₹{sumInc.toLocaleString('en-IN')}</div>
+                <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ok)'}}>
+                  +₹{sumInc.toLocaleString('en-IN')}
+                </div>
               </div>
             )}
+            <div style={{textAlign:'right'}}>
+              <div className="label">{totalShown} item{totalShown !== 1 ? 's' : ''}</div>
+              {filters.values.type === 'income' ? (
+                <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ok)'}}>+₹{sumInc.toLocaleString('en-IN')}</div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -345,7 +385,15 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
                 {g.items.map((r, i) => {
                   const isIncome = r.type === 'income';
                   return (
-                    <div key={i} onClick={() => onTxOpen({ merchant:r.merchant, note:r.note, time:r.time, amount:r.amount, category:r.category, categoryLabel:r.category[0].toUpperCase()+r.category.slice(1), source:r.source[0].toUpperCase()+r.source.slice(1), sourceDetail:r.source+' receipt', dateLong:g.day, account:'HDFC ••1042', id:'tx_'+gi+'_'+i, type:r.type, aiTags:isIncome?[]:['Auto-categorized'] })} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<g.items.length-1 ? '1px solid var(--line)' : 'none', cursor:'pointer'}}>
+                    <div key={i} onClick={() => onTxOpen({
+                        id: r.id || null,
+                        merchant: r.merchant, note: r.note || r.user_notes || '',
+                        amount: r.amount, category: r.category,
+                        label: r.label, type: r.type,
+                        source: r.source, txn_date: r.txn_date,
+                        dateLong: g.day, user_notes: r.user_notes || '',
+                        status: r.status,
+                      })} style={{display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<g.items.length-1 ? '1px solid var(--line)' : 'none', cursor:'pointer'}}>
                       <CatIcon kind={r.category}/>
                       <div style={{flex:1, minWidth:0}}>
                         <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8}}>
