@@ -4,6 +4,17 @@ const { useState, useEffect, useRef } = React;
 // ============================================================
 // DASHBOARD
 // ============================================================
+// Force live stats computation by spanning into next month (bypasses PeriodRollup cache)
+const _liveMonthParams = () => {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const from = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const nextM = m === 11 ? 1 : m + 2;
+  const nextY = m === 11 ? y + 1 : y;
+  const to   = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+  return `date_from=${from}&date_to=${to}`;
+};
+
 const _CAT_COLORS = ['var(--brand)','var(--ink-2)','#1F4FA8','#5530A8','var(--ink-4)','#C77A0F','#C0392B'];
 const _fmtDay = d => { if(!d) return ''; const t=new Date(); t.setHours(0,0,0,0); const v=new Date(d+'T00:00:00'); const df=Math.round((t-v)/86400000); return df===0?'Today':df===1?'Yesterday':v.toLocaleDateString('en-IN',{month:'short',day:'numeric'}); };
 
@@ -30,11 +41,11 @@ const Dashboard = ({ onNavigate, onAdd }) => {
 
   useEffect(() => {
     Promise.all([
-      GxAPI.get('/api/stats/summary?period=1m'),
+      GxAPI.get('/api/stats/summary?' + _liveMonthParams()),
       GxAPI.get('/api/transactions?limit=5&offset=0'),
       GxAPI.get('/api/budgets'),
       GxAPI.get('/api/auth/me'),
-      GxAPI.get('/api/stats/category-breakdown?period=1m'),
+      GxAPI.get('/api/stats/category-breakdown?' + _liveMonthParams()),
     ]).then(([stats, txData, budgetsData, me, catsData]) => {
       const s = stats?.total_expenses || 42180;
       const b = budgetsData?.budgets?.length
@@ -226,7 +237,8 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
   ]);
 
   useEffect(() => {
-    GxAPI.get('/api/transactions?limit=50&offset=0').then(data => {
+    const _txDateFrom = (() => { const d = new Date(); d.setMonth(d.getMonth()-2); d.setDate(1); return d.toISOString().split('T')[0]; })();
+    GxAPI.get(`/api/transactions?limit=200&offset=0&date_from=${_txDateFrom}`).then(data => {
       if (!data?.items?.length) return;
       const today = new Date(); today.setHours(0,0,0,0);
       const grouped = {};
@@ -467,8 +479,8 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
     const apiPeriod = period === 'W' ? '1m' : period === 'Y' ? '1y' : '1m';
 
     Promise.all([
-      GxAPI.get(`/api/stats/summary?period=${apiPeriod}`),
-      GxAPI.get(`/api/stats/category-breakdown?period=${apiPeriod}`),
+      GxAPI.get(period === 'M' ? `/api/stats/summary?${_liveMonthParams()}` : `/api/stats/summary?period=${apiPeriod}`),
+      GxAPI.get(period === 'M' ? `/api/stats/category-breakdown?${_liveMonthParams()}` : `/api/stats/category-breakdown?period=${apiPeriod}`),
       GxAPI.get(`/api/stats/income-vs-expense?period=${apiPeriod}`),
       GxAPI.get('/api/insights'),
     ]).then(([stats, catsData, trendData, insightsData]) => {
