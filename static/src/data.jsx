@@ -135,8 +135,9 @@ const transformTransaction = (t) => {
 const buildFlowSummary = (transactions, summary, catBreakdown, rangeFrom, rangeTo) => {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  const rangeStart = rangeFrom ? new Date(rangeFrom) : new Date();
-  const rangeEnd = rangeTo ? new Date(rangeTo) : new Date();
+  const txnDates = transactions.map(t => t.date ? new Date(t.date) : null).filter(Boolean);
+  const rangeStart = rangeFrom ? new Date(rangeFrom) : (txnDates.length ? new Date(Math.min(...txnDates)) : new Date());
+  const rangeEnd = rangeTo ? new Date(rangeTo) : (txnDates.length ? new Date(Math.max(...txnDates)) : new Date());
   const totalDays = Math.max(1, Math.round((rangeEnd - rangeStart) / 86400000) + 1);
   const segSize = Math.max(1, Math.ceil(totalDays / 4));
 

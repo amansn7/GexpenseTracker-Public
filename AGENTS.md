@@ -76,6 +76,8 @@ Use this when you need `asyncpg`, SQLAlchemy ORM, or access to app modules (`fro
 - **DB driver:** Always use `+asyncpg` in DATABASE_URL (`postgresql+asyncpg://`). The app's `config.py` auto-converts `postgres://` → `postgresql+asyncpg://`.
 - **Session reuse:** After `session.commit()`, ORM objects are expired. Read needed fields before commit to avoid `MissingGreenlet` errors.
 - **Rollups:** `recompute_month()` ends with `await db.flush()`, not `commit()`. Callers must commit separately.
+- **Salary shift:** Income in the last N days of a month is attributed to the next month via `recompute_month()` (not `_effective_month()`, which is just `day=1`). Always check `salary_shift_enabled` + `salary_shift_window` in `user_settings` before modifying production transaction dates — moving income in/out of the shift window changes rollup attribution.
+- **recompute_month via SSH:** Import `app.config.settings` first (its DATABASE_URL has `+asyncpg`), then `from app.services.stats_service import recompute_month`. Using `settings.DATABASE_URL` with `create_async_engine` avoids the psycopg2 driver detection issue.
 
 ## Claude/Codex layout
 

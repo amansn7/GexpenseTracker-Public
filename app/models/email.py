@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid_col
@@ -22,6 +22,8 @@ class Email(Base):
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     body_snippet: Mapped[str | None] = mapped_column(Text)
     body_text: Mapped[str | None] = mapped_column(Text)
+    body_dates: Mapped[list[date] | None] = mapped_column(JSON, nullable=True)
+    reference_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     gmail_link: Mapped[str | None] = mapped_column(String(500))
     synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     pre_filter_status: Mapped[str] = mapped_column(

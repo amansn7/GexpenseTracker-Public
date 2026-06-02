@@ -2,7 +2,7 @@ import logging
 import re
 import uuid
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -36,6 +36,143 @@ def _normalize_amount(raw: Any) -> float | None:
 
 
 # ── Merchant similarity ─────────────────────────────────────────────────────
+# ── Body metadata extraction (dates + reference IDs) ──────────────────────
+_MONTH_NAMES = r"Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?"
+_MONTH_MAP = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+_DATE_PATTERNS = [
+    # DD/MM/YYYY or DD-MM-YYYY
+    re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b"),
+    # DD/MM/YY
+    re.compile(r"\b(\d{1,2})[/-](\d{1,2})[/-](\d{2})\b"),
+    # "15 March 2024" or "15 Mar 2024"
+    re.compile(r"\b(\d{1,2})\s+(" + _MONTH_NAMES + r")\s+(\d{4})\b", re.IGNORECASE),
+    # "March 15, 2024" or "Mar 15, 2024"
+    re.compile(r"\b(" + _MONTH_NAMES + r")\s+(\d{1,2}),?\s+(\d{4})\b", re.IGNORECASE),
+]
+
+# Individual ref patterns (longer alternatives first to avoid false prefixes)
+_REF_PATTERNS = [
+    re.compile(r"Order(?:[-\s]*(?:Number|ID|Id|id|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"Ref(?:erence)?(?:\.?\s*(?:Number|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Transaction|Txn|txn)(?:[-\s]*(?:ID|Id|id|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:UTR|NEFT|IMPS|RTGS|UPI)(?:[-\s]*(?:Number|Ref|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Invoice|Inv)(?:[-\s]*(?:Number|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Payment|Pmt)(?:[-\s]*(?:Ref|ID|Id|id|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Booking|Reservation)(?:[-\s]*(?:ID|Id|id|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:SIP|Folio)(?:[-\s]*(?:Registration|Number|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Policy|Pol)(?:[-\s]*(?:Number|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+    re.compile(r"(?:Ticket|tkt)(?:[-\s]*(?:ID|Id|id|No|#))?\s*[:;.\-]?\s*([A-Za-z0-9][A-Za-z0-9/\-]{3,29})"),
+]
+
+
+def _try_parse_date(parts: tuple[str, str, str], pattern_idx: int) -> date | None:
+    """Parse date components based on which regex pattern matched."""
+    try:
+        if pattern_idx <= 1:
+            # Numeric patterns: DD/MM/YYYY or DD/MM/YY
+            a, b, c = int(parts[0]), int(parts[1]), int(parts[2])
+            if pattern_idx == 0:
+                # DD/MM/YYYY — common in India
+                if a > 12 and b <= 12:
+                    day, month, year = a, b, c
+                elif b > 12 and a <= 12:
+                    month, day, year = a, b, c
+                else:
+                    day, month, year = a, b, c
+            else:
+                # DD/MM/YY
+                if a > 12 and b <= 12:
+                    day, month, year = a, b, c + 2000
+                elif b > 12 and a <= 12:
+                    month, day, year = a, b, c + 2000
+                else:
+                    day, month, year = a, b, c + 2000
+            if not (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2100):
+                return None
+            return date(year, month, day)
+        if pattern_idx == 2:
+            # "15 March 2024"
+            day, month_name, year = int(parts[0]), parts[1].lower()[:3], int(parts[2])
+            month = _MONTH_MAP.get(month_name)
+            if month is None:
+                return None
+            if not (1 <= day <= 31 and 1 <= month <= 12):
+                return None
+            return date(year, month, day)
+        if pattern_idx == 3:
+            # "March 15, 2024"
+            month_name, day, year = parts[0].lower()[:3], int(parts[1]), int(parts[2])
+            month = _MONTH_MAP.get(month_name)
+            if month is None:
+                return None
+            if not (1 <= day <= 31 and 1 <= month <= 12):
+                return None
+            return date(year, month, day)
+        return None
+    except (ValueError, TypeError):
+        return None
+
+
+def _extract_body_dates(body_text: str | None) -> list[str]:
+    """Extract plausible transaction dates from email body text.
+    
+    Returns ISO date strings (YYYY-MM-DD) sorted ascending. Handles Indian
+    date formats: DD/MM/YYYY, DD-MM-YYYY, '15 March 2024', etc.
+    """
+    if not body_text:
+        return []
+    seen: set[date] = set()
+    for idx, pattern in enumerate(_DATE_PATTERNS):
+        for match in pattern.finditer(body_text):
+            groups = match.groups()
+            if len(groups) == 3:
+                d = _try_parse_date(groups, idx)
+                if d:
+                    seen.add(d)
+    return sorted(d.isoformat() for d in seen)
+
+
+_COMMON_WORDS = frozenset({
+    "this", "that", "with", "from", "your", "have", "been", "will",
+    "date", "time", "total", "amount", "paid", "info", "note", "bank",
+})
+
+
+def _extract_reference_ids(body_text: str | None) -> list[str]:
+    """Extract order/invoice/transaction reference IDs from email body text.
+    
+    Returns deduplicated list of reference IDs sorted by appearance order.
+    Purely alphabetic strings (no digits) are filtered out as they're likely
+    common English words adjacent to a prefix. Short (< 4) or purely numeric
+    IDs that look like years or amounts are also filtered to reduce noise.
+    """
+    if not body_text:
+        return []
+    seen: list[str] = []
+    seen_set: set[str] = set()
+    for pattern in _REF_PATTERNS:
+        for match in pattern.finditer(body_text):
+            rid = match.group(1).strip()
+            if len(rid) < 4 or len(rid) > 30:
+                continue
+            lower = rid.lower()
+            if lower in _COMMON_WORDS:
+                continue
+            # Must contain at least one digit (filters out prefixed English words)
+            if not any(c.isdigit() for c in rid):
+                continue
+            if rid.isdigit() and int(rid) in range(1900, 2100):
+                continue
+            if rid not in seen_set:
+                seen_set.add(rid)
+                seen.append(rid)
+    return seen
+
+
 _MERCHANT_STOP = frozenset(
     [
         "the",
@@ -161,6 +298,20 @@ def _subject_has_any(subject: str | None, signals: frozenset) -> bool:
     return any(sig in text for sig in signals)
 
 
+def _get_effective_date(tx: Transaction, email: Email) -> date | None:
+    """Best available transaction date: body-extracted > txn_date > received_at.
+    
+    When body_dates exist, the earliest body date is used as it's the most
+    accurate representation of when the transaction actually occurred.
+    """
+    bd = email.body_dates
+    if bd and isinstance(bd, list):
+        parsed = [date.fromisoformat(d) for d in bd if d and isinstance(d, str)]
+        if parsed:
+            return min(parsed)
+    return tx.txn_date or (email.received_at.date() if email.received_at else None)
+
+
 async def _load_paired_ids(tx_id: str, db: AsyncSession) -> set[str]:
     """One query — returns the set of tx IDs already paired with tx_id."""
     rows = (
@@ -197,6 +348,16 @@ def _compute_score(
     The caller is responsible for looking up the DomainPairRule (via DB query
     or dict lookup) and passing it here as ``rule`` (or None).
 
+    Layers (checked in order, first match wins):
+      1. same_domain_exact  (1.0)   — same sender domain
+      2. reference_id_match (0.95-1.0) — shared order/transaction ref
+      3. merchant_alias     (0.75-0.95) — merchant name / domain alias
+      4. domain_pair        (rule.confidence) — learned cross-domain rule
+      5. body_date_anchor   (0.80-0.85) — body date overlap + domain/merchant
+      6. body_date_merchant (0.70)   — body date + merchant alias cross-domain
+      7. investment_flow    (0.65)   — order + confirmation signal pair
+      8. amount_date        (0.5)    — same amount, same day, fallback
+
     Returns (confidence, rule_source). Returns (0.0, "unknown") if no layer
     fires with score >= 0.5 or the pair is structurally ineligible.
     """
@@ -206,8 +367,10 @@ def _compute_score(
     if abs(amount_a - amount_b) > tol:
         return (0.0, "unknown")
 
-    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
-    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    eff_a = _get_effective_date(tx_a, email_a)
+    eff_b = _get_effective_date(tx_b, email_b)
+    if eff_a is None or eff_b is None:
+        return (0.0, "unknown")
     day_diff = abs((eff_a - eff_b).days)
     if day_diff > 3:
         return (0.0, "unknown")
@@ -245,6 +408,41 @@ def _compute_score(
     if day_diff <= 1:
         return (0.5, "amount_date")
 
+    # ── New: body metadata layers ──────────────────────────────────────────
+    ref_a: list[str] = email_a.reference_ids if isinstance(email_a.reference_ids, list) else []
+    ref_b: list[str] = email_b.reference_ids if isinstance(email_b.reference_ids, list) else []
+
+    # Layer 6: shared reference ID (highest-confidence cross-domain signal)
+    if ref_a and ref_b:
+        shared = [r for r in ref_a if r in ref_b]
+        if shared:
+            if domain_a == domain_b:
+                return (1.0, "reference_id_match")
+            return (0.95, "reference_id_match")
+
+    bd_a = email_a.body_dates if isinstance(email_a.body_dates, list) else []
+    bd_b = email_b.body_dates if isinstance(email_b.body_dates, list) else []
+    dates_a: list[date] = [date.fromisoformat(d) for d in bd_a if d and isinstance(d, str)]
+    dates_b: list[date] = [date.fromisoformat(d) for d in bd_b if d and isinstance(d, str)]
+
+    if dates_a and dates_b:
+        # Check if any body date from A is within ±2 days of any body date from B
+        min_gap = min(abs((da - db).days) for da in dates_a for db in dates_b)
+
+        # Layer 7: body date anchor — same or related domain
+        if min_gap <= 2:
+            if domain_a == domain_b:
+                return (0.85, "body_date_anchor")
+            m_score_bd = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
+            if m_score_bd >= 0.7:
+                return (0.80, "body_date_anchor")
+
+        # Layer 8: body date + merchant alias cross-domain
+        if min_gap <= 2 and day_diff <= 3:
+            m_score_cd = _merchant_match(merchant_a, merchant_b, domain_a, domain_b)
+            if m_score_cd >= 0.7:
+                return (0.70, "body_date_merchant")
+
     return (0.0, "unknown")
 
 
@@ -260,10 +458,13 @@ async def _score_pair(
 
     Layer order:
       1. same_domain_exact (1.0)
-      2. merchant_alias    (0.75 - 0.95)
-      3. domain_pair       (rule.confidence)
-      4. investment_flow   (0.65)
-      5. amount_date       (0.5)
+      2. reference_id_match (0.95-1.0)
+      3. merchant_alias    (0.75 - 0.95)
+      4. domain_pair       (rule.confidence)
+      5. body_date_anchor  (0.80-0.85)
+      6. body_date_merchant (0.70)
+      7. investment_flow   (0.65)
+      8. amount_date       (0.5)
 
     Tolerance: uses _amount_tolerance(amount, bulk=True) (3%) so callers do
     not need to pre-filter. Per-tx callers accepting the looser reach is
@@ -276,8 +477,8 @@ async def _score_pair(
     if not email_a.sender_domain or not email_b.sender_domain:
         return (0.0, "unknown")
 
-    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
-    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    eff_a = _get_effective_date(tx_a, email_a)
+    eff_b = _get_effective_date(tx_b, email_b)
     if eff_a is None or eff_b is None:
         return (0.0, "unknown")
 
@@ -315,8 +516,8 @@ def _score_pair_with_rules(
     if not email_a.sender_domain or not email_b.sender_domain:
         return (0.0, "unknown")
 
-    eff_a = tx_a.txn_date or (email_a.received_at.date() if email_a.received_at else None)
-    eff_b = tx_b.txn_date or (email_b.received_at.date() if email_b.received_at else None)
+    eff_a = _get_effective_date(tx_a, email_a)
+    eff_b = _get_effective_date(tx_b, email_b)
     if eff_a is None or eff_b is None:
         return (0.0, "unknown")
 
@@ -416,7 +617,7 @@ async def detect_and_record_duplicates(
             logger.info("Auto-resolved same-domain duplicate: %s vs %s (domain %s)", primary_id, dup_id, tx_domain)
 
     # ── 2. Cross-domain duplicate check (±1 day window) ──────────────────────
-    effective_date = tx.txn_date or (email.received_at.date() if email.received_at else None)
+    effective_date = _get_effective_date(tx, email)
     if effective_date is None:
         return
 
@@ -470,10 +671,14 @@ async def detect_and_record_duplicates(
             continue
         paired_ids.add(cand_tx.id)
 
+        score, rule_source = _score_pair_with_rules(tx, email, cand_tx, cand_email, rules_map)
+        if score < 0.5:
+            continue
+
         domain_a, domain_b = _sorted_domains(tx_domain, cand_domain)
         rule = rules_map.get((domain_a, domain_b))
 
-        if rule and rule.auto_resolve:
+        if (rule and rule.auto_resolve) or rule_source == "reference_id_match":
             primary_id = _pick_primary(tx, email, cand_tx, cand_email)
             dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
             db.add(
@@ -482,37 +687,37 @@ async def detect_and_record_duplicates(
                     primary_tx_id=primary_id,
                     duplicate_tx_id=dup_id,
                     status="auto_resolved",
-                    confidence=rule.confidence,
-                    rule_source="domain_pair",
+                    confidence=score,
+                    rule_source=rule_source,
                 )
             )
             dup_tx = tx if dup_id == tx.id else cand_tx
             dup_tx.label = "ignore"
-            logger.info("Auto-resolved duplicate: %s vs %s (rule %s/%s)", primary_id, dup_id, domain_a, domain_b)
+            logger.info("Auto-resolved duplicate: %s vs %s (%s, conf=%.2f)", primary_id, dup_id, rule_source, score)
         else:
-            confidence = rule.confidence if rule else 0.0
             db.add(
                 DuplicatePair(
                     id=str(uuid.uuid4()),
                     primary_tx_id=tx.id,
                     duplicate_tx_id=cand_tx.id,
                     status="pending",
-                    confidence=confidence,
-                    rule_source="domain_pair" if rule else "amount_date",
+                    confidence=score,
+                    rule_source=rule_source,
                 )
             )
-            logger.info("Queued duplicate for review: %s vs %s", tx.id, cand_tx.id)
+            logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)", rule_source, tx.id, cand_tx.id, score)
 
     # ── 3. Investment flow detection (order + confirmation across domains) ─────
     await _detect_investment_flow(tx, email, tx_domain, amount, tol, user_id, paired_ids, db)
 
-    # ── 4. Shared-scorer pass (merchant_alias + amount_date fallback) ─────────
+    # ── 4. Shared-scorer pass (body-metadata + merchant_alias + amount_date) ──
     # Uses the bulk tolerance (3%) and a ±3-day window so old data picks up
     # the same layers batch_detect_duplicates uses. We only record matches
     # the prior blocks would have missed: rule_source in {merchant_alias,
-    # amount_date}. The higher-confidence layers (same_domain_exact,
-    # domain_pair, investment_flow) are already handled above with their
-    # auto-resolve semantics — re-handling them here would double-create pairs.
+    # amount_date, reference_id_match, body_date_anchor, body_date_merchant}.
+    # The higher-confidence layers (same_domain_exact, domain_pair,
+    # investment_flow) are already handled above — re-handling them here
+    # would double-create pairs.
     bulk_tol = _amount_tolerance(amount, bulk=True)
     extra_window_start = effective_date - timedelta(days=3)
     extra_window_end = effective_date + timedelta(days=3)
@@ -560,21 +765,38 @@ async def detect_and_record_duplicates(
         score, rule_source = _score_pair_with_rules(tx, email, cand_tx, cand_email, rules_map)
         if score < 0.5:
             continue
-        if rule_source not in ("merchant_alias", "amount_date"):
+        if rule_source not in ("merchant_alias", "amount_date", "reference_id_match", "body_date_anchor", "body_date_merchant"):
             # Higher-confidence layers already handled above.
             continue
         paired_ids.add(cand_tx.id)
-        db.add(
-            DuplicatePair(
-                id=str(uuid.uuid4()),
-                primary_tx_id=tx.id,
-                duplicate_tx_id=cand_tx.id,
-                status="pending",
-                confidence=score,
-                rule_source=rule_source,
+        if rule_source == "reference_id_match":
+            primary_id = _pick_primary(tx, email, cand_tx, cand_email)
+            dup_id = tx.id if primary_id == cand_tx.id else cand_tx.id
+            dup_tx = tx if dup_id == tx.id else cand_tx
+            dup_tx.label = "ignore"
+            db.add(
+                DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=primary_id,
+                    duplicate_tx_id=dup_id,
+                    status="auto_resolved",
+                    confidence=score,
+                    rule_source=rule_source,
+                )
             )
-        )
-        logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)", rule_source, tx.id, cand_tx.id, score)
+            logger.info("Auto-resolved %s duplicate: %s vs %s (conf=%.2f)", rule_source, primary_id, dup_id, score)
+        else:
+            db.add(
+                DuplicatePair(
+                    id=str(uuid.uuid4()),
+                    primary_tx_id=tx.id,
+                    duplicate_tx_id=cand_tx.id,
+                    status="pending",
+                    confidence=score,
+                    rule_source=rule_source,
+                )
+            )
+            logger.info("Queued %s duplicate for review: %s vs %s (conf=%.2f)", rule_source, tx.id, cand_tx.id, score)
 
 
 async def _detect_investment_flow(
@@ -712,10 +934,9 @@ async def batch_detect_duplicates(
     dates = []
     amounts = []
     for tx, email in new_transactions:
-        if tx.txn_date:
-            dates.append(tx.txn_date)
-        elif email.received_at:
-            dates.append(email.received_at.date())
+        eff = _get_effective_date(tx, email)
+        if eff:
+            dates.append(eff)
         if tx.amount:
             amounts.append(float(tx.amount))
 
@@ -777,7 +998,7 @@ async def batch_detect_duplicates(
             logger.info("batch_detect_duplicates: skip tx=%s (no email or sender_domain)", new_tx.id)
             continue
 
-        new_effective = new_tx.txn_date or (new_email.received_at.date() if new_email.received_at else None)
+        new_effective = _get_effective_date(new_tx, new_email)
         if new_effective is None:
             logger.info("batch_detect_duplicates: skip tx=%s (no effective date)", new_tx.id)
             continue

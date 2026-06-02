@@ -207,6 +207,11 @@ const DashboardView = () => {
 4. Late-month income (last 2 working days) should not be shifted to next month. When removing a business rule, verify all downstream consumers (monthly summary, 90-day, health) get the expected data.
 5. Simplify income computation with direct `func.sum()` + `txn_date` range instead of fetching all rows + Python-side filtering — avoids filter drift between income and expense paths.
 
+### Salary Attribution Shift Logic
+6. The actual salary shift is NOT implemented in `_effective_month()` (that function is a dead simple `txn_date.replace(day=1)`). The shift lives directly inside `recompute_month()` in `stats_service.py` (lines 118-147) — income in the last N days of a month (determined by `salary_shift_window` in `user_settings`) is excluded from the current month's total and picked up by the next month's rollup.
+7. When modifying transaction dates in production: always check the user's `salary_shift_enabled` and `salary_shift_window` settings first. Moving an income transaction into or out of the last N days of a month changes which month's rollup it attributes to. Always re-run `recompute_month()` for both the old and new month after any date change.
+8. Rollup recompute via SSH: use `railway ssh --service Gexpense -- python3` and import `recompute_month` from `app.services.stats_service` with the app's config-managed `settings.DATABASE_URL` (which already has `+asyncpg`). Importing `app.config.settings` first avoids the `psycopg2` driver detection issue that plain `create_async_engine()` hits.
+
 ### Survivorship of Referenced Functions
 6. When replacing old endpoint implementations with a service layer, ensure every referenced helper function (`_monthly_data`, `_compute_confidence`, etc.) still exists or is properly redirected. A deleted function breaks its entire section silently (zeros or 500).
 

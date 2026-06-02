@@ -85,8 +85,8 @@ const App = () => {
   const catRef = useRef(null);
   const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
 
+  // Fetch review emails on mount AND when switching to the review tab
   React.useEffect(() => {
-    if (inboxFilter !== "review") return;
     API.get("/api/emails?status=review_pending")
       .then(data => setReviewEmails(data))
       .catch(() => {});

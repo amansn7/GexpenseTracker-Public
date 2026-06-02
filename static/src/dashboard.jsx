@@ -70,7 +70,13 @@ const DashboardView = ({ transactions, categoryFilter, dateRange, setDateRange }
   const remaining = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const cashOutflow = totalExpense + totalCCPayments + totalInvestments;
   const pctSpent = totalIncome > 0 ? (cashOutflow / totalIncome) * 100 : 0;
-  const rangeDays = Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
+  const rangeDays = !dateRange.from
+    ? (() => {
+        const dates = rangeTxs.map(t => new Date(t.date)).filter(d => !isNaN(d.getTime()));
+        if (dates.length < 2) return 1;
+        return Math.max(1, Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000) + 1);
+      })()
+    : Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
   const daily = Math.round(totalExpense / rangeDays);
   const subsTotal = rangeTxs.filter(t=>t.tag==="subscription").reduce((a,t)=>a+Math.abs(t.amount),0);
   const subsCount = rangeTxs.filter(t=>t.tag==="subscription").length;

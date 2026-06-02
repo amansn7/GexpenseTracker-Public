@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.classifier.classifier import batch_classify_emails
 from app.classifier.pre_filter import load_engine_from_db
 from app.config import settings
+from app.dedup.service import _extract_body_dates, _extract_reference_ids
 from app.models import UserSettings
 from app.services.llm_service import get_effective_llm_client
 
@@ -51,6 +52,11 @@ async def _apply_pre_filter(
         email = Email(**msg)
         if user_id:
             email.user_id = user_id
+
+        # Extract structured metadata from email body for dedup
+        body_text = msg.get("body_text") or msg.get("body_snippet") or ""
+        email.body_dates = _extract_body_dates(body_text) or None
+        email.reference_ids = _extract_reference_ids(body_text) or None
         if pf_result.decision == "discard":
             email.pre_filter_status = "discarded"
             session.add(email)

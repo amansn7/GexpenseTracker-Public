@@ -633,80 +633,80 @@ async def batch_classify_emails(
 
                             raw_merchant = llm_res.merchant
                             merchant_info = (
-                            resolve_merchant(raw_merchant)
-                            if raw_merchant
-                            else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
-                        )
-                        merchant = merchant_info["canonical"] or None
-                        try:
-                            label = Label(llm_res.label)
-                        except ValueError:
-                            logger.warning("llm_unknown_label", label=llm_res.label, email_id=email_id)
-                            label = Label.ignore
-                        amount = llm_res.amount
-                        category = llm_res.category
-                        confidence = llm_res.confidence
-                        txn_date = _parse_date(llm_res.txn_date)
-                        source_currency_batch = llm_res.source_currency
-                        if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
-                            source_currency_batch = None
-
-                        # Currency conversion
-                        if amount is not None and source_currency_batch and source_currency_batch != default_currency:
+                                resolve_merchant(raw_merchant)
+                                if raw_merchant
+                                else {"canonical": None, "parent": None, "confidence": 0.0, "method": "empty"}
+                            )
+                            merchant = merchant_info["canonical"] or None
                             try:
-                                converted = await convert_amount(amount, source_currency_batch, default_currency)
-                                logger.info(
-                                    "batch_currency_converted",
-                                    amount=amount,
-                                    source_currency=source_currency_batch,
-                                    target_currency=default_currency,
-                                    converted_amount=converted,
-                                    email_id=email_id,
-                                )
-                                amount = converted
-                            except Exception as exc:
-                                logger.warning("batch_currency_conversion_failed", email_id=email_id, error=str(exc))
+                                label = Label(llm_res.label)
+                            except ValueError:
+                                logger.warning("llm_unknown_label", label=llm_res.label, email_id=email_id)
+                                label = Label.ignore
+                            amount = llm_res.amount
+                            category = llm_res.category
+                            confidence = llm_res.confidence
+                            txn_date = _parse_date(llm_res.txn_date)
+                            source_currency_batch = llm_res.source_currency
+                            if source_currency_batch and source_currency_batch not in SUPPORTED_CURRENCIES:
                                 source_currency_batch = None
 
-                        if label == Label.ignore and category == "CC Payment":
-                            txn_type = "cc_payment"
-                        elif category == "Investment":
-                            txn_type = "investment"
-                        elif label == Label.income:
-                            txn_type = "income"
-                        elif label == Label.expense:
-                            txn_type = "purchase"
-                        else:
-                            txn_type = None
+                            # Currency conversion
+                            if amount is not None and source_currency_batch and source_currency_batch != default_currency:
+                                try:
+                                    converted = await convert_amount(amount, source_currency_batch, default_currency)
+                                    logger.info(
+                                        "batch_currency_converted",
+                                        amount=amount,
+                                        source_currency=source_currency_batch,
+                                        target_currency=default_currency,
+                                        converted_amount=converted,
+                                        email_id=email_id,
+                                    )
+                                    amount = converted
+                                except Exception as exc:
+                                    logger.warning("batch_currency_conversion_failed", email_id=email_id, error=str(exc))
+                                    source_currency_batch = None
 
-                        status = (
-                            TransactionStatus.auto
-                            if confidence >= settings.AUTO_CONFIRM_THRESHOLD
-                            else TransactionStatus.needs_review
-                        )
+                            if label == Label.ignore and category == "CC Payment":
+                                txn_type = "cc_payment"
+                            elif category == "Investment":
+                                txn_type = "investment"
+                            elif label == Label.income:
+                                txn_type = "income"
+                            elif label == Label.expense:
+                                txn_type = "purchase"
+                            else:
+                                txn_type = None
 
-                        # Validate LLM-extracted amount
-                        amount, status, _ = _validate_llm_amount(amount, confidence, status)
+                            status = (
+                                TransactionStatus.auto
+                                if confidence >= settings.AUTO_CONFIRM_THRESHOLD
+                                else TransactionStatus.needs_review
+                            )
 
-                        results[idx] = ClassificationResult(
-                            label=label,
-                            amount=amount,
-                            merchant=merchant,
-                            category=category,
-                            txn_date=txn_date,
-                            confidence=confidence,
-                            status=status,
-                            classifier_method=ClassifierMethod.llm,
-                            transaction_type=txn_type,
-                            payment_mode=_detect_payment_mode(items[idx][4]),
-                            currency=default_currency,
-                            source_currency=source_currency_batch,
-                        )
+                            # Validate LLM-extracted amount
+                            amount, status, _ = _validate_llm_amount(amount, confidence, status)
 
-                        latency_ms = round((time.monotonic() - batch_ts) * 1000)
-                        if session is not None:
-                            try:
-                                session.add(
+                            results[idx] = ClassificationResult(
+                                label=label,
+                                amount=amount,
+                                merchant=merchant,
+                                category=category,
+                                txn_date=txn_date,
+                                confidence=confidence,
+                                status=status,
+                                classifier_method=ClassifierMethod.llm,
+                                transaction_type=txn_type,
+                                payment_mode=_detect_payment_mode(items[idx][4]),
+                                currency=default_currency,
+                                source_currency=source_currency_batch,
+                            )
+
+                            latency_ms = round((time.monotonic() - batch_ts) * 1000)
+                            if session is not None:
+                                try:
+                                    session.add(
                                     ClassificationLog(
                                         email_id=email_id,
                                         sender_domain=sender_domain,
@@ -724,8 +724,8 @@ async def batch_classify_emails(
                                         raw_response=llm_raw,
                                     )
                                 )
-                            except Exception as log_exc:
-                                logger.warning("Failed to write batch classification log: %s", log_exc)
+                                except Exception as log_exc:
+                                    logger.warning("Failed to write batch classification log: %s", log_exc)
 
                     except Exception as exc:
                         logger.error("batch_classification_failed", batch_size=len(batch), error=str(exc))

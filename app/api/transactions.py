@@ -254,7 +254,7 @@ async def list_transactions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    conditions = [Email.user_id == current_user.id]
+    conditions = [Email.user_id == current_user.id, Transaction.label != "ignore"]
     if label:
         conditions.append(Transaction.label == label)
     if status:

@@ -783,9 +783,12 @@ async def get_stats(
     if date_from and date_to:
         start = date_from
         end = date_to
-    else:
+    elif date_from or date_to:
         start = _period_start(period)
         end = date.today()
+    else:
+        start = date(2000, 1, 1)
+        end = date(2099, 12, 31)
 
     result: dict = {}
 

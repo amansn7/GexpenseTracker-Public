@@ -746,7 +746,13 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
   const totalInvestments = stats?.total_investments ?? 0;
   const savings = totalIncome - totalExpense - totalCCPayments - totalInvestments;
   const savingsRate = totalIncome > 0 ? (savings / totalIncome * 100).toFixed(1) : "0.0";
-  const rangeDays = Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
+  const rangeDays = !dateRange.from
+    ? (() => {
+        const dates = rangeTxs.map(t => new Date(t.date)).filter(d => !isNaN(d.getTime()));
+        if (dates.length < 2) return 1;
+        return Math.max(1, Math.round((Math.max(...dates) - Math.min(...dates)) / 86400000) + 1);
+      })()
+    : Math.max(1, Math.round((new Date(dateRange.to) - new Date(dateRange.from)) / 86400000) + 1);
   const daily = flow ? Math.round(totalExpense / rangeDays) : 0;
   const incomeSources = flow ? flow.income.length : 0;
   const pctOfIncome = totalIncome > 0 ? Math.round(totalExpense / totalIncome * 100) : 0;

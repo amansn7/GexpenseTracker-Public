@@ -791,7 +791,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             ) : (
               <>
                 {[
-                  ["all","All", "grid", transactions.filter(t => t.tag !== "ignore").length],
+                  ["all","All", "grid", totalTransactions],
                   ["expenses","Expenses", "bag"],
                   ["income","Income", "trend-u"],
                 ].map(([k,label,icon,count]) => (
