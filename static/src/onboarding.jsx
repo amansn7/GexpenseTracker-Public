@@ -850,10 +850,9 @@ const PasskeyChallenge = () => {
 
       const credential = await navigator.credentials.get({ publicKey: pkOptions });
       const bufToB64url = buf => { const b = new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
-      const serializeCred = c => ({
+      const serializeAssertion = c => ({
         id: c.id, type: c.type, rawId: bufToB64url(c.rawId),
-        response: { clientDataJSON: bufToB64url(c.response.clientDataJSON), attestationObject: bufToB64url(c.response.attestationObject) },
-        transports: c.response.getTransports?.() ?? [],
+        response: { clientDataJSON: bufToB64url(c.response.clientDataJSON), authenticatorData: bufToB64url(c.response.authenticatorData), signature: bufToB64url(c.response.signature) },
       });
       const complete = await API.post("/api/auth/passkey/assert/complete", {
         credential: credential.toJSON ? credential.toJSON() : serializeCred(credential),
