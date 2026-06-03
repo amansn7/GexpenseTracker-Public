@@ -33,6 +33,7 @@ from app.models import (
     ConnectedAccount,
     DeviceToken,
     Email,
+    Invitation,
     OAuthState,
     RefreshTokenBlacklist,
     Session,
@@ -42,7 +43,6 @@ from app.models import (
     UserRole,
     UserSettings,
     UserStatus,
-    WebAuthnCredential,
 )
 
 router = APIRouter()
@@ -112,21 +112,20 @@ async def _get_or_create_user(
             await db.execute(select(User).where(User.role == UserRole.owner, User.email != "service@localhost"))
         ).scalar_one_or_none()
         if owner is None:
-            # No real owner yet — first real user becomes owner
             role = UserRole.owner
         else:
-            raw = (
-                await db.execute(select(UserSettings.allowed_emails).where(UserSettings.user_id == owner.id))
+            invite = (
+                await db.execute(select(Invitation).where(Invitation.email == email, Invitation.status == "pending"))
             ).scalar_one_or_none()
-            allowed = json.loads(raw) if raw else []
-            if email not in allowed:
+            if not invite:
                 raise HTTPException(status_code=403, detail="access_denied")
+            invite.status = "accepted"
             role = UserRole.member
 
     user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
 
     if user is None:
-        user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=True)
+        user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=False)
         if settings.ENABLE_LLM_TRIAL:
             now = datetime.now(UTC)
             user.trial_started_at = now
@@ -392,21 +391,36 @@ async def auth_status():
     return {"authenticated": True}
 
 
-@router.get("/auth/allowlist")
-async def get_allowlist(
+@router.get("/auth/invitations")
+async def list_invitations(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    raw = (
-        await db.execute(select(UserSettings.allowed_emails).where(UserSettings.user_id == user.id))
-    ).scalar_one_or_none()
-    return {"allowed_emails": json.loads(raw) if raw else [user.email]}
+    invites = (
+        (await db.execute(select(Invitation).where(Invitation.invited_by == user.id).order_by(Invitation.created_at.desc())))
+        .scalars()
+        .all()
+    )
+    members = (
+        (await db.execute(select(User, UserProfile).join(UserProfile, UserProfile.user_id == User.id).where(User.role == UserRole.member)))
+        .all()
+    )
+    return {
+        "invitations": [
+            {"id": i.id, "email": i.email, "status": i.status, "created_at": i.created_at.isoformat() if i.created_at else None}
+            for i in invites
+        ],
+        "members": [
+            {"id": m.User.id, "email": m.User.email, "name": m.UserProfile.full_name}
+            for m in members
+        ],
+    }
 
 
-@router.post("/auth/allowlist")
-async def add_to_allowlist(
+@router.post("/auth/invitations")
+async def create_invitation(
     body: dict,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -416,31 +430,34 @@ async def add_to_allowlist(
     email_to_add = (body.get("email") or "").strip().lower()
     if not email_to_add or "@" not in email_to_add:
         raise HTTPException(status_code=422, detail="Valid email required")
-    settings_row = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one()
-    current = json.loads(settings_row.allowed_emails) if settings_row.allowed_emails else [user.email]
-    if email_to_add not in current:
-        current.append(email_to_add)
-    settings_row.allowed_emails = json.dumps(current)
+    existing = (
+        await db.execute(select(Invitation).where(Invitation.email == email_to_add, Invitation.status == "pending"))
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Already invited")
+    invite = Invitation(email=email_to_add, invited_by=user.id, status="pending")
+    db.add(invite)
     await db.commit()
-    return {"allowed_emails": current}
+    await db.refresh(invite)
+    return {"id": invite.id, "email": invite.email, "status": invite.status}
 
 
-@router.delete("/auth/allowlist/{email}")
-async def remove_from_allowlist(
-    email: str,
+@router.delete("/auth/invitations/{invitation_id}")
+async def revoke_invitation(
+    invitation_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    if email.lower() == user.email.lower():
-        raise HTTPException(status_code=400, detail="Cannot remove owner email")
-    settings_row = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one()
-    current = json.loads(settings_row.allowed_emails) if settings_row.allowed_emails else [user.email]
-    current = [e for e in current if e.lower() != email.lower()]
-    settings_row.allowed_emails = json.dumps(current)
+    invite = (
+        await db.execute(select(Invitation).where(Invitation.id == invitation_id, Invitation.status == "pending"))
+    ).scalar_one_or_none()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    invite.status = "revoked"
     await db.commit()
-    return {"allowed_emails": current}
+    return {"ok": True}
 
 
 @router.post("/auth/verify-2fa")

@@ -60,6 +60,7 @@ from .transaction import (
 )
 from .user import (
     ConnectedAccount,
+    Invitation,
     OAuthState,
     Session,
     User,
@@ -88,6 +89,7 @@ __all__ = [
     "UserAIService",
     "Session",
     "OAuthState",
+    "Invitation",
     "WebAuthnCredential",
     # email
     "Email",

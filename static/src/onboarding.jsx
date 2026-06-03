@@ -258,8 +258,8 @@ const WizardShell = ({ step, children }) => {
 // ---------------------------------------------------------------------------
 // Step 1 — Profile
 // ---------------------------------------------------------------------------
-const StepProfile = ({ advance }) => {
-  const [form, setForm] = useState({ full_name: "", email: "", display_name: "", default_currency: "INR", timezone: "Asia/Kolkata" });
+const StepProfile = ({ advance, accountData }) => {
+  const [form, setForm] = useState({ full_name: accountData?.name || "", email: accountData?.email || "", display_name: "", default_currency: "INR", timezone: "Asia/Kolkata" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [alreadySetUp, setAlreadySetUp] = useState(false);
@@ -357,14 +357,30 @@ const StepProfile = ({ advance }) => {
 // ---------------------------------------------------------------------------
 // Step 2 — Connect Gmail
 // ---------------------------------------------------------------------------
-const StepGmail = ({ advance }) => {
+const StepGmail = ({ advance, accountData }) => {
   const params = new URLSearchParams(window.location.search);
   const oauthError = params.get("error");
+  const gmailConnected = accountData?.connected_accounts?.some(
+    a => a.provider === "gmail" && a.status === "connected"
+  );
 
   const handleConnect = () => {
     localStorage.setItem("mf_onboarding_step", 3);
     window.location = "/api/auth/google";
   };
+
+  if (gmailConnected) {
+    return (
+      <div>
+        <div style={S.success}>Gmail connected <Icon name="check" size={12} stroke="var(--pos)"/></div>
+        <h2 style={S.h2}>Gmail connected</h2>
+        <p style={S.sub}>Your {accountData.email} account is already connected and ready to sync.</p>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => advance(3)} style={S.btnPrimary}>Continue →</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -406,7 +422,7 @@ const StepGmail = ({ advance }) => {
 // ---------------------------------------------------------------------------
 // Step 3 — AI Setup
 // ---------------------------------------------------------------------------
-const StepAI = ({ advance }) => {
+const StepAI = ({ advance, accountData }) => {
   // If we just returned from OAuth redirect, show a banner (no error param = success)
   const params = new URLSearchParams(window.location.search);
   const oauthError = params.get("error");
@@ -418,6 +434,10 @@ const StepAI = ({ advance }) => {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  const trialEndsAt = accountData?.trial_ends_at;
+  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((new Date(trialEndsAt) - Date.now()) / 86400000)) : 0;
+  const inTrial = trialDaysLeft > 0;
 
   const [displayName, setDisplayName] = useState("");
   const [modelId, setModelId] = useState("");
@@ -475,7 +495,30 @@ const StepAI = ({ advance }) => {
       {showGmailBanner && <div style={S.success}>Gmail connected <Icon name="check" size={12} stroke="var(--pos)"/></div>}
 
       <h2 style={S.h2}>Set up AI</h2>
-      <p style={S.sub}>MoneyFlow uses an AI model to parse your emails. Bring your own API key — you control the model and budget.</p>
+      <p style={S.sub}>MoneyFlow uses AI to parse your emails into transactions.</p>
+
+      {/* Trial banner */}
+      {inTrial && (
+        <div style={{ padding: "14px 16px", borderRadius: 8, marginBottom: 20, background: "var(--accent-soft)", border: "1px solid var(--accent)", fontSize: 13, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
+            Free trial active — {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining
+          </div>
+          <div style={{ color: "var(--ink-3)" }}>
+            AI parsing is included free for 7 days. No credit card needed. Add your own API key below to continue after the trial ends.
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <button onClick={skipAI} style={{ padding: "8px 16px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
+              Use free trial →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BYOK form */}
+      <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 12, textAlign: "center", position: "relative" }}>
+        <span style={{ background: "var(--card)", padding: "0 8px", position: "relative", zIndex: 1 }}>or bring your own API key</span>
+        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, borderTop: "1px solid var(--line)", zIndex: 0 }} />
+      </div>
 
       <div style={S.fieldWrap}>
         <label style={S.label}>Display name</label>
@@ -509,14 +552,28 @@ const StepAI = ({ advance }) => {
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-        {showSkip && (
-          <button onClick={skipAI} style={S.btnSecondary}>
-            Skip AI Setup
-          </button>
-        )}
+        <button onClick={skipAI} style={S.btnSecondary}>
+          Skip AI Setup
+        </button>
         <button onClick={validate} disabled={validating} style={{ ...S.btnPrimary, opacity: validating ? 0.65 : 1 }}>
           {validating ? "Validating…" : "Validate & Continue →"}
         </button>
+      </div>
+
+      {/* FreeLLMAPI self-host link */}
+      <div style={{ marginTop: 24 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 500, marginBottom: 12, textAlign: "center", position: "relative" }}>
+          <span style={{ background: "var(--card)", padding: "0 8px", position: "relative", zIndex: 1 }}>or self-host FreeLLMAPI</span>
+          <div style={{ position: "absolute", top: "50%", left: 0, right: 0, borderTop: "1px solid var(--line)", zIndex: 0 }} />
+        </div>
+        <div style={{ padding: "14px 16px", borderRadius: 8, background: "var(--paper-2)", border: "1px solid var(--line)", fontSize: 13, lineHeight: 1.5, color: "var(--ink-3)" }}>
+          Run your own free LLM proxy locally. Aggregate free tiers from 11+ providers behind one OpenAI-compatible endpoint.
+          <div style={{ marginTop: 8 }}>
+            <a href="https://github.com/tashfeenahmed/freellmapi" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", fontWeight: 500, textDecoration: "none" }}>
+              github.com/tashfeenahmed/freellmapi →
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -784,7 +841,7 @@ const PasskeyChallenge = () => {
 // ---------------------------------------------------------------------------
 // OnboardingWizard — top-level
 // ---------------------------------------------------------------------------
-const OnboardingWizard = () => {
+const OnboardingWizard = ({ accountData }) => {
   const [step, setStep] = useState(
     parseInt(localStorage.getItem("mf_onboarding_step") || "1")
   );
@@ -797,12 +854,13 @@ const OnboardingWizard = () => {
   };
 
   const renderStep = () => {
-    if (step === 1) return <StepProfile advance={advance} />;
-    if (step === 2) return <StepGmail advance={advance} />;
-    if (step === 3) return <StepAI advance={advance} />;
+    const props = { advance, accountData };
+    if (step === 1) return <StepProfile {...props} />;
+    if (step === 2) return <StepGmail {...props} />;
+    if (step === 3) return <StepAI {...props} />;
     if (step === 4) return <StepPreview advance={advance} />;
     if (step === 5) return <StepDone stepData={stepData} />;
-    return <StepProfile advance={advance} />;
+    return <StepProfile {...props} />;
   };
 
   return (

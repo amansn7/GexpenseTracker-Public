@@ -558,12 +558,13 @@ const App = () => {
   await API.init();
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
   let showPasskeyChallenge = false;
+  let accountData = null;
   if (!showOnboarding) {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (res.ok) {
-        const data = await res.json();
-        showOnboarding = !data.onboarding_complete;
+        accountData = await res.json();
+        showOnboarding = !accountData.onboarding_complete;
       } else if (res.status === 401) {
         const body = await res.json();
         if (body?.detail?.passkey_pending) {
@@ -579,7 +580,8 @@ const App = () => {
   if (showPasskeyChallenge) {
     Root = PasskeyChallenge;
   } else if (showOnboarding) {
-    Root = OnboardingWizard;
+    const WizardWithData = () => React.createElement(OnboardingWizard, { accountData });
+    Root = WizardWithData;
   } else {
     Root = App;
   }

@@ -201,6 +201,21 @@ class WebAuthnCredential(Base):
     user: Mapped["User"] = relationship(back_populates="webauthn_credentials")
 
 
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[str] = _uuid_col()
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    invited_by: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False, server_default="pending"
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+
 class OAuthState(Base):
     __tablename__ = "oauth_states"
 

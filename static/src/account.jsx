@@ -557,75 +557,94 @@ const CategoriesSection = ({ categories, onRefresh }) => {
   );
 };
 
-const AccessSection = ({ account }) => {
-  const [allowlist, setAllowlist] = React.useState(null);
+const InviteSection = ({ account }) => {
+  const [invites, setInvites] = React.useState([]);
+  const [members, setMembers] = React.useState([]);
   const [newEmail, setNewEmail] = React.useState("");
   const [adding, setAdding] = React.useState(false);
   const [addError, setAddError] = React.useState(null);
 
-  React.useEffect(() => {
-    API.get("/api/auth/allowlist")
-      .then(d => setAllowlist(d.allowed_emails || []))
-      .catch(() => setAllowlist([]));
+  const load = React.useCallback(async () => {
+    try {
+      const d = await API.get("/api/auth/invitations");
+      setInvites(d.invitations || []);
+      setMembers(d.members || []);
+    } catch (_) {}
   }, []);
 
-  const addEmail = async () => {
+  React.useEffect(() => { load(); }, [load]);
+
+  const sendInvite = async () => {
     const email = newEmail.trim().toLowerCase();
     if (!email || !email.includes("@")) return;
     setAdding(true);
     setAddError(null);
     try {
-      const d = await API.post("/api/auth/allowlist", { email });
-      setAllowlist(d.allowed_emails);
+      await API.post("/api/auth/invitations", { email });
       setNewEmail("");
+      await load();
     } catch (err) {
-      setAddError(err.message || "Could not add email");
+      setAddError(err.message || "Could not send invite");
     }
     setAdding(false);
   };
 
-  const removeEmail = async (email) => {
+  const revoke = async (id) => {
     try {
-      const d = await API.delete(`/api/auth/allowlist/${encodeURIComponent(email)}`);
-      setAllowlist(d.allowed_emails);
+      await API.delete(`/api/auth/invitations/${id}`);
+      await load();
     } catch (_) {}
   };
 
-  if (allowlist === null) return null;
+  const statusBadge = (status) => {
+    const colors = { pending: { bg: "var(--accent-soft)", fg: "var(--accent)" }, accepted: { bg: "var(--pos-soft)", fg: "var(--pos)" }, revoked: { bg: "var(--paper-2)", fg: "var(--ink-4)" } };
+    const c = colors[status] || colors.revoked;
+    return <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: c.bg, color: c.fg, fontWeight: 600, textTransform: "uppercase", marginLeft: 8 }}>{status}</span>;
+  };
 
   return (
     <div style={accountStyles.section}>
-      <h3 style={accountStyles.sectionTitle}>Access</h3>
-      <div style={accountStyles.sectionSub}>— emails allowed to sign in</div>
-      <div style={{ marginTop: 8, border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
-        {allowlist.map(email => (
-          <div key={email} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 16px", borderBottom:"1px solid var(--line)" }}>
-            <span style={{ fontSize: 13 }}>
-              {email}
-              {email === account?.email && <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>(you)</span>}
-            </span>
-            <button
-              onClick={() => removeEmail(email)}
-              disabled={email === account?.email}
-              style={{ fontSize: 11, color: "var(--neg)", background: "none", border: "none", cursor: email === account?.email ? "default" : "pointer", opacity: email === account?.email ? 0.3 : 1, fontFamily: "inherit" }}
-            >Remove</button>
+      <h3 style={accountStyles.sectionTitle}>Invite People</h3>
+      <div style={accountStyles.sectionSub}>— send invitations to let others sign in</div>
+
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <input
+          value={newEmail}
+          onChange={e => setNewEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && sendInvite()}
+          placeholder="friend@email.com"
+          style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+        />
+        <button
+          onClick={sendInvite}
+          disabled={adding}
+          style={{ padding: "7px 14px", background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
+        >Invite</button>
+      </div>
+      {addError && <div style={{ marginTop: 6, fontSize: 11, color: "var(--neg)" }}>{addError}</div>}
+
+      <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
+        {invites.filter(i => i.status === "pending").map(inv => (
+          <div key={inv.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>
+            <span style={{ fontSize: 13 }}>{inv.email}{statusBadge(inv.status)}</span>
+            <button onClick={() => revoke(inv.id)} style={{ fontSize: 11, color: "var(--neg)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>Revoke</button>
           </div>
         ))}
-        <div style={{ display:"flex", gap:8, padding:"10px 16px" }}>
-          <input
-            value={newEmail}
-            onChange={e => setNewEmail(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && addEmail()}
-            placeholder="Add email address…"
-            style={{ flex:1, padding:"7px 10px", border:"1px solid var(--line)", borderRadius:6, background:"var(--card)", color:"var(--ink)", fontSize:13, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }}
-          />
-          <button
-            onClick={addEmail}
-            disabled={adding}
-            style={{ padding:"7px 14px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:12, cursor:"pointer", fontFamily:"inherit" }}
-          >Add</button>
-        </div>
-        {addError && <div style={{ padding:"4px 16px 10px", fontSize:11, color:"var(--neg)" }}>{addError}</div>}
+        {members.map(m => (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>
+            <span style={{ fontSize: 13 }}>
+              {m.email}
+              {statusBadge("accepted")}
+              {m.id === account?.id && <span style={{ fontSize: 11, color: "var(--ink-4)", marginLeft: 8 }}>(you)</span>}
+            </span>
+            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>{m.name || ""}</span>
+          </div>
+        ))}
+        {(invites.filter(i => i.status === "pending").length === 0 && members.length === 0) && (
+          <div style={{ padding: "14px 16px", fontSize: 13, color: "var(--ink-4)", fontStyle: "italic", textAlign: "center" }}>
+            No invitations yet
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2722,7 +2741,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         </div>
       )}
       {account?.role === "owner" && (
-        <AccessSection account={account} />
+        <InviteSection account={account} />
       )}
 
       </>)}
@@ -2872,4 +2891,4 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   );
 };
 
-Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, AccessSection, AdminBackfillBodiesSection });
+Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, InviteSection, AdminBackfillBodiesSection });
