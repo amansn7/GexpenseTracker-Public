@@ -112,6 +112,38 @@ async def get_current_user(
         await db.commit()
         raise HTTPException(status_code=401, detail="Session expired")
 
+    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.scheduled_deletion_at:
+        sched = user.scheduled_deletion_at
+        if sched.tzinfo is None:
+            sched = sched.replace(tzinfo=UTC)
+        if sched <= datetime.now(UTC):
+            raise HTTPException(status_code=403, detail="Account deleted")
+
+    # Check 2FA before rotating the session — otherwise the Set-Cookie for the
+    # rotated token is lost when the HTTPException for 2FA discards the response,
+    # leaving the browser with a stale token that no longer exists in the DB.
+    if user.passkeys_enabled:
+        pk_token = request.cookies.get(PASSKEY_COOKIE_NAME) if request else None
+        session_hex = session
+        if not pk_token or not _verify_passkey_token(session_hex, pk_token):
+            raise HTTPException(
+                status_code=401,
+                detail={"detail": "2fa_required", "passkey_pending": True},
+            )
+    elif user.totp_enabled:
+        totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
+        session_hex = session
+        if not totp_token or not _verify_totp_token(session_hex, totp_token):
+            raise HTTPException(
+                status_code=401,
+                detail={"detail": "2fa_required", "totp_pending": True},
+            )
+
     last_rotated = row.last_rotated_at
     if last_rotated is not None and last_rotated.tzinfo is None:
         last_rotated = last_rotated.replace(tzinfo=UTC)
@@ -134,36 +166,6 @@ async def get_current_user(
             max_age=30 * 86400,
             path="/",
         )
-
-    user = (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    if user.scheduled_deletion_at:
-        sched = user.scheduled_deletion_at
-        if sched.tzinfo is None:
-            sched = sched.replace(tzinfo=UTC)
-        if sched <= datetime.now(UTC):
-            raise HTTPException(status_code=403, detail="Account deleted")
-
-    # Check passkey first, then TOTP as fallback
-    if user.passkeys_enabled:
-        pk_token = request.cookies.get(PASSKEY_COOKIE_NAME) if request else None
-        session_hex = session
-        if not pk_token or not _verify_passkey_token(session_hex, pk_token):
-            raise HTTPException(
-                status_code=401,
-                detail={"detail": "2fa_required", "passkey_pending": True},
-            )
-    elif user.totp_enabled:
-        totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
-        session_hex = session
-        if not totp_token or not _verify_totp_token(session_hex, totp_token):
-            raise HTTPException(
-                status_code=401,
-                detail={"detail": "2fa_required", "totp_pending": True},
-            )
 
     return user
 
