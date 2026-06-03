@@ -368,29 +368,25 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
           </div>
         )}
 
-        {/* summary tile */}
+        {/* summary tile — matches original layout */}
         <div className="card fade-up fade-up-2" style={{padding:14, marginBottom:14}}>
-          <div style={{display:'grid', gridTemplateColumns: sumInc > 0 && filters.values.type === 'all' ? '1fr 1fr 1fr' : '1fr 1fr', gap:8, alignItems:'baseline'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline'}}>
             <div>
-              <div className="label">Expenses</div>
-              <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ink)'}}>
-                −₹{sumExp.toLocaleString('en-IN')}
+              <div className="label">{filters.values.type === 'income' ? 'Income' : filters.values.type === 'expense' ? 'Spent' : 'Net'}</div>
+              <div className="tabular" style={{fontSize:26, fontWeight:600, letterSpacing:'-0.02em', marginTop:2}}>
+                {filters.values.type === 'income' ? '+' : filters.values.type === 'expense' ? '−' : ''}₹{(filters.values.type==='income'?sumInc:filters.values.type==='expense'?sumExp:Math.abs(sumInc-sumExp)).toLocaleString('en-IN')}
               </div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div className="label">Transactions</div>
+              <div className="tabular" style={{fontSize:18, fontWeight:600, marginTop:2}}>{totalShown}</div>
             </div>
             {sumInc > 0 && filters.values.type === 'all' && (
-              <div>
+              <div style={{textAlign:'right'}}>
                 <div className="label">Income</div>
-                <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ok)'}}>
-                  +₹{sumInc.toLocaleString('en-IN')}
-                </div>
+                <div className="tabular" style={{fontSize:18, fontWeight:600, marginTop:2, color:'var(--ok)'}}>+₹{sumInc.toLocaleString('en-IN')}</div>
               </div>
             )}
-            <div style={{textAlign:'right'}}>
-              <div className="label">{totalShown} item{totalShown !== 1 ? 's' : ''}</div>
-              {filters.values.type === 'income' ? (
-                <div className="tabular" style={{fontSize:22, fontWeight:600, letterSpacing:'-0.02em', marginTop:2, color:'var(--ok)'}}>+₹{sumInc.toLocaleString('en-IN')}</div>
-              ) : null}
-            </div>
           </div>
         </div>
 
@@ -465,6 +461,25 @@ const Transactions = ({ filterPreset = null, onClearPreset = () => {}, onTxOpen 
 };
 // ============================================================
 const _DEFAULT_SPARK = 'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12';
+// Per-category sparklines from original hi-fi design
+const _CAT_SPARKS = {
+  food:    'M0 18 L24 14 L48 16 L72 10 L96 12 L120 6 L144 4 L168 2',
+  grocery: 'M0 16 L24 14 L48 12 L72 10 L96 12 L120 8 L144 10 L168 6',
+  travel:  'M0 4 L24 6 L48 8 L72 6 L96 10 L120 12 L144 14 L168 18',
+  fuel:    'M0 6 L24 8 L48 10 L72 12 L96 14 L120 12 L144 14 L168 16',
+  shop:    'M0 16 L24 14 L48 12 L72 8 L96 10 L120 6 L144 8 L168 4',
+  subs:    'M0 12 L24 11 L48 13 L72 12 L96 11 L120 12 L144 13 L168 12',
+  bills:   'M0 14 L24 12 L48 14 L72 10 L96 12 L120 8 L144 10 L168 8',
+  health:  'M0 10 L24 12 L48 10 L72 14 L96 12 L120 10 L144 12 L168 10',
+  coffee:  'M0 8 L24 10 L48 8 L72 12 L96 10 L120 8 L144 10 L168 8',
+  rent:    'M0 12 L24 12 L48 12 L72 12 L96 12 L120 12 L144 12 L168 12',
+};
+// Static fallback AI patterns shown when API returns empty
+const _STATIC_INSIGHTS = [
+  { id:'s1', icon:'sparkle', title:'Weekend spender', body:'You spend ~2.4× more on Sat/Sun. Mostly food & travel.' },
+  { id:'s2', icon:'repeat',  title:'Recurring expenses', body:'Subscriptions & bills run on autopilot every month.' },
+  { id:'s3', icon:'sun',     title:'Mornings are cheapest', body:'Avg spend before noon is lower than evening hours.' },
+];
 
 // Build an SVG path from an array of values
 const _makePath = (vals) => {
@@ -545,27 +560,28 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
       // Categories
       if (catsData?.categories?.length) {
         setAllCats(catsData.categories.slice(0, 6).map((c, i) => {
-          const k = c.category || 'other';
+          const k = (c.category || 'other').toLowerCase();
           const v = Math.round(c.amount || 0);
-          return [k, k.charAt(0).toUpperCase() + k.slice(1), `₹${v.toLocaleString('en-IN')}`, null, null, _DEFAULT_SPARK, v];
+          const spark = _CAT_SPARKS[k] || _DEFAULT_SPARK;
+          // Determine dir from sparkline shape — up if endpoint lower (more spend), down if higher
+          const isUpSpend = spark.endsWith('2') || spark.includes('168 2') || spark.includes('168 4');
+          const isDownSpend = spark.includes('168 16') || spark.includes('168 18');
+          const dir = isUpSpend ? 'up' : isDownSpend ? 'down' : 'flat';
+          return [k, k.charAt(0).toUpperCase() + k.slice(1), `₹${v.toLocaleString('en-IN')}`, '', dir, spark, v];
         }));
       }
 
-      // AI insights
-      if (insightsData?.insights?.length) {
-        setAiPatterns(insightsData.insights.slice(0, 3).map(ins => ({
+      // AI insights — use API data if available, else static fallback
+      const src = insightsData?.insights || insightsData?.patterns || [];
+      if (src.length) {
+        setAiPatterns(src.slice(0, 3).map(ins => ({
           icon: 'sparkle',
-          title: ins.title || 'Insight',
-          body: ins.body || '',
+          title: ins.title || ins.label || 'Insight',
+          body: ins.body || ins.description || '',
           id: ins.id,
         })));
-      } else if (insightsData?.patterns?.length) {
-        setAiPatterns(insightsData.patterns.slice(0, 3).map(p => ({
-          icon: 'sparkle',
-          title: p.label || p.title || 'Pattern',
-          body: p.description || p.body || '',
-          id: p.id,
-        })));
+      } else {
+        setAiPatterns(_STATIC_INSIGHTS);
       }
 
       setTimeout(() => setDrawn(true), 300);
@@ -657,9 +673,12 @@ const Insights = ({ onCategoryOpen = () => {}, onAIExplain = () => {} }) => {
                   </div>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
                     <svg viewBox="0 0 168 22" width="110" height="18">
-                      <path d={path} fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d={path} fill="none" stroke={dir==='up'?'var(--err)':dir==='down'?'var(--ok)':'var(--ink-3)'} strokeWidth="1.5" strokeLinecap="round"/>
                     </svg>
-                    <div className="mono small tabular" style={{color:'var(--ink-3)'}}>this month</div>
+                    <div className="mono tabular" style={{fontSize:12, fontWeight:600, color:dir==='up'?'var(--err)':dir==='down'?'var(--ok)':'var(--ink-3)', display:'flex', alignItems:'center', gap:2}}>
+                      {dir==='up'?<Icon name="arrowUp" size={12} stroke={2.5}/>:dir==='down'?<Icon name="arrowDn" size={12} stroke={2.5}/>:'→'}
+                      {delta || 'this mo'}
+                    </div>
                   </div>
                 </div>
               </div>

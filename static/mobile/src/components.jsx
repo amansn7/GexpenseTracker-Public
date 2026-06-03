@@ -222,10 +222,10 @@ const ProfileMenu = ({ open, onClose, onNavigate, onTheme, theme }) => {
         </div>
 
         <div style={{padding:'4px 0'}}>
-          {item('user',    'Profile & account', null,                        () => onNavigate && onNavigate('settings'))}
-          {item('wallet',  'Budgets & goals',   null,                        () => onNavigate && onNavigate('settings', 'budgets'))}
-          {item('sparkle', 'AI settings',       null,                        () => onNavigate && onNavigate('settings', 'ai'))}
-          {item('mail',    'Connections',        'Gmail · SMS',               () => onNavigate && onNavigate('settings'))}
+          {item('user',    'Profile & account', 'Name, email, plan',          () => onNavigate && onNavigate('settings'))}
+          {item('wallet',  'Budgets & goals',   'Categories, goals, limits',  () => onNavigate && onNavigate('settings', 'budgets'))}
+          {item('sparkle', 'AI settings',       'Privacy, model, monthly cap',() => onNavigate && onNavigate('settings', 'ai'))}
+          {item('mail',    'Connections',        'Gmail · SMS · Manual',       () => onNavigate && onNavigate('settings'))}
 
           {/* Appearance — inline theme toggle, no navigation */}
           <div style={{display:'flex', alignItems:'center', gap:12, padding:'12px 14px'}}>

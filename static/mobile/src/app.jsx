@@ -193,6 +193,11 @@ const PatchedSettings = ({ theme, onTheme, onAi, onBudgets, onOnboarding, onEmpt
           </div>
         </div>
 
+        <div className="label" style={{margin:'14px 4px 8px'}}>Region</div>
+        <div className="card fade-up fade-up-3b" style={{padding:0, marginBottom:14}}>
+          <Row icon="globe" label="Currency & region" sub="₹ INR · India" right={<Icon name="chevron" size={16} style={{color:'var(--ink-3)'}}/>}/>
+        </div>
+
         <div className="label" style={{margin:'14px 4px 8px'}}>Preferences</div>
         <div className="card fade-up fade-up-4" style={{padding:0, marginBottom:14}}>
           <Row icon={theme==='dark' ? 'moon' : 'sun'} label="Dark mode" sub={theme==='dark' ? 'On' : 'Off · tap to enable'} right={<Toggle on={theme==='dark'} onClick={(e) => onTheme(theme==='dark'?'light':'dark', e)}/>}/>
