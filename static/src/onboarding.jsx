@@ -268,6 +268,11 @@ const StepProfile = ({ advance, accountData }) => {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (accountData) {
+      // User already exists from OAuth — just advance
+      advance(2, { email: form.email });
+      return;
+    }
     setSaving(true);
     setError(null);
     setAlreadySetUp(false);
