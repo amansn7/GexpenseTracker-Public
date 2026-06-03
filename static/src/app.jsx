@@ -564,8 +564,11 @@ const App = () => {
     const res = await fetch("/api/auth/me", { credentials: "include" });
     if (res.ok) {
       accountData = await res.json();
-      if (!showOnboarding) {
-        showOnboarding = !accountData.onboarding_complete;
+      if (accountData.onboarding_complete) {
+        showOnboarding = false;
+        localStorage.removeItem("mf_onboarding_step");
+      } else {
+        showOnboarding = true;
       }
     } else if (res.status === 401) {
       const body = await res.json();
