@@ -82,7 +82,7 @@ def generate_registration_challenge(user_id: str, user_email: str) -> dict[str, 
     result = json.loads(options_to_json(options))
     result["challenge"] = challenge_b64
     sig = _sign_challenge(challenge_b64, "register")
-    return {"options": result, "challenge_sig": sig}
+    return {"options": result, "challenge_sig": sig, "challenge_b64": challenge_b64}
 
 
 def verify_registration_credential(
@@ -124,7 +124,7 @@ def generate_assertion_challenge() -> dict[str, Any]:
     result = json.loads(options_to_json(options))
     result["challenge"] = challenge_b64
     sig = _sign_challenge(challenge_b64, "assert")
-    return {"options": result, "challenge_sig": sig}
+    return {"options": result, "challenge_sig": sig, "challenge_b64": challenge_b64}
 
 
 def verify_assertion_credential(

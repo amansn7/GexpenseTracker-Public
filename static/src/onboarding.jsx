@@ -845,11 +845,18 @@ const PasskeyChallenge = () => {
     try {
       const begin = await API.post("/api/auth/passkey/assert/begin");
       const pkOptions = begin.options;
-      pkOptions.challenge = Uint8Array.from(atob(pkOptions.challenge), c => c.charCodeAt(0));
+      const b64 = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      pkOptions.challenge = b64(pkOptions.challenge);
 
       const credential = await navigator.credentials.get({ publicKey: pkOptions });
+      const bufToB64url = buf => { const b = new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+      const serializeCred = c => ({
+        id: c.id, type: c.type, rawId: bufToB64url(c.rawId),
+        response: { clientDataJSON: bufToB64url(c.response.clientDataJSON), attestationObject: bufToB64url(c.response.attestationObject) },
+        transports: c.response.getTransports?.() ?? [],
+      });
       const complete = await API.post("/api/auth/passkey/assert/complete", {
-        credential: credential.toJSON(),
+        credential: credential.toJSON ? credential.toJSON() : serializeCred(credential),
         challenge_b64: begin.challenge_b64,
         challenge_sig: begin.challenge_sig,
       });
