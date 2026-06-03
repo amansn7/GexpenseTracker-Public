@@ -55,7 +55,11 @@ async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = 
         )
     ).all()
 
-    spend_map = {r.category: float(r.spent or 0) for r in spend_rows}
+    spend_map: dict[str, float] = {}
+    for r in spend_rows:
+        key = r.category.lower() if r.category else ""
+        if key:
+            spend_map[key] = spend_map.get(key, 0.0) + float(r.spent or 0)
 
     # Linked spend: sum least(split_amount, txn.amount) per target_category in SQL.
     linked_rows = (
@@ -84,12 +88,16 @@ async def list_budgets(db: AsyncSession = Depends(get_db), current_user: User = 
         )
     ).all()
 
-    linked_map = {r.target_category: float(r.linked_spent or 0) for r in linked_rows}
+    linked_map: dict[str, float] = {}
+    for r in linked_rows:
+        key = r.target_category.lower() if r.target_category else ""
+        if key:
+            linked_map[key] = linked_map.get(key, 0.0) + float(r.linked_spent or 0)
 
     result = []
     for b in budgets:
-        direct = spend_map.get(b.category, 0.0)
-        linked = linked_map.get(b.category, 0.0)
+        direct = spend_map.get(b.category.lower(), 0.0)
+        linked = linked_map.get(b.category.lower(), 0.0)
         spent = direct + linked
         limit = float(b.monthly_limit)
         pct = round(spent / limit * 100, 1) if limit > 0 else 0.0

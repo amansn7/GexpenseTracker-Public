@@ -264,3 +264,22 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 7. Sender rules should be hints, not hard overrides for financial emails. The correct decision flow is: (1) determine if the email is financial (has amount OR has verb + keyword hits), (2) if financial → route by content signal strength (income always wins over domain ignore), (3) if not financial → domain rules apply (preserving noise-suppression benefit).
 8. `_FINANCIAL_AMOUNT_RE` must match the rupee symbol `₹`, not just `Rs.` and `INR` — many Indian bank emails use `₹`. The pre_filter's `_AMOUNT_RE` didn't include `₹`, which worked for scoring but would fail for binary "is financial?" checks.
 9. `_FINANCIAL_VERB_RE` must match past-tense variants (`credited`, `debited`, `charged`) not just base forms (`credit`, `debit`, `charge`). Word boundary `\bcredit\b` does NOT match "credited" — use `credit(?:ed)?` to match both.
+
+## WebAuthn / webauthn library
+
+### webauthn 2.x changed from Pydantic to dataclasses
+- `webauthn>=2.0.0` switched `PublicKeyCredentialCreationOptions`, `RegistrationCredential`, `AuthenticationCredential` from Pydantic models to **dataclasses**. No `model_validate()`, `.json()`, or `.model_dump_json()`.
+- Use `options_to_json()` from `webauthn` to serialize registration/assertion options to JSON string, then `json.loads()` to dict.
+- Pass credential dicts directly to `verify_registration_response()` and `verify_authentication_response()` — both accept `Dict[str, Any]` directly, no need to construct the dataclass.
+- Return values: `credential_id` and `credential_public_key` are `bytes` (not str). Convert to base64url via `bytes_to_base64url()` for DB storage; convert back with `base64url_to_bytes()`.
+- Use `AttestationConveyancePreference.NONE` (enum), not the string `"none"` — `options_to_json()` calls `.value` on the enum.
+
+### Frontend: Credential serialization for browsers without toJSON()
+- `PublicKeyCredential.toJSON()` is not available in all browsers (e.g., older Safari). Always provide a fallback.
+- Registration credential response has `attestationObject`; assertion response has `authenticatorData` + `signature`. Use separate serializers.
+- ArrayBuffer → base64url: `btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/, '')`
+- Base64url → Uint8Array: `Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0))`
+- `atob()` only handles standard base64 (`+`, `/`), not base64url (`-`, `_`). Always replace before decoding.
+
+### Backend must return challenge_b64 as a top-level key
+- Frontend reads `begin.challenge_b64` — the backend response must include `challenge_b64` as a separate top-level key alongside `options` and `challenge_sig`, not just nested inside `options.challenge`.

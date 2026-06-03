@@ -13,7 +13,7 @@ from app.services.stats_service import (
     _add_months,
     _period_start,
 )
-from sqlalchemy import ColumnElement, cast, desc, func, or_, select
+from sqlalchemy import ColumnElement, case, cast, desc, func, or_, select
 from sqlalchemy.types import Date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.compiler import compiles
@@ -21,7 +21,7 @@ from sqlalchemy.ext.compiler import compiles
 from app.auth_deps import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models import Budget, ClassifierMethod, Email, Transaction, TransactionStatus, User, UserSettings
+from app.models import Budget, BudgetLink, ClassifierMethod, Email, Transaction, TransactionStatus, User, UserSettings
 
 router = APIRouter()
 
@@ -490,9 +490,43 @@ async def _compute_budgets(user_id: str, db: AsyncSession) -> dict:
         if key:
             spend_map[key] = spend_map.get(key, 0.0) + float(r.spent or 0)
 
+    linked_rows = (
+        await db.execute(
+            select(
+                BudgetLink.target_category,
+                func.sum(
+                    case(
+                        (Transaction.amount < BudgetLink.split_amount, Transaction.amount),
+                        else_=BudgetLink.split_amount,
+                    )
+                ).label("linked_spent"),
+            )
+            .join(Transaction, Transaction.category == BudgetLink.source_category)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(
+                BudgetLink.user_id == user_id,
+                Email.user_id == user_id,
+                Transaction.label == "expense",
+                Transaction.txn_date >= first_of_month,
+                Transaction.txn_date <= today,
+                Transaction.txn_date.isnot(None),
+                Transaction.status != "needs_review",
+            )
+            .group_by(BudgetLink.target_category)
+        )
+    ).all()
+
+    linked_map: dict[str, float] = {}
+    for r in linked_rows:
+        key = r.target_category.lower() if r.target_category else ""
+        if key:
+            linked_map[key] = linked_map.get(key, 0.0) + float(r.linked_spent or 0)
+
     result = []
     for b in budgets:
-        spent = spend_map.get(b.category.lower(), 0.0)
+        direct = spend_map.get(b.category.lower(), 0.0)
+        linked = linked_map.get(b.category.lower(), 0.0)
+        spent = direct + linked
         limit = float(b.monthly_limit)
         pct = round(spent / limit * 100, 1) if limit > 0 else 0.0
         result.append(
