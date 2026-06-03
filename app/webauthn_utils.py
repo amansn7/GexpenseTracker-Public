@@ -16,9 +16,7 @@ from webauthn import (
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
-    AuthenticationCredential,
     AuthenticatorSelectionCriteria,
-    RegistrationCredential,
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
@@ -95,10 +93,8 @@ def verify_registration_credential(
 
     challenge_bytes = base64url_to_bytes(challenge_b64)
 
-    reg_cred = RegistrationCredential.model_validate(credential)
-
     verification = verify_registration_response(
-        credential=reg_cred,
+        credential=credential,
         expected_challenge=challenge_bytes,
         expected_rp_id=_get_rp_id(),
         expected_origin=_get_origin(),
@@ -106,8 +102,8 @@ def verify_registration_credential(
     )
 
     return (
-        verification.credential_id,
-        verification.credential_public_key,
+        bytes_to_base64url(verification.credential_id),
+        bytes_to_base64url(verification.credential_public_key),
         verification.sign_count,
     )
 
@@ -139,14 +135,12 @@ def verify_assertion_credential(
 
     challenge_bytes = base64url_to_bytes(challenge_b64)
 
-    auth_cred = AuthenticationCredential.model_validate(credential)
-
     verification = verify_authentication_response(
-        credential=auth_cred,
+        credential=credential,
         expected_challenge=challenge_bytes,
         expected_rp_id=_get_rp_id(),
         expected_origin=_get_origin(),
-        credential_public_key=credential_public_key,
+        credential_public_key=base64url_to_bytes(credential_public_key),
         credential_current_sign_count=current_sign_count,
         require_user_verification=True,
     )
