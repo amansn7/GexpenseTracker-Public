@@ -829,7 +829,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
           {filter === "review" ? (
             <div>
               {reviewEmails.length === 0 ? (
-                <div style={{ padding: "64px 32px", textAlign: "center" }}>
+                <div style={{ padding: isMobile ? "64px max(14px, env(safe-area-inset-right, 0px))" : "64px 32px", textAlign: "center" }}>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
                     <div style={{ width: 56, height: 56, borderRadius: 12, background: "var(--paper-2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon name="inbox" size={28} stroke="var(--ink-3)"/>
@@ -963,8 +963,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                         </>
                       )}
                       <div style={{ flex: 1 }}/>
-                      <button onClick={() => setCollapsedAll(c => c === true ? null : true)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === true ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Collapse all</button>
-                      <button onClick={() => setCollapsedAll(c => c === false ? null : false)} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === false ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer" }}>Expand all</button>
+                      <button onClick={() => setCollapsedAll(c => c === true ? null : true)} style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === true ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer", ...(isMobile ? { minHeight: 44 } : {}) }}>Collapse all</button>
+                      <button onClick={() => setCollapsedAll(c => c === false ? null : false)} style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, border: "1px solid var(--line)", background: collapsedAll === false ? "var(--paper-2)" : "var(--card)", color: "var(--ink-2)", cursor: "pointer", ...(isMobile ? { minHeight: 44 } : {}) }}>Expand all</button>
                     </div>
                     {reviewBulkErrors.length > 0 && (
                       <div style={{ padding: "6px 14px", fontSize: 10, color: "var(--neg)", background: "var(--neg-soft)", borderBottom: "1px solid var(--line)" }}>
@@ -1071,7 +1071,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
               )}
             </div>
           ) : filter === "duplicates" ? (<>
-            <div style={{ padding: "10px 16px 10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)" }}>
+            <div style={{ padding: isMobile ? "10px max(14px, env(safe-area-inset-right, 0px)) 10px max(14px, env(safe-area-inset-left, 0px))" : "10px 16px 10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--line)", flexWrap: isMobile ? "wrap" : "nowrap", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Duplicate detection</span>
                 <div style={{ display: "flex", gap: 2 }}>
@@ -1087,6 +1087,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                           fontSize: 12, fontWeight: 500, cursor: "pointer", textTransform: "capitalize",
                           display: "inline-flex", alignItems: "center", gap: 5, lineHeight: 1.2,
                           transition: "all 120ms var(--ease-out-quart)",
+                          minHeight: isMobile ? 44 : "auto",
                         }}>
                         {tab}{count > 0 ? ` (${count})` : ""}
                       </button>
@@ -1094,15 +1095,15 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   })}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap" }}>
                 {dupTab === "pending" && dupSelected.size > 0 && (
                   <>
                     <button onClick={() => bulkResolveDups("confirmed")} disabled={dupBulkResolving}
-                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--pos)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer" }}>
+                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--pos)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer", ...(isMobile ? { minHeight: 44 } : {}) }}>
                       Confirm {dupSelected.size}
                     </button>
                     <button onClick={() => bulkResolveDups("dismissed")} disabled={dupBulkResolving}
-                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--neg)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer" }}>
+                      style={{ padding: "4px 10px", border: "none", borderRadius: 4, background: "var(--neg)", color: "white", fontSize: 11, fontWeight: 600, cursor: dupBulkResolving ? "default" : "pointer", ...(isMobile ? { minHeight: 44 } : {}) }}>
                       Dismiss {dupSelected.size}
                     </button>
                   </>
@@ -1125,14 +1126,14 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                   setDupScanning(false);
                 }} disabled={dupScanning}
                   className="focus-ring"
-                  style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", opacity: dupScanning ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+                  style={{ padding: "6px 14px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 12, fontWeight: 500, cursor: dupScanning ? "default" : "pointer", opacity: dupScanning ? 0.6 : 1, display: "flex", alignItems: "center", gap: 6, ...(isMobile ? { minHeight: 44 } : {}) }}>
                   {dupScanning ? <><div style={{ width: 11, height: 11, border: "2px solid var(--ink-3)", borderTopColor: "var(--paper)", borderRadius: "50%", animation: "spin 700ms linear infinite" }}/> Scanning…</> : "Run scan"}
                 </button>
               </div>
             </div>
             {dupTab === "pending" ? (<>
               {dupBulkResult && (
-                <div style={{ margin: "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ margin: isMobile ? "8px max(14px, env(safe-area-inset-right, 0px))" : "8px 12px", padding: "12px 16px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>Scan results: {dupBulkResult.checked} transactions checked</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px" }}>
@@ -1151,16 +1152,16 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
         </div>
       )}
       {dupLoading && !dupScanning ? (
-        <div style={{ padding: "56px 32px", display: "flex", justifyContent: "center" }}>
+        <div style={{ padding: isMobile ? "56px max(14px, env(safe-area-inset-right, 0px))" : "56px 32px", display: "flex", justifyContent: "center" }}>
           <SkeletonRow />
         </div>
               ) : dupScanning ? (
-                <div style={{ padding: "56px 32px", textAlign: "center" }}>
+                <div style={{ padding: isMobile ? "56px max(14px, env(safe-area-inset-right, 0px))" : "56px 32px", textAlign: "center" }}>
                   <div className="skeleton" style={{ width: 32, height: 32, borderRadius: 999, margin: "0 auto 12px" }} />
                   <div style={{ fontSize: 13, color: "var(--ink-3)" }}>Scanning expenses for duplicates…</div>
                 </div>
               ) : dupPairs.length === 0 ? (
-                <div style={{ padding: "64px 32px", textAlign: "center" }}>
+                <div style={{ padding: isMobile ? "64px max(14px, env(safe-area-inset-right, 0px))" : "64px 32px", textAlign: "center" }}>
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
                     <Icon name="check" size={20} stroke="var(--pos)"/>
                   </div>
@@ -1171,7 +1172,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 dupPairs.map(pair => {
                   const isNew = dupBulkResult?.newPairIds?.includes(pair.id);
                   return (
-                  <div key={pair.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 16px 4px 12px", borderBottom: "1px solid var(--line)" }}>
+                  <div key={pair.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: isMobile ? "4px max(14px, env(safe-area-inset-right, 0px)) 4px max(14px, env(safe-area-inset-left, 0px))" : "4px 16px 4px 12px", borderBottom: "1px solid var(--line)" }}>
                     <input type="checkbox" checked={dupSelected.has(pair.id)} onChange={e => {
                       setDupSelected(prev => { const n = new Set(prev); e.target.checked ? n.add(pair.id) : n.delete(pair.id); return n; });
                     }} style={{ marginTop: 22, accentColor: "var(--accent)", cursor: "pointer", flexShrink: 0 }} />
@@ -1184,7 +1185,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <SkeletonRow />
               </div>
             ) : dupResolved.length === 0 ? (
-              <div style={{ padding: "64px 32px", textAlign: "center" }}>
+              <div style={{ padding: isMobile ? "64px max(14px, env(safe-area-inset-right, 0px))" : "64px 32px", textAlign: "center" }}>
                 <div style={{ fontSize: 13, color: "var(--ink-3)" }}>No resolved duplicates yet.</div>
               </div>
             ) : (
@@ -1192,7 +1193,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 const fmtAmt = (amt) => amt != null ? `₹${Math.abs(amt).toLocaleString("en-IN")}` : "—";
                 const statusColor = pair.status === "confirmed" ? "var(--pos)" : pair.status === "dismissed" ? "var(--neg)" : "var(--ink-3)";
                 return (
-                  <div key={pair.id} style={{ padding: "14px 24px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div key={pair.id} style={{ padding: isMobile ? "14px max(14px, env(safe-area-inset-right, 0px)) 14px max(14px, env(safe-area-inset-left, 0px))" : "14px 24px", borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
@@ -1226,7 +1227,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                           }
                         }}
                         className="focus-ring"
-                        style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", fontSize: 11, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}>
+                        style={{ padding: "4px 10px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", fontSize: 11, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap", ...(isMobile ? { minHeight: 44 } : {}) }}>
                         Undo
                       </button>
                     </div>
@@ -1306,17 +1307,17 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
             </>
           )}
           {needsReviewLoading && (
-            <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
+            <div style={{ padding: isMobile ? "20px max(14px, env(safe-area-inset-right, 0px))" : "20px 32px", display: "flex", justifyContent: "center" }}>
               <SkeletonRow />
             </div>
           )}
           {loadingMore && (
-            <div style={{ padding: "20px 32px", display: "flex", justifyContent: "center" }}>
+            <div style={{ padding: isMobile ? "20px max(14px, env(safe-area-inset-right, 0px))" : "20px 32px", display: "flex", justifyContent: "center" }}>
               <SkeletonRow />
             </div>
           )}
           {!loadingMore && filter !== "needs_review" && transactions.length < totalTransactions && transactions.length > 0 && (
-            <div style={{ padding: "16px 32px", textAlign: "center", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
+            <div style={{ padding: isMobile ? "16px max(14px, env(safe-area-inset-right, 0px))" : "16px 32px", textAlign: "center", fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>
               {transactions.length} of {totalTransactions} · scroll for more
             </div>
           )}
@@ -2119,7 +2120,7 @@ const SearchView = ({ query, categoryFilter }) => {
   return (
     <div style={{ ...wrapStyle, height: "calc(100dvh - 72px)" }}>
       <div style={inboxStyles.list}>
-        <div style={{ ...inboxStyles.toolbar }}>
+        <div style={{ ...inboxStyles.toolbar, ...(isMobile ? { padding: "9px max(14px, env(safe-area-inset-right, 0px)) 9px max(14px, env(safe-area-inset-left, 0px))", overflowX: "auto", alignItems: "center", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } : {}) }}>
           {selectMode ? (
             <>
               <input type="checkbox" style={{ margin: 0, cursor: "pointer" }}
@@ -2135,12 +2136,12 @@ const SearchView = ({ query, categoryFilter }) => {
                 }}
               />
               <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: 4 }}>{selectAllFlag ? results.length : selectedIds.size} selected</span>
-              <button onClick={clearSelect} style={{ marginLeft: "auto", padding: "4px 8px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", fontSize: 11 }}>Cancel</button>
+              <button onClick={clearSelect} style={{ marginLeft: "auto", padding: "4px 8px", border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", fontSize: 11, ...(isMobile ? { minHeight: 44 } : {}) }}>Cancel</button>
             </>
           ) : (
             loading
               ? <span>Searching…</span>
-              : <span>{results.length} result{results.length !== 1 ? "s" : ""} for <strong style={{ color: "var(--ink)", fontWeight: 600 }}>"{query}"</strong></span>
+              : <span style={isMobile ? { fontSize: 12 } : {}}>{results.length} result{results.length !== 1 ? "s" : ""} for <strong style={{ color: "var(--ink)", fontWeight: 600 }}>"{query}"</strong></span>
           )}
         </div>
 
@@ -2151,8 +2152,8 @@ const SearchView = ({ query, categoryFilter }) => {
         )}
 
         {!loading && results.length === 0 && (
-          <div style={{ padding: "72px 32px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
+          <div style={{ padding: isMobile ? "72px max(14px, env(safe-area-inset-right, 0px)) 72px max(14px, env(safe-area-inset-left, 0px))" : "72px 32px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: isMobile ? 18 : 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
             <div style={{ fontSize: 13, color: "var(--ink-4)" }}>Try a different merchant, category, or amount</div>
           </div>
         )}
@@ -2169,7 +2170,7 @@ const SearchView = ({ query, categoryFilter }) => {
                   return next;
                 });
               }
-            }} style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px 14px 7px", top: 41 } : {}), cursor: "pointer" }}>
+            }} style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px max(14px, env(safe-area-inset-right, 0px)) 7px max(14px, env(safe-area-inset-left, 0px))", top: 41 } : {}), cursor: "pointer" }}>
               <span>{dateLabel(date)}</span>
             </div>
             {txs.map((tx, idx) => (

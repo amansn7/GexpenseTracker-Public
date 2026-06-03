@@ -208,6 +208,7 @@ const IncomeTableView = ({ transactions, onUpdate }) => {
 };
 
 const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFocus, onToggleSelect, previewId, onTogglePreview }) => {
+  const { isMobile } = useViewport();
   const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
   const rowRef = React.useRef(null);
   const [hovered, setHovered] = React.useState(false);
@@ -239,7 +240,7 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFoc
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px",
+        display: "flex", alignItems: "center", gap: 6, height: isMobile ? 44 : 36, padding: "0 max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px))",
         borderBottom: "1px solid var(--line)", cursor: "pointer",
         background: isSelected ? "var(--paper-2)" : hovered ? "var(--paper-2)" : "transparent",
         borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",

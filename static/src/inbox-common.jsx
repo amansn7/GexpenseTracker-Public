@@ -80,20 +80,36 @@ const FilterChip = ({ label, icon, count, active, onClick }) => {
   );
 };
 
-const SkeletonRow = () => (
-  <div style={{ display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "13px 28px", borderBottom: "1px solid var(--line)" }}>
-    <div className="skeleton" style={{ width: 14, height: 14, borderRadius: 3 }} />
-    <div className="skeleton" style={{ width: 6, height: 6, borderRadius: 999 }} />
-    <div className="skeleton" style={{ width: 26, height: 26, borderRadius: 6 }} />
-    <div>
-      <div className="skeleton" style={{ width: "60%", height: 12, marginBottom: 4 }} />
-      <div className="skeleton" style={{ width: "40%", height: 10 }} />
+const SkeletonRow = () => {
+  const { isMobile } = useViewport();
+  if (isMobile) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "auto 26px minmax(0, 1fr) auto", gap: 8, alignItems: "center", padding: "12px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px))", borderBottom: "1px solid var(--line)" }}>
+        <div className="skeleton" style={{ width: 14, height: 14, borderRadius: 3 }} />
+        <div className="skeleton" style={{ width: 26, height: 26, borderRadius: 6 }} />
+        <div>
+          <div className="skeleton" style={{ width: "60%", height: 12, marginBottom: 4 }} />
+          <div className="skeleton" style={{ width: "40%", height: 10 }} />
+        </div>
+        <div className="skeleton" style={{ width: 56, height: 14, marginLeft: "auto" }} />
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "13px 28px", borderBottom: "1px solid var(--line)" }}>
+      <div className="skeleton" style={{ width: 14, height: 14, borderRadius: 3 }} />
+      <div className="skeleton" style={{ width: 6, height: 6, borderRadius: 999 }} />
+      <div className="skeleton" style={{ width: 26, height: 26, borderRadius: 6 }} />
+      <div>
+        <div className="skeleton" style={{ width: "60%", height: 12, marginBottom: 4 }} />
+        <div className="skeleton" style={{ width: "40%", height: 10 }} />
+      </div>
+      <div className="skeleton" style={{ width: 56, height: 10, marginLeft: "auto" }} />
+      <div className="skeleton" style={{ width: 30, height: 10, marginLeft: "auto" }} />
+      <div className="skeleton" style={{ width: 56, height: 14, marginLeft: "auto" }} />
     </div>
-    <div className="skeleton" style={{ width: 56, height: 10, marginLeft: "auto" }} />
-    <div className="skeleton" style={{ width: 30, height: 10, marginLeft: "auto" }} />
-    <div className="skeleton" style={{ width: 56, height: 14, marginLeft: "auto" }} />
-  </div>
-);
+  );
+};
 
 window.fmtMoney = fmtMoney;
 window.groupByDate = groupByDate;
