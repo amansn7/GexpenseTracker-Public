@@ -15,6 +15,7 @@ from webauthn import (
 )
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
+    AttestationConveyancePreference,
     AuthenticationCredential,
     AuthenticatorSelectionCriteria,
     RegistrationCredential,
@@ -71,7 +72,7 @@ def generate_registration_challenge(user_id: str, user_email: str) -> dict[str, 
         user_id=user_id.encode(),
         user_name=user_email,
         user_display_name=user_email,
-        attestation="none",
+        attestation=AttestationConveyancePreference.NONE,
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED,
             user_verification=UserVerificationRequirement.REQUIRED,
