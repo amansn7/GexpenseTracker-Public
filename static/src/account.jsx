@@ -1997,6 +1997,13 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [passkeyError, setPasskeyError] = React.useState(null);
   const [passkeyVerifying, setPasskeyVerifying] = React.useState(false);
   const [passkeyCredentials, setPasskeyCredentials] = React.useState([]);
+  const [showTotpSetup, setShowTotpSetup] = React.useState(false);
+  const [showTotpDisableConfirm, setShowTotpDisableConfirm] = React.useState(false);
+  const [totpQrUrl, setTotpQrUrl] = React.useState(null);
+  const [totpSecret, setTotpSecret] = React.useState(null);
+  const [totpCode, setTotpCode] = React.useState("");
+  const [totpError, setTotpError] = React.useState(null);
+  const [totpVerifying, setTotpVerifying] = React.useState(false);
   const [showExportModal, setShowExportModal] = React.useState(false);
   const [exportDateFrom, setExportDateFrom] = React.useState("");
   const [exportDateTo, setExportDateTo] = React.useState("");
@@ -2135,6 +2142,53 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       showToast("Passkey removed");
     } catch (e) {
       showToast(e.message || "Failed to remove passkey");
+    }
+  };
+
+  const handleTotpToggle = async () => {
+    if (!account?.user?.totp_enabled) {
+      try {
+        const result = await API.post("/api/account/2fa/setup");
+        setTotpQrUrl(result.qr_url);
+        setTotpSecret(result.secret);
+        setTotpCode("");
+        setTotpError(null);
+        setShowTotpSetup(true);
+      } catch (e) {
+        showToast(e.message || "Could not start 2FA setup");
+      }
+    } else {
+      setShowTotpDisableConfirm(true);
+    }
+  };
+
+  const handleVerifyTotp = async () => {
+    setTotpVerifying(true);
+    setTotpError(null);
+    try {
+      const result = await API.post("/api/account/2fa/verify", { code: totpCode });
+      if (result.ok) {
+        setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: true } }));
+        setShowTotpSetup(false);
+        showToast("Two-factor authentication enabled");
+      } else {
+        setTotpError(result.error || "Invalid code");
+      }
+    } catch (e) {
+      setTotpError(e.message || "Verification failed");
+    } finally {
+      setTotpVerifying(false);
+    }
+  };
+
+  const handleDisableTotp = async () => {
+    try {
+      await API.delete("/api/account/2fa");
+      setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: false } }));
+      setShowTotpDisableConfirm(false);
+      showToast("Two-factor authentication disabled");
+    } catch (e) {
+      showToast(e.message || "Failed to disable 2FA");
     }
   };
 
@@ -2515,6 +2569,11 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             ))}
           </div>
         )}
+        <div style={{ ...accountStyles.row, ...mqRow }}>
+          <div><div style={accountStyles.label}>Authenticator app (TOTP)</div><div style={accountStyles.sub}>Time-based codes from Google Authenticator, Authy, etc.</div></div>
+          <div/>
+          <Toggle on={!!account?.user?.totp_enabled} onChange={handleTotpToggle}/>
+        </div>
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
           <div/>
@@ -2655,6 +2714,60 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button style={accountStyles.btn} onClick={() => setShowPasskeyDisableConfirm(false)}>Cancel</button>
               <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisablePasskey}>Disable</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showTotpSetup && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up authenticator app</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 16, lineHeight: 1.5 }}>
+              Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code to verify.
+            </div>
+            {totpQrUrl && (
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <img src={totpQrUrl} alt="TOTP QR code" style={{ width: 180, height: 180, borderRadius: 8, border: "1px solid var(--line)" }} />
+              </div>
+            )}
+            {totpSecret && (
+              <div style={{ fontSize: 12, color: "var(--ink-3)", textAlign: "center", marginBottom: 16 }}>
+                Or enter this key manually: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)", fontWeight: 500, userSelect: "all" }}>{totpSecret}</span>
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Verification code:</div>
+            <input
+              value={totpCode}
+              onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              style={{ ...accountStyles.input, marginBottom: 16, textAlign: "center", fontSize: 18, letterSpacing: "0.3em", fontFamily: "'Geist Mono', monospace" }}
+              maxLength={6}
+              autoFocus
+            />
+            {totpError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{totpError}</div>}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShowTotpSetup(false)} disabled={totpVerifying}>Cancel</button>
+              <button
+                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: totpCode.length !== 6 || totpVerifying ? 0.4 : 1 }}
+                disabled={totpCode.length !== 6 || totpVerifying}
+                onClick={handleVerifyTotp}
+              >
+                {totpVerifying ? "Verifying…" : "Verify"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showTotpDisableConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable two-factor authentication?</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+              Are you sure you want to disable TOTP two-factor authentication? Your account will be less secure.
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShowTotpDisableConfirm(false)}>Cancel</button>
+              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisableTotp}>Disable</button>
             </div>
           </div>
         </div>

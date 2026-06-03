@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from webauthn import (
     generate_authentication_options,
     generate_registration_options,
+    options_to_json,
     verify_authentication_response,
     verify_registration_response,
 )
@@ -77,7 +78,7 @@ def generate_registration_challenge(user_id: str, user_email: str) -> dict[str, 
         ),
     )
 
-    result = json.loads(options.model_dump_json())
+    result = json.loads(options_to_json(options))
     result["challenge"] = challenge_b64
     sig = _sign_challenge(challenge_b64, "register")
     return {"options": result, "challenge_sig": sig}
@@ -119,7 +120,7 @@ def generate_assertion_challenge() -> dict[str, Any]:
         user_verification=UserVerificationRequirement.REQUIRED,
     )
 
-    result = json.loads(options.model_dump_json())
+    result = json.loads(options_to_json(options))
     result["challenge"] = challenge_b64
     sig = _sign_challenge(challenge_b64, "assert")
     return {"options": result, "challenge_sig": sig}

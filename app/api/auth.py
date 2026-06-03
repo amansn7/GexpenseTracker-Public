@@ -43,6 +43,7 @@ from app.models import (
     UserRole,
     UserSettings,
     UserStatus,
+    WebAuthnCredential,
 )
 
 router = APIRouter()
