@@ -148,6 +148,7 @@ async def _load_user_bundle(db: AsyncSession, user: User) -> dict:
             "status": user.status,
             "onboarding_complete": user.onboarding_complete,
             "totp_enabled": user.totp_enabled,
+            "passkeys_enabled": user.passkeys_enabled,
             "created_at": user.created_at.isoformat() if user.created_at else None,
         },
         "profile": _profile_dict(profile),

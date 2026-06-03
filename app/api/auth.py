@@ -14,7 +14,15 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth_deps import TOTP_COOKIE_NAME, _sign_totp_token, get_current_user, is_owner
+from app.auth_deps import (
+    PASSKEY_COOKIE_NAME,
+    TOTP_COOKIE_NAME,
+    _sign_passkey_token,
+    _sign_totp_token,
+    get_current_user,
+    is_owner,
+    require_totp_or_recent_auth,
+)
 from app.config import settings
 from app.crypto import decrypt_secret, encrypt_secret
 from app.csrf import generate_csrf_token
@@ -34,6 +42,7 @@ from app.models import (
     UserRole,
     UserSettings,
     UserStatus,
+    WebAuthnCredential,
 )
 
 router = APIRouter()
@@ -119,7 +128,7 @@ async def _get_or_create_user(
     if user is None:
         user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=True)
         if settings.ENABLE_LLM_TRIAL:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             user.trial_started_at = now
             user.trial_ends_at = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
         db.add(user)
@@ -305,6 +314,7 @@ async def logout(
             pass
     _clear_session_cookie(response)
     response.delete_cookie("totp_verified", path="/")
+    response.delete_cookie(PASSKEY_COOKIE_NAME, path="/")
     return {"ok": True}
 
 
@@ -509,6 +519,230 @@ def _jwt_response_for_user(user: User) -> dict:
             "role": user.role if isinstance(user.role, str) else user.role.value,
         },
     }
+
+
+# ── Passkey (WebAuthn) endpoints ─────────────────────────────────────────
+
+
+@router.post("/auth/passkey/register/begin")
+async def passkey_register_begin(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate WebAuthn registration options for a new passkey."""
+    from app.webauthn_utils import generate_registration_challenge
+
+    result = generate_registration_challenge(user.id, user.email)
+    return result
+
+
+class PasskeyRegisterCompleteBody(BaseModel):
+    credential: dict
+    challenge_b64: str
+    challenge_sig: str
+    device_name: str
+
+
+@router.post("/auth/passkey/register/complete")
+async def passkey_register_complete(
+    body: PasskeyRegisterCompleteBody,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify and store a new WebAuthn credential."""
+    from app.webauthn_utils import verify_registration_credential
+
+    cred_id, public_key, sign_count = verify_registration_credential(
+        body.credential, body.challenge_b64, body.challenge_sig
+    )
+
+    existing = (
+        await db.execute(select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cred_id))
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=409, detail="Credential already registered")
+
+    db.add(WebAuthnCredential(
+        user_id=user.id,
+        credential_id=cred_id,
+        public_key=public_key,
+        sign_count=sign_count,
+        device_name=body.device_name or "Passkey",
+    ))
+
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    user_row.passkeys_enabled = True
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/auth/passkey/assert/begin")
+async def passkey_assert_begin(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate WebAuthn assertion options for passkey verification.
+
+    Requires a valid session cookie (user is mid-login, after OAuth).
+    """
+    from app.webauthn_utils import generate_assertion_challenge
+
+    user = await _resolve_user_from_session(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    result = generate_assertion_challenge()
+    result["user_id"] = user.id
+    result["user_email"] = user.email
+    return result
+
+
+class PasskeyAssertCompleteBody(BaseModel):
+    credential: dict
+    challenge_b64: str
+    challenge_sig: str
+
+
+@router.post("/auth/passkey/assert/complete")
+async def passkey_assert_complete(
+    body: PasskeyAssertCompleteBody,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a WebAuthn assertion and set the passkey_verified cookie."""
+    from app.webauthn_utils import verify_assertion_credential
+
+    user = await _resolve_user_from_session(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    cred_id = body.credential.get("id")
+    if not cred_id:
+        raise HTTPException(status_code=422, detail="Credential ID required")
+
+    stored = (
+        await db.execute(
+            select(WebAuthnCredential).where(
+                WebAuthnCredential.credential_id == cred_id,
+                WebAuthnCredential.user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not stored:
+        raise HTTPException(status_code=404, detail="Credential not found")
+
+    new_sign_count = verify_assertion_credential(
+        body.credential,
+        body.challenge_b64,
+        body.challenge_sig,
+        stored.public_key,
+        stored.sign_count,
+    )
+
+    stored.sign_count = new_sign_count
+    await db.commit()
+
+    session_hex = request.cookies.get("session", "")
+    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    pk_token = _sign_passkey_token(session_hex)
+    response.set_cookie(
+        PASSKEY_COOKIE_NAME,
+        value=pk_token,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=86400,
+        path="/",
+    )
+    return {"ok": True}
+
+
+async def _resolve_user_from_session(request: Request, db: AsyncSession) -> User | None:
+    """Resolve user from session cookie or Bearer token."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        raw_token = auth_header.removeprefix("Bearer ").strip()
+        try:
+            payload = decode_token(raw_token, expected_type=TokenType.ACCESS)
+        except ValueError:
+            return None
+        uid = payload.get("sub")
+        if not uid:
+            return None
+        return (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+
+    session_hex = request.cookies.get("session")
+    if not session_hex:
+        return None
+    try:
+        token_bytes = bytes.fromhex(session_hex)
+    except (ValueError, TypeError):
+        return None
+    row = (await db.execute(select(Session).where(Session.token == token_bytes))).scalar_one_or_none()
+    if not row:
+        return None
+    expires = row.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    if expires < datetime.now(UTC):
+        return None
+    return (await db.execute(select(User).where(User.id == row.user_id))).scalar_one_or_none()
+
+
+@router.get("/auth/passkey/credentials")
+async def list_passkey_credentials(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all registered passkey credentials for the current user."""
+    rows = (
+        await db.execute(
+            select(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id).order_by(WebAuthnCredential.created_at)
+        )
+    ).scalars().all()
+    return {
+        "credentials": [
+            {
+                "id": c.id,
+                "device_name": c.device_name,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in rows
+        ]
+    }
+
+
+@router.delete("/auth/passkey/credentials/{cred_id}")
+async def delete_passkey_credential(
+    cred_id: str,
+    _: None = Depends(require_totp_or_recent_auth),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a single passkey credential."""
+    row = (
+        await db.execute(
+            select(WebAuthnCredential).where(
+                WebAuthnCredential.id == cred_id,
+                WebAuthnCredential.user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Credential not found")
+    await db.delete(row)
+    await db.flush()
+    remaining = (
+        await db.execute(
+            select(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id)
+        )
+    ).scalars().all()
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    if not remaining:
+        user_row.passkeys_enabled = False
+    await db.commit()
+    return {"ok": True}
 
 
 # ── POST /auth/token/refresh ──────────────────────────────────────────────

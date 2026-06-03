@@ -13,12 +13,12 @@ from .device_token import (
     DeviceToken,
     RefreshTokenBlacklist,
 )
-from .export_job import (
-    ExportJob,
-)
 from .email import (
     Email,
     SyncState,
+)
+from .export_job import (
+    ExportJob,
 )
 from .filter_rule import (
     FilterRule,
@@ -39,9 +39,9 @@ from .financial import (
     SenderRule,
     UserMerchantOverride,
 )
-from .merchant import MerchantEntityAlias
 from .merchant import (
     MerchantEntity,
+    MerchantEntityAlias,
 )
 from .rollup import (
     DailySnapshot,
@@ -69,6 +69,7 @@ from .user import (
     UserRole,
     UserSettings,
     UserStatus,
+    WebAuthnCredential,
 )
 
 __all__ = [
@@ -87,6 +88,7 @@ __all__ = [
     "UserAIService",
     "Session",
     "OAuthState",
+    "WebAuthnCredential",
     # email
     "Email",
     "SyncState",

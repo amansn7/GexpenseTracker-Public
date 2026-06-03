@@ -33,6 +33,7 @@ class User(Base):
         String(20), default=UserStatus.invited, nullable=False, server_default=UserStatus.invited.value
     )
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
+    passkeys_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="0")
     totp_secret: Mapped[str | None] = mapped_column(String(256), nullable=True)
     totp_secret_pending: Mapped[str | None] = mapped_column(String(256), nullable=True)
@@ -53,6 +54,7 @@ class User(Base):
     )
     categories: Mapped[list["UserCategory"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     ai_services: Mapped[list["UserAIService"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    webauthn_credentials: Mapped[list["WebAuthnCredential"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class UserProfile(Base):
@@ -180,6 +182,23 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class WebAuthnCredential(Base):
+    __tablename__ = "webauthn_credentials"
+
+    id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    credential_id: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)
+    sign_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    device_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="webauthn_credentials")
 
 
 class OAuthState(Base):

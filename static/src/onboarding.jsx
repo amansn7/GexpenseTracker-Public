@@ -699,6 +699,89 @@ const StepDone = ({ stepData }) => {
 };
 
 // ---------------------------------------------------------------------------
+// PasskeyChallenge — shown after OAuth when passkey verification is needed
+// ---------------------------------------------------------------------------
+const PasskeyChallenge = () => {
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleUsePasskey = async () => {
+    setVerifying(true);
+    setError(null);
+    try {
+      const begin = await API.post("/api/auth/passkey/assert/begin");
+      const pkOptions = begin.options;
+      pkOptions.challenge = Uint8Array.from(atob(pkOptions.challenge), c => c.charCodeAt(0));
+
+      const credential = await navigator.credentials.get({ publicKey: pkOptions });
+      const complete = await API.post("/api/auth/passkey/assert/complete", {
+        credential: credential.toJSON(),
+        challenge_b64: begin.challenge_b64,
+        challenge_sig: begin.challenge_sig,
+      });
+      if (complete.ok) {
+        window.location.reload();
+      }
+    } catch (e) {
+      setError(e.message || "Passkey verification failed");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "var(--paper)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", gap: 16, padding: 24,
+    }}>
+      <div style={{
+        fontFamily: "'Instrument Serif', serif", fontSize: 32, fontStyle: "italic",
+        color: "var(--ink)", marginBottom: 8,
+      }}>
+        MoneyFlow
+      </div>
+      <div style={{
+        fontSize: 15, fontWeight: 500, color: "var(--ink)",
+        marginBottom: 4,
+      }}>
+        Verify your identity
+      </div>
+      <div style={{
+        fontSize: 13, color: "var(--ink-2)", marginBottom: 16,
+        textAlign: "center", maxWidth: 300,
+      }}>
+        Use your passkey (Touch ID, Face ID, or security key) to continue.
+      </div>
+      {error && (
+        <div style={{
+          fontSize: 12, color: "var(--neg)", marginBottom: 8,
+          textAlign: "center",
+        }}>
+          {error}
+        </div>
+      )}
+      <button
+        onClick={handleUsePasskey}
+        disabled={verifying}
+        style={{
+          padding: "10px 28px",
+          background: verifying ? "var(--ink-3)" : "var(--ink)",
+          color: "var(--paper)",
+          border: "none", borderRadius: 8,
+          fontSize: 14, fontWeight: 500,
+          cursor: verifying ? "default" : "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {verifying ? "Verifying…" : "Use passkey"}
+      </button>
+    </div>
+  );
+};
+
+
+// ---------------------------------------------------------------------------
 // OnboardingWizard — top-level
 // ---------------------------------------------------------------------------
 const OnboardingWizard = () => {
@@ -730,4 +813,4 @@ const OnboardingWizard = () => {
 };
 
 // Expose to global scope (no module system)
-Object.assign(window, { OnboardingWizard });
+Object.assign(window, { OnboardingWizard, PasskeyChallenge });

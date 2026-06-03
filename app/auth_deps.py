@@ -13,6 +13,7 @@ from app.models import Session, User, UserRole
 
 SESSION_ROTATION_DAYS = 7
 TOTP_COOKIE_NAME = "totp_verified"
+PASSKEY_COOKIE_NAME = "passkey_verified"
 
 
 def _sign_totp_token(session_hex: str) -> str:
@@ -24,6 +25,17 @@ def _sign_totp_token(session_hex: str) -> str:
 
 def _verify_totp_token(session_hex: str, token: str) -> bool:
     return hmac.compare_digest(_sign_totp_token(session_hex), token)
+
+
+def _sign_passkey_token(session_hex: str) -> str:
+    key = os.getenv("SECRET_KEY", "")
+    if not key:
+        raise RuntimeError("SECRET_KEY not configured")
+    return hmac.new(key.encode(), f"passkey:{session_hex}".encode(), hashlib.sha256).hexdigest()
+
+
+def _verify_passkey_token(session_hex: str, token: str) -> bool:
+    return hmac.compare_digest(_sign_passkey_token(session_hex), token)
 
 
 def is_owner(user: User | None) -> bool:
@@ -62,7 +74,15 @@ async def get_current_user(
                     sched = sched.replace(tzinfo=UTC)
                 if sched <= datetime.now(UTC):
                     raise HTTPException(status_code=403, detail="Account scheduled for deletion")
-            if user.totp_enabled:
+            # Check passkey first, then TOTP as fallback
+            if user.passkeys_enabled:
+                pk_token = request.cookies.get(PASSKEY_COOKIE_NAME) if request else None
+                if not pk_token or not _verify_passkey_token(raw_token, pk_token):
+                    raise HTTPException(
+                        status_code=401,
+                        detail={"detail": "2fa_required", "passkey_pending": True},
+                    )
+            elif user.totp_enabled:
                 totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
                 if not totp_token or not _verify_totp_token(raw_token, totp_token):
                     raise HTTPException(
@@ -127,7 +147,16 @@ async def get_current_user(
         if sched <= datetime.now(UTC):
             raise HTTPException(status_code=403, detail="Account deleted")
 
-    if user.totp_enabled:
+    # Check passkey first, then TOTP as fallback
+    if user.passkeys_enabled:
+        pk_token = request.cookies.get(PASSKEY_COOKIE_NAME) if request else None
+        session_hex = session
+        if not pk_token or not _verify_passkey_token(session_hex, pk_token):
+            raise HTTPException(
+                status_code=401,
+                detail={"detail": "2fa_required", "passkey_pending": True},
+            )
+    elif user.totp_enabled:
         totp_token = request.cookies.get(TOTP_COOKIE_NAME) if request else None
         session_hex = session
         if not totp_token or not _verify_totp_token(session_hex, totp_token):
@@ -145,8 +174,13 @@ async def require_totp_or_recent_auth(
 ):
     if os.getenv("TESTING"):
         return
-    if user.totp_enabled:
+    session_hex = request.cookies.get("session")
+    # Accept either passkey or TOTP verification
+    if user.passkeys_enabled:
+        pk_token = request.cookies.get(PASSKEY_COOKIE_NAME)
+        if not pk_token or not session_hex or not _verify_passkey_token(session_hex, pk_token):
+            raise HTTPException(status_code=403, detail="Passkey verification required for this action")
+    elif user.totp_enabled:
         totp_token = request.cookies.get(TOTP_COOKIE_NAME)
-        session_hex = request.cookies.get("session")
         if not totp_token or not session_hex or not _verify_totp_token(session_hex, totp_token):
             raise HTTPException(status_code=403, detail="TOTP verification required for this action")

@@ -678,6 +678,24 @@ async def disable_2fa(
     return {"ok": True}
 
 
+@router.delete("/account/passkey")
+async def disable_passkey(
+    _: None = Depends(require_totp_or_recent_auth),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Disable passkey authentication and remove all credentials."""
+    from sqlalchemy import delete
+
+    from app.models import WebAuthnCredential
+
+    await db.execute(delete(WebAuthnCredential).where(WebAuthnCredential.user_id == user.id))
+    user_row = (await db.execute(select(User).where(User.id == user.id))).scalar_one()
+    user_row.passkeys_enabled = False
+    await db.commit()
+    return {"ok": True}
+
+
 async def _delete_user_data(db: AsyncSession, uid: str):
     """Full deletion pipeline — used by scheduled cleanup and admin reset."""
     # Step 1: Duplicate pairs (FK to transactions)

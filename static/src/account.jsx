@@ -1972,13 +1972,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   React.useEffect(() => {
     setThresholdLocal(null);
   }, [settings.confidence_threshold]);
-  const [show2faModal, setShow2faModal] = React.useState(false);
-  const [show2faDisableConfirm, setShow2faDisableConfirm] = React.useState(false);
-  const [twoFactorSecret, setTwoFactorSecret] = React.useState("");
-  const [twoFactorQrUrl, setTwoFactorQrUrl] = React.useState("");
-  const [twoFactorCode, setTwoFactorCode] = React.useState("");
-  const [twoFactorError, setTwoFactorError] = React.useState(null);
-  const [twoFactorVerifying, setTwoFactorVerifying] = React.useState(false);
+  const [showPasskeyModal, setShowPasskeyModal] = React.useState(false);
+  const [showPasskeyDisableConfirm, setShowPasskeyDisableConfirm] = React.useState(false);
+  const [passkeyDeviceName, setPasskeyDeviceName] = React.useState("");
+  const [passkeyError, setPasskeyError] = React.useState(null);
+  const [passkeyVerifying, setPasskeyVerifying] = React.useState(false);
+  const [passkeyCredentials, setPasskeyCredentials] = React.useState([]);
   const [showExportModal, setShowExportModal] = React.useState(false);
   const [exportDateFrom, setExportDateFrom] = React.useState("");
   const [exportDateTo, setExportDateTo] = React.useState("");
@@ -2007,6 +2006,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     }, 2000);
     return () => clearInterval(interval);
   }, [exportJobId, exportStatus]);
+
+  React.useEffect(() => {
+    if (account?.user?.passkeys_enabled) {
+      loadPasskeyCredentials();
+    }
+  }, [account?.user?.passkeys_enabled]);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -2041,50 +2046,76 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     }
   };
 
-  const handle2faToggle = async () => {
-    if (!account?.user?.totp_enabled) {
-      try {
-        const result = await API.post("/api/account/2fa/setup");
-        setTwoFactorSecret(result.secret);
-        setTwoFactorQrUrl(result.qr_url);
-        setTwoFactorCode("");
-        setTwoFactorError(null);
-        setShow2faModal(true);
-      } catch (e) {
-        showToast(e.message || "Failed to start 2FA setup");
-      }
+  const loadPasskeyCredentials = async () => {
+    try {
+      const result = await API.get("/api/auth/passkey/credentials");
+      setPasskeyCredentials(result.credentials || []);
+    } catch (_) {}
+  };
+
+  const handlePasskeyToggle = async () => {
+    if (!account?.user?.passkeys_enabled) {
+      setPasskeyDeviceName("");
+      setPasskeyError(null);
+      setShowPasskeyModal(true);
+      await loadPasskeyCredentials();
     } else {
-      setShow2faDisableConfirm(true);
+      setShowPasskeyDisableConfirm(true);
     }
   };
 
-  const handleVerify2fa = async () => {
-    setTwoFactorVerifying(true);
-    setTwoFactorError(null);
+  const handleRegisterPasskey = async () => {
+    setPasskeyVerifying(true);
+    setPasskeyError(null);
     try {
-      const result = await API.post("/api/account/2fa/verify", { code: twoFactorCode });
-      if (result.ok) {
-        setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: true }, settings: { ...a.settings, two_factor_enabled: true } }));
-        setShow2faModal(false);
-        showToast("2FA enabled");
-      } else {
-        setTwoFactorError(result.error || "Invalid code");
+      const begin = await API.post("/api/auth/passkey/register/begin");
+      const pkOptions = begin.options;
+      pkOptions.challenge = Uint8Array.from(atob(pkOptions.challenge), c => c.charCodeAt(0));
+      pkOptions.user.id = Uint8Array.from(atob(pkOptions.user.id), c => c.charCodeAt(0));
+
+      const credential = await navigator.credentials.create({ publicKey: pkOptions });
+
+      const complete = await API.post("/api/auth/passkey/register/complete", {
+        credential: credential.toJSON(),
+        challenge_b64: begin.challenge_b64,
+        challenge_sig: begin.challenge_sig,
+        device_name: passkeyDeviceName.trim() || "Passkey",
+      });
+
+      if (complete.ok) {
+        setAccount(a => ({ ...a, user: { ...a.user, passkeys_enabled: true } }));
+        setShowPasskeyModal(false);
+        showToast("Passkey enabled");
       }
     } catch (e) {
-      setTwoFactorError(e.message || "Verification failed");
+      setPasskeyError(e.message || "Passkey registration failed");
     } finally {
-      setTwoFactorVerifying(false);
+      setPasskeyVerifying(false);
     }
   };
 
-  const handleDisable2fa = async () => {
+  const handleDisablePasskey = async () => {
     try {
-      await API.delete("/api/account/2fa");
-      setAccount(a => ({ ...a, user: { ...a.user, totp_enabled: false }, settings: { ...a.settings, two_factor_enabled: false } }));
-      setShow2faDisableConfirm(false);
-      showToast("2FA disabled");
+      await API.delete("/api/account/passkey");
+      setAccount(a => ({ ...a, user: { ...a.user, passkeys_enabled: false } }));
+      setShowPasskeyDisableConfirm(false);
+      showToast("Passkey disabled");
     } catch (e) {
-      showToast(e.message || "Failed to disable 2FA");
+      showToast(e.message || "Failed to disable passkey");
+    }
+  };
+
+  const handleDeletePasskey = async (credId) => {
+    try {
+      await API.delete(`/api/auth/passkey/credentials/${credId}`);
+      await loadPasskeyCredentials();
+      const updated = passkeyCredentials.filter(c => c.id !== credId);
+      if (updated.length === 0) {
+        setAccount(a => ({ ...a, user: { ...a.user, passkeys_enabled: false } }));
+      }
+      showToast("Passkey removed");
+    } catch (e) {
+      showToast(e.message || "Failed to remove passkey");
     }
   };
 
@@ -2448,10 +2479,23 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         <h3 style={accountStyles.sectionTitle}>Security & privacy</h3>
         <div style={accountStyles.sectionSub}>— your numbers, locked down</div>
         <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Two-factor authentication</div><div style={accountStyles.sub}>TOTP via authenticator app</div></div>
+          <div><div style={accountStyles.label}>Passkeys</div><div style={accountStyles.sub}>Biometrics or platform authenticator</div></div>
           <div/>
-          <Toggle on={!!account?.user?.totp_enabled} onChange={handle2faToggle}/>
+          <Toggle on={!!account?.user?.passkeys_enabled} onChange={handlePasskeyToggle}/>
         </div>
+        {account?.user?.passkeys_enabled && passkeyCredentials.length > 0 && (
+          <div style={{ ...accountStyles.rowLast, ...mqRow, flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+            {passkeyCredentials.map(c => (
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{c.device_name}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-3)" }}>Added {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</div>
+                </div>
+                <button style={{ ...accountStyles.btn, color: "var(--neg)", border: "1px solid var(--neg-soft)" }} onClick={() => handleDeletePasskey(c.id)}>Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
           <div/>
@@ -2553,57 +2597,45 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </div>
         </div>
       )}
-      {show2faModal && (
+      {showPasskeyModal && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up two-factor authentication</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up passkey</div>
             <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Scan the QR code with your authenticator app or enter the secret key manually.
+              Your browser will prompt you to use your device's biometrics (Touch ID, Face ID) or a security key.
             </div>
-            {twoFactorQrUrl && (
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <img src={twoFactorQrUrl} alt="2FA QR Code" style={{ width: 180, height: 180, borderRadius: 8 }}/>
-              </div>
-            )}
-            {twoFactorSecret && (
-              <div style={{ marginBottom: 16, background: "var(--paper)", borderRadius: 6, padding: 12 }}>
-                <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Manual secret key</div>
-                <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 13, color: "var(--ink)", wordBreak: "break-all", userSelect: "all" }}>{twoFactorSecret}</div>
-              </div>
-            )}
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Enter the 6-digit code from your authenticator app:</div>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Device name (optional):</div>
             <input
-              value={twoFactorCode}
-              onChange={e => setTwoFactorCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
-              style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace", textAlign: "center", fontSize: 18, letterSpacing: 4, marginBottom: 16 }}
-              maxLength={6}
+              value={passkeyDeviceName}
+              onChange={e => setPasskeyDeviceName(e.target.value)}
+              placeholder="e.g. MacBook Air"
+              style={{ ...accountStyles.input, marginBottom: 16 }}
               autoFocus
             />
-            {twoFactorError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{twoFactorError}</div>}
+            {passkeyError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{passkeyError}</div>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShow2faModal(false)} disabled={twoFactorVerifying}>Cancel</button>
+              <button style={accountStyles.btn} onClick={() => setShowPasskeyModal(false)} disabled={passkeyVerifying}>Cancel</button>
               <button
-                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: (twoFactorCode.length === 6 && !twoFactorVerifying) ? 1 : 0.4 }}
-                disabled={twoFactorCode.length !== 6 || twoFactorVerifying}
-                onClick={handleVerify2fa}
+                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: passkeyVerifying ? 0.4 : 1 }}
+                disabled={passkeyVerifying}
+                onClick={handleRegisterPasskey}
               >
-                {twoFactorVerifying ? "Verifying…" : "Verify & Enable"}
+                {passkeyVerifying ? "Setting up…" : "Register passkey"}
               </button>
             </div>
           </div>
         </div>
       )}
-      {show2faDisableConfirm && (
+      {showPasskeyDisableConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable two-factor authentication?</div>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable passkeys?</div>
             <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Are you sure you want to disable two-factor authentication? Your account will be less secure.
+              Are you sure you want to disable passkey authentication? All registered passkeys will be removed, and your account will be less secure.
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShow2faDisableConfirm(false)}>Cancel</button>
-              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisable2fa}>Disable</button>
+              <button style={accountStyles.btn} onClick={() => setShowPasskeyDisableConfirm(false)}>Cancel</button>
+              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisablePasskey}>Disable</button>
             </div>
           </div>
         </div>

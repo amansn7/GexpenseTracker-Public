@@ -557,6 +557,7 @@ const App = () => {
 (async () => {
   await API.init();
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
+  let showPasskeyChallenge = false;
   if (!showOnboarding) {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
@@ -564,11 +565,23 @@ const App = () => {
         const data = await res.json();
         showOnboarding = !data.onboarding_complete;
       } else if (res.status === 401) {
-        showOnboarding = true;
+        const body = await res.json();
+        if (body?.detail?.passkey_pending) {
+          showPasskeyChallenge = true;
+          showOnboarding = false;
+        } else {
+          showOnboarding = true;
+        }
       }
     } catch (_) {}
   }
-  ReactDOM.createRoot(document.getElementById("root")).render(
-    showOnboarding ? React.createElement(OnboardingWizard) : React.createElement(App)
-  );
+  let Root;
+  if (showPasskeyChallenge) {
+    Root = PasskeyChallenge;
+  } else if (showOnboarding) {
+    Root = OnboardingWizard;
+  } else {
+    Root = App;
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(Root));
 })();
