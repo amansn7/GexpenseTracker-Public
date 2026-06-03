@@ -559,23 +559,25 @@ const App = () => {
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
   let showPasskeyChallenge = false;
   let accountData = null;
-  if (!showOnboarding) {
-    try {
-      const res = await fetch("/api/auth/me", { credentials: "include" });
-      if (res.ok) {
-        accountData = await res.json();
+
+  try {
+    const res = await fetch("/api/auth/me", { credentials: "include" });
+    if (res.ok) {
+      accountData = await res.json();
+      if (!showOnboarding) {
         showOnboarding = !accountData.onboarding_complete;
-      } else if (res.status === 401) {
-        const body = await res.json();
-        if (body?.detail?.passkey_pending) {
-          showPasskeyChallenge = true;
-          showOnboarding = false;
-        } else {
-          showOnboarding = true;
-        }
       }
-    } catch (_) {}
-  }
+    } else if (res.status === 401) {
+      const body = await res.json();
+      if (body?.detail?.passkey_pending) {
+        showPasskeyChallenge = true;
+        showOnboarding = false;
+      } else {
+        showOnboarding = true;
+      }
+    }
+  } catch (_) {}
+
   let Root;
   if (showPasskeyChallenge) {
     Root = PasskeyChallenge;
