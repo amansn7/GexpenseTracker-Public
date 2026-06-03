@@ -167,6 +167,37 @@ async def get_current_user(
             path="/",
         )
 
+        # Re-sign 2FA cookies with the new session token so they survive the
+        # rotation. The old totp_verified/passkey_verified cookies were signed
+        # with the pre-rotation session hex and would fail verification on the
+        # next request, causing a 401 redirect loop.
+        if user.totp_enabled:
+            old_totp = request.cookies.get(TOTP_COOKIE_NAME) if request else None
+            if old_totp:
+                new_totp = _sign_totp_token(new_token.hex())
+                response.set_cookie(
+                    TOTP_COOKIE_NAME,
+                    value=new_totp,
+                    httponly=True,
+                    secure=secure,
+                    samesite="lax",
+                    max_age=86400,
+                    path="/",
+                )
+        if user.passkeys_enabled:
+            old_pk = request.cookies.get(PASSKEY_COOKIE_NAME) if request else None
+            if old_pk:
+                new_pk = _sign_passkey_token(new_token.hex())
+                response.set_cookie(
+                    PASSKEY_COOKIE_NAME,
+                    value=new_pk,
+                    httponly=True,
+                    secure=secure,
+                    samesite="lax",
+                    max_age=86400,
+                    path="/",
+                )
+
     return user
 
 
