@@ -103,6 +103,17 @@ async def _get_or_create_user(
     name: str,
     picture: str | None,
 ) -> User:
+    # If user already exists, just update profile and return — skip all role/invite logic
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+    if user is not None:
+        profile_row = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one_or_none()
+        if profile_row and picture:
+            profile_row.avatar_url = picture
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    # New user: determine role and check invitations for non-owner users
     existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
 
     if existing_count == 0:
@@ -122,41 +133,34 @@ async def _get_or_create_user(
             invite.status = "accepted"
             role = UserRole.member
 
-    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-
-    if user is None:
-        user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=False)
-        if settings.ENABLE_LLM_TRIAL:
-            now = datetime.now(UTC)
-            user.trial_started_at = now
-            user.trial_ends_at = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
-        db.add(user)
-        await db.flush()
-        db.add(
-            UserProfile(
-                user_id=user.id,
-                full_name=name or email,
-                avatar_url=picture,
-            )
+    user = User(email=email, role=role, status=UserStatus.active, onboarding_complete=False)
+    if settings.ENABLE_LLM_TRIAL:
+        now = datetime.now(UTC)
+        user.trial_started_at = now
+        user.trial_ends_at = now + timedelta(days=settings.TRIAL_DURATION_DAYS)
+    db.add(user)
+    await db.flush()
+    db.add(
+        UserProfile(
+            user_id=user.id,
+            full_name=name or email,
+            avatar_url=picture,
         )
-        db.add(
-            UserSettings(
-                user_id=user.id,
-                allowed_emails=json.dumps([email]) if role == UserRole.owner else None,
-            )
+    )
+    db.add(
+        UserSettings(
+            user_id=user.id,
+            allowed_emails=json.dumps([email]) if role == UserRole.owner else None,
         )
-        db.add(
-            ConnectedAccount(
-                user_id=user.id,
-                provider="gmail",
-                account_email=email,
-                status="connected",
-            )
+    )
+    db.add(
+        ConnectedAccount(
+            user_id=user.id,
+            provider="gmail",
+            account_email=email,
+            status="connected",
         )
-    else:
-        profile_row = (await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))).scalar_one_or_none()
-        if profile_row and picture:
-            profile_row.avatar_url = picture
+    )
 
     await db.commit()
     await db.refresh(user)
