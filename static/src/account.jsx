@@ -1949,6 +1949,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const mqSection = isMobile ? { padding: "12px 14px" } : {};
   const mqRow = isMobile ? { gridTemplateColumns: "1fr", gap: 8, padding: "10px 0" } : {};
   const mqH1 = isMobile ? { fontSize: 22 } : {};
+  const mq = mqOverrides(isMobile);
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
   const categories = account?.categories || [];
@@ -2013,7 +2014,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
-  const [settingsTab, setSettingsTab] = React.useState("general"); // "general" | "ai" | "rules" | "admin"
+  const [llmStatus, setLlmStatus] = React.useState(null);
+  const [settingsTab, setSettingsTab] = React.useState("account"); // "account" | "intelligence" | "ai" | "advanced"
 
   React.useEffect(() => {
     setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
@@ -2300,75 +2302,28 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   };
 
   return (
-    <div style={{ ...accountStyles.wrap, ...mqWrap }}>
-      <div style={{ ...accountStyles.inner, ...mqInner }}>
+    <div style={{ ...accountStyles.wrap, ...mq.wrap }}>
+      <div style={{ ...accountStyles.inner, ...mq.inner }}>
       <div style={accountStyles.header}>
         <div style={accountStyles.kicker}>Preferences</div>
-        <h1 style={{ ...accountStyles.h1, ...mqH1 }}>Settings</h1>
+        <h1 style={{ ...accountStyles.h1, ...mq.h1 }}>Settings</h1>
       </div>
 
       {/* Tab bar */}
       <div style={{ display: "flex", gap: isMobile ? 4 : 6, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          onClick={() => setSettingsTab("general")}
-          style={{
-            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
-            background: settingsTab === "general" ? "var(--ink)" : "transparent",
-            color: settingsTab === "general" ? "var(--paper)" : "var(--ink-3)",
-            fontFamily: "inherit",
-          }}
-        >
-          General
-        </button>
-        <button
-          type="button"
-          onClick={() => setSettingsTab("ai")}
-          style={{
-            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
-            background: settingsTab === "ai" ? "var(--ink)" : "transparent",
-            color: settingsTab === "ai" ? "var(--paper)" : "var(--ink-3)",
-            fontFamily: "inherit",
-          }}
-        >
-          AI Services
-        </button>
-        <button
-          type="button"
-          onClick={() => setSettingsTab("rules")}
-          style={{
-            padding: isMobile ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: isMobile ? 11 : 12,
-            background: settingsTab === "rules" ? "var(--ink)" : "transparent",
-            color: settingsTab === "rules" ? "var(--paper)" : "var(--ink-3)",
-            fontFamily: "inherit",
-          }}
-        >
-          Rules
-        </button>
+        <TabBtn active={settingsTab === "account"} onClick={() => setSettingsTab("account")}>Account & Billing</TabBtn>
+        <TabBtn active={settingsTab === "intelligence"} onClick={() => setSettingsTab("intelligence")}>Inbox Intelligence</TabBtn>
+        <TabBtn active={settingsTab === "ai"} onClick={() => setSettingsTab("ai")}>AI Services</TabBtn>
         {account?.role === "owner" && (
-          <button
-            type="button"
-            onClick={() => setSettingsTab("admin")}
-            style={{
-              padding: isMobile ? "5px 10px" : "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 700,
-              border: "1.5px dashed var(--red)",
-              background: settingsTab === "admin" ? "color-mix(in srgb, var(--red) 10%, transparent)" : "transparent",
-              color: "var(--red)",
-              fontFamily: "inherit",
-              letterSpacing: "0.3px",
-            }}
-          >
-            ⚡ Admin
-          </button>
+          <AdminTabBtn active={settingsTab === "advanced"} onClick={() => setSettingsTab("advanced")}>Advanced</AdminTabBtn>
         )}
       </div>
 
-      {settingsTab === "general" && (<>
+      {/* ── Tab 1: Account & Billing ─────────────────────────── */}
+      {settingsTab === "account" && (<>
 
-      {/* Gmail connection */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <h3 style={accountStyles.sectionTitle}>Inbox connection</h3>
-        <div style={accountStyles.sectionSub}>— the source of truth for your transactions</div>
+      {/* Inbox Connection */}
+      <SettingsSection title="Inbox connection" subtitle="— the source of truth for your transactions">
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: isMobile ? "12px 14px" : "16px 18px", background: "var(--paper-2)", borderRadius: 6, marginTop: 6, flexWrap: "wrap" }}>
           <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", display: "grid", placeItems: "center" }}>
             <Icon name="gmail" size={18} stroke="var(--accent)"/>
@@ -2401,153 +2356,32 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             )}
           </div>
         </div>
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Messages to scan</div>
+        <SettingsRow label="Messages to scan" description="which Gmail messages to process">
           <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", opacity: filterSaving ? 0.65 : 1 }}>
-            {[
-              ["all", "All"],
-              ["unread", "Unread"],
-              ["read", "Read"],
-            ].map(([value, label]) => {
+            {[["all", "All"],["unread", "Unread"],["read", "Read"]].map(([value, label]) => {
               const active = (syncStatus?.email_filter || "all") === value;
               return (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={filterSaving}
-                  onClick={() => updateEmailFilter(value)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "none",
-                    borderRadius: 4,
-                    background: active ? "var(--ink)" : "transparent",
-                    color: active ? "var(--paper)" : "var(--ink-3)",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: filterSaving ? "default" : "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {label}
-                </button>
+                <button key={value} type="button" disabled={filterSaving} onClick={() => updateEmailFilter(value)}
+                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: filterSaving ? "default" : "pointer", fontFamily: "inherit" }}
+                >{label}</button>
               );
             })}
           </div>
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Sync panel position</div>
+        </SettingsRow>
+        <SettingsRow label="Sync panel position" description="where the sync progress overlay appears" last>
           <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)" }}>
-            {[
-              ["bottom-right", "Bottom Right"],
-              ["bottom-center", "Bottom Center"],
-              ["bottom-left", "Bottom Left"],
-            ].map(([value, label]) => {
+            {[["bottom-right", "Bottom Right"],["bottom-center", "Bottom Center"],["bottom-left", "Bottom Left"]].map(([value, label]) => {
               const active = (window._syncPanelPosition || localStorage.getItem("mf_sync_panel_pos") || "bottom-right") === value;
               return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem("mf_sync_panel_pos", value);
-                    window._syncPanelPosition = value;
-                    // force re-render by dispatching custom event
-                    window.dispatchEvent(new CustomEvent("sync-pos-change", { detail: value }));
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    border: "none",
-                    borderRadius: 4,
-                    background: active ? "var(--ink)" : "transparent",
-                    color: active ? "var(--paper)" : "var(--ink-3)",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {label}
-                </button>
+                <button key={value} type="button"
+                  onClick={() => { localStorage.setItem("mf_sync_panel_pos", value); window._syncPanelPosition = value; window.dispatchEvent(new CustomEvent("sync-pos-change", { detail: value })); }}
+                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                >{label}</button>
               );
             })}
           </div>
-        </div>
-      </div>
-
-      {/* Parsing */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <h3 style={accountStyles.sectionTitle}>Parsing & AI</h3>
-        <div style={accountStyles.sectionSub}>— how smart the inbox should be</div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Auto-categorize new transactions</div><div style={accountStyles.sub}>use the model to guess Food, Rent, etc.</div></div>
-          <div/>
-          <Toggle on={!!settings.auto_categorize} onChange={v=>updateSetting("auto_categorize", v)}/>
-        </div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Show AI confidence on cards</div><div style={accountStyles.sub}>small bar next to each transaction</div></div>
-          <div/>
-          <Toggle on={!!settings.show_confidence} onChange={v=>updateSetting("show_confidence", v)}/>
-        </div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Confidence threshold</div><div style={accountStyles.sub}>flag transactions below this certainty</div></div>
-          <input type="range" min="50" max="95" value={thresholdLocal ?? settings.confidence_threshold ?? 70} onChange={e => { const v = Number(e.target.value); setThresholdLocal(v); if (thresholdTimer.current) clearTimeout(thresholdTimer.current); thresholdTimer.current = setTimeout(() => updateSetting("confidence_threshold", v), 250); }} style={{ width: "100%" }}/>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-2)", minWidth: 40, textAlign: "right" }}>{thresholdLocal ?? settings.confidence_threshold ?? 70}%</span>
-        </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
-          <div>
-            <div style={accountStyles.label}>Rule-based pre-filter</div>
-            <div style={accountStyles.sub}>skip LLM for known senders and obvious non-financial emails — saves tokens</div>
-          </div>
-          <div/>
-          <Toggle on={settings.use_rule_engine !== false} onChange={v=>updateSetting("use_rule_engine", v)}/>
-        </div>
-      </div>
-
-      {/* Auto-Learned Rules — simplified summary, full management in Rules tab */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h3 style={accountStyles.sectionTitle}>Auto-Learned Rules</h3>
-          <button onClick={() => setSettingsTab("rules")} style={{ ...accountStyles.btn, padding: "5px 12px", fontSize: 11 }}>Manage in Rules</button>
-        </div>
-        <div style={accountStyles.sectionSub}>— rules created from your corrections. Full CRUD, testing, and advanced rule types in the Rules tab.</div>
-      </div>
-
-      {/* Notifications */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <h3 style={accountStyles.sectionTitle}>Notifications</h3>
-        <div style={accountStyles.sectionSub}>— what we tell you, and when</div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Daily digest email</div><div style={accountStyles.sub}>one summary at 9:00 IST</div></div>
-          <div/>
-          <Toggle on={!!settings.daily_digest} onChange={v=>updateSetting("daily_digest", v)}/>
-        </div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Low-confidence alerts</div><div style={accountStyles.sub}>ping when a new merchant isn't recognized</div></div>
-          <div/>
-          <Toggle on={!!settings.low_confidence_alerts} onChange={v=>updateSetting("low_confidence_alerts", v)}/>
-        </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
-          <div><div style={accountStyles.label}>Sound effects</div><div style={accountStyles.sub}>subtle click on transaction confirm</div></div>
-          <div/>
-          <Toggle on={!!settings.sound_effects} onChange={v=>updateSetting("sound_effects", v)}/>
-        </div>
-      </div>
-
-      {/* Salary Attribution (coming soon) */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <h3 style={accountStyles.sectionTitle}>Salary Attribution</h3>
-        <div style={accountStyles.sectionSub}>— late-month income attributed to the next month for cleaner dashboards</div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow, opacity: 0.4, pointerEvents: "none" }}>
-          <div><div style={accountStyles.label}>Shift late-month income forward</div><div style={accountStyles.sub}>income in the last N days of a month rolls into the next month · coming soon</div></div>
-          <div/>
-          <Toggle on={false} onChange={() => {}}/>
-        </div>
-      </div>
-
-      {/* Categories */}
-      <CategoriesSection categories={categories} onRefresh={async () => {
-        const d = await API.get("/api/account/me");
-        if (d?.categories) setAccount(prev => ({ ...prev, categories: d.categories }));
-      }} />
+        </SettingsRow>
+      </SettingsSection>
 
       {/* Financial Health */}
       <FinancialHealthSection settings={settings} onRefresh={async () => {
@@ -2555,19 +2389,48 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         if (d?.settings) setAccount(prev => ({ ...prev, settings: d.settings }));
       }} />
 
-      {/* Security */}
-      <div style={{ ...accountStyles.section, ...mqSection }}>
-        <h3 style={accountStyles.sectionTitle}>Security & privacy</h3>
-        <div style={accountStyles.sectionSub}>— your numbers, locked down</div>
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Passkeys</div><div style={accountStyles.sub}>Biometrics or platform authenticator</div></div>
-          <div/>
+      {/* Notifications */}
+      <SettingsSection title="Notifications" subtitle="— what we tell you, and when">
+        <SettingsRow label="Daily digest email" description="one summary at 9:00 IST">
+          <Toggle on={!!settings.daily_digest} onChange={v=>updateSetting("daily_digest", v)}/>
+        </SettingsRow>
+        <SettingsRow label="Low-confidence alerts" description="ping when a new merchant isn't recognized">
+          <Toggle on={!!settings.low_confidence_alerts} onChange={v=>updateSetting("low_confidence_alerts", v)}/>
+        </SettingsRow>
+        <SettingsRow label="Sound effects" description="subtle click on transaction confirm" last>
+          <Toggle on={!!settings.sound_effects} onChange={v=>updateSetting("sound_effects", v)}/>
+        </SettingsRow>
+      </SettingsSection>
+
+      {/* Categories */}
+      <CategoriesSection categories={categories} onRefresh={async () => {
+        const d = await API.get("/api/account/me");
+        if (d?.categories) setAccount(prev => ({ ...prev, categories: d.categories }));
+      }} />
+
+      {/* LLM Budget */}
+      <SettingsSection title="LLM Budget" subtitle="— monthly cap on AI classification costs">
+        <SettingsRow label="Monthly AI budget" description="leave blank for unlimited" last>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="number" min="0" placeholder="\u221E" value={budgetValue}
+              onChange={e => setBudgetValue(e.target.value)} onBlur={saveAiBudget}
+              style={{ width: 120, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit" }}/>
+            <span style={{ fontSize: 11, color: "var(--ink-4)" }}>USD / month</span>
+          </div>
+        </SettingsRow>
+      </SettingsSection>
+
+      <TrialInfoBanner />
+
+      {/* Security & Privacy */}
+      <SettingsSection title="Security & privacy" subtitle="— your numbers, locked down">
+        <SettingsRow label="Passkeys" description="Biometrics or platform authenticator">
           <Toggle on={!!account?.user?.passkeys_enabled} onChange={handlePasskeyToggle}/>
-        </div>
+        </SettingsRow>
         {account?.user?.passkeys_enabled && passkeyCredentials.length > 0 && (
-          <div style={{ ...accountStyles.rowLast, ...mqRow, flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+          <div style={{ padding: "0 0 8px" }}>
             {passkeyCredentials.map(c => (
-              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
+              <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px dashed var(--line)" }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{c.device_name}</div>
                   <div style={{ fontSize: 11, color: "var(--ink-3)" }}>Added {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</div>
@@ -2577,14 +2440,10 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             ))}
           </div>
         )}
-        <div style={{ ...accountStyles.row, ...mqRow }}>
-          <div><div style={accountStyles.label}>Authenticator app (TOTP)</div><div style={accountStyles.sub}>Time-based codes from Google Authenticator, Authy, etc.</div></div>
-          <div/>
+        <SettingsRow label="Authenticator app (TOTP)" description="Time-based codes from Google Authenticator, Authy, etc.">
           <Toggle on={!!account?.user?.totp_enabled} onChange={handleTotpToggle}/>
-        </div>
-        <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
-          <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
-          <div/>
+        </SettingsRow>
+        <SettingsRow label="Export all data" description="CSV of every parsed transaction" last>
           <button style={accountStyles.btn} onClick={() => {
             setShowExportModal(true);
             setExportDateFrom("");
@@ -2593,14 +2452,11 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             setExportStatus(null);
             setExportError(null);
           }}><Icon name="arrow-u-r" size={12}/> Export</button>
-        </div>
-      </div>
+        </SettingsRow>
+      </SettingsSection>
 
-      {/* Danger */}
-      <div style={{ ...accountStyles.section, ...mqSection, border: "1px solid var(--neg-soft)" }}>
-        <h3 style={{ ...accountStyles.sectionTitle, color: "var(--neg)" }}>Danger zone</h3>
-        <div style={accountStyles.sectionSub}>— irreversible things</div>
-
+      {/* Danger Zone */}
+      <SettingsSection title="Danger zone" subtitle="— irreversible things" danger={true}>
         {account?.scheduled_deletion_at && new Date(account.scheduled_deletion_at) > new Date() && (
           <div style={{ padding: 12, borderRadius: 8, background: "var(--neg-soft)", border: "1px solid var(--neg)", marginBottom: 12, fontSize: 12, lineHeight: 1.5 }}>
             <div style={{ fontWeight: 600, color: "var(--neg)", marginBottom: 4 }}>Account deletion scheduled</div>
@@ -2619,283 +2475,233 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                 }
               }}
               style={{ padding: "6px 14px", background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
-            >
-              Cancel deletion
-            </button>
+            >Cancel deletion</button>
           </div>
         )}
-
         {!account?.scheduled_deletion_at && (
-          <div style={{ ...accountStyles.row, ...accountStyles.rowLast, borderBottom: "none" }}>
-            <div><div style={accountStyles.label}>Delete account</div><div style={accountStyles.sub}>removes all parsed data, forever</div></div>
-            <div/>
-            <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }} onClick={() => { setShowDeleteModal(true); setConfirmEmail(""); setDeleteError(null); }}>Delete…</button>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger }} onClick={() => { setShowDeleteModal(true); setConfirmEmail(""); setDeleteError(null); }}>Delete account…</button>
           </div>
         )}
-      </div>
+      </SettingsSection>
 
+      {/* Delete modal */}
       {showDeleteModal && (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} className={closingDelete ? "backdrop-out" : "backdrop-in"}>
-          <div className={closingDelete ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--neg-soft)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--neg)", marginBottom: 8 }}>Delete account</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              This permanently deletes all your transactions, categories, budgets, and Gmail connection. There is no undo.
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>
-              Type your email to confirm: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)" }}>{account?.email}</span>
-            </div>
-            <input
-              value={confirmEmail}
-              onChange={e => setConfirmEmail(e.target.value)}
-              placeholder={account?.email}
-              style={{ ...accountStyles.input, marginBottom: 16 }}
-              autoFocus
-            />
-            {deleteError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{deleteError}</div>}
-            {deleting && !deleteError && (
-              <div style={{ color: "var(--ink-3)", fontSize: 12, marginBottom: 12, lineHeight: 1.5, padding: 10, background: "var(--paper)", borderRadius: 6 }}>
-                Your account will be permanently deleted within the next 24 to 48 hours. You have been signed out.
-                If this was a mistake, sign back in and cancel from Settings before the deletion date.
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={closeDelete} disabled={deleting}>Cancel</button>
-              <button
-                style={{ ...accountStyles.btn, ...accountStyles.btnDanger, opacity: (confirmEmail.toLowerCase() === account?.email?.toLowerCase() && !deleting) ? 1 : 0.4 }}
-                disabled={confirmEmail.toLowerCase() !== account?.email?.toLowerCase() || deleting}
-                onClick={async () => {
-                  setDeleting(true);
-                  setDeleteError(null);
-                  try {
-                    const resp = await API.patch("/api/account/schedule-deletion");
-                    setDeleting(false);
-                    closeDelete();
-                    setAccount(a => ({ ...a, scheduled_deletion_at: resp.deletion_at }));
-                  } catch (e) {
-                    setDeleteError(e.message || "Failed to schedule deletion. Try again.");
-                    setDeleting(false);
-                  }
-                }}
-              >
-                {deleting ? "Scheduling…" : "Delete account"}
-              </button>
-            </div>
+        <Modal open={showDeleteModal} onClose={closeDelete} title="Delete account" width={420} danger>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+            This permanently deletes all your transactions, categories, budgets, and Gmail connection. There is no undo.
           </div>
-        </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>
+            Type your email to confirm: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)" }}>{account?.email}</span>
+          </div>
+          <input value={confirmEmail} onChange={e => setConfirmEmail(e.target.value)}
+            placeholder={account?.email}
+            style={{ ...accountStyles.input, marginBottom: 16 }} autoFocus />
+          {deleteError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{deleteError}</div>}
+          {deleting && !deleteError && (
+            <div style={{ color: "var(--ink-3)", fontSize: 12, marginBottom: 12, lineHeight: 1.5, padding: 10, background: "var(--paper)", borderRadius: 6 }}>
+              Your account will be permanently deleted within the next 24 to 48 hours. You have been signed out.
+              If this was a mistake, sign back in and cancel from Settings before the deletion date.
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={closeDelete} disabled={deleting}>Cancel</button>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger, opacity: (confirmEmail.toLowerCase() === account?.email?.toLowerCase() && !deleting) ? 1 : 0.4 }}
+              disabled={confirmEmail.toLowerCase() !== account?.email?.toLowerCase() || deleting}
+              onClick={async () => {
+                setDeleting(true); setDeleteError(null);
+                try { const resp = await API.patch("/api/account/schedule-deletion"); setDeleting(false); closeDelete(); setAccount(a => ({ ...a, scheduled_deletion_at: resp.deletion_at })); }
+                catch (e) { setDeleteError(e.message || "Failed to schedule deletion. Try again."); setDeleting(false); }
+              }}
+            >{deleting ? "Scheduling…" : "Delete account"}</button>
+          </div>
+        </Modal>
       )}
+
+      {/* Passkey setup modal */}
       {showPasskeyModal && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up passkey</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Your browser will prompt you to use your device's biometrics (Touch ID, Face ID) or a security key.
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Device name (optional):</div>
-            <input
-              value={passkeyDeviceName}
-              onChange={e => setPasskeyDeviceName(e.target.value)}
-              placeholder="e.g. MacBook Air"
-              style={{ ...accountStyles.input, marginBottom: 16 }}
-              autoFocus
-            />
-            {passkeyError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{passkeyError}</div>}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowPasskeyModal(false)} disabled={passkeyVerifying}>Cancel</button>
-              <button
-                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: passkeyVerifying ? 0.4 : 1 }}
-                disabled={passkeyVerifying}
-                onClick={handleRegisterPasskey}
-              >
-                {passkeyVerifying ? "Setting up…" : "Register passkey"}
-              </button>
-            </div>
+        <Modal open={showPasskeyModal} onClose={() => setShowPasskeyModal(false)} title="Set up passkey" width={420}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+            Your browser will prompt you to use your device's biometrics (Touch ID, Face ID) or a security key.
           </div>
-        </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Device name (optional):</div>
+          <input value={passkeyDeviceName} onChange={e => setPasskeyDeviceName(e.target.value)}
+            placeholder="e.g. MacBook Air" style={{ ...accountStyles.input, marginBottom: 16 }} autoFocus />
+          {passkeyError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{passkeyError}</div>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={() => setShowPasskeyModal(false)} disabled={passkeyVerifying}>Cancel</button>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: passkeyVerifying ? 0.4 : 1 }}
+              disabled={passkeyVerifying} onClick={handleRegisterPasskey}
+            >{passkeyVerifying ? "Setting up…" : "Register passkey"}</button>
+          </div>
+        </Modal>
       )}
+
+      {/* Passkey disable confirm */}
       {showPasskeyDisableConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable passkeys?</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Are you sure you want to disable passkey authentication? All registered passkeys will be removed, and your account will be less secure.
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowPasskeyDisableConfirm(false)}>Cancel</button>
-              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisablePasskey}>Disable</button>
-            </div>
+        <Modal open={showPasskeyDisableConfirm} onClose={() => setShowPasskeyDisableConfirm(false)} title="Disable passkeys?" width={400}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+            Are you sure you want to disable passkey authentication? All registered passkeys will be removed, and your account will be less secure.
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={() => setShowPasskeyDisableConfirm(false)}>Cancel</button>
+            <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisablePasskey}>Disable</button>
+          </div>
+        </Modal>
       )}
+
+      {/* TOTP setup modal */}
       {showTotpSetup && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Set up authenticator app</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 16, lineHeight: 1.5 }}>
-              Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code to verify.
-            </div>
-            {totpQrUrl && (
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <img src={totpQrUrl} alt="TOTP QR code" style={{ width: 180, height: 180, borderRadius: 8, border: "1px solid var(--line)" }} />
-              </div>
-            )}
-            {totpSecret && (
-              <div style={{ fontSize: 12, color: "var(--ink-3)", textAlign: "center", marginBottom: 16 }}>
-                Or enter this key manually: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)", fontWeight: 500, userSelect: "all" }}>{totpSecret}</span>
-              </div>
-            )}
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Verification code:</div>
-            <input
-              value={totpCode}
-              onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
-              style={{ ...accountStyles.input, marginBottom: 16, textAlign: "center", fontSize: 18, letterSpacing: "0.3em", fontFamily: "'Geist Mono', monospace" }}
-              maxLength={6}
-              autoFocus
-            />
-            {totpError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{totpError}</div>}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowTotpSetup(false)} disabled={totpVerifying}>Cancel</button>
-              <button
-                style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: totpCode.length !== 6 || totpVerifying ? 0.4 : 1 }}
-                disabled={totpCode.length !== 6 || totpVerifying}
-                onClick={handleVerifyTotp}
-              >
-                {totpVerifying ? "Verifying…" : "Verify"}
-              </button>
-            </div>
+        <Modal open={showTotpSetup} onClose={() => setShowTotpSetup(false)} title="Set up authenticator app" width={420}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 16, lineHeight: 1.5 }}>
+            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code to verify.
           </div>
-        </div>
+          {totpQrUrl && (
+            <div style={{ textAlign: "center", marginBottom: 16 }}>
+              <img src={totpQrUrl} alt="TOTP QR code" style={{ width: 180, height: 180, borderRadius: 8, border: "1px solid var(--line)" }} />
+            </div>
+          )}
+          {totpSecret && (
+            <div style={{ fontSize: 12, color: "var(--ink-3)", textAlign: "center", marginBottom: 16 }}>
+              Or enter this key manually: <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink)", fontWeight: 500, userSelect: "all" }}>{totpSecret}</span>
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 8 }}>Verification code:</div>
+          <input value={totpCode} onChange={e => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000" style={{ ...accountStyles.input, marginBottom: 16, textAlign: "center", fontSize: 18, letterSpacing: "0.3em", fontFamily: "'Geist Mono', monospace" }}
+            maxLength={6} autoFocus />
+          {totpError && <div style={{ color: "var(--neg)", fontSize: 12, marginBottom: 12 }}>{totpError}</div>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={() => setShowTotpSetup(false)} disabled={totpVerifying}>Cancel</button>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: totpCode.length !== 6 || totpVerifying ? 0.4 : 1 }}
+              disabled={totpCode.length !== 6 || totpVerifying} onClick={handleVerifyTotp}
+            >{totpVerifying ? "Verifying…" : "Verify"}</button>
+          </div>
+        </Modal>
       )}
+
+      {/* TOTP disable confirm */}
       {showTotpDisableConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Disable two-factor authentication?</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Are you sure you want to disable TOTP two-factor authentication? Your account will be less secure.
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowTotpDisableConfirm(false)}>Cancel</button>
-              <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisableTotp}>Disable</button>
-            </div>
+        <Modal open={showTotpDisableConfirm} onClose={() => setShowTotpDisableConfirm(false)} title="Disable two-factor authentication?" width={400}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+            Are you sure you want to disable TOTP two-factor authentication? Your account will be less secure.
           </div>
-        </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={() => setShowTotpDisableConfirm(false)}>Cancel</button>
+            <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisableTotp}>Disable</button>
+          </div>
+        </Modal>
       )}
+
+      {/* Export modals */}
       {showExportModal && !exportJobId && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Export transactions</div>
-            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
-              Your export will be prepared in the background. You can optionally filter by date range.
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>From</div>
-              <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
-                style={{ ...accountStyles.input }}
-              />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>To</div>
-              <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
-                style={{ ...accountStyles.input }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button style={accountStyles.btn} onClick={() => setShowExportModal(false)}>Cancel</button>
-              <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}
-                onClick={async () => {
-                  try {
-                    const body = {};
-                    if (exportDateFrom) body.date_from = exportDateFrom;
-                    if (exportDateTo) body.date_to = exportDateTo;
-                    const result = await API.post("/api/export", body);
-                    setExportJobId(result.id);
-                    setExportStatus("queued");
-                  } catch (e) {
-                    setExportError(e.message || "Failed to start export");
-                  }
-                }}
-              >Start export</button>
-            </div>
-            {exportError && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}>{exportError}</div>}
+        <Modal open={showExportModal && !exportJobId} onClose={() => setShowExportModal(false)} title="Export transactions" width={420}>
+          <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+            Your export will be prepared in the background. You can optionally filter by date range.
           </div>
-        </div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>From</div>
+            <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} style={{ ...accountStyles.input }} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>To</div>
+            <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} style={{ ...accountStyles.input }} />
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={accountStyles.btn} onClick={() => setShowExportModal(false)}>Cancel</button>
+            <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }} onClick={async () => {
+              try { const body = {}; if (exportDateFrom) body.date_from = exportDateFrom; if (exportDateTo) body.date_to = exportDateTo; const result = await API.post("/api/export", body); setExportJobId(result.id); setExportStatus("queued"); }
+              catch (e) { setExportError(e.message || "Failed to start export"); }
+            }}>Start export</button>
+          </div>
+          {exportError && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}>{exportError}</div>}
+        </Modal>
       )}
       {showExportModal && exportJobId && (
-        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
-            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Exporting…</div>
-            {exportStatus === "queued" && (
-              <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>
-                Your export has been queued and will start shortly.
-              </div>
+        <Modal open={showExportModal && exportJobId !== null} onClose={() => { setShowExportModal(false); setExportJobId(null); }} title="Exporting…" width={420}>
+          {exportStatus === "queued" && <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>Your export has been queued and will start shortly.</div>}
+          {exportStatus === "processing" && <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>Generating your CSV…</div>}
+          {exportStatus === "completed" && <div style={{ fontSize: 13, color: "var(--pos)", marginBottom: 16 }}>Your export is ready!</div>}
+          {exportStatus === "failed" && <div style={{ fontSize: 13, color: "var(--neg)", marginBottom: 16 }}>{exportError || "Export failed. Please try again."}</div>}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            {exportStatus === "completed" ? (
+              <><button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); }}>Close</button>
+              <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }} onClick={() => { window.location.href = `/api/export/jobs/${exportJobId}/download`; }}>Download</button></>
+            ) : exportStatus === "failed" ? (
+              <button style={accountStyles.btn} onClick={() => { setExportJobId(null); setExportStatus(null); setExportError(null); }}>Try again</button>
+            ) : (
+              <button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); setExportStatus(null); }}>Close</button>
             )}
-            {exportStatus === "processing" && (
-              <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>
-                Generating your CSV…
-              </div>
-            )}
-            {exportStatus === "completed" && (
-              <div style={{ fontSize: 13, color: "var(--pos)", marginBottom: 16 }}>
-                Your export is ready!
-              </div>
-            )}
-            {exportStatus === "failed" && (
-              <div style={{ fontSize: 13, color: "var(--neg)", marginBottom: 16 }}>
-                {exportError || "Export failed. Please try again."}
-              </div>
-            )}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              {exportStatus === "completed" ? (
-                <>
-                  <button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); }}>Close</button>
-                  <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}
-                    onClick={() => { window.location.href = `/api/export/jobs/${exportJobId}/download`; }}
-                  >Download</button>
-                </>
-              ) : exportStatus === "failed" ? (
-                <button style={accountStyles.btn} onClick={() => { setExportJobId(null); setExportStatus(null); setExportError(null); }}>Try again</button>
-              ) : (
-                <button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); setExportStatus(null); }}>Close</button>
-              )}
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
+
       {account?.role === "owner" && (
         <InviteSection account={account} />
       )}
 
       </>)}
 
-      {settingsTab === "admin" && account?.role === "owner" && (
-        <>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--neg)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 20 }}>
-            // Admin — Owner Only
-          </div>
-          <AdminLLMSection account={account} settings={settings} />
-          <AdminBackfillBodiesSection />
-          <AdminFetchRangeSection />
-          <AdminSyncSection />
-          <AdminFetchPreviewSection />
-          <AdminClassifySection />
-          <AdminDomainRulesSection />
-          <AdminCleanBodiesSection />
-          <AdminAlertsSection />
-        </>
-      )}
+      {/* ── Tab 2: Inbox Intelligence ─────────────────────────── */}
+      {settingsTab === "intelligence" && (<>
 
-      {/* AI Services Tab */}
+      {/* Classification */}
+      <SettingsSection title="Classification" subtitle="— how smart the inbox should be">
+        <SettingsRow label="Auto-categorize new transactions" description="use the model to guess Food, Rent, etc.">
+          <Toggle on={!!settings.auto_categorize} onChange={v=>updateSetting("auto_categorize", v)}/>
+        </SettingsRow>
+        <SettingsRow label="Show AI confidence on cards" description="small bar next to each transaction">
+          <Toggle on={!!settings.show_confidence} onChange={v=>updateSetting("show_confidence", v)}/>
+        </SettingsRow>
+        <SettingsRow label="Confidence threshold" description="flag transactions below this certainty">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="range" min="50" max="95"
+              value={thresholdLocal ?? settings.confidence_threshold ?? 70}
+              onChange={e => { const v = Number(e.target.value); setThresholdLocal(v); if (thresholdTimer.current) clearTimeout(thresholdTimer.current); thresholdTimer.current = setTimeout(() => updateSetting("confidence_threshold", v), 250); }}
+              style={{ flex: 1 }}/>
+            <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-2)", minWidth: 40, textAlign: "right" }}>{thresholdLocal ?? settings.confidence_threshold ?? 70}%</span>
+          </div>
+        </SettingsRow>
+        <SettingsRow label="Rule-based pre-filter" description="skip LLM for known senders and obvious non-financial emails — saves tokens" last>
+          <Toggle on={settings.use_rule_engine !== false} onChange={v=>updateSetting("use_rule_engine", v)}/>
+        </SettingsRow>
+      </SettingsSection>
+
+      {/* Active AI Service */}
+      <SettingsSection title="Active AI Service" subtitle="— pick which service classifies your emails">
+        <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
+          <select style={{ ...accountStyles.input, maxWidth: 420 }}
+            value={settings.active_ai_service_id || "default"}
+            onChange={e => updateSetting("active_ai_service_id", e.target.value === "default" ? null : e.target.value)}>
+            <option value="default">— none (rule-based fallback only) —</option>
+            {aiServices.filter(s => s.enabled !== false || s.id === settings.active_ai_service_id).map(s => (
+              <option key={s.id} value={s.id}>{s.display_name} · {s.model_id}{s.enabled === false ? " (disabled)" : ""}</option>
+            ))}
+          </select>
+          <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 8 }}>
+            {settings.active_ai_service_id
+              ? "Used for email classification and inbox recategorization."
+              : "No service selected — classification falls back to rules only."}
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Sender Domain Rules */}
+      <SenderRulesSection categories={categories} />
+
+      </>)}
+
+      {/* ── Tab 3: AI Services ────────────────────────────────── */}
       {settingsTab === "ai" && (<>
         <TrialInfoBanner />
-        {/* Unified LLM Providers table */}
-        <div style={accountStyles.section}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-            <h3 style={accountStyles.sectionTitle}>LLM Providers</h3>
-            <button style={{ ...accountStyles.btn, display: "flex", alignItems: "center", gap: 6 }} onClick={() => API.get("/api/llm/status").then(setLlmStatus).catch(() => {})}>
-              <Icon name="repeat" size={14}/> Refresh
-            </button>
-          </div>
-          <div style={accountStyles.sectionSub}>— custom services + server-configured providers in priority order</div>
+
+        {/* LLM Providers */}
+        <SettingsSection title="LLM Providers" subtitle="— custom services + server-configured providers in priority order"
+          action={<button style={{ ...accountStyles.btn, display: "flex", alignItems: "center", gap: 6 }}
+            onClick={() => API.get("/api/llm/status").then(setLlmStatus).catch(() => {})}>
+            <Icon name="repeat" size={14}/> Refresh
+          </button>}
+        >
           {aiServices.length === 0 && (!llmStatus || llmStatus.providers.length === 0) ? (
             <div style={{ fontSize: 13, color: "var(--ink-4)", padding: "12px 0", fontStyle: "italic" }}>No providers configured. Add a custom service below.</div>
           ) : (
@@ -2903,22 +2709,22 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Service","Model",""].map(h => <th key={h} style={accountStyles.th}>{h}</th>)}
+                    {["Service","Model",""].map(h => <th key={h} style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {aiServices.map(svc => (
                     <tr key={svc.id}>
-                      <td style={{ ...accountStyles.td, fontWeight: 600 }}>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", fontSize: 13, fontWeight: 600 }}>
                         {svc.display_name}
                         {svc.id === settings.active_ai_service_id && <span style={{ marginLeft: 8, fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "var(--ink)", color: "var(--paper)", fontWeight: 600, textTransform: "uppercase" }}>Active</span>}
                       </td>
-                      <td style={{ ...accountStyles.td, fontFamily: "'Geist Mono', monospace", fontSize: 12, color: "var(--ink-3)" }}>{svc.model_id}</td>
-                      <td style={{ ...accountStyles.td, textAlign: "right", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", fontSize: 12, fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)" }}>{svc.model_id}</td>
+                      <td style={{ padding: "11px 12px", borderBottom: "1px solid var(--line)", verticalAlign: "middle", fontSize: 13, textAlign: "right", whiteSpace: "nowrap" }}>
                         {svc.id !== settings.active_ai_service_id && svc.enabled && (
                           <button onClick={() => updateSetting("active_ai_service_id", svc.id)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Set active</button>
                         )}
-                        <button onClick={() => { setEditingAiId(svc.id); setAiForm({ ...svc, api_key: "" }); }} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Edit</button>
+                        <button onClick={() => editAiService(svc)} style={{ ...accountStyles.btn, padding: "4px 10px", fontSize: 11, marginRight: 4 }}>Edit</button>
                         <button onClick={() => deleteAiService(svc)} style={{ ...accountStyles.btn, ...accountStyles.btnDanger, padding: "4px 10px", fontSize: 11 }}>Delete</button>
                       </td>
                     </tr>
@@ -2927,7 +2733,8 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               </table>
             </div>
           )}
-          {/* Add / Edit service form */}
+
+          {/* Add/Edit service form */}
           <details open={!!editingAiId}>
             <summary style={{ fontSize: 12, color: "var(--ink-3)", cursor: "pointer", userSelect: "none", padding: "6px 0" }}>
               {editingAiId ? "Edit service" : "Add custom service"}
@@ -2945,14 +2752,14 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
               </div>
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Base URL</div>
-                <input style={accountStyles.input} value={aiForm.base_url} onChange={e => setAiForm({ ...aiForm, base_url: e.target.value })} placeholder="https://api.cloudflare.com/client/v4/accounts/…/ai/run"/>
+                <input style={accountStyles.input} value={aiForm.base_url} onChange={e => setAiForm({ ...aiForm, base_url: e.target.value })} placeholder="https://api.cloudflare.com/client/v4/accounts/\u2026/ai/run"/>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>API key</div>
                   {editingKeyHint && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace" }}>Current: {editingKeyHint}</span>}
                 </div>
-                <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e => setAiForm({ ...aiForm, api_key: e.target.value })} placeholder={editingAiId ? "enter new key to update" : "sk-…"}/>
+                <input type="password" style={{ ...accountStyles.input, fontFamily: "'Geist Mono', monospace" }} value={aiForm.api_key} onChange={e => setAiForm({ ...aiForm, api_key: e.target.value })} placeholder={editingAiId ? "enter new key to update" : "sk-\u2026"}/>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <div>
@@ -2971,45 +2778,42 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                 <div style={{ flex: 1, textAlign: "right" }}>
                   {editingAiId && <button onClick={() => { setEditingAiId(null); setAiForm(emptyAiForm); }} style={{ ...accountStyles.btn, marginRight: 8 }}>Cancel</button>}
                   <button onClick={saveAiService} disabled={aiSaving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: aiSaving ? 0.65 : 1 }}>
-                    {aiSaving ? "Saving…" : editingAiId ? "Save changes" : "Save service"}
+                    {aiSaving ? "Saving\u2026" : editingAiId ? "Save changes" : "Save service"}
                   </button>
                 </div>
               </div>
+              {aiError && <div style={{ padding: "8px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 12, marginTop: 14 }}>{aiError}</div>}
             </div>
           </details>
-        </div>
-
-        {/* AI Preferences */}
-        <div style={{ ...accountStyles.section, marginTop: 20 }}>
-          <h3 style={accountStyles.sectionTitle}>AI Preferences</h3>
-          <div style={accountStyles.sectionSub}>— pick which service classifies your emails (auto-saved)</div>
-          <div style={{ padding: "14px 16px", background: "var(--paper-2)", borderRadius: 6 }}>
-            <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 6 }}>Active service</div>
-            <select style={{ ...accountStyles.input, maxWidth: 420 }} value={settings.active_ai_service_id || "default"} onChange={e => updateSetting("active_ai_service_id", e.target.value === "default" ? null : e.target.value)}>
-              <option value="default">— none (rule-based fallback only) —</option>
-              {aiServices.filter(s => s.enabled !== false || s.id === settings.active_ai_service_id).map(s => (
-                <option key={s.id} value={s.id}>{s.display_name} · {s.model_id}{s.enabled === false ? " (disabled)" : ""}</option>
-              ))}
-            </select>
-            <div style={{ fontSize: 12, color: "var(--ink-4)", marginTop: 8 }}>
-              {settings.active_ai_service_id
-                ? "Used for email classification and inbox recategorization."
-                : "No service selected — classification falls back to rules only."}
-            </div>
-          </div>
-        </div>
+        </SettingsSection>
 
         {/* Classifier Tester */}
-        <AdminLLMTestSection account={account} />
+        <AdminClassifySection />
       </>)}
 
-      {/* Rules Tab */}
-      {settingsTab === "rules" && (
-        <RulesTab account={account} categories={categories} />
+      {/* ── Tab 4: Advanced (owner only) ──────────────────────── */}
+      {settingsTab === "advanced" && account?.role === "owner" && (
+        <>
+          <AdminLLMSection account={account} settings={settings} />
+          <AdminBackfillBodiesSection />
+          <AdminFetchRangeSection />
+          <AdminSyncSection />
+          <AdminFetchPreviewSection />
+          <AdminClassifySection />
+          <AdminDomainRulesSection />
+          <AdminCleanBodiesSection />
+          <AdminAlertsSection />
+          <PatternRulesSection categories={categories} />
+          <MerchantAliasesSection categories={categories} />
+          <FilterRulesSection />
+          <BuiltinRulesSection />
+        </>
       )}
+
       </div>
     </div>
   );
-};
+ };
+
 
 Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, InviteSection, AdminBackfillBodiesSection });
