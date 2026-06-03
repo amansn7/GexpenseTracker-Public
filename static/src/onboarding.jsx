@@ -953,12 +953,28 @@ const TotpChallenge = () => {
     setVerifying(true);
     setError(null);
     try {
-      const result = await API.post("/api/auth/verify-2fa", { code });
-      if (result.ok) {
-        window.location.reload();
+      const res = await fetch("/api/auth/verify-2fa", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": (typeof window._csrfToken === "function" ? window._csrfToken() : ""),
+        },
+        body: JSON.stringify({ code }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ok) {
+          window.location.reload();
+        }
+      } else if (res.status === 401) {
+        setError("Invalid code. Please try again.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.detail || "Verification failed.");
       }
     } catch (e) {
-      setError(e.message || "Verification failed");
+      setError("Network error. Please try again.");
     } finally {
       setVerifying(false);
     }
