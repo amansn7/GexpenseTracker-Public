@@ -718,6 +718,30 @@ const StepPreview = ({ advance }) => {
 const StepDone = ({ stepData }) => {
   const txCount = stepData.txCount || 0;
   const aiProvider = stepData.aiProvider || "AI";
+  const [pkDone, setPkDone] = React.useState(false);
+  const [pkBusy, setPkBusy] = React.useState(false);
+
+  const supportsPasskey = typeof window.PublicKeyCredential !== "undefined";
+
+  const handleSetupPasskey = async () => {
+    setPkBusy(true);
+    try {
+      const begin = await API.post("/api/auth/passkey/register/begin");
+      const opts = begin.options;
+      opts.challenge = Uint8Array.from(atob(opts.challenge), c => c.charCodeAt(0));
+      opts.user.id = Uint8Array.from(atob(opts.user.id), c => c.charCodeAt(0));
+      const credential = await navigator.credentials.create({ publicKey: opts });
+      const complete = await API.post("/api/auth/passkey/register/complete", {
+        credential: credential.toJSON(),
+        challenge_b64: begin.challenge_b64,
+        challenge_sig: begin.challenge_sig,
+        device_name: "",
+      });
+      if (complete.ok) setPkDone(true);
+    } catch (_) {} finally {
+      setPkBusy(false);
+    }
+  };
 
   const handleOpen = async () => {
     localStorage.removeItem("mf_onboarding_step");
@@ -747,6 +771,32 @@ const StepDone = ({ stepData }) => {
           <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 20, fontWeight: 400, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{aiProvider}</div>
         </div>
       </div>
+
+      {supportsPasskey && !pkDone && (
+        <div style={{ marginBottom: 20, padding: "16px", background: "var(--paper-2)", borderRadius: 8, textAlign: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 6 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a6 6 0 0 0-6 6v4a6 6 0 0 0 6 6 6 6 0 0 0 6-6V8a6 6 0 0 0-6-6z"/><path d="M12 12a2 2 0 0 0-2 2v2a2 2 0 0 0 4 0v-2a2 2 0 0 0-2-2z"/><path d="M6 8a6 6 0 0 1 12 0"/></svg>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>Optional: Secure with passkey</div>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.4 }}>
+            Sign in with Touch ID, Face ID, or a security key — no passwords needed.
+          </div>
+          <button onClick={handleSetupPasskey} disabled={pkBusy}
+            style={{
+              padding: "7px 18px", borderRadius: 6, border: "1px solid var(--line)",
+              background: "var(--card)", color: "var(--ink)", fontSize: 12, cursor: pkBusy ? "default" : "pointer", fontFamily: "inherit",
+            }}
+          >
+            {pkBusy ? "Setting up…" : "Set up passkey"}
+          </button>
+        </div>
+      )}
+
+      {pkDone && (
+        <div style={{ marginBottom: 20, padding: "12px 16px", background: "var(--pos-soft)", borderRadius: 8, textAlign: "center", fontSize: 12, color: "var(--pos)" }}>
+          ✓ Passkey enabled — next time you'll sign in with biometrics
+        </div>
+      )}
 
       <button onClick={handleOpen} style={{ ...S.btnPrimary, padding: "12px 32px", fontSize: 14 }}>
         Open Moneyflow →
