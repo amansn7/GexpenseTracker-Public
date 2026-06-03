@@ -48,10 +48,6 @@ def _add_months(d: date, n: int) -> date:
     return d.replace(year=year, month=month, day=1)
 
 
-def _effective_month(txn_date: date, label: str, sender: str | None) -> date:
-    return txn_date.replace(day=1)
-
-
 def _period_start(period: str) -> date:
     today = date.today()
     return {

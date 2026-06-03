@@ -64,38 +64,6 @@ from datetime import date as _date_cls
 
 
 @pytest.mark.asyncio
-async def test_effective_month_no_shift():
-    from app.api.stats import _effective_month
-
-    d = _date_cls(2026, 3, 15)
-    assert _effective_month(d, "income", "axis bank") == _date_cls(2026, 3, 1)
-
-
-@pytest.mark.asyncio
-async def test_effective_month_shifts_axis_day_25():
-    from app.api.stats import _effective_month
-
-    d = _date_cls(2026, 2, 28)
-    assert _effective_month(d, "income", "AXIS BANK SALARY") == _date_cls(2026, 3, 1)
-
-
-@pytest.mark.asyncio
-async def test_effective_month_no_shift_non_axis():
-    from app.api.stats import _effective_month
-
-    d = _date_cls(2026, 2, 28)
-    assert _effective_month(d, "income", "HDFC BANK") == _date_cls(2026, 2, 1)
-
-
-@pytest.mark.asyncio
-async def test_effective_month_no_shift_expense():
-    from app.api.stats import _effective_month
-
-    d = _date_cls(2026, 2, 28)
-    assert _effective_month(d, "expense", "AXIS BANK") == _date_cls(2026, 2, 1)
-
-
-@pytest.mark.asyncio
 async def test_stats_summary_empty(db_session, mock_user):
     async def override_get_db():
         yield db_session
