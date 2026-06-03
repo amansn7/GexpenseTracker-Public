@@ -2102,8 +2102,15 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
 
       const credential = await navigator.credentials.create({ publicKey: pkOptions });
 
+      const bufToB64url = buf => { const b = new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+      const serializeCred = c => ({
+        id: c.id, type: c.type, rawId: bufToB64url(c.rawId),
+        response: { clientDataJSON: bufToB64url(c.response.clientDataJSON), attestationObject: bufToB64url(c.response.attestationObject) },
+        transports: c.response.getTransports?.() ?? [],
+      });
+
       const complete = await API.post("/api/auth/passkey/register/complete", {
-        credential: credential.toJSON(),
+        credential: credential.toJSON ? credential.toJSON() : serializeCred(credential),
         challenge_b64: begin.challenge_b64,
         challenge_sig: begin.challenge_sig,
         device_name: passkeyDeviceName.trim() || "Passkey",
