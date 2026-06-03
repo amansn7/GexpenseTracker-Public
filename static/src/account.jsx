@@ -1979,6 +1979,12 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   const [twoFactorCode, setTwoFactorCode] = React.useState("");
   const [twoFactorError, setTwoFactorError] = React.useState(null);
   const [twoFactorVerifying, setTwoFactorVerifying] = React.useState(false);
+  const [showExportModal, setShowExportModal] = React.useState(false);
+  const [exportDateFrom, setExportDateFrom] = React.useState("");
+  const [exportDateTo, setExportDateTo] = React.useState("");
+  const [exportJobId, setExportJobId] = React.useState(null);
+  const [exportStatus, setExportStatus] = React.useState(null);
+  const [exportError, setExportError] = React.useState(null);
   const [budgetValue, setBudgetValue] = React.useState(
     settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : ""
   );
@@ -1987,6 +1993,20 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
   React.useEffect(() => {
     setBudgetValue(settings.monthly_ai_budget != null ? String(settings.monthly_ai_budget) : "");
   }, [settings.monthly_ai_budget]);
+
+  React.useEffect(() => {
+    if (!exportJobId || exportStatus === "completed" || exportStatus === "failed") return;
+    const interval = setInterval(async () => {
+      try {
+        const result = await API.get(`/api/export/jobs/${exportJobId}`);
+        setExportStatus(result.status);
+        if (result.status === "failed") {
+          setExportError(result.error || "Export failed");
+        }
+      } catch (_) {}
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [exportJobId, exportStatus]);
 
   const updateSetting = async (key, value) => {
     setAccount(a => ({ ...a, settings: { ...a.settings, [key]: value } }));
@@ -2435,7 +2455,14 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
         <div style={{ ...accountStyles.row, ...accountStyles.rowLast, ...mqRow }}>
           <div><div style={accountStyles.label}>Export all data</div><div style={accountStyles.sub}>CSV of every parsed transaction</div></div>
           <div/>
-          <button style={accountStyles.btn} onClick={() => window.location.href = "/api/transactions/export"}><Icon name="arrow-u-r" size={12}/> Export</button>
+          <button style={accountStyles.btn} onClick={() => {
+            setShowExportModal(true);
+            setExportDateFrom("");
+            setExportDateTo("");
+            setExportJobId(null);
+            setExportStatus(null);
+            setExportError(null);
+          }}><Icon name="arrow-u-r" size={12}/> Export</button>
         </div>
       </div>
 
@@ -2577,6 +2604,87 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button style={accountStyles.btn} onClick={() => setShow2faDisableConfirm(false)}>Cancel</button>
               <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisable2fa}>Disable</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showExportModal && !exportJobId && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 8 }}>Export transactions</div>
+            <div style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 20, lineHeight: 1.5 }}>
+              Your export will be prepared in the background. You can optionally filter by date range.
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>From</div>
+              <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)}
+                style={{ ...accountStyles.input }}
+              />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)", marginBottom: 6 }}>To</div>
+              <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)}
+                style={{ ...accountStyles.input }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={accountStyles.btn} onClick={() => setShowExportModal(false)}>Cancel</button>
+              <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}
+                onClick={async () => {
+                  try {
+                    const body = {};
+                    if (exportDateFrom) body.date_from = exportDateFrom;
+                    if (exportDateTo) body.date_to = exportDateTo;
+                    const result = await API.post("/api/export", body);
+                    setExportJobId(result.id);
+                    setExportStatus("queued");
+                  } catch (e) {
+                    setExportError(e.message || "Failed to start export");
+                  }
+                }}
+              >Start export</button>
+            </div>
+            {exportError && <div style={{ color: "var(--neg)", fontSize: 12, marginTop: 12 }}>{exportError}</div>}
+          </div>
+        </div>
+      )}
+      {showExportModal && exportJobId && (
+        <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 420 }}>
+            <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: "var(--ink)", marginBottom: 16 }}>Exporting…</div>
+            {exportStatus === "queued" && (
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>
+                Your export has been queued and will start shortly.
+              </div>
+            )}
+            {exportStatus === "processing" && (
+              <div style={{ fontSize: 13, color: "var(--ink-3)", marginBottom: 16 }}>
+                Generating your CSV…
+              </div>
+            )}
+            {exportStatus === "completed" && (
+              <div style={{ fontSize: 13, color: "var(--pos)", marginBottom: 16 }}>
+                Your export is ready!
+              </div>
+            )}
+            {exportStatus === "failed" && (
+              <div style={{ fontSize: 13, color: "var(--neg)", marginBottom: 16 }}>
+                {exportError || "Export failed. Please try again."}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              {exportStatus === "completed" ? (
+                <>
+                  <button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); }}>Close</button>
+                  <button style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}
+                    onClick={() => { window.location.href = `/api/export/jobs/${exportJobId}/download`; }}
+                  >Download</button>
+                </>
+              ) : exportStatus === "failed" ? (
+                <button style={accountStyles.btn} onClick={() => { setExportJobId(null); setExportStatus(null); setExportError(null); }}>Try again</button>
+              ) : (
+                <button style={accountStyles.btn} onClick={() => { setShowExportModal(false); setExportJobId(null); setExportStatus(null); }}>Close</button>
+              )}
             </div>
           </div>
         </div>

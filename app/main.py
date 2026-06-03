@@ -51,6 +51,7 @@ from app.api import auth, review, transactions
 from app.api import budget_llm as budget_llm_api
 from app.api import budgets as budgets_api
 from app.api import cleanup as cleanup_api
+from app.api import exports as exports_api
 from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
 from app.api import emails as emails_api
@@ -299,6 +300,7 @@ app.include_router(reconciliation_api.router, prefix="/api")
 app.include_router(merchants_api.router, prefix="/api")
 app.include_router(insights_api.router, prefix="/api")
 app.include_router(cleanup_api.router, prefix="/api")
+app.include_router(exports_api.router, prefix="/api")
 
 
 @app.get("/health")

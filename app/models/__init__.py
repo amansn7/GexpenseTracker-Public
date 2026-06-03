@@ -13,6 +13,9 @@ from .device_token import (
     DeviceToken,
     RefreshTokenBlacklist,
 )
+from .export_job import (
+    ExportJob,
+)
 from .email import (
     Email,
     SyncState,
@@ -121,6 +124,8 @@ __all__ = [
     # rollup
     "DailySnapshot",
     "PeriodRollup",
+    # export
+    "ExportJob",
     # audit log
     "AuditLog",
     # device / JWT
