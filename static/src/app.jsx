@@ -558,6 +558,7 @@ const App = () => {
   await API.init();
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
   let showPasskeyChallenge = false;
+  let showTotpChallenge = false;
   let accountData = null;
 
   try {
@@ -575,6 +576,9 @@ const App = () => {
       if (body?.detail?.passkey_pending) {
         showPasskeyChallenge = true;
         showOnboarding = false;
+      } else if (body?.detail?.totp_pending) {
+        showTotpChallenge = true;
+        showOnboarding = false;
       } else {
         showOnboarding = true;
       }
@@ -584,6 +588,8 @@ const App = () => {
   let Root;
   if (showPasskeyChallenge) {
     Root = PasskeyChallenge;
+  } else if (showTotpChallenge) {
+    Root = TotpChallenge;
   } else if (showOnboarding) {
     const WizardWithData = () => React.createElement(OnboardingWizard, { accountData });
     Root = WizardWithData;

@@ -370,9 +370,24 @@ const StepGmail = ({ advance, accountData }) => {
   );
 
   const handleConnect = () => {
+    if (!accountData) return;
     localStorage.setItem("mf_onboarding_step", 3);
     window.location = "/api/auth/google";
   };
+
+  if (!accountData) {
+    return (
+      <div>
+        <h2 style={S.h2}>Connect your Gmail</h2>
+        <p style={S.sub}>Unable to load account data. Please try logging in again.</p>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => { window.location.href = "/login"; }} style={S.btnPrimary}>
+            Back to login →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (gmailConnected) {
     return (
@@ -925,5 +940,99 @@ const OnboardingWizard = ({ accountData }) => {
   );
 };
 
+// ---------------------------------------------------------------------------
+// TotpChallenge — shown after OAuth when TOTP verification is needed
+// ---------------------------------------------------------------------------
+const TotpChallenge = () => {
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleVerify = async () => {
+    if (code.length !== 6) return;
+    setVerifying(true);
+    setError(null);
+    try {
+      const result = await API.post("/api/auth/verify-2fa", { code });
+      if (result.ok) {
+        window.location.reload();
+      }
+    } catch (e) {
+      setError(e.message || "Verification failed");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "var(--paper)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", gap: 16, padding: 24,
+    }}>
+      <div style={{
+        fontFamily: "'Instrument Serif', serif", fontSize: 32, fontStyle: "italic",
+        color: "var(--ink)", marginBottom: 8,
+      }}>
+        MoneyFlow
+      </div>
+      <div style={{
+        fontSize: 15, fontWeight: 500, color: "var(--ink)",
+        marginBottom: 4,
+      }}>
+        Two-factor authentication
+      </div>
+      <div style={{
+        fontSize: 13, color: "var(--ink-2)", marginBottom: 16,
+        textAlign: "center", maxWidth: 300,
+      }}>
+        Enter the 6-digit code from your authenticator app.
+      </div>
+      {error && (
+        <div style={{
+          fontSize: 12, color: "var(--neg)", marginBottom: 8,
+          textAlign: "center",
+        }}>
+          {error}
+        </div>
+      )}
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        maxLength={6}
+        value={code}
+        onChange={e => setCode(e.target.value.replace(/\D/g, ""))}
+        onKeyDown={e => { if (e.key === "Enter") handleVerify(); }}
+        placeholder="000000"
+        style={{
+          width: 180, padding: "12px 16px",
+          fontSize: 24, fontWeight: 600, fontFamily: "'Geist Mono', monospace",
+          textAlign: "center", letterSpacing: 8,
+          background: "var(--paper-2)", color: "var(--ink)",
+          border: "1px solid var(--line)", borderRadius: 8,
+          outline: "none",
+        }}
+        autoFocus
+      />
+      <button
+        onClick={handleVerify}
+        disabled={verifying || code.length !== 6}
+        style={{
+          padding: "10px 28px",
+          background: verifying || code.length !== 6 ? "var(--ink-3)" : "var(--ink)",
+          color: "var(--paper)",
+          border: "none", borderRadius: 8,
+          fontSize: 14, fontWeight: 500,
+          cursor: (verifying || code.length !== 6) ? "default" : "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        {verifying ? "Verifying…" : "Verify"}
+      </button>
+    </div>
+  );
+};
+
 // Expose to global scope (no module system)
-Object.assign(window, { OnboardingWizard, PasskeyChallenge });
+Object.assign(window, { OnboardingWizard, PasskeyChallenge, TotpChallenge });
