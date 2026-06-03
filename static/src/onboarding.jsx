@@ -855,7 +855,7 @@ const PasskeyChallenge = () => {
         response: { clientDataJSON: bufToB64url(c.response.clientDataJSON), authenticatorData: bufToB64url(c.response.authenticatorData), signature: bufToB64url(c.response.signature) },
       });
       const complete = await API.post("/api/auth/passkey/assert/complete", {
-        credential: credential.toJSON ? credential.toJSON() : serializeCred(credential),
+        credential: credential.toJSON ? credential.toJSON() : serializeAssertion(credential),
         challenge_b64: begin.challenge_b64,
         challenge_sig: begin.challenge_sig,
       });
