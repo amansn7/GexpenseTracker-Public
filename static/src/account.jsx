@@ -2096,8 +2096,9 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
     try {
       const begin = await API.post("/api/auth/passkey/register/begin");
       const pkOptions = begin.options;
-      pkOptions.challenge = Uint8Array.from(atob(pkOptions.challenge), c => c.charCodeAt(0));
-      pkOptions.user.id = Uint8Array.from(atob(pkOptions.user.id), c => c.charCodeAt(0));
+      const b64url = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      pkOptions.challenge = b64url(pkOptions.challenge);
+      pkOptions.user.id = b64url(pkOptions.user.id);
 
       const credential = await navigator.credentials.create({ publicKey: pkOptions });
 

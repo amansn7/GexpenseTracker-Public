@@ -748,8 +748,9 @@ const StepDone = ({ stepData }) => {
     try {
       const begin = await API.post("/api/auth/passkey/register/begin");
       const opts = begin.options;
-      opts.challenge = Uint8Array.from(atob(opts.challenge), c => c.charCodeAt(0));
-      opts.user.id = Uint8Array.from(atob(opts.user.id), c => c.charCodeAt(0));
+      const b64url = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      opts.challenge = b64url(opts.challenge);
+      opts.user.id = b64url(opts.user.id);
       const credential = await navigator.credentials.create({ publicKey: opts });
       const complete = await API.post("/api/auth/passkey/register/complete", {
         credential: credential.toJSON(),
