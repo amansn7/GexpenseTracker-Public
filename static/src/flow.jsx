@@ -823,19 +823,23 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={flowStyles.secTitle}>How money moved · {rangeTxs.length} emails</span>
             {savings < 0 && (
-              <div className="flow-toggle-group" style={{ display: "flex", gap: 0, borderRadius: 4, padding: 2 }}>
-                <button onClick={() => setViewMode("remaining")} style={{
+              <div role="radiogroup" aria-label="View mode" className="flow-toggle-group" style={{ display: "flex", gap: 0, borderRadius: 4, padding: 2 }}>
+                <button role="radio" aria-checked={viewMode === "remaining"} onClick={() => setViewMode("remaining")} style={{
                   padding: "3px 8px", fontSize: 10, fontWeight: 500, lineHeight: 1, fontFamily: "'Geist', sans-serif",
                   background: viewMode === "remaining" ? "var(--paper)" : "transparent",
                   color: viewMode === "remaining" ? "var(--ink)" : "var(--paper)",
-                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms"
-                }}>Remaining</button>
-                <button onClick={() => setViewMode("overspend")} style={{
+                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms", outline: "none"
+                }}
+                  onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>Remaining</button>
+                <button role="radio" aria-checked={viewMode === "overspend"} onClick={() => setViewMode("overspend")} style={{
                   padding: "3px 8px", fontSize: 10, fontWeight: 500, lineHeight: 1, fontFamily: "'Geist', sans-serif",
                   background: viewMode === "overspend" ? "var(--paper)" : "transparent",
                   color: viewMode === "overspend" ? "var(--ink)" : "var(--paper)",
-                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms"
-                }}>Overspend</button>
+                  border: "none", borderRadius: 3, cursor: "pointer", transition: "all 120ms", outline: "none"
+                }}
+                  onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>Overspend</button>
               </div>
             )}
           </div>

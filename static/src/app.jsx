@@ -518,15 +518,19 @@ const App = () => {
             <Icon name="sparkle" size={12} stroke="var(--accent)"/> Tweaks
           </div>
           <div style={{ fontSize:10, textTransform:"uppercase", color:"var(--ink-3)", letterSpacing:"0.1em", marginBottom:6 }}>Theme</div>
-          <div style={{ display:"flex", gap:4, marginBottom:14 }}>
+          <div role="radiogroup" aria-label="Theme" style={{ display:"flex", gap:4, marginBottom:14 }}>
             {[["paper","Paper"],["cool","Cool"],["midnight","Midnight"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setTheme(k)} style={{ flex:1, padding:"6px 8px", borderRadius:4, border:"1px solid var(--line)", background:theme===k?"var(--ink)":"var(--card)", color:theme===k?"var(--paper)":"var(--ink-2)", fontSize:11, cursor:"pointer" }}>{l}</button>
+              <button key={k} role="radio" aria-checked={theme===k} onClick={()=>setTheme(k)} style={{ flex:1, padding:"6px 8px", borderRadius:4, border:"1px solid var(--line)", background:theme===k?"var(--ink)":"var(--card)", color:theme===k?"var(--paper)":"var(--ink-2)", fontSize:11, cursor:"pointer", outline:"none", transition:"background 120ms ease, color 120ms ease" }}
+                onFocus={e=>{e.currentTarget.style.boxShadow="0 0 0 2px var(--accent)"}}
+                onBlur={e=>{e.currentTarget.style.boxShadow="none"}}>{l}</button>
             ))}
           </div>
           <div style={{ fontSize:10, textTransform:"uppercase", color:"var(--ink-3)", letterSpacing:"0.1em", marginBottom:6 }}>Jump to view</div>
-          <div style={{ display:"flex", gap:4 }}>
+          <div role="radiogroup" aria-label="Jump to view" style={{ display:"flex", gap:4 }}>
             {[["inbox","Inbox"],["flow","Flow"],["dashboard","Dash"]].map(([k,l])=>(
-              <button key={k} onClick={()=>setView(k)} style={{ flex:1, padding:"6px 8px", borderRadius:4, border:"1px solid var(--line)", background:view===k?"var(--accent)":"var(--card)", color:view===k?"white":"var(--ink-2)", fontSize:11, cursor:"pointer" }}>{l}</button>
+              <button key={k} role="radio" aria-checked={view===k} onClick={()=>setView(k)} style={{ flex:1, padding:"6px 8px", borderRadius:4, border:"1px solid var(--line)", background:view===k?"var(--accent)":"var(--card)", color:view===k?"white":"var(--ink-2)", fontSize:11, cursor:"pointer", outline:"none", transition:"background 120ms ease, color 120ms ease" }}
+                onFocus={e=>{e.currentTarget.style.boxShadow="0 0 0 2px var(--accent)"}}
+                onBlur={e=>{e.currentTarget.style.boxShadow="none"}}>{l}</button>
             ))}
           </div>
         </div>

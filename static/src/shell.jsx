@@ -603,17 +603,20 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
     ["1y", "1y", 365],
   ];
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div role="radiogroup" aria-label="Date range" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       {presets.map(([label, display, days]) => (
         <button
           key={label}
+          role="radio" aria-checked={activePreset === label}
           onClick={() => {
             if (!days) { onChange(null, null, label); return; }
             const end = new Date();
             const start = new Date(); start.setDate(end.getDate() - days + 1);
             onChange(fmt(start), fmt(end), label);
           }}
-          style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", background: activePreset === label ? "var(--ink)" : "var(--card)", color: activePreset === label ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer" }}
+          style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", background: activePreset === label ? "var(--ink)" : "var(--card)", color: activePreset === label ? "var(--paper)" : "var(--ink-2)", fontSize: 12, fontWeight: 500, cursor: "pointer", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+          onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+          onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
         >{display}</button>
       ))}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>

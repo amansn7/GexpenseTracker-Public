@@ -516,8 +516,10 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>Discard</button>
-              <button onClick={handleConfirm} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply changes</button>
+              <button onClick={()=>setReclass("idle")} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", outline: "none", transition: "background 120ms ease" }}
+                onFocus={e=>{e.currentTarget.style.boxShadow="0 0 0 2px var(--accent)"}} onBlur={e=>{e.currentTarget.style.boxShadow="none"}}>Discard</button>
+              <button onClick={handleConfirm} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer", outline: "none", transition: "background 120ms ease" }}
+                onFocus={e=>{e.currentTarget.style.boxShadow="0 0 0 2px var(--accent)"}} onBlur={e=>{e.currentTarget.style.boxShadow="none"}}>Apply changes</button>
             </div>
           </div>
         )}

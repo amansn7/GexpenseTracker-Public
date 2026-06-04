@@ -131,6 +131,24 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 
 ## UI/UX
 
+### Inline Style Border Shorthand vs longhand in Spreads
+1. When spreading two style objects where one sets `border` shorthand and another sets `borderColor` longhand, React resolves the mixed approach into individual border longhands with empty values (`border-top-width: ; border-right-width: ; ...`). Always use full `border` shorthand in override objects (like `btnPrimary`, `btnDanger`) rather than `borderColor` longhand.
+2. **Pattern**: `btn: { border: "1px solid var(--line)" }` + `btnPrimary: { border: "1px solid var(--ink)" }` — the spread order ensures the shorthand fully replaces, not partially merges.
+3. Always fix shared style objects first (`accountStyles.btnPrimary`, `accountStyles.btnDanger`) — the fix cascades to every usage instance.
+
+### Segmented Control Aria Pattern
+4. Container: `role="radiogroup"` + `aria-label`. Each option: `role="radio"` + `aria-checked={active}`. This turns a visual button group into an accessible radio group.
+
+### Focus Ring Replacement
+5. When setting `outline: "none"`, always provide a focus indicator replacement:
+   ```jsx
+   onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+   onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
+   ```
+
+### Transition Consistency
+6. All interactive state changes (active/inactive, hover) should use `transition: "background 120ms ease, color 120ms ease"` — matches the project's established `120ms ease` pattern and prevents visual snapping.
+
 1. Use `null` (not `[]` + loading flag) for "not yet loaded" state. The first render shows "Loading"; API response sets the real value, avoiding a flash of empty state.
 2. Offer toggles between two framings of the same metric rather than picking one opinionated view. Both show the same data — only the label/color/framing changes.
 3. Never assume CSS variable naming matches actual usage. A variable named `*-ink` may return background/fill colors, not text colors. Verify where it's applied.

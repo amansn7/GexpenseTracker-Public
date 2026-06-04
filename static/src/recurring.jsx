@@ -239,9 +239,13 @@ const RecurringView = ({ userCategories }) => {
           ₹{monthly.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/mo
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, ...(isMobile ? { flexWrap: "wrap", width: "100%", marginTop: 4 } : {}) }}>
+          <div role="radiogroup" aria-label="Filter" style={{ display: "flex", gap: 6 }}>
           {[["active","Active"],["all","All"]].map(([k, l]) => (
-            <button key={k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: 12, cursor: "pointer" }}>{l}</button>
+            <button key={k} role="radio" aria-checked={filter === k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: 12, cursor: "pointer", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+              onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
           ))}
+          </div>
           <button onClick={findRecurring} disabled={finding} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 12, cursor: finding ? "default" : "pointer", opacity: finding ? 0.65 : 1, display: "flex", alignItems: "center", gap: 4 }}>
             <Icon name="search" size={12}/> {finding ? "Analyzing…" : "Find Recurring"}
           </button>

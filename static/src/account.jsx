@@ -1071,9 +1071,9 @@ const AdminLLMTestSection = ({ account }) => {
     <div style={accountStyles.section}>
       <h3 style={accountStyles.sectionTitle}>Test LLM Provider</h3>
       <div style={accountStyles.sectionSub}>— verify your LLM service works</div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+      <div role="radiogroup" aria-label="Test type" style={{ display: "flex", gap: 6, marginBottom: 12 }}>
         {["classify", "raw"].map(t => (
-          <button key={t} onClick={() => setTestType(t)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: testType === t ? "var(--ink)" : "transparent", color: testType === t ? "var(--paper)" : "var(--ink-3)", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+          <button key={t} role="radio" aria-checked={testType === t} onClick={() => setTestType(t)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: testType === t ? "var(--ink)" : "transparent", color: testType === t ? "var(--paper)" : "var(--ink-3)", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
             onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
             onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>
             {t === "classify" ? "Transaction" : "Raw"}
@@ -1302,9 +1302,9 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
             </div>
             <div>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Label</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div role="radiogroup" aria-label="Label" style={{ display: "flex", gap: 6 }}>
                 {["expense", "income", "ignore"].map(l => (
-                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+                  <button key={l} type="button" role="radio" aria-checked={form.label === l} onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
                     onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
                     onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
                 ))}
@@ -1329,9 +1329,9 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
             </div>
             <div>
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Label</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div role="radiogroup" aria-label="Label" style={{ display: "flex", gap: 6 }}>
                 {["expense", "income"].map(l => (
-                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+                  <button key={l} type="button" role="radio" aria-checked={form.label === l} onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
                     onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
                     onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
                 ))}
