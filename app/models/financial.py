@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, _utcnow, _uuid_col
@@ -171,7 +171,10 @@ class DuplicatePair(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    __table_args__ = (sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),)
+    __table_args__ = (
+        sa.UniqueConstraint("primary_tx_id", "duplicate_tx_id", name="uq_duplicate_pair"),
+        sa.Index("ix_duplicate_pairs_duplicate_tx_id", "duplicate_tx_id"),
+    )
 
 
 class LLMSpendTracker(Base):
@@ -221,3 +224,5 @@ class GoalContribution(Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     contributed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (sa.Index("ix_goal_contributions_contributed_at", "contributed_at"),)

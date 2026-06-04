@@ -27,8 +27,8 @@ from app.models import (
 )
 from app.services.classifier_service import get_classifier_context
 from app.services.llm_service import get_effective_llm_client
+from app.services.stats_service import invalidate_user_cache, recompute_month
 from app.services.transaction_formatter import format_transaction
-from app.services.stats_service import recompute_month, invalidate_user_cache
 
 router = APIRouter()
 
@@ -166,7 +166,7 @@ async def bulk_transactions(
 
         for year, month in affected_months:
             await recompute_month(current_user.id, year, month, db)
-        invalidate_user_cache(current_user.id)
+        await invalidate_user_cache(current_user.id)
 
         if payload.action == "detect_duplicates":
             return {"updated": total_updated, "duplicates": all_stats or {}}
@@ -216,7 +216,7 @@ async def bulk_transactions(
                     affected_months.add((txn.txn_date.year, txn.txn_date.month))
             for year, month in affected_months:
                 await recompute_month(current_user.id, year, month, db)
-            invalidate_user_cache(current_user.id)
+            await invalidate_user_cache(current_user.id)
             return {"updated": len(rows), "duplicates": stats}
         elif payload.action == "set_category":
             if not payload.category:
@@ -238,7 +238,7 @@ async def bulk_transactions(
                 affected_months.add((txn.txn_date.year, txn.txn_date.month))
         for year, month in affected_months:
             await recompute_month(current_user.id, year, month, db)
-        invalidate_user_cache(current_user.id)
+        await invalidate_user_cache(current_user.id)
         return {"updated": len(rows)}
 
 
@@ -639,7 +639,7 @@ async def patch_transaction(
 
     if t.txn_date:
         await recompute_month(current_user.id, t.txn_date.year, t.txn_date.month, db)
-        invalidate_user_cache(current_user.id)
+        await invalidate_user_cache(current_user.id)
 
     # Record merchant→category correction for future pre-extraction hints
     final_merchant = patch.merchant if patch.merchant is not None else t.merchant
@@ -812,7 +812,7 @@ async def reclassify_transaction(
 
     if t.txn_date:
         await recompute_month(current_user.id, t.txn_date.year, t.txn_date.month, db)
-        invalidate_user_cache(current_user.id)
+        await invalidate_user_cache(current_user.id)
     if old_txn_date and old_txn_date != t.txn_date:
         await recompute_month(current_user.id, old_txn_date.year, old_txn_date.month, db)
 

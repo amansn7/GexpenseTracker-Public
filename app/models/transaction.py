@@ -3,7 +3,7 @@ from enum import Enum as PyEnum
 from enum import StrEnum
 from typing import Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, _utcnow, _uuid_col
@@ -38,7 +38,11 @@ class ClassifierMethod(StrEnum):
 
 class Transaction(Base):
     __tablename__ = "transactions"
-    __table_args__ = (UniqueConstraint("email_id", name="uq_transactions_email_id"),)
+    __table_args__ = (
+        UniqueConstraint("email_id", name="uq_transactions_email_id"),
+        Index("ix_transactions_email_id_txn_date", "email_id", "txn_date"),
+        Index("ix_transactions_email_id_created_at", "email_id", "created_at"),
+    )
 
     id: Mapped[str] = _uuid_col()
     email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id", ondelete="CASCADE"), nullable=True, index=True)
@@ -64,6 +68,10 @@ class Transaction(Base):
 class ClassificationLog(Base):
     # Audit log — always queried directly, no ORM relationship needed
     __tablename__ = "classification_log"
+    __table_args__ = (
+        Index("ix_classification_log_email_id", "email_id"),
+        Index("ix_classification_log_created_at", "created_at"),
+    )
 
     id: Mapped[str] = _uuid_col()
     email_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("emails.id"), nullable=True)

@@ -10,7 +10,48 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 os.environ.setdefault("TESTING", "1")
-os.environ.setdefault("JWT_SECRET", "test-secret-key-at-least-32-chars!!")
+
+_TEST_RSA_PRIVATE = """-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDGrVZZ9eMVmA6v
+ugbv+Q0uEcOw1ZxIH+xf0wxswuZQQb0o5FX5RYr4lPahNf0cQpLtTpUdkSmcr467
+gEfSXfl7kjQNi3pjbNnsLTaUhWDFqw5ZTXXK+qaQV2/WQb++vntNih4GCO2DJB3E
+MHHYGt1VzWXGJN3CwbHEEUnqX3i8b6qkHuNe9ZNkcTp5jVexCNw/5vkfpQVn9qQ0
+lmyJ0o2kK6KDt/JwnMza4On/pNe6E1Wq4nzWt/A+JkHNvlT0QL5pRO4QSoZuo/23
+4IXrdp6AcHdGgjyg9TPnUIOUbraMhmS9cAiAZLixz+x5wReDW2rNFccMDAFWcDyE
+oUQtYL49AgMBAAECggEACecp9AylkmCkmsMTBXMh4mH69x2D+gmypolxMm/55ZY2
+mjXcyIgG3U0k3fRATDWlTTQq3/EUZJL7nQJP538iUwkpPw5CE3f22ibcHvBnBR35
+oR8999ghOqChGnTnMdgcx/NSe8qGIZCd9eF+9d6g7wibQhJ5sJ4nAOGREEr3TFfO
+E1TuAI8zdW5B50oT+dvgoojwWo3RPi0MKr2MrO0aLwXLEYONvngfVxeTdBDulJiP
+5Y1q3YowAZeKegn2URTHpvLqNxuyWI49NevZ+LT1ju/WU9fRnLiaj2DAgMOJ6B+G
+EUau5JSBFV2e6kb2tqh6ychSor5zKszuT9Nyqk5kAQKBgQDol0lviqhMh993jUsi
+/MfhmpJkxHfn/GA/y406QKEaPvIpdgg5K21xOxD89ruhELU4ypFRMbd1en+2Q2+s
+qr7A7KSZax3W7xPlmQ16sWhdJ71p8YlLhpDUtYVZEjOhOcD0wRq0SLQcC7dCKMtX
+NeyBRTSljqiR4uptLGFcChluoQKBgQDarEI57gQ8rTSb07R4hd8wr91xmc3wzbud
+r/RYIE2GFtvlJnQ5AdoOkoW/ZpuvBMJHp+Ti5Zk6GjQflT6JvyEs14pL6yMq4YdI
+fJKvwSPqhgsJsyiUYNqAbHdf44HtVIo6ohmMLWSEeDjuPhvqs+V/0Z1IvyHFPm8n
+KUzglOF2HQKBgEGZici/3r/XApwBadOwX9+tbOSm1PrFH5BepLJtUALLBhnThHY7
+XV62PhBatoiy4anm2B2CXC/yINsTIggdEDfxhmsO3xejzoTPKhIUv06myrF6wjJe
+/bJAkB+TFqS+WUGuxQ1cBBB07XbncpJiTxYWosae+cRLr7qi7cK7xniBAoGBALcB
+82sICAO/8Yd4ZlF3uJLGnE22quQdSiduWtBmOHtAJkhhJmOPaS9I8SZ+eUzAbtgJ
+a0V5YgN+aqEEBpLBosIkoVloMMZyeQXxO9JbkfN0u0gi6JNFe5h/LmjRvqshVY48
+m6T1WGqFMyAwWqzSYf/XLgrz6w9ocR4VMoHCF+8BAoGBAMeS+fCmsZ7jrC9wHfpa
+3mqqX8JiND/FwPrzuZi43t5cAmgLf39moaH3eSrloD50wwvBA1lij3OlbgMBTjd+
+WBHi5A9kj7CfwpDBdYLa8fo6sE/hnV50roI/LjZYI4GNuxBCkCLF5o2dJ50aPnBI
+OLxzeCz6u05bBvLVYAnKJa2P
+-----END PRIVATE KEY-----"""
+
+_TEST_RSA_PUBLIC = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxq1WWfXjFZgOr7oG7/kN
+LhHDsNWcSB/sX9MMbMLmUEG9KORV+UWK+JT2oTX9HEKS7U6VHZEpnK+Ou4BH0l35
+e5I0DYt6Y2zZ7C02lIVgxasOWU11yvqmkFdv1kG/vr57TYoeBgjtgyQdxDBx2Brd
+Vc1lxiTdwsGxxBFJ6l94vG+qpB7jXvWTZHE6eY1XsQjcP+b5H6UFZ/akNJZsidKN
+pCuig7fycJzM2uDp/6TXuhNVquJ81rfwPiZBzb5U9EC+aUTuEEqGbqP9t+CF63ae
+gHB3RoI8oPUz51CDlG62jIZkvXAIgGS4sc/secEXg1tqzRXHDAwBVnA8hKFELWC+
+PQIDAQAB
+-----END PUBLIC KEY-----"""
+
+os.environ.setdefault("JWT_PRIVATE_KEY", _TEST_RSA_PRIVATE)
+os.environ.setdefault("JWT_PUBLIC_KEY", _TEST_RSA_PUBLIC)
 
 from app.database import get_db
 from app.main import app
@@ -52,7 +93,6 @@ def _db_override(db_session):
 
 @pytest.mark.asyncio
 async def test_get_current_user_via_bearer_jwt(user_and_db):
-    """Bearer access JWT → 200 on /api/auth/me."""
     from app.jwt_utils import create_access_token
 
     user, db = user_and_db
@@ -73,7 +113,6 @@ async def test_get_current_user_via_bearer_jwt(user_and_db):
 
 @pytest.mark.asyncio
 async def test_bearer_expired_returns_401(user_and_db):
-    """Expired Bearer access JWT → 401."""
     import time
 
     import jwt as pyjwt
@@ -89,7 +128,7 @@ async def test_bearer_expired_returns_401(user_and_db):
             "iat": now - 7200,
             "exp": now - 3600,
         }
-        expired_token = pyjwt.encode(payload, os.environ["JWT_SECRET"], algorithm="HS256")
+        expired_token = pyjwt.encode(payload, _TEST_RSA_PRIVATE, algorithm="RS256")
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",
@@ -103,7 +142,6 @@ async def test_bearer_expired_returns_401(user_and_db):
 
 @pytest.mark.asyncio
 async def test_bearer_refresh_token_rejected(user_and_db):
-    """Sending a refresh token as Bearer → 401 (wrong type)."""
     from app.jwt_utils import create_refresh_token
 
     user, db = user_and_db
@@ -123,7 +161,6 @@ async def test_bearer_refresh_token_rejected(user_and_db):
 
 @pytest.mark.asyncio
 async def test_no_auth_returns_401():
-    """No cookie, no Bearer → 401."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/auth/me")
     assert resp.status_code == 401
@@ -131,7 +168,6 @@ async def test_no_auth_returns_401():
 
 @pytest.mark.asyncio
 async def test_cookie_auth_still_works(user_and_db):
-    """Existing session cookie auth must continue working after JWT changes."""
     user, db = user_and_db
     app.dependency_overrides[get_db] = _db_override(db)
     try:

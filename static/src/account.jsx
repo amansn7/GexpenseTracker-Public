@@ -1206,7 +1206,7 @@ const AdminDomainRulesSection = () => {
         <h3 style={accountStyles.sectionTitle}>Domain Rules</h3>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={load} style={accountStyles.btn}><Icon name="repeat" size={14}/> Refresh</button>
-          <button onClick={generate} disabled={generating} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>{generating ? "Generating…" : "✦ Generate from data"}</button>
+          <button onClick={generate} disabled={generating} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary }}>{generating ? "Generating…" : <><Icon name="sparkle" size={12}/> Generate from data</>}</button>
         </div>
       </div>
       <div style={accountStyles.sectionSub}>— learned domain mappings used for rule-based classification</div>

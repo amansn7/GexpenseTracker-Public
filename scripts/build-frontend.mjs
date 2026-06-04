@@ -3,12 +3,13 @@
 // Run: node scripts/build-frontend.mjs
 // Watch: node scripts/build-frontend.mjs --watch
 //
-// After building, content-hashes every .js in static/dist/ and writes the
-// first 8 hex chars as ?v= param in templates/index.html and login.html.
+// After building, concatenates individual IIFE outputs into 3 production
+// bundles (mf-core.js, mf-views.js, mf-app.js), content-hashes every .js
+// in static/dist/, and writes ?v= params to templates.
 
 import { build, context } from "esbuild";
 import { readdirSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
-import { join, basename, relative } from "path";
+import { join } from "path";
 import { createHash } from "crypto";
 
 const watch = process.argv.includes("--watch");
@@ -16,8 +17,10 @@ const srcDir = "static/src";
 const outDir = "static/dist";
 const vendorDir = join(outDir, "vendor");
 
-mkdirSync(outDir, { recursive: true });
-mkdirSync(vendorDir, { recursive: true });
+mkDir(outDir);
+mkDir(vendorDir);
+
+function mkDir(d) { mkdirSync(d, { recursive: true }); }
 
 const files = readdirSync(srcDir).filter((f) => f.endsWith(".jsx"));
 const entryPoints = files.map((f) => join(srcDir, f));
@@ -52,47 +55,84 @@ async function buildVendor() {
   if (!watch) console.log("  vendor/d3-sankey.js  (global `d3Sankey`)");
 }
 
-function walkDir(dir, prefix = "") {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const files = [];
-  for (const e of entries) {
-    const full = join(dir, e.name);
-    const rel = prefix ? `${prefix}/${e.name}` : e.name;
-    if (e.isDirectory()) files.push(...walkDir(full, rel));
-    else files.push(rel);
+function hash(content) {
+  return createHash("sha256").update(content).digest("hex").slice(0, 8);
+}
+
+// Dependency order for concatenation (files that need to load before others)
+const BUNDLES = [
+  {
+    name: "mf-core",
+    files: [
+      "date-utils", "data", "icons", "focus-trap", "error-boundary",
+      "keyboard-hint", "sound", "sync-progress", "settings-ui",
+      "inbox-styles", "inbox-common", "shell",
+    ],
+  },
+  {
+    name: "mf-views",
+    files: [
+      "inbox-detail", "inbox-panels", "inbox",
+      "flow", "health", "dashboard", "reports",
+      "recurring", "debt", "goals", "budgets",
+      "onboarding", "account", "admin",
+    ],
+  },
+  { name: "mf-app", files: ["app"] },
+];
+
+function concatBundles() {
+  for (const bundle of BUNDLES) {
+    const parts = bundle.files.map((f) => {
+      const p = join(outDir, `${f}.js`);
+      try { return readFileSync(p, "utf8"); } catch { return ""; }
+    });
+    const combined = parts.join("\n");
+    writeFileSync(join(outDir, `${bundle.name}.js`), combined);
+    if (!watch) console.log(`  ${bundle.name}.js  (${(combined.length / 1024).toFixed(1)}kb)`);
   }
-  return files;
 }
 
 function applyContentHashes() {
-  const distFiles = walkDir(outDir).filter((f) => f.endsWith(".js"));
+  const distFiles = [...BUNDLES.map((b) => `${b.name}.js`), "vendor/d3-sankey.js"];
   const hashMap = {};
   for (const f of distFiles) {
-    const content = readFileSync(join(outDir, f));
-    const hash = createHash("sha256").update(content).digest("hex").slice(0, 8);
-    hashMap[f] = hash;
+    const p = join(outDir, f);
+    try {
+      const content = readFileSync(p);
+      hashMap[f] = hash(content);
+    } catch {}
   }
 
-  for (const tmpl of ["templates/index.html", "templates/login.html"]) {
+  // Login template — only login-effects is needed
+  for (const tmpl of ["templates/login.html"]) {
     let html = readFileSync(tmpl, "utf8");
-    const original = html;
     html = html.replace(
       /(<script src="\/static\/dist\/([\w./-]+)\.js)(?:\?v=[\w.-]+)?(">)/g,
-      (_match, prefix, name, suffix) => {
+      (_m, pre, name, suf) => {
         const key = `${name}.js`;
-        if (hashMap[key]) {
-          return `${prefix}?v=${hashMap[key]}${suffix}`;
-        }
-        return _match;
+        return hashMap[key] ? `${pre}?v=${hashMap[key]}${suf}` : _m;
       }
     );
-    if (html !== original) {
-      writeFileSync(tmpl, html);
-      console.log(`  Updated ${tmpl} with content hashes`);
-    } else {
-      console.log(`  No changes needed for ${tmpl}`);
-    }
+    writeFileSync(tmpl, html);
+    console.log(`  Updated ${tmpl}`);
   }
+
+  // Index template — replace individual dist/*.js with bundles, keep vendor
+  let html = readFileSync("templates/index.html", "utf8");
+  // Remove individual dist/*.js script lines (not vendor/, not bundles)
+  html = html.replace(/^\s*<script src="\/static\/dist\/[\w-]+\.js(?:\?v=[\w.-]+)?"><\/script>\s*$/gm, "");
+  // Remove blank lines left by removal
+  html = html.replace(/\n{3,}/g, "\n\n");
+  // Insert bundle script tags before </body>
+  const bundleTags = BUNDLES.map((b) => {
+    const key = `${b.name}.js`;
+    const v = hashMap[key] || "";
+    return `  <script src="/static/dist/${b.name}.js${v ? `?v=${v}` : ""}"></script>`;
+  }).join("\n");
+  html = html.replace("</body>", `${bundleTags}\n</body>`);
+  writeFileSync("templates/index.html", html);
+  console.log(`  Updated templates/index.html with bundle script tags`);
 }
 
 if (watch) {
@@ -101,6 +141,7 @@ if (watch) {
 } else {
   await build(options);
   console.log(`Built ${files.length} files → ${outDir}/`);
+  concatBundles();
   await buildVendor();
   applyContentHashes();
 }

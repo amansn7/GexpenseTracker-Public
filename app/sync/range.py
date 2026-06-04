@@ -10,8 +10,8 @@ from app.database import AsyncSessionLocal
 from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import _build_service, _extract_body_text, fetch_new_messages
 from app.models import Email, Transaction
+from app.services.stats_service import invalidate_user_cache, recompute_month
 from app.sync.classify import _apply_pre_filter, _classify_batch
-from app.services.stats_service import recompute_month, invalidate_user_cache
 from app.sync.progress import (
     _add_preview,
     _log_event,
@@ -186,7 +186,7 @@ async def run_sync_range(
                     affected.add((txn.txn_date.year, txn.txn_date.month))
             for year, month in affected:
                 await recompute_month(user_id, year, month, session)
-            invalidate_user_cache(user_id)
+            await invalidate_user_cache(user_id)
 
     result = {"fetched": fetched, "inserted": inserted, "backfilled": backfilled, "errors": errors}
     prog.update(

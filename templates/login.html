@@ -7,8 +7,7 @@
 <title>MoneyFlow — Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles.css?v=11">
-<script src="/static/vendor/three.min.js"></script>
+<link rel="stylesheet" href="/static/styles.css?v=12">
 <style nonce="{{ request.state.nonce }}">
   * { box-sizing:border-box; }
   html { margin:0; padding:0; background:var(--paper); transition:background-color 400ms ease; }
@@ -26,7 +25,8 @@
   .tgl:active { transform:scale(0.86); }
   .skip-link { position:absolute; top:-100%; left:0; z-index:9999; padding:8px 16px; background:var(--ink); color:var(--paper); font-size:13px; font-weight:600; text-decoration:none; border-radius:0 0 6px 0; transition:top 120ms ease-out; }
   .skip-link:focus { top:0; }
-  #bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  #bg { position:fixed; inset:0; pointer-events:none; z-index:0; background:radial-gradient(ellipse 80% 60% at 50% -20%,var(--accent-soft) 0%,transparent 60%),radial-gradient(ellipse 60% 50% at 80% 80%,var(--accent-soft) 0%,transparent 50%),radial-gradient(ellipse 50% 40% at 20% 60%,var(--accent-soft) 0%,transparent 50%); background-size:200% 200%; animation:bgShift 20s ease-in-out infinite; }
+  @keyframes bgShift { 0%,100%{background-position:0% 0%} 33%{background-position:100% 50%} 66%{background-position:50% 100%} }
   .tgl svg { overflow:visible; }
   #tgl-mc { transition:cx 400ms cubic-bezier(.34,1.56,.64,1),cy 400ms cubic-bezier(.34,1.56,.64,1); }
   #tgl-body { transition:r 400ms cubic-bezier(.34,1.56,.64,1); }
@@ -71,6 +71,6 @@
   </a>
   <p class="footer">Self-hosted · your data stays local</p>
 </div>
-<script src="/static/dist/login-effects.js?v=57a64126"></script>
+<script src="/static/dist/login-effects.js?v=6b12e071"></script>
 </body>
 </html>

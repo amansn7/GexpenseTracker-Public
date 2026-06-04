@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     LLM_BATCH_SIZE: int = 5
     SYNC_INTERVAL_HOURS: int = 2
     SECRET_KEY: str = "change-me-in-production"
-    JWT_SECRET: str = ""  # Required for JWT auth — set in .env
+    JWT_PRIVATE_KEY: str = ""  # RSA private key (PEM) for JWT signing — set in .env
+    JWT_PUBLIC_KEY: str = ""  # RSA public key (PEM) for JWT verification — set in .env
+    JWT_PUBLIC_KEY_OLD: str = ""  # Previous public key (PEM) for rotation transition
 
     @field_validator("SECRET_KEY", mode="after")
     @classmethod
@@ -59,10 +61,11 @@ class Settings(BaseSettings):
     DEV_MODE: bool = False
 
     # Database connection pool
-    DB_POOL_SIZE: int = 5
-    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
     DB_POOL_TIMEOUT: int = 30
     DB_POOL_RECYCLE: int = 1800  # 30 minutes
+    DB_POOL_PRE_PING: bool = True
 
     # Dedup
     AUTO_RESOLVE_THRESHOLD: float = 0.85

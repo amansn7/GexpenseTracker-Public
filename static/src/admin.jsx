@@ -725,7 +725,7 @@ const FilterRulesSection = () => {
             <Icon name="repeat" size={14}/> Refresh
           </button>
           <button style={{ ...S.btn, ...(refining ? {} : S.btnPrimary), display: "flex", alignItems: "center", gap: 6 }} onClick={refine} disabled={refining}>
-            {refining ? <><Spinner /> Refining…</> : "✦ Refine Filter Rules"}
+            {refining ? <><Spinner /> Refining…</> : <><Icon name="sparkle" size={12}/> Refine Filter Rules</>}
           </button>
         </div>
       </div>
@@ -817,7 +817,7 @@ const RuleEngineSection = () => {
         <div style={{ display: "flex", gap: 8 }}>
           <button style={S.btn} onClick={load} disabled={loading}><Icon name="repeat" size={14}/> Refresh</button>
           <button style={{ ...S.btn, ...S.btnPrimary }} onClick={generate} disabled={generating}>
-            {generating ? "Generating…" : "✦ Generate from data"}
+            {generating ? "Generating…" : <><Icon name="sparkle" size={12}/> Generate from data</>}
           </button>
         </div>
       </div>

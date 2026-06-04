@@ -88,9 +88,9 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(
             "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
         )
-    if not settings.JWT_SECRET and not os.getenv("TESTING"):
+    if not settings.JWT_PRIVATE_KEY and not settings.JWT_PUBLIC_KEY and not os.getenv("TESTING"):
         logging.getLogger(__name__).warning(
-            "JWT_SECRET is not configured. Bearer JWT authentication will be unavailable; session-based auth still works."
+            "JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are not configured. Bearer JWT authentication will be unavailable; session-based auth still works."
         )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
@@ -174,15 +174,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 def _extract_jwt_user_id(request: StarletteRequest) -> str:
-    """Extract user_id from a Bearer JWT without verification for rate limiting."""
+    """Extract user_id from a verified Bearer JWT for rate limiting."""
     auth = request.headers.get("Authorization", "")
     token = auth.removeprefix("Bearer ").strip()
     if token:
         try:
-            payload = pyjwt.decode(token, options={"verify_signature": False})
-            sub = payload.get("sub")
-            if sub:
-                return f"user:{sub}"
+            from app.jwt_utils import _public_keys
+            for key in _public_keys():
+                try:
+                    payload = pyjwt.decode(token, key, algorithms=["RS256"])
+                    sub = payload.get("sub")
+                    if sub:
+                        return f"user:{sub}"
+                except pyjwt.PyJWTError:
+                    continue
         except Exception:
             pass
     return request.client.host if request.client else "unknown"

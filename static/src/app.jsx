@@ -413,7 +413,7 @@ const App = () => {
             <button onClick={() => { setRenderError(null); window.location.reload(); }} style={{ marginTop:8, padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Reload</button>
           </div>
         ) : (
-          <div className="view-enter" key={view}>
+          <ErrorBoundary><div className="view-enter" key={view}>
           {view === "inbox" && !loading && transactions.length === 0 && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)", textAlign:"center" }}>
               <div style={{ fontFamily:"'Geist',sans-serif", fontSize:22, color:"var(--ink)" }}>
@@ -479,7 +479,7 @@ const App = () => {
               reviewEmails={reviewEmails}
               setReviewEmails={setReviewEmails}
             />}
-          </div>
+          </div></ErrorBoundary>
         )}
       </main>
 

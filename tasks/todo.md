@@ -1,85 +1,82 @@
-# Backfill Service Improvement Plan
+# Phase 1: Ready for 1,000 Users
 
-## Issues Found
-1. `backfill-bodies` has **no progress reporting** — no `_user_progress` writes → SyncProgressOverlay gets no data
-2. `backfill-bodies` runs **synchronously inline** — blocks request handler, no timeout, could hang
-3. No dedicated **frontend UI** for triggering backfill-bodies — users can't see progress
-4. Batch size inconsistency: 100 (backfill-bodies) vs 50 (fetch-range backfill)
-
-## Tasks
-
-### Backend
-- [ ] Add `_user_progress` writes to `backfill-bodies` (phase, phase_detail, current, total, log events)
-- [ ] Normalize batch size to 50 for consistency
-- [ ] Add `/api/sync/trigger-backfill-bodies` endpoint → fires background task, returns immediately
-
-### Frontend
-- [ ] Add `AdminBackfillBodiesSection` to `account.jsx` (uses `useBackgroundJob` hook, shows SyncProgressOverlay)
-- [ ] Add `AdminBackfillBodiesSection` to `admin.jsx`
-- [ ] Wire up with SyncProgressOverlay for live progress
-
-### Verify
-- [ ] Run existing tests
-- [ ] Test end-to-end flow
+**Source:** `tasks/phase-01-ready-1000-users.md`
 
 ---
 
-# Money Flow Tab Redesign — Full Plan
+## P1.3 — Add Critical Missing Database Indexes (0.5 day)
+- [ ] Add expression index: `CREATE INDEX ix_transactions_lower_category ON transactions (LOWER(category))`
+- [ ] Add composite index: `CREATE INDEX ix_transactions_user_txn_date ON transactions (email_id, txn_date)`
+- [ ] Add composite index: `CREATE INDEX ix_transactions_user_created ON transactions (email_id, created_at)`
+- [ ] Add index: `CREATE INDEX ix_classification_log_email_id ON classification_log (email_id)`
+- [ ] Add indexes: `CREATE INDEX ix_duplicate_pairs_primary ON duplicate_pairs (primary_tx_id)`
+- [ ] Add index: `CREATE INDEX ix_goal_contributions_contributed_at ON goal_contributions (contributed_at)`
+- [ ] Add index: `CREATE INDEX ix_audit_logs_created_at ON audit_logs (created_at)`
+- [ ] Turn dedup `func.abs(amount - X) <= tol` into range query for index usage
+- [ ] Run `EXPLAIN ANALYZE` on all stats queries before/after, verify index usage
 
-## Audit Summary
-- **What works**: Sankey renders, KPIs work, data pipeline solid, date range filtering works
-- **What's missing**: No click-through, bare tooltips, wasted Pool column, hard-to-scan amounts, no txn counts, disconnected Weekly Burn, no comparison context, fragile mobile view
+## P1.4 — Connection Pool Tuning (0.5 day)
+- [ ] Increase `DB_POOL_SIZE` from 5 to 20 in `app/config.py`
+- [ ] Increase `DB_MAX_OVERFLOW` from 10 to 30
+- [ ] Add `pool_pre_ping=True` to engine kwargs in `app/database.py`
+- [ ] Add connection pool metrics logging at WARN level near exhaustion
+- [ ] Load test: 200 concurrent requests, verify no pool timeout errors
 
-## Design Principles (from PRODUCT.md + DESIGN.md)
-- Clarity over density — financial data is stressful, every screen answers one question
-- Warm earth tones (cream backgrounds, terra-cotta accent ≤10%)
-- Flat surfaces with tonal layering (paper → paper-2 → card)
-- Fraunces serif for titles, Geist sans for body, Geist Mono for amounts
-- No gradients, no glassmorphism, no dark-SaaS template
-- "The Warm Ledger" — personal notebook meets professional finance tool
+## P1.7 — Fix Progress Writer Queue (0.5 day)
+- [ ] Increase `_progress_write_queue` maxsize from 100 to 1000
+- [ ] Change flush interval from 2s to 1s for more frequent writes
+- [ ] Add overflow alerting (log at ERROR when queue is near full)
+- [ ] Add progress staleness detection: flag syncs with no progress update for >60s
 
-## New Layout
-```
-[KPI Row: Remaining | Income | Spent | Daily burn]
-[Sankey: Income Sources → Meaningful Pool → Where It Went]
-[Insights/Summary row: savings rate, daily burn, top category, committed vs free]
-[Weekly Burn — integrated as footer]
-```
-Pool column shows: total inflow, fixed vs variable split, committed vs discretionary ratio.
+## P1.8 — Migrate JWT from HS256 to RS256 (1 day)
+- [ ] Generate RSA-2048 keypair (add script to generate)
+- [ ] Update `app/jwt_utils.py`: add private/public key loading, change algorithm to RS256
+- [ ] Add key rotation support (allow old public key during transition)
+- [ ] Update `app/config.py`: add `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` env vars
+- [ ] Add key validation at startup (reject weak/empty keys)
+- [ ] Document key generation command in `.env.example`
+- [ ] Token round-trip test + forgery test
+
+## P1.5 — Redis-Backed Rollup Cache (1 day)
+- [ ] Replace global `_cache: dict` in `app/services/stats_service.py` with Redis-backed cache
+- [ ] Use `redis-py` with TTL (configurable, default 5 min)
+- [ ] Fix cache invalidation from O(n) filter to O(1) Redis key deletion
+- [ ] Cache key pattern: `rollup:{user_id}:{period_type}:{period_key}`
+- [ ] Invalidate on: transaction write, dedup resolution, batch action, reclassify
+- [ ] Add cache hit/miss metrics
+
+## P1.1 — Redis-Backed Task Queue (2-3 days)
+- [ ] Replace in-memory `TaskQueue` with Redis-only queue (remove fallback path)
+- [ ] Increase worker count to 10+ with configurable pool size
+- [ ] Add per-user sync debounce (prevent duplicate sync tasks for same user)
+- [ ] Add task timeout via `asyncio.wait_for(handler, timeout=300)`
+- [ ] Add dead letter queue for permanently failed tasks
+- [ ] Add retry logic with exponential backoff for transient failures
+- [ ] Fix `_running_users` to use Redis SET for distributed sync serialization
+- [ ] Add task health metrics (queue depth, processing time, failure rate)
+- [ ] Stress test: 1,000 sync tasks, verify all processed within 2h
+
+## P1.2 — Redis-Backed Distributed Rate Limiter (2 days)
+- [ ] Replace in-memory token bucket with Redis-based sliding window counter
+- [ ] Fix `_extract_jwt_user_id` to decode with `verify_signature=True`
+- [ ] Add cleanup job for stale Redis rate limit keys
+- [ ] Ensure rate limit state survives restart and scales across workers
+- [ ] Add rate limit metrics (hits, misses, violations)
+
+## P1.6 — Async `recompute_month` (2-3 days)
+- [ ] Move `recompute_month` from request handler to background task queue
+- [ ] On transaction write: enqueue recompute task, return immediately to user
+- [ ] Serve stale rollup data while recompute is in-flight (TTL-based staleness)
+- [ ] Consolidate 8 separate aggregation queries into combined queries
+- [ ] Merge `_compute_summary`'s 6 queries and `_compute_confidence`'s 5 queries
+- [ ] Add recompute dedup: if 3 writes happen within 5s, only recompute once
+- [ ] Add recompute metrics (duration, queued count, failure rate)
 
 ---
 
-## Wave 1 — Core Interactivity + Readability (files: flow.jsx, app.jsx)
-- [ ] Pass `setView` + `setCategoryFilter` callbacks from App → FlowView for click-through navigation
-- [ ] Make Sankey nodes clickable (income, expense, CC, investment, savings) → navigate to Inbox with category filter
-- [ ] Replace native `<title>` with rich positioned tooltip overlay showing: category name, amount, txn count, % of total, top 3 merchants
-- [ ] Use `fmtK()` consistently inside SVG nodes for amount readability
-- [ ] Add transaction counts to each expense node label: `₹15,000 · 8 txn`
-- [ ] Increase font sizes in SVG for primary amounts
-
-## Wave 2 — Visual Restructure (files: flow.jsx)
-- [ ] Redesign Pool column to show meaningful breakdown: total inflow, committed vs discretionary mini-split
-- [ ] Merge Weekly Burn into main Sankey section as integrated footer (remove separate secWrap)
-- [ ] Add month-over-month delta arrows behind category amounts (↗12% / ↘5%)
-- [ ] Add budget comparison bars to nodes (show % of budget consumed)
-- [ ] Improve mobile Sankey: stacked horizontal bars (proportional, clickable) instead of flat list
-
-## Wave 3 — New Features (files: flow.jsx, data.jsx, possible backend)
-- [ ] Income source detail panel: hovering income node shows txn count, domain breakdown, consistency pattern
-- [ ] Category drill-down mini-modal on click (top 5 merchants, 3 recent txn, view all CTA)
-- [ ] "Upcoming commitments" disclosure below Remaining KPI: `₹4K committed · ₹8K free`
-- [ ] Smooth empty state with guide illustration when no data
-- [ ] Keyboard navigation: arrow keys between nodes, Enter to drill, Escape to go back
-
-## Wave 4 — Backend API additions (files: stats.py)
-- [ ] Add previous-period comparison data to stats endpoints (for month-over-month deltas)
-- [ ] Add `txn_count` to category-breakdown endpoint response
-- [ ] Add per-category merchant breakdown endpoint for hover/click drill-down
-- [ ] Add committed/fixed expense data for upcoming commitments calculation
-
-### Verify
-- [ ] Run existing tests
-- [ ] Manual smoke test: click each category → lands on Inbox with correct filter
-- [ ] Manual smoke test: hover each node → tooltip shows correct data
-- [ ] Test mobile responsive layout
-- [ ] Build frontend and verify no JS errors
+## Verify
+- [ ] `pytest` passes (no regressions)
+- [ ] `ruff` lint passes
+- [ ] Frontend build succeeds (`npm run build`)
+- [ ] Alembic migrations run cleanly (upgrade + downgrade)
+- [ ] Integration test against Postgres + Redis

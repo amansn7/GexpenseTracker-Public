@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -587,7 +587,8 @@ async def detect_and_record_duplicates(
                 .where(
                     Transaction.id != tx.id,
                     Transaction.label == "expense",
-                    func.abs(Transaction.amount - amount) <= tol,
+                    Transaction.amount >= amount - tol,
+                    Transaction.amount <= amount + tol,
                     Email.user_id == user_id,
                     Email.sender_domain == email.sender_domain,
                     same_domain_filter,
@@ -653,7 +654,8 @@ async def detect_and_record_duplicates(
             .where(
                 Transaction.id != tx.id,
                 Transaction.label == "expense",
-                func.abs(Transaction.amount - amount) <= tol,
+                Transaction.amount >= amount - tol,
+                Transaction.amount <= amount + tol,
                 date_filter,
                 Email.user_id == user_id,
                 Email.sender_domain.isnot(None),
@@ -751,7 +753,8 @@ async def detect_and_record_duplicates(
             .where(
                 Transaction.id != tx.id,
                 Transaction.label == "expense",
-                func.abs(Transaction.amount - amount) <= bulk_tol,
+                Transaction.amount >= amount - bulk_tol,
+                Transaction.amount <= amount + bulk_tol,
                 extra_date_filter,
                 Email.user_id == user_id,
                 Email.sender_domain.isnot(None),
@@ -836,7 +839,8 @@ async def _detect_investment_flow(
             .where(
                 Transaction.id != tx.id,
                 Transaction.label == "expense",
-                func.abs(Transaction.amount - amount) <= tol,
+                Transaction.amount >= amount - tol,
+                Transaction.amount <= amount + tol,
                 Email.user_id == user_id,
                 Email.sender_domain.isnot(None),
                 Email.sender_domain != email.sender_domain,

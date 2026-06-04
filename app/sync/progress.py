@@ -16,9 +16,10 @@ _db_session_factory: Any | None = None
 _sync_progress: dict[str, dict[str, Any]] = {}
 
 # Bounded queue + background writer for progress persists
-_progress_write_queue: "asyncio.Queue[tuple[str, dict]]" = asyncio.Queue(maxsize=100)
+_progress_write_queue: "asyncio.Queue[tuple[str, dict]]" = asyncio.Queue(maxsize=1000)
 _progress_writer_task: asyncio.Task | None = None
 _progress_writer_running: bool = False
+_progress_last_update: dict[str, datetime] = {}
 
 
 def set_db_session_factory(factory):
@@ -184,7 +185,7 @@ async def _do_delete_progress(user_id: str):
 
 
 async def _progress_writer_loop():
-    """Background writer that drains the queue in batches every 2 seconds."""
+    """Background writer that drains the queue in batches every 1 second."""
     global _progress_writer_running
     _progress_writer_running = True
     pending: OrderedDict[str, dict] = OrderedDict()
@@ -193,7 +194,7 @@ async def _progress_writer_loop():
     try:
         while _progress_writer_running:
             try:
-                item = await asyncio.wait_for(_progress_write_queue.get(), timeout=2.0)
+                item = await asyncio.wait_for(_progress_write_queue.get(), timeout=1.0)
                 user_id, data = item
                 if data is None:
                     delete_pending.add(user_id)
@@ -221,6 +222,13 @@ async def _progress_writer_loop():
                         await _do_delete_progress(uid)
                     except Exception as exc:
                         logger.error("batch_delete_failed", user_id=uid, error=str(exc))
+
+            if writes or deletes:
+                now = datetime.now(UTC)
+                for uid in list(_progress_last_update.keys()):
+                    last = _progress_last_update.get(uid)
+                    if last and (now - last).total_seconds() > 60:
+                        logger.warning("progress_stale_detected", user_id=uid, seconds_since_update=(now - last).total_seconds())
     except asyncio.CancelledError:
         pass
     finally:
@@ -243,10 +251,15 @@ def _persist_progress(user_id: str, prog: dict[str, Any]):
     if not _db_session_factory:
         return
 
+    _progress_last_update[user_id] = datetime.now(UTC)
+
     try:
+        qsize = _progress_write_queue.qsize()
+        if qsize > 800:
+            logger.error("progress_queue_near_full", user_id=user_id, queue_size=qsize)
         _progress_write_queue.put_nowait((user_id, prog))
     except asyncio.QueueFull:
-        logger.warning("progress_queue_full", user_id=user_id)
+        logger.error("progress_queue_full_dropped", user_id=user_id, queue_size=_progress_write_queue.qsize())
 
 
 def _log_event(user_id: str, message: str, event_type: str = "info"):

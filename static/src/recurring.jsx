@@ -19,11 +19,20 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [closing, setClosing] = useState(false);
+  const modalRef = React.useRef(null);
+  window.useFocusTrap(modalRef, !closing);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
+
+  React.useEffect(() => {
+    if (closing) return;
+    function onKey(e) { if (e.key === "Escape") handleClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [closing]);
 
   const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
@@ -116,7 +125,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
 
   return isMobile ? (
     <div onClick={handleClose} style={bottomSheetStyles.overlay}>
-      <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
+      <div ref={modalRef} onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
         <div style={bottomSheetStyles.handle} />
         <div style={bottomSheetStyles.content}>
           {formContent}
@@ -125,7 +134,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
     </div>
   ) : (
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
+      <div ref={modalRef} className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
         {formContent}
       </div>
     </div>

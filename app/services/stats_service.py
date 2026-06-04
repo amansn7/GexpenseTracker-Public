@@ -1,42 +1,22 @@
-from datetime import date, datetime, timedelta
 import json
 import uuid
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Email, PeriodRollup,
-    Transaction, UserSettings,
+    Email,
+    PeriodRollup,
+    Transaction,
+    UserSettings,
 )
 from app.services.category_service import CategoryService
+from app.services.rollup_cache import rollup_cache
 
 
-# ── In-memory cache ──────────────────────────────────────────────
-_cache: dict[str, tuple[PeriodRollup, datetime]] = {}
-_CACHE_TTL = timedelta(minutes=5)
-
-
-def _cache_key(user_id: str, period_type: str, period_key: str) -> str:
-    return f"rollup:{user_id}:{period_type}:{period_key}"
-
-
-def _cache_get(key: str) -> PeriodRollup | None:
-    if key in _cache:
-        val, ts = _cache[key]
-        if datetime.now() - ts < _CACHE_TTL:
-            return val
-        del _cache[key]
-    return None
-
-
-def _cache_set(key: str, val: PeriodRollup):
-    _cache[key] = (val, datetime.now())
-
-
-def invalidate_user_cache(user_id: str):
-    global _cache
-    _cache = {k: v for k, v in _cache.items() if user_id not in k}
+async def invalidate_user_cache(user_id: str):
+    await rollup_cache.invalidate_user(user_id)
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -220,9 +200,9 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         await db.execute(
             select(
                 func.count(Transaction.id),
-                func.sum(case((Transaction.read == False, 1), else_=0)),
+                func.sum(case((not Transaction.read, 1), else_=0)),
                 func.sum(case((Transaction.status == "needs_review", 1), else_=0)),
-                func.sum(case((Transaction.flagged == True, 1), else_=0)),
+                func.sum(case((Transaction.flagged, 1), else_=0)),
             )
             .join(Email, Transaction.email_id == Email.id)
             .where(
@@ -294,38 +274,35 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         db.add(rollup)
 
     await db.flush()
-    _cache_set(_cache_key(user_id, "monthly", period_key), rollup)
+    await rollup_cache.set(user_id, "monthly", period_key, rollup.id)
     return rollup
 
 
 # ── Lookup helpers ───────────────────────────────────────────────
 
 async def get_rollup(user_id: str, start: date, end: date, db: AsyncSession) -> PeriodRollup | None:
-    """Get or recompute a rollup for a date range. For single-month ranges
-    this is a direct lookup; multi-month ranges return None (not yet supported)."""
     if start.replace(day=1) == end.replace(day=1):
         key = start.strftime("%Y-%m")
-        cached = _cache_get(_cache_key(user_id, "monthly", key))
-        if cached:
-            return cached
+        marker_id = await rollup_cache.get(user_id, "monthly", key)
+        if marker_id:
+            r = await db.get(PeriodRollup, marker_id)
+            if r and r.period_key == key:
+                return r
 
-        r = (
-            await db.execute(
-                select(PeriodRollup).where(
-                    PeriodRollup.user_id == user_id,
-                    PeriodRollup.period_type == "monthly",
-                    PeriodRollup.period_key == key,
-                )
+        r = (await db.execute(
+            select(PeriodRollup).where(
+                PeriodRollup.user_id == user_id,
+                PeriodRollup.period_type == "monthly",
+                PeriodRollup.period_key == key,
             )
-        ).scalar_one_or_none()
+        )).scalar_one_or_none()
 
         if r:
-            _cache_set(_cache_key(user_id, "monthly", key), r)
+            await rollup_cache.set(user_id, "monthly", key, r.id)
             return r
 
         return await recompute_month(user_id, start.year, start.month, db)
 
-    # Multi-month: not pre-computed, caller falls back to live aggregation
     return None
 
 

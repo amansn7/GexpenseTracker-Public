@@ -10,6 +10,14 @@ const mqOverrides = (isMobile) => ({
 
 const Modal = ({ open, onClose, title, children, width = 420, danger = false }) => {
   const [closing, setClosing] = React.useState(false);
+  const modalRef = React.useRef(null);
+  window.useFocusTrap(modalRef, open && !closing);
+  React.useEffect(() => {
+    if (!open) return;
+    function onKey(e) { if (e.key === "Escape") handleClose(); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, closing]);
   const handleClose = () => {
     if (closing) return;
     setClosing(true);
@@ -19,7 +27,7 @@ const Modal = ({ open, onClose, title, children, width = 420, danger = false }) 
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
       className={closing ? "backdrop-out" : "backdrop-in"} onClick={(e) => e.target === e.currentTarget && handleClose()}>
-      <div className={closing ? "modal-out" : "modal-in"}
+      <div ref={modalRef} className={closing ? "modal-out" : "modal-in"}
         style={{ background: "var(--card)", border: danger ? "1px solid var(--neg-soft)" : "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: width }}>
         {title && <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, color: danger ? "var(--neg)" : "var(--ink)", marginBottom: 8 }}>{title}</div>}
         {children}
@@ -121,7 +129,7 @@ const AdminTabBtn = ({ active, onClick, children, compact }) => (
       border: "1.5px dashed var(--red)",
       background: active ? "color-mix(in srgb, var(--red) 10%, transparent)" : "transparent",
       color: "var(--red)", fontFamily: "inherit", letterSpacing: "0.3px" }}>
-    ⚡ {children}
+    <Icon name="bolt" size={12} stroke="var(--red)"/> {children}
   </button>
 );
 
