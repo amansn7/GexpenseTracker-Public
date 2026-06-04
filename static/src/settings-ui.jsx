@@ -1,7 +1,7 @@
 // Shared settings UI components — Modal, DataTable, Section, Row, helpers
 
 const mqOverrides = (isMobile) => ({
-  wrap: isMobile ? { height: mobileStyles.navOffset } : {},
+  wrap: isMobile ? { height: window.mobileStyles.navOffset } : {},
   inner: isMobile ? { padding: "16px 14px 80px" } : {},
   section: isMobile ? { padding: "12px 14px" } : {},
   row: isMobile ? { gridTemplateColumns: "1fr", gap: 8, padding: "10px 0" } : {},
@@ -29,23 +29,23 @@ const Modal = ({ open, onClose, title, children, width = 420, danger = false }) 
 };
 
 const SettingsSection = ({ title, subtitle, children, danger = false, action, style }) => (
-  <div style={{ ...accountStyles.section, ...(danger ? { border: "1px solid var(--neg-soft)" } : {}), ...style }}>
+  <div style={{ ...window.accountStyles.section, ...(danger ? { border: "1px solid var(--neg-soft)" } : {}), ...style }}>
     {title && (
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-        <h3 style={{ ...accountStyles.sectionTitle, ...(danger ? { color: "var(--neg)" } : {}) }}>{title}</h3>
+        <h3 style={{ ...window.accountStyles.sectionTitle, ...(danger ? { color: "var(--neg)" } : {}) }}>{title}</h3>
         {action}
       </div>
     )}
-    {subtitle && <div style={accountStyles.sectionSub}>{subtitle}</div>}
+    {subtitle && <div style={window.accountStyles.sectionSub}>{subtitle}</div>}
     {children}
   </div>
 );
 
 const SettingsRow = ({ label, description, children, last = false }) => (
-  <div style={{ ...accountStyles.row, ...(last ? accountStyles.rowLast : {}) }}>
+  <div style={{ ...window.accountStyles.row, ...(last ? window.accountStyles.rowLast : {}) }}>
     <div>
-      <div style={accountStyles.label}>{label}</div>
-      {description && <div style={accountStyles.sub}>{description}</div>}
+      <div style={window.accountStyles.label}>{label}</div>
+      {description && <div style={window.accountStyles.sub}>{description}</div>}
     </div>
     <div />
     {children}
@@ -102,18 +102,20 @@ const labelBadge = (l) => {
 
 const confColor = (c) => c >= 0.85 ? "var(--pos)" : c >= 0.65 ? "var(--accent)" : "var(--neg)";
 
-const TabBtn = ({ active, onClick, children, style }) => (
+const TabBtn = ({ active, onClick, children, compact, style }) => (
   <button type="button" onClick={onClick}
-    style={{ padding: "6px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 12,
+    style={{ padding: compact ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer",
+      fontSize: compact ? 11 : 12,
       background: active ? "var(--ink)" : "transparent",
       color: active ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", ...style }}>
     {children}
   </button>
 );
 
-const AdminTabBtn = ({ active, onClick, children }) => (
+const AdminTabBtn = ({ active, onClick, children, compact }) => (
   <button type="button" onClick={onClick}
-    style={{ padding: "5px 13px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: 700,
+    style={{ padding: compact ? "4px 10px" : "5px 13px", borderRadius: 20, cursor: "pointer",
+      fontSize: compact ? 11 : 12, fontWeight: 700,
       border: "1.5px dashed var(--red)",
       background: active ? "color-mix(in srgb, var(--red) 10%, transparent)" : "transparent",
       color: "var(--red)", fontFamily: "inherit", letterSpacing: "0.3px" }}>

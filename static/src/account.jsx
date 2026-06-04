@@ -1,7 +1,7 @@
 // Profile & Settings views
 
 const DEFAULT_CAT_COLOR = "#dcd5c3";
-const accountStyles = {
+const accountStyles = window.accountStyles = {
   wrap: { overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)" },
   inner: { padding: "clamp(16px, 3vw, 28px) clamp(14px, 4vw, 32px) 80px", maxWidth: 920, margin: "0 auto" },
   header: { marginBottom: 20 },
@@ -1944,11 +1944,6 @@ const RulesTab = ({ account, categories }) => {
 
 const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
   const { isMobile } = useViewport();
-  const mqWrap = isMobile ? { height: mobileStyles.navOffset } : {};
-  const mqInner = isMobile ? { padding: "16px 14px 80px" } : {};
-  const mqSection = isMobile ? { padding: "12px 14px" } : {};
-  const mqRow = isMobile ? { gridTemplateColumns: "1fr", gap: 8, padding: "10px 0" } : {};
-  const mqH1 = isMobile ? { fontSize: 22 } : {};
   const mq = mqOverrides(isMobile);
   const settings = account?.settings || {};
   const connectedAccounts = account?.connected_accounts || [];
@@ -2311,11 +2306,11 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
 
       {/* Tab bar */}
       <div style={{ display: "flex", gap: isMobile ? 4 : 6, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
-        <TabBtn active={settingsTab === "account"} onClick={() => setSettingsTab("account")}>Account & Billing</TabBtn>
-        <TabBtn active={settingsTab === "intelligence"} onClick={() => setSettingsTab("intelligence")}>Inbox Intelligence</TabBtn>
-        <TabBtn active={settingsTab === "ai"} onClick={() => setSettingsTab("ai")}>AI Services</TabBtn>
+        <TabBtn compact={isMobile} active={settingsTab === "account"} onClick={() => setSettingsTab("account")}>Account & Billing</TabBtn>
+        <TabBtn compact={isMobile} active={settingsTab === "intelligence"} onClick={() => setSettingsTab("intelligence")}>Inbox Intelligence</TabBtn>
+        <TabBtn compact={isMobile} active={settingsTab === "ai"} onClick={() => setSettingsTab("ai")}>AI Services</TabBtn>
         {account?.role === "owner" && (
-          <AdminTabBtn active={settingsTab === "advanced"} onClick={() => setSettingsTab("advanced")}>Advanced</AdminTabBtn>
+          <AdminTabBtn compact={isMobile} active={settingsTab === "advanced"} onClick={() => setSettingsTab("advanced")}>Advanced</AdminTabBtn>
         )}
       </div>
 
