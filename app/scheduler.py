@@ -5,7 +5,7 @@ import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import settings
-from app.database import AsyncSessionLocal
+from app.database import get_worker_session, log_pool_metrics
 from app.rate_limiter import rate_limiter
 
 logger = structlog.get_logger()
@@ -24,7 +24,7 @@ async def _delete_expired_accounts():
 
     deleted = 0
     try:
-        async with AsyncSessionLocal() as db:
+        async with get_worker_session() as db:
             now = datetime.now(UTC)
             users = (
                 (
@@ -68,7 +68,7 @@ def setup_scheduler() -> None:
     async def _sync_job():
         logger.info("scheduled_sync_starting")
         try:
-            async with AsyncSessionLocal() as db:
+            async with get_worker_session() as db:
                 from sqlalchemy import select
 
                 from app.models import ConnectedAccount, User, UserStatus
@@ -130,7 +130,7 @@ def setup_scheduler() -> None:
     async def _dedup_job():
         logger.info("dedup_scan_starting")
         try:
-            async with AsyncSessionLocal() as db:
+            async with get_worker_session() as db:
                 from sqlalchemy import select
 
                 from app.models import ConnectedAccount, User, UserStatus
@@ -209,6 +209,14 @@ def setup_scheduler() -> None:
         trigger="interval",
         minutes=30,
         id="rate_limiter_cleanup",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        log_pool_metrics,
+        trigger="interval",
+        minutes=5,
+        id="pool_metrics",
         replace_existing=True,
     )
 

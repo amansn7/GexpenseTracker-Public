@@ -95,7 +95,7 @@ async def health_detailed(
         components["worker_queue"] = {
             "status": "ok",
             "workers": task_queue.worker_count,
-            "pending": task_queue.pending_count,
+            "pending": await task_queue.pending_count(),
         }
     except Exception as exc:
         components["worker_queue"] = {"status": "error", "detail": str(exc)}

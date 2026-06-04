@@ -51,10 +51,10 @@ from app.api import auth, review, transactions
 from app.api import budget_llm as budget_llm_api
 from app.api import budgets as budgets_api
 from app.api import cleanup as cleanup_api
-from app.api import exports as exports_api
 from app.api import debt as debt_api
 from app.api import duplicates as duplicates_api
 from app.api import emails as emails_api
+from app.api import exports as exports_api
 from app.api import filter as filter_api
 from app.api import goals as goals_api
 from app.api import health as health_api
@@ -94,10 +94,12 @@ async def lifespan(app: FastAPI):
         )
     if not os.getenv("TESTING"):
         from app.workers.queue import task_queue
+        from app.workers.recompute_worker import handle_recompute_task
         from app.workers.sync_worker import register, register_fetch_range
 
         register(task_queue)
         register_fetch_range(task_queue)
+        task_queue.register_handler("recompute", handle_recompute_task)
         await task_queue.connect()
         asyncio.create_task(task_queue.worker_loop())
         setup_scheduler()
@@ -365,7 +367,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/mobile", response_class=HTMLResponse)
 async def mobile_app(request: Request):
-    with open("static/mobile/index.html", "r", encoding="utf-8") as f:
+    with open("static/mobile/index.html", encoding="utf-8") as f:
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-store"})
 
 

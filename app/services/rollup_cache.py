@@ -6,8 +6,9 @@ Falls back gracefully when Redis is unavailable.
 """
 
 import logging
-import os
 from typing import Any
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +20,18 @@ class RollupCache:
     def __init__(self):
         self._redis: Any = None
         self._available = False
+        self._hits = 0
+        self._misses = 0
+        self._sets = 0
 
     async def _connect(self):
         if self._redis is not None:
             return
-        url = os.getenv("REDIS_URL")
-        if not url:
+        if not settings.REDIS_URL:
             return
         try:
             import redis.asyncio as aioredis
-            self._redis = aioredis.from_url(url, decode_responses=True)
+            self._redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             await self._redis.ping()
             self._available = True
             logger.info("RollupCache connected to Redis")
@@ -39,14 +42,21 @@ class RollupCache:
     async def get(self, user_id: str, period_type: str, period_key: str) -> str | None:
         await self._connect()
         if not self._available:
+            self._misses += 1
             return None
         key = f"{_MARKER_PREFIX}{user_id}:{period_type}:{period_key}"
-        return await self._redis.get(key)
+        result = await self._redis.get(key)
+        if result is not None:
+            self._hits += 1
+        else:
+            self._misses += 1
+        return result
 
     async def set(self, user_id: str, period_type: str, period_key: str, rollup_id: str):
         await self._connect()
         if not self._available:
             return
+        self._sets += 1
         key = f"{_MARKER_PREFIX}{user_id}:{period_type}:{period_key}"
         await self._redis.setex(key, _DEFAULT_TTL, rollup_id)
 
@@ -62,6 +72,15 @@ class RollupCache:
                 await self._redis.delete(*keys)
             if cursor == 0:
                 break
+
+    def get_metrics(self) -> dict:
+        total = self._hits + self._misses
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "sets": self._sets,
+            "hit_rate": round(self._hits / total * 100, 1) if total > 0 else 0,
+        }
 
     async def close(self):
         if self._redis:

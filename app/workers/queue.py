@@ -2,12 +2,13 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import time
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,13 @@ class TaskQueue:
         self._handlers: dict[str, Any] = {}
         self._worker_count = worker_count
         self._running_users: set[str] = set()
+
+    @property
+    def worker_count(self) -> int:
+        return self._worker_count
+
+    async def pending_count(self) -> int:
+        return self._queue.qsize()
 
     async def connect(self):
         pass
@@ -253,20 +261,52 @@ class RedisTaskQueue:
     _TASK_PREFIX = "task:"
     _IDEM_PREFIX = "idem:"
     _USER_TASKS_PREFIX = "user_tasks:"
+    _DLQ_PREFIX = "dlq:tasks"
+    _RUNNING_SYNC_KEY = "running_syncs"
     _TASK_TTL = 3600
     _IDEM_TTL = 3600
     _MAX_USER_TASKS = 100
     _BLPOP_TIMEOUT = 1.0
     _REQUEUE_DELAY = 0.5
+    _RUNNING_SYNC_TTL = 300
 
-    def __init__(self, redis_url: str, worker_count: int = 3):
+    def __init__(self, redis_url: str, worker_count: int = 10, dlq_max_retries: int = 3, task_timeout: int = 300):
         self._redis_url = redis_url
         self._redis: Any = None
         self._running = False
         self._worker_count = worker_count
+        self._dlq_max_retries = dlq_max_retries
+        self._task_timeout = task_timeout
         self._handlers: dict[str, Any] = {}
-        self._running_users: set[str] = set()
         self._worker_tasks: list[asyncio.Task] = []
+
+    @property
+    def worker_count(self) -> int:
+        return self._worker_count
+
+    async def pending_count(self) -> int:
+        total = 0
+        for task_type in self._handlers:
+            length = await self._redis.llen(f"{self._QUEUE_PREFIX}{task_type}")
+            total += length or 0
+        return total
+
+    async def get_metrics(self) -> dict:
+        processed = int(await self._redis.get("metrics:processed") or 0)
+        failed = int(await self._redis.get("metrics:failed") or 0)
+        times = await self._redis.lrange("metrics:processing_times", 0, -1)
+        avg_time = 0.0
+        if times:
+            vals = [float(t) for t in times if t]
+            avg_time = sum(vals) / len(vals) if vals else 0.0
+        qdepth = await self.pending_count()
+        return {
+            "queue_depth": qdepth,
+            "processed": processed,
+            "failed": failed,
+            "failure_rate": round(failed / (processed + failed), 4) if (processed + failed) > 0 else 0.0,
+            "avg_processing_time_seconds": round(avg_time, 3),
+        }
 
     async def connect(self):
         import redis.asyncio as aioredis
@@ -351,10 +391,14 @@ class RedisTaskQueue:
         finally:
             self._running = False
 
-    async def _can_start_task(self, task_type: str, user_id: str) -> bool:
-        if task_type == "sync":
-            return user_id not in self._running_users
+    async def _try_acquire_sync_lock(self, user_id: str) -> bool:
+        if not await self._redis.sadd(self._RUNNING_SYNC_KEY, user_id):
+            return False
+        await self._redis.expire(self._RUNNING_SYNC_KEY, self._RUNNING_SYNC_TTL)
         return True
+
+    async def _release_sync_lock(self, user_id: str):
+        await self._redis.srem(self._RUNNING_SYNC_KEY, user_id)
 
     async def _worker(self, worker_id: int):
         logger.info("Redis worker %d started", worker_id)
@@ -366,6 +410,7 @@ class RedisTaskQueue:
                     continue
                 _, task_id = result
             except Exception:
+                await asyncio.sleep(1)
                 continue
 
             task_data = await self._redis.hgetall(f"{self._TASK_PREFIX}{task_id}")
@@ -375,19 +420,28 @@ class RedisTaskQueue:
             task_type = task_data.get("type")
             user_id = task_data.get("user_id")
 
-            if not await self._can_start_task(task_type, user_id):
-                await self._redis.rpush(f"{self._QUEUE_PREFIX}{task_type}", task_id)
-                await asyncio.sleep(self._REQUEUE_DELAY)
-                continue
+            run_after_str = task_data.get("run_after")
+            if run_after_str:
+                run_after = datetime.fromisoformat(run_after_str)
+                if datetime.now(UTC) < run_after:
+                    await self._redis.rpush(f"{self._QUEUE_PREFIX}{task_type}", task_id)
+                    wait = min((run_after - datetime.now(UTC)).total_seconds(), 30)
+                    await asyncio.sleep(max(wait, self._REQUEUE_DELAY))
+                    continue
+
+            if task_type == "sync":
+                if not await self._try_acquire_sync_lock(user_id):
+                    await self._redis.rpush(f"{self._QUEUE_PREFIX}{task_type}", task_id)
+                    await asyncio.sleep(self._REQUEUE_DELAY)
+                    continue
 
             handler = self._handlers.get(task_type)
             if not handler:
                 logger.error("No handler for task type: %s", task_type)
                 await self._redis.hset(f"{self._TASK_PREFIX}{task_id}", "status", "failed")
+                if task_type == "sync":
+                    await self._release_sync_lock(user_id)
                 continue
-
-            if task_type == "sync":
-                self._running_users.add(user_id)
 
             now = datetime.now(UTC)
             await self._redis.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
@@ -402,27 +456,70 @@ class RedisTaskQueue:
                 payload=json.loads(task_data.get("payload", "{}")),
             )
 
+            processing_start = time.monotonic()
             try:
-                result = await handler(task_obj)
+                result = await asyncio.wait_for(handler(task_obj), timeout=self._task_timeout)
+                elapsed = time.monotonic() - processing_start
                 result_dict = result if isinstance(result, dict) else {"output": result}
                 now = datetime.now(UTC)
-                await self._redis.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
+                pipeline = self._redis.pipeline()
+                pipeline.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
                     "status": "completed",
                     "result": json.dumps(result_dict),
                     "completed_at": now.isoformat(),
                 })
-                logger.info("Redis worker %d: task %s completed", worker_id, task_id)
+                pipeline.incr("metrics:processed")
+                pipeline.lpush("metrics:processing_times", f"{elapsed:.3f}")
+                pipeline.ltrim("metrics:processing_times", 0, 999)
+                await pipeline.execute()
+                logger.info("Redis worker %d: task %s completed (%.2fs)", worker_id, task_id, elapsed)
+            except TimeoutError:
+                elapsed = time.monotonic() - processing_start
+                logger.error("Redis worker %d: task %s timed out after %.1fs", worker_id, task_id, elapsed)
+                await self._handle_task_failure(task_id, task_type, "Task timed out after 300 seconds")
             except Exception as exc:
-                logger.error("Redis worker %d: task %s failed: %s", worker_id, task_id, exc, exc_info=True)
-                now = datetime.now(UTC)
-                await self._redis.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
-                    "status": "failed",
-                    "error": str(exc),
-                    "completed_at": now.isoformat(),
-                })
+                elapsed = time.monotonic() - processing_start
+                logger.error("Redis worker %d: task %s failed: %s", worker_id, task_id, exc)
+                await self._handle_task_failure(task_id, task_type, str(exc))
             finally:
                 if task_type == "sync":
-                    self._running_users.discard(user_id)
+                    await self._release_sync_lock(user_id)
+
+    async def _handle_task_failure(self, task_id: str, task_type: str, error: str):
+        retry_count = await self._redis.hincrby(f"{self._TASK_PREFIX}{task_id}", "retry_count", 1)
+
+        if retry_count < self._dlq_max_retries:
+            delay = min(2 ** retry_count * 10, 300)
+            run_after_ts = time.time() + delay
+            pipeline = self._redis.pipeline()
+            pipeline.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
+                "status": "pending",
+                "run_after": datetime.fromtimestamp(run_after_ts, UTC).isoformat(),
+                "error": error,
+            })
+            pipeline.rpush(f"{self._QUEUE_PREFIX}{task_type}", task_id)
+            pipeline.incr("metrics:failed")
+            await pipeline.execute()
+            logger.info("Task %s will retry (attempt %d/%d) after %ds", task_id, retry_count, self._dlq_max_retries, delay)
+        else:
+            now = datetime.now(UTC)
+            dlq_entry = json.dumps({
+                "task_id": task_id,
+                "type": task_type,
+                "error": error,
+                "failed_at": now.isoformat(),
+                "retry_count": int(retry_count),
+            })
+            pipeline = self._redis.pipeline()
+            pipeline.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
+                "status": "failed",
+                "error": error,
+                "completed_at": now.isoformat(),
+            })
+            pipeline.lpush(self._DLQ_PREFIX, dlq_entry)
+            pipeline.incr("metrics:failed")
+            await pipeline.execute()
+            logger.error("Task %s sent to DLQ after %d retries", task_id, retry_count)
 
     def stop(self):
         self._running = False
@@ -450,10 +547,29 @@ class RedisTaskQueue:
         return result
 
 
-_redis_url = os.getenv("REDIS_URL")
-if _redis_url:
-    task_queue: TaskQueue | RedisTaskQueue = RedisTaskQueue(_redis_url, worker_count=3)
-    logger.info("Using Redis-backed task queue")
-else:
-    task_queue = TaskQueue(worker_count=3)
-    logger.info("Using in-memory task queue")
+_task_queue_instance: TaskQueue | RedisTaskQueue | None = None
+
+
+def _get_task_queue() -> TaskQueue | RedisTaskQueue:
+    global _task_queue_instance
+    if _task_queue_instance is not None:
+        return _task_queue_instance
+    if settings.REDIS_URL:
+        _task_queue_instance = RedisTaskQueue(
+            settings.REDIS_URL,
+            worker_count=settings.WORKER_COUNT,
+            dlq_max_retries=settings.DLQ_MAX_RETRIES,
+            task_timeout=settings.TASK_TIMEOUT,
+        )
+        logger.info("Using Redis-backed task queue (workers=%d, timeout=%ds)", settings.WORKER_COUNT, settings.TASK_TIMEOUT)
+        return _task_queue_instance
+    raise RuntimeError(
+        "REDIS_URL is not configured. The task queue requires Redis. "
+        "Set REDIS_URL in your .env or environment variables."
+    )
+
+
+def __getattr__(name):
+    if name == "task_queue":
+        return _get_task_queue()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

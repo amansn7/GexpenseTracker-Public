@@ -27,6 +27,20 @@ Fall back to `rg`, `find`, or direct file reads only when the graph cannot answe
 
 3. **Log new lessons.** If a debugging session or fix reveals a non-obvious pattern, add it to `tasks/lessons.md` under the relevant section before committing.
 
+## Phase Execution Workflow
+
+When I say "start phase N" (where N is a number from `tasks/todo.md`):
+
+1. Read the plan file (`tasks/phase-N-*.md`) and the todo file (`tasks/phase-N-*-todo.md`)
+2. Show me the phase summary and ask for confirmation to begin
+3. Wait for my approval before executing anything
+4. On approval, execute all unchecked items using parallel subagents where possible
+5. After execution, run the appropriate verification:
+   - **Frontend:** `npm run build` + lint if applicable
+   - **Backend:** `pytest` + `ruff` + check Alembic head is single
+6. Show me the completed checklist and any issues found
+7. Do NOT proceed to the next phase without my explicit go-ahead
+
 ## Repo instruction boundaries
 
 - Keep `AGENTS.md` limited to stable, versioned project instructions.

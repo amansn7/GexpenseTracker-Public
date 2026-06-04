@@ -94,5 +94,11 @@ class Settings(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
+    # Task queue (Redis)
+    REDIS_URL: str = ""
+    WORKER_COUNT: int = 10
+    DLQ_MAX_RETRIES: int = 3
+    TASK_TIMEOUT: int = 300
+
 
 settings = Settings()

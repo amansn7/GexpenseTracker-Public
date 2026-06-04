@@ -1,27 +1,26 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.services.stats_service import (
-    get_summary,
-    get_category_breakdown,
-    get_top_merchants,
-    get_monthly_summary,
-    get_health,
-    get_rollup,
-    recompute_month,
-    invalidate_user_cache,
-    _add_months,
-    _period_start,
-)
-from sqlalchemy import ColumnElement, case, cast, desc, func, or_, select
-from sqlalchemy.types import Date
+from sqlalchemy import ColumnElement, case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.compiler import compiles
 
 from app.auth_deps import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models import Budget, BudgetLink, ClassifierMethod, Email, Transaction, TransactionStatus, User, UserSettings
+from app.models import Budget, BudgetLink, Email, Transaction, User, UserSettings
+from app.services.stats_queries import (
+    build_confidence_query,
+    build_health_aggregation_query,
+    build_summary_aggregation_query,
+)
+from app.services.stats_service import (
+    get_category_breakdown,
+    get_health,
+    get_monthly_summary,
+    get_summary,
+    get_top_merchants,
+)
 
 router = APIRouter()
 
@@ -80,133 +79,41 @@ async def _compute_summary(start: date, end: date, category: str | None, user_id
     """Reusable summary computation."""
     from app.services.category_service import CategoryService
 
-    this_month = end.replace(day=1)
-
-    # Exclude investment- and card-categorized transactions from expenses so
-    # they're only counted in their own buckets (handles classifiers that set
-    # category but leave transaction_type=NULL, and manual re-tags).
     inv_cat_aliases = CategoryService.filter_aliases("investment")
     card_cat_aliases = CategoryService.filter_aliases("card")
 
-    expense_where = [
-        Email.user_id == user_id,
-        Transaction.label == "expense",
-        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(inv_cat_aliases)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(card_cat_aliases)),
-        Transaction.txn_date >= start,
-        Transaction.txn_date <= end,
-        Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
-    ]
-    if category:
-        if category == "other":
-            other_aliases = CategoryService.filter_aliases("other")
-            all_known = CategoryService.all_known_values()
-            expense_where.append(
-                or_(
-                    Transaction.category.is_(None),
-                    func.lower(Transaction.category).in_(other_aliases),
-                    ~func.lower(Transaction.category).in_(all_known),
-                )
-            )
-        else:
-            aliases = CategoryService.filter_aliases(category)
-            expense_where.append(func.lower(Transaction.category).in_(aliases))
-
-    total_expenses = float(
-        (
-            await db.execute(
-                select(func.sum(Transaction.amount)).join(Email, Transaction.email_id == Email.id).where(*expense_where)
-            )
-        ).scalar_one()
-        or 0
-    )
-
-    total_income = float(
-        (
-            await db.execute(
-                select(func.sum(Transaction.amount))
-                .join(Email, Transaction.email_id == Email.id)
-                .where(
-                    Email.user_id == user_id,
-                    Transaction.label == "income",
-                    Transaction.txn_date >= start,
-                    Transaction.txn_date <= end,
-                    Transaction.txn_date.isnot(None),
-                    Transaction.status != "needs_review",
-                )
-            )
-        ).scalar_one()
-        or 0
-    )
-
-    cc_row = (
+    # Query 1: Combined financial aggregates (expenses, income, CC, investments)
+    agg_row = (
         await db.execute(
-            select(
-                func.sum(Transaction.amount).label("total"),
-                func.count(Transaction.id).label("count"),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user_id,
-                or_(
-                    Transaction.transaction_type == "cc_payment",
-                    func.lower(Transaction.category).in_(card_cat_aliases),
-                ),
-                Transaction.txn_date >= start,
-                Transaction.txn_date <= end,
-                Transaction.txn_date.isnot(None),
-                Transaction.status != "needs_review",
+            build_summary_aggregation_query(
+                user_id, start, end, category, inv_cat_aliases, card_cat_aliases
             )
         )
     ).one()
-    total_cc_payments = float(cc_row.total or 0)
-    total_cc_payments_count = cc_row.count
-
-    inv_row = (
-        await db.execute(
-            select(
-                func.sum(Transaction.amount).label("total"),
-                func.count(Transaction.id).label("count"),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user_id,
-                or_(
-                    Transaction.transaction_type == "investment",
-                    func.lower(Transaction.category).in_(inv_cat_aliases),
-                ),
-                Transaction.txn_date >= start,
-                Transaction.txn_date <= end,
-                Transaction.txn_date.isnot(None),
-                Transaction.status != "needs_review",
-            )
-        )
-    ).one()
-    total_investments = float(inv_row.total or 0)
-    total_investments_count = inv_row.count
+    total_expenses = float(agg_row.total_expenses or 0)
+    total_income = float(agg_row.total_income or 0)
+    total_cc_payments = float(agg_row.cc_payments or 0)
+    total_cc_payments_count = agg_row.cc_count or 0
+    total_investments = float(agg_row.investments or 0)
+    total_investments_count = agg_row.inv_count or 0
 
     saved = total_income - total_expenses - total_cc_payments - total_investments
     savings_rate = round(saved / total_income * 100, 1) if total_income > 0 else 0.0
 
-    needs_review_count = (
+    # Query 2: Global needs_review + unread counts (no date scope — matches original behavior)
+    counts_row = (
         await db.execute(
-            select(func.count())
+            select(
+                func.sum(case((Transaction.status == "needs_review", 1), else_=0)).label("needs_review_count"),
+                func.sum(case((~Transaction.read, 1), else_=0)).label("unread_count"),
+            )
             .select_from(Transaction)
             .join(Email, Transaction.email_id == Email.id)
-            .where(Email.user_id == user_id, Transaction.status == "needs_review")
+            .where(Email.user_id == user_id)
         )
-    ).scalar_one()
-
-    unread_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Email.user_id == user_id, not Transaction.read)
-        )
-    ).scalar_one()
+    ).one()
+    needs_review_count = counts_row.needs_review_count or 0
+    unread_count = counts_row.unread_count or 0
 
     return {
         "total_expenses": round(total_expenses, 2),
@@ -390,56 +297,19 @@ async def _compute_health(months: int, user_id: str, db: AsyncSession) -> dict:
     from app.services.category_service import CategoryService as _CS
     _health_inv_aliases = _CS.filter_aliases("investment")
 
-    expense_total = (
-        await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Transaction.label == "expense",
-                or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-                or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(_health_inv_aliases)),
-                *base_filter,
-            )
-        )
-    ).scalar_one() or 0
-
-    cc_payment_total = (
-        await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.transaction_type == "cc_payment", *base_filter)
-        )
-    ).scalar_one() or 0
-
-    investment_total = (
-        await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                or_(
-                    Transaction.transaction_type == "investment",
-                    func.lower(Transaction.category).in_(_health_inv_aliases),
-                ),
-                *base_filter,
-            )
-        )
-    ).scalar_one() or 0
-
-    income_filter = [Email.user_id == user_id, Transaction.txn_date.isnot(None), Transaction.status != "needs_review"]
+    extra_filters = []
     if starting_balance_date:
-        income_filter.append(Transaction.txn_date >= starting_balance_date)
-    income_total = float(
-        (
-            await db.execute(
-                select(func.sum(Transaction.amount))
-                .join(Email, Transaction.email_id == Email.id)
-                .where(Transaction.label == "income", *income_filter)
-            )
-        ).scalar_one()
-        or 0
-    )
+        extra_filters.append(Transaction.txn_date >= starting_balance_date)
 
-    net_since = income_total - float(expense_total) - float(cc_payment_total or 0) - float(investment_total or 0)
+    health_row = (await db.execute(
+        build_health_aggregation_query(user_id, _health_inv_aliases, extra_filters)
+    )).one()
+    expense_total = float(health_row.total_expenses or 0)
+    cc_payment_total = float(health_row.total_cc or 0)
+    investment_total = float(health_row.total_investments or 0)
+    income_total = float(health_row.total_income or 0)
+
+    net_since = income_total - expense_total - cc_payment_total - investment_total
     current_balance = round((starting_balance or 0.0) + net_since, 2)
     balance_mode = "anchored" if starting_balance is not None else "computed"
 
@@ -630,55 +500,16 @@ async def _monthly_data(
 
 async def _compute_confidence(user_id: str, db: AsyncSession) -> dict:
     """Reusable confidence stats computation."""
-    base_where = [
-        Email.user_id == user_id,
-        Transaction.confidence.isnot(None),
-    ]
-
-    total = (
+    row = (
         await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where)
+            build_confidence_query(user_id, settings.HIGH_CONFIDENCE_THRESHOLD)
         )
-    ).scalar_one()
-
-    auto_confirmed = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.confirmed.value)
-        )
-    ).scalar_one()
-
-    corrected = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.corrected.value)
-        )
-    ).scalar_one()
-
-    needs_review = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.status == TransactionStatus.needs_review.value)
-        )
-    ).scalar_one()
-
-    high_count = (
-        await db.execute(
-            select(func.count())
-            .select_from(Transaction)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*base_where, Transaction.confidence >= settings.HIGH_CONFIDENCE_THRESHOLD)
-        )
-    ).scalar_one()
+    ).one()
+    total = row.total or 0
+    auto_confirmed = row.auto_confirmed or 0
+    corrected = row.corrected or 0
+    needs_review = row.needs_review or 0
+    high_count = row.high_confidence or 0
 
     return {
         "total": total,

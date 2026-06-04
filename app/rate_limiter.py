@@ -1,6 +1,12 @@
-"""Rate limiting middleware using in-memory token bucket."""
+"""Rate limiting middleware — in-memory fallback or Redis-backed sliding window."""
 
+import logging
 import time
+import uuid
+
+from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -37,7 +43,81 @@ class RateLimiter:
             del self._buckets[key]
 
 
-rate_limiter = RateLimiter()
+class RedisRateLimiter:
+    """Redis-backed sliding window rate limiter using sorted sets.
+
+    Falls open (allows request) when Redis is unavailable.
+    Keys auto-expire via EXPIRE so cleanup() is a no-op.
+    """
+
+    def __init__(self):
+        self._redis = None
+        self._available = False
+        self._hits = 0
+        self._misses = 0
+        self._violations = 0
+
+    def _get_redis(self):
+        if not self._available and self._redis is None:
+            url = settings.REDIS_URL
+            if not url:
+                return None
+            try:
+                import redis as sync_redis
+                self._redis = sync_redis.from_url(url, decode_responses=True)
+                self._redis.ping()
+                self._available = True
+            except Exception as exc:
+                logger.warning("Redis rate limiter unavailable: %s", exc)
+                self._available = False
+        return self._redis if self._available else None
+
+    def is_allowed(self, identifier: str, endpoint: str, max_requests: int, window_seconds: int) -> bool:
+        r = self._get_redis()
+        if r is None:
+            self._misses += 1
+            return True
+        key = f"ratelimit:{identifier}:{endpoint}"
+        now = time.time()
+        cutoff = now - window_seconds
+        try:
+            pipe = r.pipeline()
+            pipe.zremrangebyscore(key, 0, cutoff)
+            pipe.zcard(key)
+            pipe.zadd(key, {str(uuid.uuid4()): now})
+            pipe.expire(key, window_seconds + 1)
+            _, count, _, _ = pipe.execute()
+            if count < max_requests:
+                self._hits += 1
+                return True
+            self._violations += 1
+            return False
+        except Exception as exc:
+            logger.error("Redis rate limiter error, failing open: %s", exc)
+            self._available = False
+            self._redis = None
+            self._misses += 1
+            return True
+
+    def get_metrics(self) -> dict:
+        total = self._hits + self._violations
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "violations": self._violations,
+            "block_rate": round(self._violations / total * 100, 1) if total > 0 else 0,
+        }
+
+    def cleanup(self, max_age_seconds: int = 3600):
+        pass
+
+
+# Singleton selection — Redis when available, otherwise in-memory fallback
+_redis_url = settings.REDIS_URL
+if _redis_url:
+    rate_limiter = RedisRateLimiter()
+else:
+    rate_limiter = RateLimiter()
 
 RATE_LIMITS = {
     "/api/sync/trigger": (1, 60),

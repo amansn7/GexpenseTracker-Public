@@ -11,7 +11,7 @@ from app.database import AsyncSessionLocal
 from app.gmail.auth import get_credentials_for_user
 from app.gmail.client import fetch_new_messages
 from app.models import Email, SyncState
-from app.services.stats_service import invalidate_user_cache, recompute_month
+from app.services.enqueue_recompute import enqueue_recompute
 from app.sync.classify import _apply_pre_filter, _classify_batch
 from app.sync.persist import _persist_transactions, _update_sync_state
 from app.sync.progress import (
@@ -202,9 +202,7 @@ async def _sync_emails_inner(
         for txn, _ in new_transactions:
             if txn.txn_date:
                 affected.add((txn.txn_date.year, txn.txn_date.month))
-        for year, month in affected:
-            await recompute_month(user_id, year, month, session)
-        await invalidate_user_cache(user_id)
+        await enqueue_recompute(user_id, affected)
 
     result = {"processed": processed, "total_fetched": total, "skipped": skipped}
     prog.update(

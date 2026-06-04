@@ -2,17 +2,23 @@ import json
 import uuid
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import case, desc, func, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
-    Email,
     PeriodRollup,
     Transaction,
     UserSettings,
 )
 from app.services.category_service import CategoryService
 from app.services.rollup_cache import rollup_cache
+from app.services.stats_queries import (
+    build_aggregation_query,
+    build_category_breakdown_query,
+    build_health_aggregation_query,
+    build_income_breakdown_query,
+    build_top_merchants_query,
+)
 
 
 async def invalidate_user_cache(user_id: str):
@@ -51,95 +57,27 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
     inv_aliases = CategoryService.filter_aliases("investment")
     card_aliases = CategoryService.filter_aliases("card")
 
-    base_where = [
-        Email.user_id == user_id,
-        Transaction.txn_date >= start,
-        Transaction.txn_date <= end,
-        Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
-    ]
-
-    # ── Expenses (excl. investment/card categories) ──
-    exp_where = [
-        *base_where,
-        Transaction.label == "expense",
-        or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(inv_aliases)),
-        or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(card_aliases)),
-    ]
-    total_expenses = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*exp_where)
-        )).scalar_one() or 0
-    )
-
-    # ── Income ──
-    income_base = [
-        Email.user_id == user_id,
-        Transaction.label == "income",
-        Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
-    ]
-    total_income = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*income_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
-        )).scalar_one() or 0
-    )
-
-    # ── CC payments ──
-    cc_row = (
-        await db.execute(
-            select(func.sum(Transaction.amount), func.count(Transaction.id))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                *base_where,
-                or_(
-                    Transaction.transaction_type == "cc_payment",
-                    func.lower(Transaction.category).in_(card_aliases),
-                ),
-            )
-        )
-    ).one()
-    total_cc = float(cc_row[0] or 0)
-
-    # ── Investments ──
-    inv_row = (
-        await db.execute(
-            select(func.sum(Transaction.amount), func.count(Transaction.id))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                *base_where,
-                or_(
-                    Transaction.transaction_type == "investment",
-                    func.lower(Transaction.category).in_(inv_aliases),
-                ),
-            )
-        )
-    ).one()
-    total_inv = float(inv_row[0] or 0)
+    # ── Query 1: Combined aggregation (items 1-4, 8) ──
+    agg_row = (await db.execute(
+        build_aggregation_query(user_id, start, end, inv_aliases, card_aliases)
+    )).one()
+    total_expenses = float(agg_row.total_expenses or 0)
+    total_income = float(agg_row.total_income or 0)
+    total_cc = float(agg_row.cc_payments or 0)
+    total_inv = float(agg_row.investments or 0)
+    txn_count_val = agg_row.txn_count or 0
+    unread_val = agg_row.unread_count or 0
+    review_val = agg_row.needs_review_count or 0
+    flagged_val = agg_row.flagged_count or 0
 
     net = total_income - total_expenses - total_cc - total_inv
     savings_rate = round(net / total_income * 100, 1) if total_income > 0 else 0.0
     savings_rate = max(-9999.9, min(9999.9, savings_rate))
 
-    # ── Category breakdown ──
-    cat_rows = (
-        await db.execute(
-            select(
-                Transaction.category,
-                func.sum(Transaction.amount).label("total"),
-                func.count(Transaction.id).label("txn_count"),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*exp_where)
-            .group_by(Transaction.category)
-            .order_by(desc("total"))
-        )
-    ).all()
+    # ── Query 2: Category + income breakdown ──
+    cat_rows = (await db.execute(
+        build_category_breakdown_query(user_id, start, end, inv_aliases, card_aliases)
+    )).all()
     cat_total = sum(float(r.total or 0) for r in cat_rows)
     expenses_by_category = [
         {
@@ -151,26 +89,9 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         for r in cat_rows
     ]
 
-    # ── Income breakdown ──
-    inc_cat_base = [
-        Email.user_id == user_id,
-        Transaction.label == "income",
-        Transaction.txn_date.isnot(None),
-        Transaction.status != "needs_review",
-    ]
-    inc_rows = (
-        await db.execute(
-            select(
-                Transaction.category,
-                func.sum(Transaction.amount).label("total"),
-                func.count(Transaction.id).label("txn_count"),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*inc_cat_base, Transaction.txn_date >= start, Transaction.txn_date <= end)
-            .group_by(Transaction.category)
-            .order_by(desc("total"))
-        )
-    ).all()
+    inc_rows = (await db.execute(
+        build_income_breakdown_query(user_id, start, end)
+    )).all()
     inc_total = sum(float(r.total or 0) for r in inc_rows)
     income_by_category = [
         {"category": r.category or "Income", "amount": round(float(r.total or 0), 2),
@@ -179,43 +100,14 @@ async def recompute_month(user_id: str, year: int, month: int, db: AsyncSession)
         for r in inc_rows
     ]
 
-    # ── Top merchants ──
-    merch_rows = (
-        await db.execute(
-            select(Transaction.merchant, func.sum(Transaction.amount).label("total"))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*exp_where, Transaction.merchant.isnot(None))
-            .group_by(Transaction.merchant)
-            .order_by(desc("total"))
-            .limit(8)
-        )
-    ).all()
+    # ── Query 3: Top merchants ──
+    merch_rows = (await db.execute(
+        build_top_merchants_query(user_id, start, end, inv_aliases, card_aliases)
+    )).all()
     top_merchants = [
         {"merchant": r.merchant, "amount": round(float(r.total or 0), 2)}
         for r in merch_rows
     ]
-
-    # ── Counts ──
-    counts = (
-        await db.execute(
-            select(
-                func.count(Transaction.id),
-                func.sum(case((not Transaction.read, 1), else_=0)),
-                func.sum(case((Transaction.status == "needs_review", 1), else_=0)),
-                func.sum(case((Transaction.flagged, 1), else_=0)),
-            )
-            .join(Email, Transaction.email_id == Email.id)
-            .where(
-                Email.user_id == user_id,
-                Transaction.txn_date >= start,
-                Transaction.txn_date <= end,
-            )
-        )
-    ).one()
-    txn_count_val = counts[0] or 0
-    unread_val = counts[1] or 0
-    review_val = counts[2] or 0
-    flagged_val = counts[3] or 0
 
     # ── Upsert rollup ──
     existing = (
@@ -417,44 +309,17 @@ async def get_health(user_id: str, months: int, db: AsyncSession) -> dict:
     starting_balance_date = settings.starting_balance_date if settings else None
 
     inv_aliases = CategoryService.filter_aliases("investment")
-    base_filter = [Email.user_id == user_id, Transaction.txn_date.isnot(None),
-                   Transaction.status != "needs_review"]
+    extra_filters = []
     if starting_balance_date:
-        base_filter.append(Transaction.txn_date >= starting_balance_date)
+        extra_filters.append(Transaction.txn_date >= starting_balance_date)
 
-    exp_total = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.label == "expense",
-                   or_(Transaction.transaction_type == "purchase", Transaction.transaction_type.is_(None)),
-                   or_(Transaction.category.is_(None), ~func.lower(Transaction.category).in_(inv_aliases)),
-                   *base_filter)
-        )).scalar_one() or 0
-    )
-    cc_total = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.transaction_type == "cc_payment", *base_filter)
-        )).scalar_one() or 0
-    )
-    inv_total = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(or_(Transaction.transaction_type == "investment",
-                       func.lower(Transaction.category).in_(inv_aliases)),
-                   *base_filter)
-        )).scalar_one() or 0
-    )
-    inc_total = float(
-        (await db.execute(
-            select(func.sum(Transaction.amount))
-            .join(Email, Transaction.email_id == Email.id)
-            .where(Transaction.label == "income", *base_filter)
-        )).scalar_one() or 0
-    )
+    health_row = (await db.execute(
+        build_health_aggregation_query(user_id, inv_aliases, extra_filters)
+    )).one()
+    exp_total = float(health_row.total_expenses or 0)
+    cc_total = float(health_row.total_cc or 0)
+    inv_total = float(health_row.total_investments or 0)
+    inc_total = float(health_row.total_income or 0)
 
     net_since = inc_total - exp_total - cc_total - inv_total
     current_balance = round((starting_balance or 0.0) + net_since, 2)
