@@ -46,3 +46,4 @@ const ErrorBoundary = class extends React.Component {
     return this.props.children;
   }
 };
+window.ErrorBoundary = ErrorBoundary;
