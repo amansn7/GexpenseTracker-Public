@@ -107,7 +107,9 @@ const TabBtn = ({ active, onClick, children, compact, style }) => (
     style={{ padding: compact ? "5px 10px" : "6px 14px", borderRadius: 20, border: "none", cursor: "pointer",
       fontSize: compact ? 11 : 12,
       background: active ? "var(--ink)" : "transparent",
-      color: active ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", ...style }}>
+      color: active ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease", ...style }}
+    onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+    onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>
     {children}
   </button>
 );

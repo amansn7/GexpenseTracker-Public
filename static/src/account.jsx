@@ -16,8 +16,8 @@ const accountStyles = window.accountStyles = {
   sub: { fontSize: 11, color: "var(--ink-3)", marginTop: 2 },
   input: { padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" },
   btn: { padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" },
-  btnPrimary: { background: "var(--ink)", color: "var(--paper)", borderColor: "var(--ink)" },
-  btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", borderColor: "var(--neg-soft)" },
+  btnPrimary: { background: "var(--ink)", color: "var(--paper)", border: "1px solid var(--ink)", transition: "background 120ms ease" },
+  btnDanger: { background: "var(--neg-soft)", color: "var(--neg)", border: "1px solid var(--neg-soft)", transition: "background 120ms ease" },
   toggle: { width: 36, height: 20, borderRadius: 20, padding: 2, border: "none", cursor: "pointer", transition: "background 160ms", display: "flex", alignItems: "center" },
   toggleKnob: { width: 16, height: 16, borderRadius: 999, background: "var(--paper)", transition: "transform 160ms", boxShadow: "0 1px 2px var(--shadow-sm)" },
 };
@@ -615,11 +615,7 @@ const InviteSection = ({ account }) => {
           placeholder="friend@email.com"
           style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
         />
-        <button
-          onClick={sendInvite}
-          disabled={adding}
-          style={{ padding: "7px 14px", background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}
-        >Invite</button>
+        <button onClick={sendInvite} disabled={adding} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, padding: "7px 14px", fontSize: 12 }}>Invite</button>
       </div>
       {addError && <div style={{ marginTop: 6, fontSize: 11, color: "var(--neg)" }}>{addError}</div>}
 
@@ -1077,7 +1073,9 @@ const AdminLLMTestSection = ({ account }) => {
       <div style={accountStyles.sectionSub}>— verify your LLM service works</div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
         {["classify", "raw"].map(t => (
-          <button key={t} onClick={() => setTestType(t)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: testType === t ? "var(--ink)" : "transparent", color: testType === t ? "var(--paper)" : "var(--ink-3)" }}>
+          <button key={t} onClick={() => setTestType(t)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: testType === t ? "var(--ink)" : "transparent", color: testType === t ? "var(--paper)" : "var(--ink-3)", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+            onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+            onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>
             {t === "classify" ? "Transaction" : "Raw"}
           </button>
         ))}
@@ -1306,7 +1304,9 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Label</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {["expense", "income", "ignore"].map(l => (
-                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit" }}>{l}</button>
+                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+                    onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                    onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
                 ))}
               </div>
             </div>
@@ -1331,7 +1331,9 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
               <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Label</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {["expense", "income"].map(l => (
-                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit" }}>{l}</button>
+                  <button key={l} type="button" onClick={() => set("label", l)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid var(--line)", cursor: "pointer", fontSize: 12, background: form.label === l ? "var(--ink)" : "transparent", color: form.label === l ? "var(--paper)" : "var(--ink-3)", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+                    onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                    onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
                 ))}
               </div>
             </div>
@@ -2352,25 +2354,29 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </div>
         </div>
         <SettingsRow label="Messages to scan" description="which Gmail messages to process">
-          <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", opacity: filterSaving ? 0.65 : 1 }}>
+          <div role="radiogroup" aria-label="Messages to scan" style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)" }}>
             {[["all", "All"],["unread", "Unread"],["read", "Read"]].map(([value, label]) => {
               const active = (syncStatus?.email_filter || "all") === value;
               return (
-                <button key={value} type="button" disabled={filterSaving} onClick={() => updateEmailFilter(value)}
-                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: filterSaving ? "default" : "pointer", fontFamily: "inherit" }}
+                <button key={value} type="button" role="radio" aria-checked={active} disabled={filterSaving} onClick={() => updateEmailFilter(value)}
+                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: filterSaving ? "default" : "pointer", fontFamily: "inherit", outline: "none", opacity: filterSaving && !active ? 0.45 : 1, transition: "background 120ms ease, color 120ms ease, opacity 120ms ease" }}
+                  onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
                 >{label}</button>
               );
             })}
           </div>
         </SettingsRow>
         <SettingsRow label="Sync panel position" description="where the sync progress overlay appears" last>
-          <div style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)" }}>
+          <div role="radiogroup" aria-label="Sync panel position" style={{ display: "inline-flex", padding: 3, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)" }}>
             {[["bottom-right", "Bottom Right"],["bottom-center", "Bottom Center"],["bottom-left", "Bottom Left"]].map(([value, label]) => {
               const active = (window._syncPanelPosition || localStorage.getItem("mf_sync_panel_pos") || "bottom-right") === value;
               return (
-                <button key={value} type="button"
+                <button key={value} type="button" role="radio" aria-checked={active}
                   onClick={() => { localStorage.setItem("mf_sync_panel_pos", value); window._syncPanelPosition = value; window.dispatchEvent(new CustomEvent("sync-pos-change", { detail: value })); }}
-                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+                  style={{ padding: "6px 12px", border: "none", borderRadius: 4, background: active ? "var(--ink)" : "transparent", color: active ? "var(--paper)" : "var(--ink-3)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+                  onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+                  onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
                 >{label}</button>
               );
             })}
@@ -2430,7 +2436,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
                   <div style={{ fontSize: 12, fontWeight: 500, color: "var(--ink)" }}>{c.device_name}</div>
                   <div style={{ fontSize: 11, color: "var(--ink-3)" }}>Added {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</div>
                 </div>
-                <button style={{ ...accountStyles.btn, color: "var(--neg)", border: "1px solid var(--neg-soft)" }} onClick={() => handleDeletePasskey(c.id)}>Remove</button>
+                <button style={{ ...accountStyles.btn, ...accountStyles.btnDanger, padding: "6px 14px", fontSize: 11 }} onClick={() => handleDeletePasskey(c.id)}>Remove</button>
               </div>
             ))}
           </div>
@@ -2540,7 +2546,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button style={accountStyles.btn} onClick={() => setShowPasskeyDisableConfirm(false)}>Cancel</button>
-            <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisablePasskey}>Disable</button>
+            <button style={{ ...accountStyles.btnDanger, padding: "6px 14px", fontSize: 11 }} onClick={handleDisablePasskey}>Disable</button>
           </div>
         </Modal>
       )}
@@ -2583,7 +2589,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button style={accountStyles.btn} onClick={() => setShowTotpDisableConfirm(false)}>Cancel</button>
-            <button style={{ ...accountStyles.btn, background: "var(--neg)", color: "var(--paper)", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }} onClick={handleDisableTotp}>Disable</button>
+            <button style={{ ...accountStyles.btnDanger, padding: "6px 14px", fontSize: 11 }} onClick={handleDisableTotp}>Disable</button>
           </div>
         </Modal>
       )}
