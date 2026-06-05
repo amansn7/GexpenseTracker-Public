@@ -59,12 +59,45 @@ const ViewChunkLoader = ({ view, children }) => {
     }, "Loading\u2026");
   }
 
-  return children;
+  return typeof children === "function" ? children() : children;
 };
 
 // ── End chunk loader ────────────────────────────────────────────────────────
 
 const _isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && window.innerWidth <= 768;
+
+const LLMBudgetBanner = () => {
+  const [budgetInfo, setBudgetInfo] = useState(null);
+  useEffect(() => {
+    API.get("/api/account/settings/user-llm-budget").then(setBudgetInfo).catch(() => {});
+  }, []);
+  if (!budgetInfo || !budgetInfo.exceeded || budgetInfo.tier === "unlimited") return null;
+  const pct = budgetInfo.daily_budget_cents > 0
+    ? Math.round((budgetInfo.spent_cents / budgetInfo.daily_budget_cents) * 100)
+    : 100;
+  return (
+    <div style={{
+      padding: "10px 16px", borderRadius: 8, marginBottom: 12,
+      fontSize: 13, lineHeight: 1.5,
+      background: "var(--accent-soft)", color: "var(--accent)",
+      border: "1px solid var(--accent)",
+      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+    }}>
+      <Icon name="info" size={16} stroke="var(--accent)" />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <strong>LLM budget used: {pct}%</strong>
+        {" \u2014 "}${(budgetInfo.spent_cents / 100).toFixed(2)} of ${(budgetInfo.daily_budget_cents / 100).toFixed(2)} today.
+        Classification falling back to rules until budget resets at midnight UTC.
+      </span>
+      {budgetInfo.upgrade_url && (
+        <a href={budgetInfo.upgrade_url}
+          style={{ padding: "6px 14px", background: "var(--accent)", color: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+          Upgrade tier
+        </a>
+      )}
+    </div>
+  );
+};
 
 const MobileAppBanner = () => {
   const [visible, setVisible] = useState(false);
@@ -152,11 +185,11 @@ const App = () => {
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
+  const [nextCursor, setNextCursor] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem("mf_theme") || "paper");
   const [account, setAccount] = useState(null);
   const [showSeedModal, setShowSeedModal] = React.useState(false);
-  const [closingSeed, setClosingSeed] = React.useState(false);
-  const closeSeed = () => { if (closingSeed) return; setClosingSeed(true); setTimeout(() => { setShowSeedModal(false); setClosingSeed(false); }, 150); };
+  const closeSeed = () => setShowSeedModal(false);
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
 
@@ -168,12 +201,14 @@ const App = () => {
     try {
       setLoading(true);
       setError(null);
-      const params = new URLSearchParams({ offset: 0, limit: 50 });
+      setNextCursor(null);
+      const params = new URLSearchParams({ limit: 50 });
       if (effectiveDateRange.from && effectiveDateRange.to) { params.append("date_from", effectiveDateRange.from); params.append("date_to", effectiveDateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const txRaw = await API.get(`/api/transactions?${params}`);
       setTransactions(txRaw.items.map(transformTransaction));
       setTotalTransactions(txRaw.total);
+      if (txRaw.next_cursor) setNextCursor(txRaw.next_cursor);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -192,10 +227,12 @@ const App = () => {
     _loadingRef.current = true;
     setLoadingMore(true);
     try {
-      const params = new URLSearchParams({
-        offset: transactions.length,
-        limit: 50,
-      });
+      const params = new URLSearchParams({ limit: 50 });
+      if (nextCursor) {
+        params.append("cursor", nextCursor);
+      } else {
+        params.append("offset", transactions.length);
+      }
       if (effectiveDateRange.from && effectiveDateRange.to) { params.append("date_from", effectiveDateRange.from); params.append("date_to", effectiveDateRange.to); }
       if (categoryFilter) params.append("category", categoryFilter);
       const data = await API.get(`/api/transactions?${params}`);
@@ -204,6 +241,7 @@ const App = () => {
         return [...ts, ...data.items.map(transformTransaction).filter(t => !seen.has(t.id))];
       });
       setTotalTransactions(data.total);
+      if (data.next_cursor) setNextCursor(data.next_cursor); else setNextCursor(null);
     } catch (_) {}
     _loadingRef.current = false;
     setLoadingMore(false);
@@ -386,38 +424,41 @@ const App = () => {
             </div>
           )}
           {view === "inbox" && (transactions.length > 0 || loading) && (
-            <InboxView
-              transactions={transactions}
-              setTransactions={setTransactions}
-              selectedId={selectedId}
-              setSelectedId={setSelectedId}
-              filter={inboxFilter}
-              setFilter={setInboxFilter}
-              categoryFilter={categoryFilter}
-              dateRange={inboxDateRange}
-              setDateRange={setInboxDateRange}
-              loadMore={loadMore}
-              loadData={loadData}
-              totalTransactions={totalTransactions}
-              loadingMore={loadingMore}
-              reviewEmails={reviewEmails}
-              setReviewEmails={setReviewEmails}
-            />
+            <div>
+              <LLMBudgetBanner />
+              <InboxView
+                transactions={transactions}
+                setTransactions={setTransactions}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+                filter={inboxFilter}
+                setFilter={setInboxFilter}
+                categoryFilter={categoryFilter}
+                dateRange={inboxDateRange}
+                setDateRange={setInboxDateRange}
+                loadMore={loadMore}
+                loadData={loadData}
+                totalTransactions={totalTransactions}
+                loadingMore={loadingMore}
+                reviewEmails={reviewEmails}
+                setReviewEmails={setReviewEmails}
+              />
+            </div>
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <ViewChunkLoader view="flow"><FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/></ViewChunkLoader>}
-          {view === "dashboard" && <ViewChunkLoader view="dashboard"><DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
-          {view === "health"    && <ViewChunkLoader view="health"><HealthView /></ViewChunkLoader>}
-          {view === "reports"   && <ViewChunkLoader view="reports"><ReportsView /></ViewChunkLoader>}
-          {view === "recurring" && <ViewChunkLoader view="recurring"><RecurringView userCategories={account?.categories || []}/></ViewChunkLoader>}
-          {view === "debt"      && <ViewChunkLoader view="debt"><DebtView /></ViewChunkLoader>}
-          {view === "goals"     && <ViewChunkLoader view="goals"><GoalsView /></ViewChunkLoader>}
-          {view === "budgets"   && <ViewChunkLoader view="budgets"><BudgetsView /></ViewChunkLoader>}
-          {view === "profile"   && <ViewChunkLoader view="profile">{account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>}</ViewChunkLoader>}
-          {view === "settings"  && <ViewChunkLoader view="settings">{account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader>}
+          {view === "flow"      && <ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}</ViewChunkLoader>}
+          {view === "dashboard" && <ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader>}
+          {view === "health"    && <ViewChunkLoader view="health">{() => <HealthView />}</ViewChunkLoader>}
+          {view === "reports"   && <ViewChunkLoader view="reports">{() => <ReportsView />}</ViewChunkLoader>}
+          {view === "recurring" && <ViewChunkLoader view="recurring">{() => <RecurringView userCategories={account?.categories || []}/>}</ViewChunkLoader>}
+          {view === "debt"      && <ViewChunkLoader view="debt">{() => <DebtView />}</ViewChunkLoader>}
+          {view === "goals"     && <ViewChunkLoader view="goals">{() => <GoalsView />}</ViewChunkLoader>}
+          {view === "budgets"   && <ViewChunkLoader view="budgets">{() => <BudgetsView />}</ViewChunkLoader>}
+          {view === "profile"   && <ViewChunkLoader view="profile">{() => account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>}</ViewChunkLoader>}
+          {view === "settings"  && <ViewChunkLoader view="settings">{() => account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader>}
           {/* "new" mode nav aliases — route to nearest functional equivalent */}
-          {view === "today"   && <ViewChunkLoader view="dashboard"><DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
-          {view === "picture" && <ViewChunkLoader view="flow"><FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
+          {view === "today"   && <ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader>}
+          {view === "picture" && <ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader>}
           {view === "review"  && <InboxView
               transactions={transactions}
               setTransactions={setTransactions}
@@ -440,32 +481,21 @@ const App = () => {
       </main>
 
       {showSeedModal && (
-  <div className={closingSeed ? "backdrop-out" : "backdrop-in"} style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
-    <div className={closingSeed ? "modal-out" : "modal-in"} style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"32px 36px", maxWidth:440, width:"90%", textAlign:"center" }}>
+  <Modal open onClose={closeSeed} width={440}>
+    <div style={{ textAlign:"center" }}>
       <div style={{ fontFamily:"'Geist',sans-serif", fontSize:24, fontWeight:400, marginBottom:12 }}>Previous data found</div>
       <div style={{ fontSize:14, color:"var(--ink-3)", lineHeight:1.6, marginBottom:24 }}>
         We found existing transaction data from a previous setup. Import it into your account?
       </div>
       <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
-        <button
-          onClick={async () => {
-            try {
-              await API.post("/api/auth/claim-seed-data");
-              closeSeed();
-              loadData();
-            } catch (_) {
-              closeSeed();
-            }
-          }}
-          style={{ padding:"10px 20px", background:"var(--ink)", color:"var(--paper)", border:"none", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
-        >Import my data</button>
-        <button
-          onClick={closeSeed}
-          style={{ padding:"10px 20px", background:"var(--card)", color:"var(--ink-2)", border:"1px solid var(--line)", borderRadius:6, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}
-        >Start fresh</button>
+        <Button onClick={async () => {
+          try { await API.post("/api/auth/claim-seed-data"); closeSeed(); loadData(); }
+          catch (_) { closeSeed(); }
+        }}>Import my data</Button>
+        <Button onClick={closeSeed} variant="ghost">Start fresh</Button>
       </div>
     </div>
-  </div>
+  </Modal>
 )}
 
       {tweaksOn && (
