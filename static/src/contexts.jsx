@@ -37,7 +37,7 @@ const FilterProvider = ({ children }) => {
   const [catOpen, setCatOpen] = useState(false);
   const catRef = useRef(null);
   const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
-  const [inboxDateRange, setInboxDateRange] = useState(DateUtils.getCurrentMonthRange());
+  const [inboxDateRange, setInboxDateRange] = useState(DateUtils.getAllTimeRange());
   const [tweaksOn, setTweaksOn] = useState(false);
 
   useEffect(() => {
