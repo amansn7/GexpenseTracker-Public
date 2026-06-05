@@ -1,4 +1,4 @@
-const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, loadData = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
+const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSelectedId, filter = "all", setFilter = () => {}, categoryFilter, dateRange, setDateRange = () => {}, loadMore = () => {}, loadData = () => {}, totalTransactions = 0, loadingMore = false, reviewEmails = [], setReviewEmails = () => {} }) => {
   const { isMobile } = useViewport();
   const [pickerFor, setPickerFor] = React.useState(null); // tx id
   const [selectedIds, setSelectedIds] = React.useState(new Set());
@@ -2023,9 +2023,9 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
       )}
     </>
   );
-};
+});
 
-const SearchView = ({ query, categoryFilter }) => {
+const SearchView = React.memo(({ query, categoryFilter }) => {
   const [results, setResults] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState(null);
@@ -2299,7 +2299,7 @@ const SearchView = ({ query, categoryFilter }) => {
       )}
     </div>
   );
-};
+});
 
 window.InboxView = InboxView;
 window.SearchView = SearchView;

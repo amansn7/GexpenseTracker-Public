@@ -162,7 +162,7 @@ const App = () => {
 
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
-  const effectiveDateRange = view === "inbox" || view === "review" ? inboxDateRange : dateRange;
+  const effectiveDateRange = useMemo(() => view === "inbox" || view === "review" ? inboxDateRange : dateRange, [view, inboxDateRange, dateRange]);
 
   const loadData = useCallback(async () => {
     try {

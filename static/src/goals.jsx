@@ -195,7 +195,7 @@ const GoalModal = ({ item, onSave, onDelete, onClose }) => {
   );
 };
 
-const GoalsView = () => {
+const GoalsView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -332,6 +332,6 @@ const GoalsView = () => {
       )}
     </div>
   );
-};
+});
 
 window.GoalsView = GoalsView;

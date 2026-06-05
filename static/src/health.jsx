@@ -1,6 +1,6 @@
 // Health — runway, savings rate, monthly net
 
-const HealthView = () => {
+const HealthView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [months, setMonths] = React.useState(6);
   const [data, setData] = React.useState(null);
@@ -127,6 +127,6 @@ const HealthView = () => {
       </div>
     </div>
   );
-};
+});
 
 window.HealthView = HealthView;

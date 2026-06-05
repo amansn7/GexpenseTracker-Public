@@ -152,7 +152,7 @@ const ProgressBar = ({ pct }) => {
   );
 };
 
-const DebtView = () => {
+const DebtView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -268,6 +268,6 @@ const DebtView = () => {
       </div>
     </div>
   );
-};
+});
 
 window.DebtView = DebtView;

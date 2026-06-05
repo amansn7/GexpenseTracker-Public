@@ -113,7 +113,7 @@ const OnboardingView = ({ onComplete }) => {
   );
 };
 
-const ProfileView = ({ transactions, account, setAccount }) => {
+const ProfileView = React.memo(({ transactions, account, setAccount }) => {
   const { isMobile } = useViewport();
   const mqWrap = isMobile ? { height: mobileStyles.navOffset } : {};
   const mqInner = isMobile ? { padding: "16px 14px 80px" } : {};
@@ -376,7 +376,7 @@ const ProfileView = ({ transactions, account, setAccount }) => {
       </div>
     </div>
   );
-};
+});
 
 const CAT_ICONS = {
   food:"fork",groceries:"fork",dining:"fork",restaurant:"fork","food & dining":"fork",
@@ -1944,7 +1944,7 @@ const RulesTab = ({ account, categories }) => {
 
 // ── SettingsView ──────────────────────────────────────────────
 
-const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
+const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
   const { isMobile } = useViewport();
   const mq = mqOverrides(isMobile);
   const settings = account?.settings || {};
@@ -2814,7 +2814,7 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
       </div>
     </div>
   );
- };
+ });
 
 
 Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, InviteSection, AdminBackfillBodiesSection: window.AdminBackfillBodiesSection });

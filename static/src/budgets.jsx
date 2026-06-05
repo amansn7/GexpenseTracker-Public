@@ -543,7 +543,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   );
 };
 
-const BudgetsView = () => {
+const BudgetsView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1145,6 +1145,6 @@ const BudgetsView = () => {
       </div>
     </div>
   );
-};
+});
 
 window.BudgetsView = BudgetsView;

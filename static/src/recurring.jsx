@@ -141,7 +141,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   );
 };
 
-const RecurringView = ({ userCategories }) => {
+const RecurringView = React.memo(({ userCategories }) => {
   const { isMobile, isTablet } = useViewport();
   const [items, setItems] = useState([]);
   const [monthly, setMonthly] = useState(0);
@@ -352,6 +352,6 @@ const RecurringView = ({ userCategories }) => {
       </div>
     </div>
   );
-};
+});
 
 window.RecurringView = RecurringView;

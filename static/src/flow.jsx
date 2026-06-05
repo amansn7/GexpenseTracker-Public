@@ -682,7 +682,7 @@ const skeleton = (h, w) => (
   <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
 );
 
-const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange, onSetInboxDateRange }) => {
+const FlowView = React.memo(({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange, onSetInboxDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
   const [activePreset, setActivePreset] = React.useState(null);
@@ -1054,6 +1054,6 @@ const FlowView = ({ transactions, categoryFilter, dateRange, setDateRange, onNav
       ))}
     </div>
   );
-};
+});
 
 Object.assign(window, { FlowView });

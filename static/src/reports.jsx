@@ -2,7 +2,7 @@
 
 const { useState, useEffect } = React;
 
-const ReportsView = () => {
+const ReportsView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [months, setMonths] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +137,6 @@ const ReportsView = () => {
       </div>
     </div>
   );
-};
+});
 
 window.ReportsView = ReportsView;
