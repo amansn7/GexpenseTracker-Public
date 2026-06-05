@@ -1,6 +1,68 @@
 // MoneyFlow — main app
 
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, useMemo, useContext } = React;
+
+// ── Dynamic chunk loader for code-split views ────────────────────────────────
+
+const VIEW_CHUNKS = {
+  flow: "flow", picture: "flow",
+  dashboard: "dashboard", today: "dashboard",
+  health: "health",
+  reports: "reports",
+  recurring: "recurring",
+  debt: "debt",
+  goals: "goals",
+  budgets: "budgets",
+  profile: "account", settings: "account",
+  admin: "admin",
+};
+
+const _loadedChunks = new Set();
+
+function loadChunkScript(name) {
+  return new Promise((resolve) => {
+    if (_loadedChunks.has(name)) { resolve(); return; }
+    const manifest = window.__mfChunks || {};
+    const url = manifest[name];
+    if (!url) { _loadedChunks.add(name); resolve(); return; }
+    const existing = document.querySelector(`script[data-chunk="${name}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => { _loadedChunks.add(name); resolve(); });
+      existing.addEventListener("error", () => { _loadedChunks.add(name); resolve(); });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = url;
+    script.dataset.chunk = name;
+    script.onload = () => { _loadedChunks.add(name); resolve(); };
+    script.onerror = () => { _loadedChunks.add(name); resolve(); };
+    document.body.appendChild(script);
+  });
+}
+
+const ViewChunkLoader = ({ view, children }) => {
+  const chunk = VIEW_CHUNKS[view];
+  const [ready, setReady] = React.useState(!chunk || _loadedChunks.has(chunk));
+
+  React.useEffect(() => {
+    if (!chunk) { setReady(true); return; }
+    if (_loadedChunks.has(chunk)) { setReady(true); return; }
+    loadChunkScript(chunk).then(() => setReady(true));
+  }, [chunk]);
+
+  if (!ready) {
+    return React.createElement("div", {
+      style: {
+        display: "flex", alignItems: "center", justifyContent: "center",
+        height: "calc(100dvh - 72px)", color: "var(--ink-3)", fontSize: 13,
+      },
+    }, "Loading\u2026");
+  }
+
+  return children;
+};
+
+// ── End chunk loader ────────────────────────────────────────────────────────
 
 const _isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && window.innerWidth <= 768;
 
@@ -64,7 +126,10 @@ const MobileAppBanner = () => {
 };
 
 const App = () => {
-  const [view, setView] = useState(() => localStorage.getItem("mf_view") || "inbox");
+  const { view, setView, selectedId, setSelectedId, searchQuery, setSearchQuery } = useContext(ViewContext);
+  const { inboxFilter, setInboxFilter, categoryFilter, setCategoryFilter, dateRange, setDateRange, inboxDateRange, setInboxDateRange, catOpen, setCatOpen, catRef, tweaksOn, setTweaksOn } = useContext(FilterContext);
+  const { syncStatus, syncing, syncProgress, syncPanelDismissed, syncPanelPosition, startPolling, handleRescan, syncLabel } = useContext(SyncContext);
+
   const [transactions, setTransactions] = useState([]);
   const [reviewEmails, setReviewEmails] = React.useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,50 +143,26 @@ const App = () => {
   }, []);
 
   const [error, setError] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [inboxFilter, setInboxFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState(null);
-  const [catOpen, setCatOpen] = useState(false);
-  const catRef = useRef(null);
-  const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
-  const [inboxDateRange, setInboxDateRange] = useState(DateUtils.getCurrentMonthRange());
 
-  // Fetch review emails on mount AND when switching to the review tab
   React.useEffect(() => {
     API.get("/api/emails?status=review_pending")
       .then(data => setReviewEmails(data))
       .catch(() => {});
   }, [inboxFilter]);
 
-
-  const [tweaksOn, setTweaksOn] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [theme, setTheme] = useState(() => localStorage.getItem("mf_theme") || "paper");
-  const [syncStatus, setSyncStatus] = useState(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(null);
-  const [syncPanelDismissed, setSyncPanelDismissed] = useState(false);
-  const [syncPanelPosition, setSyncPanelPosition] = useState(() => localStorage.getItem("mf_sync_panel_pos") || "bottom-right");
   const [account, setAccount] = useState(null);
   const [showSeedModal, setShowSeedModal] = React.useState(false);
   const [closingSeed, setClosingSeed] = React.useState(false);
   const closeSeed = () => { if (closingSeed) return; setClosingSeed(true); setTimeout(() => { setShowSeedModal(false); setClosingSeed(false); }, 150); };
-  const [searchQuery, setSearchQuery] = useState("");
   const viewport = useViewport();
   const [navOpen, setNavOpen] = useState(false);
 
-  useEffect(() => { localStorage.setItem("mf_view", view); }, [view]);
   useEffect(() => { localStorage.setItem("mf_theme", theme); }, [theme]);
   useEffect(() => { if (!viewport.isTablet) setNavOpen(false); }, [viewport.isTablet]);
   const effectiveDateRange = view === "inbox" || view === "review" ? inboxDateRange : dateRange;
-  useEffect(() => { if (view !== "flow") return; setCategoryFilter(null); }, [view]);
-  useEffect(() => {
-    window._goSettings = () => setView("settings");
-    window._goRecurring = () => setView("recurring");
-    window._goBudgets = () => setView("budgets");
-    return () => { delete window._goSettings; delete window._goRecurring; delete window._goBudgets; };
-  }, [setView]);
 
   const loadData = useCallback(async () => {
     try {
@@ -139,6 +180,11 @@ const App = () => {
       setLoading(false);
     }
   }, [effectiveDateRange, categoryFilter]);
+
+  useEffect(() => {
+    window.__appLoadData = loadData;
+    return () => { window.__appLoadData = undefined; };
+  }, [loadData]);
 
   const _loadingRef = React.useRef(false);
   const loadMore = async () => {
@@ -191,16 +237,6 @@ const App = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => setSyncPanelPosition(e.detail);
-    window.addEventListener("sync-pos-change", handler);
-    return () => window.removeEventListener("sync-pos-change", handler);
-  }, []);
-
   // Tweaks panel edit-mode bridge
   useEffect(() => {
     const onMsg = (e) => {
@@ -212,109 +248,29 @@ const App = () => {
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  // Category dropdown click-outside
-  useEffect(() => {
-    if (!catOpen) return;
-    const onDown = (e) => {
-      if (catRef.current && !catRef.current.contains(e.target)) setCatOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [catOpen]);
-
   // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  const startPolling = useCallback(async (initialProgress) => {
-    setSyncing(true);
-    setSyncPanelDismissed(false);
-    if (initialProgress) setSyncProgress(initialProgress);
-
-    let started = !!initialProgress?.running;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 480;
-    const poll = setInterval(async () => {
-      attempts++;
-      try {
-        const p = await API.get("/api/sync/progress");
-        setSyncProgress(p);
-        if (p.running) started = true;
-        const done = !p.running && (started || p.phase === "error" || p.phase === "done");
-        if (done) {
-          clearInterval(poll);
-          await loadData();
-          API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-          setSyncing(false);
-          return;
-        }
-        if (attempts >= MAX_ATTEMPTS) {
-          clearInterval(poll);
-          try {
-            const finalP = await API.get("/api/sync/progress");
-            if (finalP.phase === "done" || finalP.phase === "error") {
-              setSyncProgress(finalP);
-              await loadData();
-              API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
-              setSyncing(false);
-              return;
-            }
-          } catch (_) {}
-          setSyncing(false);
-          setSyncProgress(prev => prev ? { ...prev, phase: "error", error: "Sync timed out — please try again" } : null);
-        }
-      } catch (_) {
-        if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); }
-      }
-    }, 1200);
-  }, [loadData]);
-
-  const handleRescan = async () => {
-    if (syncing) return;
-    setSyncing(true);
-    setSyncPanelDismissed(false);
-    setSyncProgress(null);
-    try {
-      await API.post("/api/sync/trigger");
-      startPolling(null);
-    } catch (e) {
-      setSyncing(false);
-      alert("Failed to start sync: " + (e.message || "Unknown error"));
-    }
-  };
-
-  // On mount, check if a backend sync is already running
-  useEffect(() => {
-    API.get("/api/sync/progress").then(p => {
-      if (p?.running) startPolling(p);
-    }).catch(() => {});
-  }, []);
-
-  const syncLabel = () => {
-    if (syncing) return "Syncing…";
-    if (!syncStatus?.last_synced_at) return "Gmail · never";
-    const diff = Math.floor((Date.now() - new Date(syncStatus.last_synced_at)) / 60000);
-    if (diff < 1) return "Gmail · just now";
-    if (diff < 60) return `Gmail · ${diff}m`;
-    return `Gmail · ${Math.floor(diff / 60)}h`;
-  };
-
-  const counts = {
+  const counts = useMemo(() => ({
     unread:   transactions.filter(t => !t.read).length,
     expense:  transactions.filter(t => t.amount < 0 && t.tag !== "subscription").length,
     income:   transactions.filter(t => t.amount > 0).length,
     sub:      transactions.filter(t => t.tag === "subscription").length,
     flagged:  transactions.filter(t => t.flag).length,
     payments: transactions.filter(t => t.amount < 0 && ["rent","util","sub"].includes(t.cat)).length,
-  };
+  }), [transactions]);
 
-  const curCat = categoryFilter ? CategoryService.display(categoryFilter) : null;
+  const curCat = useMemo(() =>
+    categoryFilter ? CategoryService.display(categoryFilter) : null,
+    [categoryFilter]
+  );
 
   const today = new Date();
   const monthYear = today.toLocaleString("en-US", { month: "long", year: "numeric" });
 
-  const titles = {
+  const titles = useMemo(() => ({
     health:    { title: "Financial Health", sub: "runway · savings rate · monthly net" },
     inbox:     { title: "Inbox",          sub: `${transactions.length} emails parsed` },
     flow:      { title: "Money Flow",     sub: "how the month really unfolded" },
@@ -331,7 +287,7 @@ const App = () => {
     today:     { title: "Dashboard",      sub: "one page, quick read" },
     picture:   { title: "Money Flow",     sub: "how the month really unfolded" },
     review:    { title: "Review Queue",   sub: "transactions needing attention" },
-  };
+  }), [transactions.length, searchQuery]);
 
   return (
     <div style={{ ...shellStyles.app, ...(viewport.isTablet ? { display: "block" } : {}) }} data-screen-label={view}>
@@ -449,19 +405,19 @@ const App = () => {
             />
           )}
           {view === "search"    && <SearchView query={searchQuery} categoryFilter={categoryFilter}/>}
-          {view === "flow"      && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}
-          {view === "dashboard" && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
-          {view === "health"    && <HealthView />}
-          {view === "reports"   && <ReportsView />}
-          {view === "recurring" && <RecurringView userCategories={account?.categories || []}/>}
-          {view === "debt"      && <DebtView />}
-          {view === "goals"     && <GoalsView />}
-          {view === "budgets"   && <BudgetsView />}
-          {view === "profile"   && (account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>)}
-          {view === "settings"  && (account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>)}
+          {view === "flow"      && <ViewChunkLoader view="flow"><FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/></ViewChunkLoader>}
+          {view === "dashboard" && <ViewChunkLoader view="dashboard"><DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
+          {view === "health"    && <ViewChunkLoader view="health"><HealthView /></ViewChunkLoader>}
+          {view === "reports"   && <ViewChunkLoader view="reports"><ReportsView /></ViewChunkLoader>}
+          {view === "recurring" && <ViewChunkLoader view="recurring"><RecurringView userCategories={account?.categories || []}/></ViewChunkLoader>}
+          {view === "debt"      && <ViewChunkLoader view="debt"><DebtView /></ViewChunkLoader>}
+          {view === "goals"     && <ViewChunkLoader view="goals"><GoalsView /></ViewChunkLoader>}
+          {view === "budgets"   && <ViewChunkLoader view="budgets"><BudgetsView /></ViewChunkLoader>}
+          {view === "profile"   && <ViewChunkLoader view="profile">{account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>}</ViewChunkLoader>}
+          {view === "settings"  && <ViewChunkLoader view="settings">{account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader>}
           {/* "new" mode nav aliases — route to nearest functional equivalent */}
-          {view === "today"   && <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
-          {view === "picture" && <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}
+          {view === "today"   && <ViewChunkLoader view="dashboard"><DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
+          {view === "picture" && <ViewChunkLoader view="flow"><FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/></ViewChunkLoader>}
           {view === "review"  && <InboxView
               transactions={transactions}
               setTransactions={setTransactions}
@@ -560,6 +516,13 @@ const App = () => {
 
 (async () => {
   await API.init();
+
+  // Preload default view chunks in parallel with auth check
+  const preloadPromise = Promise.all([
+    loadChunkScript("inbox"),
+    loadChunkScript("onboarding"),
+  ]);
+
   let showOnboarding = !!localStorage.getItem("mf_onboarding_step");
   let showPasskeyChallenge = false;
   let showTotpChallenge = false;
@@ -598,7 +561,18 @@ const App = () => {
     const WizardWithData = () => React.createElement(OnboardingWizard, { accountData });
     Root = WizardWithData;
   } else {
-    Root = App;
+    const AppWithProviders = () => (
+      <ViewProvider>
+        <FilterProvider>
+          <SyncProvider onLoadData={() => window.__appLoadData?.()}>
+            <App />
+          </SyncProvider>
+        </FilterProvider>
+      </ViewProvider>
+    );
+    Root = AppWithProviders;
   }
+  // Ensure lazy chunks are loaded before mounting
+  await preloadPromise;
   ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(Root));
 })();

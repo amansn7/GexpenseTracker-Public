@@ -39,6 +39,8 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const [needsReviewItems, setNeedsReviewItems] = React.useState([]);
   const [needsReviewLoading, setNeedsReviewLoading] = React.useState(false);
   const listRef = React.useRef(null);
+  const listApiRef = React.useRef(null);
+  const { VariableSizeList: VList } = window.ReactWindow || {};
   var [pullY, setPullY] = React.useState(0);
   var [pulling, setPulling] = React.useState(false);
   var [refreshing, setRefreshing] = React.useState(false);
@@ -328,20 +330,6 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const autoLoadAttemptsRef = React.useRef(0);
   React.useEffect(() => { autoLoadAttemptsRef.current = 0; }, [filter]);
 
-  React.useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 100
-          && transactions.length < totalTransactions
-          && !loadingMore) {
-        loadMoreRef.current();
-      }
-    };
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [transactions.length, totalTransactions, loadingMore]);
-
   const toggleSelect = (id) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -616,6 +604,53 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   const grouped = groupByDate(filtered);
   const selected = transactions.find(t => t.id === selectedId) || needsReviewItems.find(t => t.id === selectedId);
 
+  // Virtualized list: flatten grouped into a flat array of {type, ...}
+  const flatItems = React.useMemo(() => {
+    if (filter === "review" || filter === "duplicates") return [];
+    const items = [];
+    grouped.forEach(([date, txs]) => {
+      const dayTotal = txs.reduce((a, t) => a + t.amount, 0);
+      items.push({ type: "header", date, dayTotal });
+      txs.forEach(tx => items.push({ type: "row", tx }));
+    });
+    return items;
+  }, [grouped, filter]);
+
+  const [listHeight, setListHeight] = React.useState(600);
+  const listAreaRef = React.useRef(null);
+
+  React.useLayoutEffect(() => {
+    const el = listAreaRef.current;
+    if (!el) return;
+    const update = () => { if (listAreaRef.current) setListHeight(listAreaRef.current.clientHeight); };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [flatItems.length, filter]);
+
+  const getItemSize = React.useCallback((index) => {
+    const item = flatItems[index];
+    if (!item) return 44;
+    if (item.type === "header") return isMobile ? 35 : 36;
+    return isMobile ? 52 : 44;
+  }, [flatItems, isMobile]);
+
+  const handleItemsRendered = React.useCallback(({ visibleStopIndex }) => {
+    if (visibleStopIndex >= flatItems.length - 5
+        && transactions.length < totalTransactions
+        && !loadingMore) {
+      loadMoreRef.current();
+    }
+  }, [flatItems.length, transactions.length, totalTransactions, loadingMore]);
+
+  // Scroll to selected item when navigating with arrow keys
+  React.useEffect(() => {
+    if (!selectedId || !listApiRef.current || !VList) return;
+    const idx = flatItems.findIndex(item => item.type === "row" && item.tx?.id === selectedId);
+    if (idx >= 0) listApiRef.current.scrollToItem(idx, "smart");
+  }, [selectedId, flatItems]);
+
   // Dismiss first-visit hint on first interaction
   React.useEffect(() => { if (selectedId && showFirstHint) { setShowFirstHint(false); localStorage.setItem("mf_hint_dismissed", "1"); } }, [selectedId]);
 
@@ -749,7 +784,7 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
   return (
     <>
       <div style={{ ...(selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel), height: isMobile ? "calc(100dvh - 115px)" : (selected ? inboxStyles.wrap.height : inboxStyles.wrapNoPanel.height) }}>
-        <div ref={listRef} style={{ ...inboxStyles.list, ...(isMobile ? { borderRight: "none", touchAction: "pan-y" } : {}) }}
+        <div style={{ ...inboxStyles.list, overflow: "hidden", display: "flex", flexDirection: "column", ...(isMobile ? { borderRight: "none", touchAction: "pan-y" } : {}) }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
@@ -1243,67 +1278,80 @@ const InboxView = ({ transactions, setTransactions, selectedId, setSelectedId, f
                 <button onClick={() => { setShowFirstHint(false); localStorage.setItem("mf_hint_dismissed", "1"); }} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--accent)", padding: 4, display: "flex", fontSize: 14, lineHeight: 1 }}>×</button>
               </div>
             )}
-            {grouped.map(([date, txs]) => {
-            const dayTotal = txs.reduce((a,t)=>a+t.amount,0);
-            const allSelected = txs.every(t => selectedIds.has(t.id));
-            const someSelected = txs.some(t => selectedIds.has(t.id));
-            return (
-              <div key={date}>
-                <div
-                  onClick={() => {
-                    if (!selectMode) setSelectMode(true);
-                    if (allSelected) {
-                      setSelectedIds(prev => {
-                        const next = new Set(prev);
-                        txs.forEach(t => next.delete(t.id));
-                        return next;
-                      });
-                    } else {
-                      setSelectedIds(prev => {
-                        const next = new Set(prev);
-                        txs.forEach(t => next.add(t.id));
-                        return next;
-                      });
-                    }
-                  }}
-                  style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px max(14px, env(safe-area-inset-right, 0px)) 7px max(14px, env(safe-area-inset-left, 0px))", top: 41 } : {}), cursor: "pointer", userSelect: "none" }}
+            {VList && flatItems.length > 0 ? (
+              <div ref={listAreaRef} style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+                <VList
+                  ref={listApiRef}
+                  outerRef={listRef}
+                  height={listHeight}
+                  width="100%"
+                  itemCount={flatItems.length}
+                  itemSize={getItemSize}
+                  onItemsRendered={handleItemsRendered}
                 >
-                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {selectMode && (
-                      <span style={{
-                        width: 14, height: 14, borderRadius: 3,
-                        border: `1.5px solid ${allSelected ? "var(--accent)" : someSelected ? "var(--ink-3)" : "var(--line)"}`,
-                        background: allSelected ? "var(--accent)" : "transparent",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        transition: "all 120ms var(--ease-out-quart)",
-                      }}>
-                        {allSelected && <Icon name="check" size={10} stroke="var(--paper)" />}
-                      </span>
-                    )}
-                    {dateLabel(date)}
-                  </span>
-                  <span style={inboxStyles.dayTotal}>
-                    {dayTotal !== 0 && (dayTotal > 0 ? <span style={{color:"var(--pos)"}}>+₹{dayTotal.toLocaleString("en-IN")}</span> : <span>−₹{Math.abs(dayTotal).toLocaleString("en-IN")}</span>)}
-                  </span>
-                </div>
-                {txs.map((tx, idx) => (
-                  <Row
-                    key={tx.id}
-                    style={{"--i": idx}}
-                    tx={tx}
-                    selected={selectMode ? selectedIds.has(tx.id) : selectedId===tx.id}
-                    selectMode={selectMode}
-                    onRowClick={()=>{
-                      if (selectMode) { toggleSelect(tx.id); }
-                      else { setSelectedId(tx.id); updateTx(tx.id, { read: true }); }
-                    }}
-                    onCheckbox={()=>{ if (!selectMode) { setSelectMode(true); } toggleSelect(tx.id); }}
-                    onEditCat={()=>setPickerFor(tx.id)}
-                  />
-                ))}
+                  {({ index, style }) => {
+                    const item = flatItems[index];
+                    if (item.type === "header") {
+                      const txs = grouped.find(([d]) => d === item.date)?.[1] || [];
+                      const allSelected = txs.every(t => selectedIds.has(t.id));
+                      const someSelected = txs.some(t => selectedIds.has(t.id));
+                      return (
+                        <div style={style}>
+                          <div
+                            onClick={() => {
+                              if (!selectMode) setSelectMode(true);
+                              if (allSelected) {
+                                setSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  txs.forEach(t => next.delete(t.id));
+                                  return next;
+                                });
+                              } else {
+                                setSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  txs.forEach(t => next.add(t.id));
+                                  return next;
+                                });
+                              }
+                            }}
+                            style={{ ...inboxStyles.dayLabel, ...(isMobile ? { padding: "16px max(14px, env(safe-area-inset-right, 0px)) 7px max(14px, env(safe-area-inset-left, 0px))", top: 41 } : {}), cursor: "pointer", userSelect: "none", position: "relative", top: "auto" }}
+                          >
+                            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              {selectMode && (
+                                <span style={{ width: 14, height: 14, borderRadius: 3, border: `1.5px solid ${allSelected ? "var(--accent)" : someSelected ? "var(--ink-3)" : "var(--line)"}`, background: allSelected ? "var(--accent)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 120ms var(--ease-out-quart)" }}>
+                                  {allSelected && <Icon name="check" size={10} stroke="var(--paper)" />}
+                                </span>
+                              )}
+                              {dateLabel(item.date)}
+                            </span>
+                            <span style={inboxStyles.dayTotal}>
+                              {item.dayTotal !== 0 && (item.dayTotal > 0 ? <span style={{ color: "var(--pos)" }}>+₹{item.dayTotal.toLocaleString("en-IN")}</span> : <span>−₹{Math.abs(item.dayTotal).toLocaleString("en-IN")}</span>)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div style={style}>
+                        <Row
+                          tx={item.tx}
+                          selected={selectMode ? selectedIds.has(item.tx.id) : selectedId === item.tx.id}
+                          selectMode={selectMode}
+                          onRowClick={() => {
+                            if (selectMode) { toggleSelect(item.tx.id); }
+                            else { setSelectedId(item.tx.id); updateTx(item.tx.id, { read: true }); }
+                          }}
+                          onCheckbox={() => { if (!selectMode) { setSelectMode(true); } toggleSelect(item.tx.id); }}
+                          onEditCat={() => setPickerFor(item.tx.id)}
+                        />
+                      </div>
+                    );
+                  }}
+                </VList>
               </div>
-            );
-          })}
+            ) : filter !== "review" && filter !== "duplicates" && flatItems.length === 0 && (
+              <div ref={listAreaRef} style={{ flex: 1, overflow: "hidden", minHeight: 0 }} />
+            )}
             </>
           )}
           {needsReviewLoading && (

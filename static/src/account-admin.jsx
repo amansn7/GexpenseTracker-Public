@@ -562,3 +562,5 @@ const AdminCleanBodiesSection = () => {
     </div>
   );
 };
+
+window.AdminBackfillBodiesSection = AdminBackfillBodiesSection;

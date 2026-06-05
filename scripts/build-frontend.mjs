@@ -3,9 +3,9 @@
 // Run: node scripts/build-frontend.mjs
 // Watch: node scripts/build-frontend.mjs --watch
 //
-// After building, concatenates individual IIFE outputs into 3 production
-// bundles (mf-core.js, mf-views.js, mf-app.js), content-hashes every .js
-// in static/dist/, and writes ?v= params to templates.
+// After building, concatenates individual IIFE outputs into 2 production
+// bundles (mf-core.js, mf-app.js) + individual per-view chunks, content-hashes
+// every .js in static/dist/, and writes ?v= params to templates.
 
 import { build, context } from "esbuild";
 import { readdirSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
@@ -55,31 +55,60 @@ async function buildVendor() {
   if (!watch) console.log("  vendor/d3-sankey.js  (global `d3Sankey`)");
 }
 
+async function buildReactWindowVendor() {
+  const pkg = join("node_modules", "react-window", "dist", "react-window.js");
+  if (!existsSync(pkg)) {
+    if (!watch) console.log("  Skipping react-window (not found)");
+    return;
+  }
+  await build({
+    entryPoints: [pkg],
+    outfile: join(vendorDir, "react-window.js"),
+    format: "iife",
+    bundle: true,
+    globalName: "ReactWindow",
+    target: ["es2017"],
+    minify: !watch,
+    logLevel: watch ? "silent" : "info",
+  });
+  if (!watch) console.log("  vendor/react-window.js  (global `ReactWindow`)");
+}
+
 function hash(content) {
   return createHash("sha256").update(content).digest("hex").slice(0, 8);
 }
 
-// Dependency order for concatenation (files that need to load before others)
+// Core bundles (always loaded)
 const BUNDLES = [
   {
     name: "mf-core",
     files: [
       "date-utils", "data", "icons", "focus-trap", "error-boundary",
       "keyboard-hint", "sound", "sync-progress", "settings-ui",
-      "inbox-styles", "inbox-common", "shell",
-    ],
-  },
-  {
-    name: "mf-views",
-    files: [
-      "inbox-detail", "inbox-panels", "inbox",
-      "flow", "health", "dashboard", "reports",
-      "recurring", "debt", "goals", "budgets",
-      "onboarding", "account", "admin",
+      "inbox-styles", "inbox-common", "contexts", "shell",
     ],
   },
   { name: "mf-app", files: ["app"] },
 ];
+
+// Lazy chunks: per-view chunks loaded on demand.
+// Each chunk is one or more IIFE files concatenated together.
+// The first file in the array runs first (dependency order).
+// Views map: the view names (used in app.jsx) that this chunk serves.
+const LAZY_CHUNKS = {
+  "inbox":        { files: ["inbox-detail", "inbox-panels", "inbox"],      views: ["inbox", "search", "review"] },
+  "flow":         { files: ["flow"],                                       views: ["flow", "picture"] },
+  "dashboard":    { files: ["dashboard"],                                  views: ["dashboard", "today"] },
+  "health":       { files: ["health"],                                     views: ["health"] },
+  "reports":      { files: ["reports"],                                    views: ["reports"] },
+  "recurring":    { files: ["recurring"],                                  views: ["recurring"] },
+  "debt":         { files: ["debt"],                                       views: ["debt"] },
+  "goals":        { files: ["goals"],                                      views: ["goals"] },
+  "budgets":      { files: ["budgets"],                                    views: ["budgets"] },
+  "account":      { files: ["account-admin", "account"],                   views: ["profile", "settings"] },
+  "admin":        { files: ["admin"],                                      views: ["admin"] },
+  "onboarding":   { files: ["onboarding"],                                 views: ["onboarding"] },
+};
 
 function concatBundles() {
   for (const bundle of BUNDLES) {
@@ -93,8 +122,27 @@ function concatBundles() {
   }
 }
 
+function concatLazyChunks() {
+  for (const [name, chunk] of Object.entries(LAZY_CHUNKS)) {
+    const parts = chunk.files.map((f) => {
+      const p = join(outDir, `${f}.js`);
+      try { return readFileSync(p, "utf8"); } catch { return ""; }
+    });
+    const combined = parts.join("\n");
+    writeFileSync(join(outDir, `${name}.js`), combined);
+    if (!watch) console.log(`  ${name}.js  (${(combined.length / 1024).toFixed(1)}kb)`);
+  }
+}
+
 function applyContentHashes() {
-  const distFiles = [...BUNDLES.map((b) => `${b.name}.js`), "vendor/d3-sankey.js"];
+  // Collect all distributed files to hash
+  const distFiles = [
+    ...BUNDLES.map((b) => `${b.name}.js`),
+    ...Object.keys(LAZY_CHUNKS).map((name) => `${name}.js`),
+    "vendor/d3-sankey.js",
+    "vendor/react-window.js",
+  ];
+
   const hashMap = {};
   for (const f of distFiles) {
     const p = join(outDir, f);
@@ -104,7 +152,7 @@ function applyContentHashes() {
     } catch {}
   }
 
-  // Login template — only login-effects is needed
+  // Login template — only login-effects needs hashing
   for (const tmpl of ["templates/login.html"]) {
     let html = readFileSync(tmpl, "utf8");
     html = html.replace(
@@ -118,30 +166,51 @@ function applyContentHashes() {
     console.log(`  Updated ${tmpl}`);
   }
 
-  // Index template — replace individual dist/*.js with bundles, keep vendor
+  // Build chunk manifest: map chunk names to versioned URLs
+  const manifest = {};
+  for (const [name] of Object.entries(LAZY_CHUNKS)) {
+    const key = `${name}.js`;
+    if (hashMap[key]) {
+      manifest[name] = `/static/dist/${name}.js?v=${hashMap[key]}`;
+    }
+  }
+
+  // Index template
   let html = readFileSync("templates/index.html", "utf8");
+
   // Remove individual dist/*.js script lines (not vendor/, not bundles)
   html = html.replace(/^\s*<script src="\/static\/dist\/[\w-]+\.js(?:\?v=[\w.-]+)?"><\/script>\s*$/gm, "");
+  // Remove old chunk manifest inline scripts from previous builds
+  html = html.replace(/^\s*<script[^>]*>window\.__mfChunks=.*?<\/script>\s*$/gm, "");
   // Remove blank lines left by removal
   html = html.replace(/\n{3,}/g, "\n\n");
-  // Insert bundle script tags before </body>
+
+  // Build script tags for bundles
   const bundleTags = BUNDLES.map((b) => {
     const key = `${b.name}.js`;
     const v = hashMap[key] || "";
     return `  <script src="/static/dist/${b.name}.js${v ? `?v=${v}` : ""}"></script>`;
   }).join("\n");
-  html = html.replace("</body>", `${bundleTags}\n</body>`);
+
+  // Build manifest inline script (must be before mf-app.js so chunks are defined)
+  const nonce = "{{ request.state.nonce }}";
+  const manifestScript = `  <script nonce="${nonce}">window.__mfChunks=${JSON.stringify(manifest)};</script>`;
+
+  // Insert: manifest first (for app.jsx chunk loader), then bundles before </body>
+  html = html.replace("</body>", `${manifestScript}\n${bundleTags}\n</body>`);
   writeFileSync("templates/index.html", html);
-  console.log(`  Updated templates/index.html with bundle script tags`);
+  console.log(`  Updated templates/index.html with chunk manifest + bundles`);
 }
 
 if (watch) {
-  await Promise.all([buildVendor(), context(options).then(ctx => ctx.watch())]);
+  await Promise.all([buildVendor(), buildReactWindowVendor(), context(options).then(ctx => ctx.watch())]);
   console.log("Watching static/src/*.jsx for changes…");
 } else {
   await build(options);
   console.log(`Built ${files.length} files → ${outDir}/`);
   concatBundles();
+  concatLazyChunks();
   await buildVendor();
+  await buildReactWindowVendor();
   applyContentHashes();
 }

@@ -2817,4 +2817,4 @@ const SettingsView = ({ syncStatus, setSyncStatus, onRescan, syncing, account, s
  };
 
 
-Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, InviteSection, AdminBackfillBodiesSection });
+Object.assign(window, { OnboardingView, ProfileView, SettingsView, CategoriesSection, FinancialHealthSection, InviteSection, AdminBackfillBodiesSection: window.AdminBackfillBodiesSection });

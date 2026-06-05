@@ -584,7 +584,16 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 };
 
 const RowMemo = React.memo(Row, (prev, next) => {
-  return prev.tx === next.tx
+  if (prev.tx === next.tx) return true;
+  if (prev.tx.id !== next.tx.id) return false;
+  return prev.tx.amount === next.tx.amount
+    && prev.tx.merchant === next.tx.merchant
+    && prev.tx.cat === next.tx.cat
+    && prev.tx.tag === next.tx.tag
+    && prev.tx.read === next.tx.read
+    && prev.tx.flag === next.tx.flag
+    && prev.tx.conf === next.tx.conf
+    && prev.tx.subject === next.tx.subject
     && prev.selected === next.selected
     && prev.selectMode === next.selectMode;
 });
