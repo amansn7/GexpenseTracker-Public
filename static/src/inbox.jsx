@@ -784,7 +784,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
   return (
     <>
       <div style={{ ...(selected && !isMobile ? inboxStyles.wrap : inboxStyles.wrapNoPanel), height: isMobile ? "calc(100dvh - 115px)" : (selected ? inboxStyles.wrap.height : inboxStyles.wrapNoPanel.height) }}>
-        <div style={{ ...inboxStyles.list, overflow: "hidden", display: "flex", flexDirection: "column", ...(isMobile ? { borderRight: "none", touchAction: "pan-y" } : {}) }}
+        <div style={{ ...inboxStyles.list, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0, ...(isMobile ? { borderRight: "none", touchAction: "pan-y" } : {}) }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}>
@@ -1283,7 +1283,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                 <VList
                   ref={listApiRef}
                   outerRef={listRef}
-                  height={listHeight}
+                  height={listHeight || 600}
                   width="100%"
                   itemCount={flatItems.length}
                   itemSize={getItemSize}
