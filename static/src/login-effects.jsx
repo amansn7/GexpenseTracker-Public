@@ -75,7 +75,9 @@
       }else{
         var dist=Math.sqrt((ix-cxi)*(ix-cxi)+(iy-cyi)*(iy-cyi));
         if(dist<front-1){
-          p[idx+1]=baseY;
+          var behindFront=front-dist-1;
+          var growAmp=Math.min(1,behindFront/7);
+          p[idx+1]=baseY*growAmp;
         }else if(dist<front+1){
           p[idx+1]=baseY*Math.max(0,(front+1-dist)/2);
         }else{
