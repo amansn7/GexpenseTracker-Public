@@ -122,7 +122,9 @@ def _upgrade_postgres():
     _create_monthly_partitions("classification_log_partitioned")
     conn.execute(sa.text(
         "INSERT INTO classification_log_partitioned "
-        "SELECT * FROM classification_log"
+        "(id, email_id, sender_domain, subject, body_snippet, provider, model, latency_ms, llm_label, llm_amount, pre_extraction_amount, llm_merchant, llm_category, llm_confidence, llm_txn_date, raw_response, created_at) "
+        "SELECT id, email_id, sender_domain, subject, body_snippet, provider, model, latency_ms, llm_label, llm_amount, pre_extraction_amount, llm_merchant, llm_category, llm_confidence, llm_txn_date, raw_response, created_at "
+        "FROM classification_log"
     ))
     op.create_index("ix_classification_log_email_id", "classification_log_partitioned", ["email_id"])
     op.create_index("ix_classification_log_created_at", "classification_log_partitioned", ["created_at"])
@@ -151,7 +153,12 @@ def _upgrade_postgres():
         ") PARTITION BY RANGE (received_at)"
     )
     _create_monthly_partitions("emails_partitioned")
-    conn.execute(sa.text("INSERT INTO emails_partitioned SELECT * FROM emails"))
+    conn.execute(sa.text(
+        "INSERT INTO emails_partitioned "
+        "(id, user_id, gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, body_dates, reference_ids, gmail_link, synced_at, pre_filter_status) "
+        "SELECT id, user_id, gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, body_dates, reference_ids, gmail_link, synced_at, pre_filter_status "
+        "FROM emails"
+    ))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_emails_gmail_id ON emails_partitioned (gmail_id)"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_emails_id ON emails_partitioned (id)"))
     op.create_index("ix_emails_user_id_pre_filter_status", "emails_partitioned", ["user_id", "pre_filter_status"])
@@ -184,7 +191,12 @@ def _upgrade_postgres():
         ") PARTITION BY RANGE (txn_date)"
     )
     _create_monthly_partitions("transactions_partitioned")
-    conn.execute(sa.text("INSERT INTO transactions_partitioned SELECT * FROM transactions"))
+    conn.execute(sa.text(
+        "INSERT INTO transactions_partitioned "
+        "(id, email_id, label, transaction_type, payment_mode, amount, currency, merchant, category, txn_date, confidence, status, classifier_method, user_notes, read, flagged, created_at) "
+        "SELECT id, email_id, label, transaction_type, payment_mode, amount, currency, merchant, category, txn_date, confidence, status, classifier_method, user_notes, read, flagged, created_at "
+        "FROM transactions"
+    ))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_transactions_id ON transactions_partitioned (id)"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_transactions_email_id ON transactions_partitioned (email_id)"))
     op.create_index("ix_transactions_label", "transactions_partitioned", ["label"])
