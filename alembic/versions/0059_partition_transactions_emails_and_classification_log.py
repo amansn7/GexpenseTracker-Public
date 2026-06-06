@@ -94,6 +94,7 @@ def _upgrade_postgres():
     conn.execute(sa.text("ALTER TABLE duplicate_pairs DROP CONSTRAINT IF EXISTS duplicate_pairs_duplicate_tx_id_fkey"))
     conn.execute(sa.text("ALTER TABLE transaction_corrections DROP CONSTRAINT IF EXISTS transaction_corrections_transaction_id_fkey"))
     conn.execute(sa.text("ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_email_id_fkey"))
+    conn.execute(sa.text("ALTER TABLE transactions DROP CONSTRAINT IF EXISTS fk_transactions_email_id_emails"))
     conn.execute(sa.text("ALTER TABLE classification_log DROP CONSTRAINT IF EXISTS classification_log_email_id_fkey"))
 
     # ── 3. classification_log ───────────────────────────────────
@@ -126,6 +127,8 @@ def _upgrade_postgres():
         "SELECT id, email_id, sender_domain, subject, body_snippet, provider, model, latency_ms, llm_label, llm_amount, pre_extraction_amount, llm_merchant, llm_category, llm_confidence, llm_txn_date, raw_response, created_at "
         "FROM classification_log"
     ))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_classification_log_email_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_classification_log_created_at"))
     op.create_index("ix_classification_log_email_id", "classification_log_partitioned", ["email_id"])
     op.create_index("ix_classification_log_created_at", "classification_log_partitioned", ["created_at"])
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_classification_log_id ON classification_log_partitioned (id)"))
@@ -159,6 +162,10 @@ def _upgrade_postgres():
         "SELECT id, user_id, gmail_id, subject, sender, sender_domain, received_at, body_snippet, body_text, body_dates, reference_ids, gmail_link, synced_at, pre_filter_status "
         "FROM emails"
     ))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_emails_user_id_pre_filter_status"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_emails_user_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_emails_sender_domain"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_emails_user_received"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_emails_gmail_id ON emails_partitioned (gmail_id)"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_emails_id ON emails_partitioned (id)"))
     op.create_index("ix_emails_user_id_pre_filter_status", "emails_partitioned", ["user_id", "pre_filter_status"])
@@ -197,6 +204,13 @@ def _upgrade_postgres():
         "SELECT id, email_id, label, transaction_type, payment_mode, amount, currency, merchant, category, txn_date, confidence, status, classifier_method, user_notes, read, flagged, created_at "
         "FROM transactions"
     ))
+    conn.execute(sa.text("ALTER TABLE transactions DROP CONSTRAINT IF EXISTS uq_transactions_email_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_label"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_status"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_txn_date"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_email_id_txn_date"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_email_id_created_at"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transactions_email_id"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_transactions_id ON transactions_partitioned (id)"))
     conn.execute(sa.text("CREATE UNIQUE INDEX uq_transactions_email_id ON transactions_partitioned (email_id)"))
     op.create_index("ix_transactions_label", "transactions_partitioned", ["label"])
