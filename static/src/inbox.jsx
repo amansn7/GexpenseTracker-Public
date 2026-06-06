@@ -586,7 +586,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
 
   const sourceItems = filter === "needs_review" ? needsReviewItems : transactions;
   const filtered = sourceItems.filter(t => {
-    if (t.tag === "ignore") return false;
+    if (t.tag === "ignore" && filter !== "needs_review") return false;
     if (filter === "all") return true;
     if (filter === "expenses") return t.amount < 0 && t.tag !== "subscription";
     if (filter === "income") return t.amount > 0;
