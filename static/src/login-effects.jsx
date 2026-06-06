@@ -113,7 +113,7 @@
   var wrap=document.getElementById("main-content");
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
-    if(wrap){wrap.style.opacity="0";wrap.style.transform="translateY(10px)";}
+    if(wrap){wrap.style.transform="translateY(10px)";}
     // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
@@ -134,7 +134,7 @@
       setTimeout(function(){
         tgl.style.transition="";
         el.style.transition="";
-        if(wrap){wrap.style.transition="";wrap.style.opacity="";wrap.style.transform="";}
+        if(wrap){wrap.style.transition="";wrap.style.transform="";}
       },1100);
     },1100);
   }else{
