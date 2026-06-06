@@ -109,33 +109,34 @@
   updateTheme();
   animate();
 
-  // === Entrance animation: center → toggle flash → bottom-right (once per session) ===
+  // === Entrance: drop → wave reveal → slide to corner (once per session) ===
   var wrap=document.getElementById("main-content");
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
-    // Phase 1: snap toggle to viewport center
-    tgl.style.transform="translate("+(38-window.innerWidth/2)+"px,"+(38-window.innerHeight/2)+"px)";
+    var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
+    // Phase 1: toggle above viewport (instant)
+    tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
-    // Phase 2: after a beat, quick day/night flash
+    // Phase 2: drop to center + sine wave fades in (overlapping, fluid)
+    tgl.style.transition="transform 900ms cubic-bezier(.22,1,.36,1)";
+    tgl.style.transform="translate("+cx+"px,"+cy+"px)";
+    el.style.transition="opacity 900ms ease";
+    el.style.opacity="1";
+    // Phase 3: after settling, slide toggle to corner + reveal login card
     setTimeout(function(){
-      var d=dark();
-      mc.style.setProperty("cx",d?"33":"17");mc.style.setProperty("cy",d?"0":"8");
-      bodyEl.style.setProperty("r",d?"5":"9");
-      rays.style.opacity=d?"1":"0";rays.style.transform=d?"scale(1) rotate(0deg)":"scale(0) rotate(-30deg)";
-      setTimeout(function(){
-        // Phase 3: morph back + slide toggle to corner + reveal entire login card
-        var d=dark();
-        mc.style.setProperty("cx",d?"17":"33");mc.style.setProperty("cy",d?"8":"0");
-        bodyEl.style.setProperty("r",d?"9":"5");
-        rays.style.opacity=d?"0":"1";rays.style.transform=d?"scale(0) rotate(-30deg)":"scale(1) rotate(0deg)";
-        tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
-        tgl.style.transform="";
-        if(wrap){
-          wrap.style.transition="opacity 800ms ease,transform 800ms cubic-bezier(.34,1.56,.64,1)";
-          wrap.style.opacity="1";
-          wrap.style.transform="translateY(0)";
-        }
-        setTimeout(function(){tgl.style.transition="";},1100);
-      },200);
-    },500);
-  }else if(wrap){wrap.style.opacity="1";wrap.style.transform="translateY(0)";}
+      tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
+      tgl.style.transform="";
+      if(wrap){
+        wrap.style.opacity="0";
+        wrap.style.transform="translateY(10px)";
+        void wrap.offsetHeight;
+        wrap.style.transition="opacity 800ms ease,transform 800ms cubic-bezier(.34,1.56,.64,1)";
+        wrap.style.opacity="1";
+        wrap.style.transform="translateY(0)";
+      }
+      setTimeout(function(){tgl.style.transition="";},1100);
+    },1100);
+  }else{
+    el.style.opacity="1";
+    if(wrap){wrap.style.opacity="1";wrap.style.transform="translateY(0)";}
+  }
 })();
