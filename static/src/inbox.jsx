@@ -629,9 +629,9 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
 
   const getItemSize = React.useCallback((index) => {
     const item = flatItems[index];
-    if (!item) return 45;
-    if (item.type === "header") return isMobile ? 35 : 48;
-    return isMobile ? 53 : 45;
+    if (!item) return 56;
+    if (item.type === "header") return isMobile ? 40 : 48;
+    return isMobile ? 88 : 56;
   }, [flatItems, isMobile]);
 
   const handleItemsRendered = React.useCallback(({ visibleStopIndex }) => {
@@ -1575,7 +1575,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                       );
                     }
                     return (
-                      <div role="listitem" style={style}>
+                      <div role="listitem" style={{ ...style, borderBottom: "1px solid var(--line)" }}>
                         <Row
                           tx={item.tx}
                           selected={selectMode ? selectedIds.has(item.tx.id) : selectedId === item.tx.id}
