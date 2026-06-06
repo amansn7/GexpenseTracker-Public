@@ -27,6 +27,7 @@
   .skip-link:focus { top:0; }
   #bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
   #bg canvas { display:block; width:100%; height:100%; }
+  #passkey-section, #google-section { transition:opacity 300ms ease; }
   .tgl svg { overflow:visible; }
   #tgl-mc { transition:cx 400ms cubic-bezier(.34,1.56,.64,1),cy 400ms cubic-bezier(.34,1.56,.64,1); }
   #tgl-body { transition:r 400ms cubic-bezier(.34,1.56,.64,1); }
@@ -60,27 +61,30 @@
   <div class="wrap" id="main-content" tabindex="-1">
   <h1>MoneyFlow</h1>
   <p class="tagline">Your inbox for money.</p>
-  <button class="btn" id="passkey-btn" style="margin-bottom:12px;width:100%;justify-content:center;">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M2 18v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/>
-      <path d="M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-      <path d="M18 11a6 6 0 0 1-12 0"/>
-    </svg>
-    <span>Sign in with Passkey</span>
-  </button>
-  <div style="position:relative;margin:8px 0 16px;text-align:center;color:var(--ink-3);font-size:12px;">
-    <span style="background:var(--card);padding:0 12px;position:relative;z-index:1;">or</span>
-    <div style="border-top:1px solid var(--line);position:absolute;top:50%;left:0;right:0;"></div>
+  <div id="passkey-section">
+    <button class="btn" id="passkey-btn" style="width:100%;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2 18v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2"/>
+        <path d="M12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+        <path d="M18 11a6 6 0 0 1-12 0"/>
+      </svg>
+      <span>Sign in with Passkey</span>
+    </button>
   </div>
-  <a class="btn" href="/api/auth/google">
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-      <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-    Sign in with Google
-  </a>
+  <div id="google-section" style="display:none;">
+    <p style="margin:0 0 16px;color:var(--ink-2);font-size:14px;line-height:1.5;">
+      Your passkey is verified. Connect your Google account to start tracking expenses.
+    </p>
+    <a class="btn" href="/api/auth/google" style="width:100%;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+        <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </a>
+  </div>
   <p class="footer">Self-hosted · your data stays local</p>
 </div>
 <script nonce="{{ request.state.nonce }}">
@@ -97,9 +101,11 @@
       var begin = await fetch("/api/auth/passkey/login/begin", { method: "POST" });
       if (!begin.ok) throw new Error("Failed to start");
       var opts = await begin.json();
+      var challengeRaw = opts.challenge_b64.replace(/-/g, "+").replace(/_/g, "/");
+      while (challengeRaw.length % 4) challengeRaw += "=";
       var credential = await navigator.credentials.get({
         publicKey: {
-          challenge: Uint8Array.from(atob(opts.challenge_b64), function(c){return c.charCodeAt(0);}).buffer,
+          challenge: Uint8Array.from(atob(challengeRaw), function(c){return c.charCodeAt(0);}).buffer,
           allowCredentials: opts.options.allowCredentials || [],
           timeout: opts.options.timeout || 60000,
           userVerification: opts.options.userVerification || "required",
@@ -130,7 +136,13 @@
         var err = await comp.json();
         throw new Error(err.detail || "Verification failed");
       }
-      window.location.href = "/";
+      var data = await comp.json();
+      if (data.google_connected) {
+        window.location.href = "/";
+      } else {
+        document.getElementById("passkey-section").style.display = "none";
+        document.getElementById("google-section").style.display = "block";
+      }
     } catch(e) {
       console.error("Passkey login failed:", e);
       btn.querySelector("span").textContent = "Try again";

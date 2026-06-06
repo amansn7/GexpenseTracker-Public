@@ -741,21 +741,33 @@ async def passkey_login_complete(
 
     stored.sign_count = new_sign_count
 
-    token = await _create_session(db, user)
-    _set_session_cookie(response, token)
+    account = (
+        await db.execute(
+            select(ConnectedAccount).where(
+                ConnectedAccount.user_id == user.id,
+                ConnectedAccount.provider == "gmail",
+            )
+        )
+    ).scalar_one_or_none()
 
-    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
-    pk_token = _sign_passkey_token(token.hex())
-    response.set_cookie(
-        PASSKEY_COOKIE_NAME,
-        value=pk_token,
-        httponly=True,
-        secure=secure,
-        samesite="lax",
-        max_age=86400,
-        path="/",
-    )
-    return {"ok": True}
+    if account and account.status == "connected":
+        token = await _create_session(db, user)
+        _set_session_cookie(response, token)
+
+        secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+        pk_token = _sign_passkey_token(token.hex())
+        response.set_cookie(
+            PASSKEY_COOKIE_NAME,
+            value=pk_token,
+            httponly=True,
+            secure=secure,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        return {"ok": True, "google_connected": True}
+    else:
+        return {"ok": True, "google_connected": False}
 
 
 async def _resolve_user_from_session(request: Request, db: AsyncSession) -> User | None:
