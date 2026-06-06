@@ -117,12 +117,17 @@
     // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
-    // Phase 2: drop to center + sine wave fades in (overlapping, fluid)
-    tgl.style.transition="transform 900ms cubic-bezier(.22,1,.36,1)";
+    // Phase 2: bounce drop to center + sine wave fades in from the start
+    tgl.style.transition="transform 1200ms cubic-bezier(.34,1.56,.64,1)";
     tgl.style.transform="translate("+cx+"px,"+cy+"px)";
-    el.style.transition="opacity 900ms ease";
+    el.style.transition="opacity 1000ms ease";
     el.style.opacity="1";
-    // Phase 3: after settling, slide toggle to corner + reveal login card
+    // On bounce impact: toggle day/night with sound
+    setTimeout(function(){
+      html.setAttribute("data-theme",dark()?"paper":"midnight");
+      playToggleSound();
+    },420);
+    // Phase 3: after bounce settles, slide toggle to corner + reveal login card
     setTimeout(function(){
       tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
       tgl.style.transform="";
@@ -136,7 +141,7 @@
         el.style.transition="";
         if(wrap){wrap.style.transition="";wrap.style.transform="";}
       },1100);
-    },1100);
+    },1400);
   }else{
     el.style.opacity="1";
   }
