@@ -161,7 +161,7 @@ const MobileAppBanner = () => {
 const App = () => {
   const { view, setView, selectedId, setSelectedId, searchQuery, setSearchQuery } = useContext(ViewContext);
   const { inboxFilter, setInboxFilter, categoryFilter, setCategoryFilter, dateRange, setDateRange, inboxDateRange, setInboxDateRange, catOpen, setCatOpen, catRef, tweaksOn, setTweaksOn } = useContext(FilterContext);
-  const { syncStatus, syncing, syncProgress, syncPanelDismissed, syncPanelPosition, startPolling, handleRescan, syncLabel } = useContext(SyncContext);
+  const { syncStatus, setSyncStatus, syncing, syncProgress, syncPanelDismissed, setSyncPanelDismissed, syncPanelPosition, startPolling, handleRescan, syncLabel } = useContext(SyncContext);
 
   const [transactions, setTransactions] = useState([]);
   const [reviewEmails, setReviewEmails] = React.useState([]);
