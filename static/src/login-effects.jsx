@@ -113,6 +113,7 @@
   var wrap=document.getElementById("main-content");
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
+    if(wrap){wrap.style.opacity="0";wrap.style.transform="translateY(10px)";}
     // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
@@ -126,9 +127,6 @@
       tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
       tgl.style.transform="";
       if(wrap){
-        wrap.style.opacity="0";
-        wrap.style.transform="translateY(10px)";
-        void wrap.offsetHeight;
         wrap.style.transition="opacity 800ms ease,transform 800ms cubic-bezier(.34,1.56,.64,1)";
         wrap.style.opacity="1";
         wrap.style.transform="translateY(0)";
