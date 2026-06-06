@@ -35,7 +35,7 @@ async def start_arq_scheduler():
 
     global _worker, _worker_task
     _worker = create_worker()
-    _worker_task = asyncio.create_task(_worker.run())
+    _worker_task = asyncio.create_task(_worker.async_run())
     _metrics["started_at"] = time.time()
     logger.info("arq_scheduler_started")
 
@@ -44,7 +44,7 @@ async def stop_arq_scheduler():
     """Gracefully stop the ARQ worker."""
     global _worker, _worker_task
     if _worker:
-        _worker.close()
+        await _worker.close()
         if _worker_task:
             try:
                 await asyncio.wait_for(_worker_task, timeout=10.0)

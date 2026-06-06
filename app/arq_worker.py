@@ -294,4 +294,5 @@ def create_worker(redis_pool=None):
         max_tries=3,
         job_timeout=600,
         poll_delay=1.0,
+        handle_signals=False,
     )
