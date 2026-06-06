@@ -12,7 +12,7 @@
   * { box-sizing:border-box; }
   html { margin:0; padding:0; background:var(--paper); transition:background-color 400ms ease; }
   body { margin:0; padding:0; min-height:100vh; display:flex; align-items:center; justify-content:center; font-family:'Geist',system-ui,sans-serif; font-size:14px; color:var(--ink); transition:color 400ms ease,background-color 400ms ease; }
-  .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 32px -8px rgba(0,0,0,0.08); position:relative; z-index:1; transition:background-color 400ms ease,color 400ms ease,border-color 400ms ease; }
+  .wrap { max-width:380px; width:100%; padding:48px 40px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 32px -8px rgba(0,0,0,0.08); position:relative; z-index:1; opacity:0; transform:translateY(8px); transition:background-color 400ms ease,color 400ms ease,border-color 400ms ease; }
   h1 { font-family:'Geist',sans-serif; font-size:40px; font-weight:400; letter-spacing:-0.03em; margin:0 0 8px; transition:color 400ms ease; }
   .tagline { font-size:14px; color:var(--ink-3); margin:0 0 40px; transition:color 400ms ease; }
   .btn { display:inline-flex; align-items:center; gap:10px; padding:12px 24px; background:var(--ink); color:var(--paper); border:none; border-radius:8px; font-size:14px; font-family:'Geist',sans-serif; font-weight:500; cursor:pointer; text-decoration:none; transition:background-color 400ms ease,color 400ms ease,opacity 120ms; }
@@ -28,12 +28,11 @@
   #bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
   #bg canvas { display:block; width:100%; height:100%; }
   #passkey-section, #google-section { transition:opacity 300ms ease; }
-  #passkey-section { opacity:0; }
   .tgl svg { overflow:visible; }
   #tgl-mc { transition:cx 400ms cubic-bezier(.34,1.56,.64,1),cy 400ms cubic-bezier(.34,1.56,.64,1); }
   #tgl-body { transition:r 400ms cubic-bezier(.34,1.56,.64,1); }
   #tgl-rays { transition:opacity 400ms cubic-bezier(.34,1.56,.64,1),transform 400ms cubic-bezier(.34,1.56,.64,1); transform-origin:12px 12px; }
-  @media (prefers-reduced-motion:reduce){.tgl{transition:none!important}#passkey-section{opacity:1!important;transition:none!important}}
+  @media (prefers-reduced-motion:reduce){.tgl{transition:none!important}.wrap{opacity:1!important;transform:none!important;transition:none!important}}
 </style>
 </head>
 <body>
