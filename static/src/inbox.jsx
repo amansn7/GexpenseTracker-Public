@@ -17,8 +17,6 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
   const [reviewBulkBusy, setReviewBulkBusy] = React.useState(false);
   const [reviewBulkErrors, setReviewBulkErrors] = React.useState([]);
   const [showReviewComplete, setShowReviewComplete] = React.useState(false);
-  const [closingReviewComplete, setClosingReviewComplete] = React.useState(false);
-  const closeReviewComplete = () => { if (closingReviewComplete) return; setClosingReviewComplete(true); setTimeout(() => { setShowReviewComplete(false); setClosingReviewComplete(false); }, 150); };
   const [reviewSessionStats, setReviewSessionStats] = React.useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("mf_review_session"));
@@ -131,12 +129,9 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
     return range.from === dateRange.from && range.to === dateRange.to;
   }) || null;
   const [bulkReclassItems, setBulkReclassItems] = React.useState([]);  // each: { id, subject, snippet, current, preview, status }
-  const [closingReclass, setClosingReclass] = React.useState(false);
-  const closeReclass = () => { if (closingReclass) return; setClosingReclass(true); setTimeout(() => { clearSelect(); setBulkReclassItems([]); setClosingReclass(false); }, 150); };
+  const closeReclass = () => { clearSelect(); setBulkReclassItems([]); };
   const [bulkReclassIdx, setBulkReclassIdx] = React.useState(0);       // index of currently-displayed item
   const [bulkManualOpen, setBulkManualOpen] = React.useState(false);
-  const [closingBulk, setClosingBulk] = React.useState(false);
-  const closeBulk = () => { if (closingBulk) return; setClosingBulk(true); setTimeout(() => { setBulkManualOpen(false); setClosingBulk(false); }, 150); };
   const [bulkManualCat, setBulkManualCat] = React.useState("other");
   const [bulkManualLabel, setBulkManualLabel] = React.useState("expense");
   const [bulkManualAmount, setBulkManualAmount] = React.useState("");
@@ -728,13 +723,11 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
 
   // Keyboard shortcuts for the inbox list
   const [showShortcuts, setShowShortcuts] = React.useState(false);
-  const [closingShortcuts, setClosingShortcuts] = React.useState(false);
-  const closeShortcuts = () => { if (closingShortcuts) return; setClosingShortcuts(true); setTimeout(() => { setShowShortcuts(false); setClosingShortcuts(false); }, 150); };
   React.useEffect(() => {
     if (selectMode || filter === "duplicates") return;
     const onKey = (e) => {
       if (e.key === "Escape" && selectedId) { e.preventDefault(); setSelectedId(null); return; }
-      if (e.key === "Escape" && showShortcuts) { e.preventDefault(); closeShortcuts(); return; }
+      if (e.key === "Escape" && showShortcuts) { e.preventDefault(); setShowShortcuts(false); return; }
       if (e.key === "?" && !selectedId) { e.preventDefault(); setShowShortcuts(s => !s); return; }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -1404,47 +1397,9 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
       )}
 
       {bulkManualOpen && (
-        isMobile ? ReactDOM.createPortal(
-          <div onClick={closeBulk} style={bottomSheetStyles.overlay}>
-            <div onClick={e=>e.stopPropagation()} style={bottomSheetStyles.sheet}>
-              <div style={bottomSheetStyles.handle} />
-              <div style={bottomSheetStyles.content}>
-                <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectAllFlag ? totalTransactions : selectedIds.size} transactions</div>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
-                  <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                    <option value="ignore">Ignore</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Category</div>
-                  <select value={bulkManualCat} onChange={e=>setBulkManualCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
-                    {Object.entries(CATEGORIES).map(([k,c])=>(
-                      <option key={k} value={k}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Amount (optional)</div>
-                  <input type="number" min="0" step="0.01" value={bulkManualAmount} onChange={e=>setBulkManualAmount(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Merchant (optional)</div>
-                  <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={closeBulk} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
-                  <button onClick={bulkManualApply} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.getElementById("modal-root")
-        ) : (
-          <div onClick={closeBulk} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingBulk ? "backdrop-out" : "backdrop-in"}>
-            <div onClick={e=>e.stopPropagation()} className={closingBulk ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 20, width: 340, boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
+        isMobile ? (
+          <BottomSheet open onClose={() => setBulkManualOpen(false)}>
+            <div style={{ padding: "0 4px" }}>
               <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectAllFlag ? totalTransactions : selectedIds.size} transactions</div>
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
@@ -1471,20 +1426,49 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                 <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={closeBulk} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                <button onClick={() => setBulkManualOpen(false)} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
                 <button onClick={bulkManualApply} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
               </div>
             </div>
-          </div>
+          </BottomSheet>
+        ) : (
+          <Modal open onClose={() => setBulkManualOpen(false)} width={340}>
+            <div style={{ fontWeight: 600, marginBottom: 14, fontSize: 13 }}>Recategorize {selectAllFlag ? totalTransactions : selectedIds.size} transactions</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Label</div>
+              <select value={bulkManualLabel} onChange={e=>setBulkManualLabel(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+                <option value="ignore">Ignore</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Category</div>
+              <select value={bulkManualCat} onChange={e=>setBulkManualCat(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}>
+                {Object.entries(CATEGORIES).map(([k,c])=>(
+                  <option key={k} value={k}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Amount (optional)</div>
+              <input type="number" min="0" step="0.01" value={bulkManualAmount} onChange={e=>setBulkManualAmount(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "'Geist Mono', monospace", outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-3)", marginBottom: 4 }}>Merchant (optional)</div>
+              <input type="text" value={bulkManualMerchant} onChange={e=>setBulkManualMerchant(e.target.value)} placeholder="Leave blank to keep current" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setBulkManualOpen(false)} style={{ flex: 1, padding: "10px 20px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              <button onClick={bulkManualApply} style={{ flex: 2, padding: "10px 20px", border: "none", borderRadius: 6, background: "var(--ink)", color: "var(--paper)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Apply to {selectAllFlag ? totalTransactions : selectedIds.size}</button>
+            </div>
+          </Modal>
         )
       )}
 
       {bulkReclassItems.length > 0 && (
-        isMobile ? ReactDOM.createPortal(
-          <div onClick={closeReclass} style={bottomSheetStyles.overlay}>
-            <div onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
-              <div style={bottomSheetStyles.handle} />
-              <div style={bottomSheetStyles.content}>
+        isMobile ? (
+          <BottomSheet open onClose={closeReclass}>
                 {/* Header */}
                 <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1692,13 +1676,9 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                     </div>
                   );
                 })()}
-              </div>
-            </div>
-          </div>,
-          document.getElementById("modal-root")
+          </BottomSheet>
         ) : (
-          <div onClick={closeReclass} style={{ position: "fixed", inset: 0, zIndex: 100, background: "var(--overlay)" }} className={closingReclass ? "backdrop-out" : "backdrop-in"}>
-            <div onClick={e => { if (e.target === e.currentTarget) return; e.stopPropagation(); }} className={closingReclass ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "15%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 0, width: 520, maxHeight: "70vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px -20px var(--shadow-lg)" }}>
+          <Modal open onClose={closeReclass}>
               {/* Header */}
               <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1905,9 +1885,8 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                     </button>
                   </div>
                 );
-              })()}
-            </div>
-          </div>
+                })()}
+          </Modal>
         )
       )}
 
@@ -1926,30 +1905,20 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
       )}
 
       {showShortcuts && (
-        <div
-          className={closingShortcuts ? "backdrop-out" : "backdrop-in"}
-          style={{ position:"fixed", inset:0, background:"var(--overlay)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}
-          onClick={closeShortcuts}
-        >
-          <div
-            className={closingShortcuts ? "modal-out" : "modal-in"}
-            style={{ background:"var(--card)", border:"1px solid var(--line)", borderRadius:12, padding:"28px 32px", maxWidth:360, width:"90%" }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ fontFamily:"'Geist',sans-serif", fontSize:18, fontWeight:500, marginBottom:16 }}>Keyboard shortcuts</div>
-            {[
-              ["↑ ↓", "Navigate transactions"],
-              ["Esc", "Close detail panel"],
-              ["? /", "Toggle this reference"],
-            ].map(([key, desc]) => (
-              <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", fontSize:13 }}>
-                <span style={{ color:"var(--ink-2)" }}>{desc}</span>
-                <kbd style={{ fontFamily:"'Geist Mono',monospace", fontSize:11, padding:"2px 8px", background:"var(--paper-2)", borderRadius:4, color:"var(--ink)" }}>{key}</kbd>
-              </div>
-            ))}
-            <div style={{ marginTop:16, fontSize:11, color:"var(--ink-4)" }}>Press <kbd style={{ fontFamily:"'Geist Mono',monospace", padding:"1px 6px", background:"var(--paper-2)", borderRadius:3 }}>?</kbd> or click anywhere to close.</div>
-          </div>
-        </div>
+        <Modal open onClose={() => setShowShortcuts(false)} width={360}>
+          <div style={{ fontFamily:"'Geist',sans-serif", fontSize:18, fontWeight:500, marginBottom:16 }}>Keyboard shortcuts</div>
+          {[
+            ["↑ ↓", "Navigate transactions"],
+            ["Esc", "Close detail panel"],
+            ["? /", "Toggle this reference"],
+          ].map(([key, desc]) => (
+            <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", fontSize:13 }}>
+              <span style={{ color:"var(--ink-2)" }}>{desc}</span>
+              <kbd style={{ fontFamily:"'Geist Mono',monospace", fontSize:11, padding:"2px 8px", background:"var(--paper-2)", borderRadius:4, color:"var(--ink)" }}>{key}</kbd>
+            </div>
+          ))}
+          <div style={{ marginTop:16, fontSize:11, color:"var(--ink-4)" }}>Press <kbd style={{ fontFamily:"'Geist Mono',monospace", padding:"1px 6px", background:"var(--paper-2)", borderRadius:3 }}>?</kbd> or click anywhere to close.</div>
+        </Modal>
       )}
 
       {/* Floating keyboard shortcut hint for review tab */}
@@ -1973,16 +1942,8 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
       )}
 
       {showReviewComplete && (
-        <div
-          onClick={closeReviewComplete}
-          className={closingReviewComplete ? "backdrop-out" : "backdrop-in"}
-          style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--overlay)", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className={closingReviewComplete ? "modal-out" : "modal-in"}
-            style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, maxWidth: 380, width: "calc(100vw - 32px)", textAlign: "center" }}
-          >
+        <Modal open onClose={() => { setShowReviewComplete(false); handleClearSessionStats(); }} width={380}>
+          <div style={{ textAlign: "center" }}>
             <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--pos-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
               <Icon name="check" size={22} stroke="var(--pos)"/>
             </div>
@@ -2006,20 +1967,20 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
             </div>
             <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
               <button
-                onClick={() => { closeReviewComplete(); handleClearSessionStats(); setFilter("all"); }}
+                onClick={() => { setShowReviewComplete(false); handleClearSessionStats(); setFilter("all"); }}
                 style={{ fontSize: 13, padding: "10px 20px", borderRadius: 8, background: "var(--accent)", color: "var(--paper)", border: "none", cursor: "pointer", fontWeight: 600 }}
               >
                 View transactions
               </button>
               <button
-                onClick={() => { closeReviewComplete(); handleClearSessionStats(); }}
+                onClick={() => { setShowReviewComplete(false); handleClearSessionStats(); }}
                 style={{ fontSize: 12, padding: "8px 16px", borderRadius: 6, background: "none", border: "1px solid var(--line)", color: "var(--ink-3)", cursor: "pointer", fontWeight: 500 }}
               >
                 Done
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

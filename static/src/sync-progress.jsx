@@ -12,10 +12,9 @@ const _syncMessages = {
 
 const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position = "bottom-right" }) => {
   const [minimized, setMinimized] = useState(false);
-  const [closing, setClosing] = useState(false);
   const logEndRef = useRef(null);
 
-  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 200); };
+  const handleClose = () => onClose();
 
   const isError = progress.phase === "error";
   const isDone = progress.phase === "done";
@@ -73,9 +72,9 @@ const SyncProgressOverlay = ({ progress, syncing, onClose, onFullView, position 
       background: "var(--card)", border: "1px solid var(--line)",
       borderRadius: 12, boxShadow: "0 8px 32px var(--shadow-lg)",
       display: "flex", flexDirection: "column",
-      animation: closing ? "slideDown 200ms ease-in both" : "slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+      animation: "slideUp 250ms cubic-bezier(0.16, 1, 0.3, 1)",
     }}>
-      <style>{`@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}@keyframes slideDown{from{transform:translateY(0);opacity:1}to{transform:translateY(16px);opacity:0}}`}</style>
+      <style>{`@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
 
       {/* Header */}
       <div style={{ display:"flex", alignItems:"center", gap: 8, padding:"14px 16px 0" }}>

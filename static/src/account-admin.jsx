@@ -77,7 +77,7 @@ const AdminFetchRangeSection = () => {
       </div>
       <div style={accountStyles.row}>
         <div><div style={accountStyles.label}>LLM priority</div><div style={accountStyles.sub}>skip rule pre-filter, always classify with LLM first</div></div>
-        <Toggle on={llmPriority} onChange={setLlmPriority} />
+        <Toggle checked={llmPriority} onChange={setLlmPriority} />
       </div>
       <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
         <div/>

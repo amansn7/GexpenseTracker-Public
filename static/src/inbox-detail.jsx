@@ -64,8 +64,6 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
 
 const CategoryPicker = ({ current, onPick, onClose }) => {
   const { isMobile } = useViewport();
-  const [closing, setClosing] = React.useState(false);
-  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
   const groups = CategoryService.grouped();
   const content = (
     <>
@@ -87,42 +85,15 @@ const CategoryPicker = ({ current, onPick, onClose }) => {
     </>
   );
 
-  if (!isMobile) {
-    return (
-      <div onClick={handleClose} style={{ position: "fixed", inset: 0, zIndex: 100 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-        <div onClick={(e)=>e.stopPropagation()} className={closing ? "modal-out" : "modal-in"} style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 8, width: 320, maxHeight: "60vh", overflowY: "auto", boxShadow: "0 20px 40px -20px var(--shadow-lg)" }}>
-          {content}
-        </div>
-      </div>
-    );
-  }
-
-  const mobilePicker = (
-    <div onClick={handleClose} style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: closing ? "transparent" : "rgba(0,0,0,0.4)",
-      transition: "background 200ms"
-    }}>
-      <div onClick={(e)=>e.stopPropagation()} style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 101,
-        background: "var(--card)",
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        padding: "4px max(8px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
-        maxHeight: "70vh",
-        overflowY: "auto",
-        boxShadow: "0 -8px 32px -8px var(--shadow-lg)",
-        transform: closing ? "translateY(100%)" : "translateY(0)",
-        transition: "transform 280ms cubic-bezier(0.16, 1, 0.3, 1)"
-      }}>
-        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-          <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--ink-4)" }}/>
-        </div>
-        {content}
-      </div>
-    </div>
+  return isMobile ? (
+    <BottomSheet open onClose={onClose}>
+      {content}
+    </BottomSheet>
+  ) : (
+    <Modal open onClose={onClose} width={320}>
+      {content}
+    </Modal>
   );
-  return ReactDOM.createPortal(mobilePicker, document.getElementById("modal-root"));
 };
 
 const DetailPanel = ({ tx, onClose, onUpdate }) => {

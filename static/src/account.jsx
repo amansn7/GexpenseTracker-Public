@@ -724,7 +724,7 @@ const AdminFetchRangeSection = () => {
       </div>
       <div style={accountStyles.row}>
         <div><div style={accountStyles.label}>LLM priority</div><div style={accountStyles.sub}>skip rule pre-filter, always classify with LLM first</div></div>
-        <Toggle on={llmPriority} onChange={setLlmPriority} />
+        <Toggle checked={llmPriority} onChange={setLlmPriority} />
       </div>
       <div style={{ ...accountStyles.row, ...accountStyles.rowLast }}>
         <div/>
@@ -1272,28 +1272,24 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
   const [form, setForm] = React.useState(rule || defaults[ruleType] || {});
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState(null);
-  const [closing, setClosing] = React.useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const save = async () => {
     setSaving(true); setError(null);
     try {
       const result = await API.post(RULE_TYPES[ruleType].apiPath, form);
       onSave(result);
-      handleClose();
+      onClose();
     } catch (e) { setError(e.message || "Save failed"); }
     setSaving(false);
   };
 
   const isCreate = mode === "create";
+  const { isMobile } = useViewport();
 
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 480 }}>
-        <div style={{ fontFamily: "'Geist', sans-serif", fontSize: 18, fontWeight: 500, marginBottom: 8 }}>
-          {isCreate ? `New ${RULE_TYPES[ruleType].label}` : `Edit ${RULE_TYPES[ruleType].label}`}
-        </div>
+  const title = isCreate ? `New ${RULE_TYPES[ruleType].label}` : `Edit ${RULE_TYPES[ruleType].label}`;
+  const formContent = (
+    <>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {ruleType === "sender_domain" && (<>
             <div>
@@ -1319,7 +1315,7 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 500 }}>Enabled</span>
-              <Toggle on={form.enabled !== false} onChange={v => set("enabled", v)} />
+              <Toggle checked={form.enabled !== false} onChange={v => set("enabled", v)} />
             </div>
           </>)}
           {ruleType === "pattern" && (<>
@@ -1350,7 +1346,7 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 500 }}>Enabled</span>
-              <Toggle on={form.enabled !== false} onChange={v => set("enabled", v)} />
+              <Toggle checked={form.enabled !== false} onChange={v => set("enabled", v)} />
             </div>
           </>)}
           {ruleType === "merchant" && (<>
@@ -1387,13 +1383,22 @@ const RuleModal = ({ mode, ruleType, rule, categories, onSave, onClose }) => {
         </div>
         {error && <div style={{ padding: "8px 12px", background: "var(--neg-soft)", color: "var(--neg)", borderRadius: 6, fontSize: 12, marginTop: 14 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
-          <button onClick={handleClose} style={accountStyles.btn}>Cancel</button>
+          <button onClick={onClose} style={accountStyles.btn}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ ...accountStyles.btn, ...accountStyles.btnPrimary, opacity: saving ? 0.65 : 1 }}>
             {saving ? "Saving…" : isCreate ? "Create" : "Save"}
           </button>
-        </div>
       </div>
-    </div>
+    </>
+  );
+
+  return isMobile ? (
+    <BottomSheet open title={title} onClose={onClose}>
+      {formContent}
+    </BottomSheet>
+  ) : (
+    <Modal open title={title} onClose={onClose} width={480}>
+      {formContent}
+    </Modal>
   );
 };
 
@@ -1979,11 +1984,10 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
   const [aiSaving, setAiSaving] = React.useState(false);
   const [aiError, setAiError] = React.useState(null);
   const [showDeleteModal, setShowDeleteModal] = React.useState(false);
-  const [closingDelete, setClosingDelete] = React.useState(false);
   const [confirmEmail, setConfirmEmail] = React.useState("");
   const [deleting, setDeleting] = React.useState(false);
   const [deleteError, setDeleteError] = React.useState(null);
-  const closeDelete = () => { if (closingDelete) return; setClosingDelete(true); setTimeout(() => { setShowDeleteModal(false); setClosingDelete(false); }, 150); };
+  const closeDelete = () => setShowDeleteModal(false);
   const [thresholdLocal, setThresholdLocal] = React.useState(null);
   const thresholdTimer = React.useRef(null);
   React.useEffect(() => {
@@ -2393,13 +2397,13 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
       {/* Notifications */}
       <SettingsSection title="Notifications" subtitle="— what we tell you, and when">
         <SettingsRow label="Daily digest email" description="one summary at 9:00 IST">
-          <Toggle on={!!settings.daily_digest} onChange={v=>updateSetting("daily_digest", v)}/>
+          <Toggle checked={!!settings.daily_digest} onChange={v=>updateSetting("daily_digest", v)}/>
         </SettingsRow>
         <SettingsRow label="Low-confidence alerts" description="ping when a new merchant isn't recognized">
-          <Toggle on={!!settings.low_confidence_alerts} onChange={v=>updateSetting("low_confidence_alerts", v)}/>
+          <Toggle checked={!!settings.low_confidence_alerts} onChange={v=>updateSetting("low_confidence_alerts", v)}/>
         </SettingsRow>
         <SettingsRow label="Sound effects" description="subtle click on transaction confirm" last>
-          <Toggle on={!!settings.sound_effects} onChange={v=>updateSetting("sound_effects", v)}/>
+          <Toggle checked={!!settings.sound_effects} onChange={v=>updateSetting("sound_effects", v)}/>
         </SettingsRow>
       </SettingsSection>
 
@@ -2426,7 +2430,7 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
       {/* Security & Privacy */}
       <SettingsSection title="Security & privacy" subtitle="— your numbers, locked down">
         <SettingsRow label="Passkeys" description="Biometrics or platform authenticator">
-          <Toggle on={!!account?.user?.passkeys_enabled} onChange={handlePasskeyToggle}/>
+          <Toggle checked={!!account?.user?.passkeys_enabled} onChange={handlePasskeyToggle}/>
         </SettingsRow>
         {account?.user?.passkeys_enabled && passkeyCredentials.length > 0 && (
           <div style={{ padding: "0 0 8px" }}>
@@ -2442,7 +2446,7 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
           </div>
         )}
         <SettingsRow label="Authenticator app (TOTP)" description="Time-based codes from Google Authenticator, Authy, etc.">
-          <Toggle on={!!account?.user?.totp_enabled} onChange={handleTotpToggle}/>
+          <Toggle checked={!!account?.user?.totp_enabled} onChange={handleTotpToggle}/>
         </SettingsRow>
         <SettingsRow label="Export all data" description="CSV of every parsed transaction" last>
           <button style={accountStyles.btn} onClick={() => {
@@ -2649,10 +2653,10 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
       {/* Classification */}
       <SettingsSection title="Classification" subtitle="— how smart the inbox should be">
         <SettingsRow label="Auto-categorize new transactions" description="use the model to guess Food, Rent, etc.">
-          <Toggle on={!!settings.auto_categorize} onChange={v=>updateSetting("auto_categorize", v)}/>
+          <Toggle checked={!!settings.auto_categorize} onChange={v=>updateSetting("auto_categorize", v)}/>
         </SettingsRow>
         <SettingsRow label="Show AI confidence on cards" description="small bar next to each transaction">
-          <Toggle on={!!settings.show_confidence} onChange={v=>updateSetting("show_confidence", v)}/>
+          <Toggle checked={!!settings.show_confidence} onChange={v=>updateSetting("show_confidence", v)}/>
         </SettingsRow>
         <SettingsRow label="Confidence threshold" description="flag transactions below this certainty">
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2664,7 +2668,7 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
           </div>
         </SettingsRow>
         <SettingsRow label="Rule-based pre-filter" description="skip LLM for known senders and obvious non-financial emails — saves tokens" last>
-          <Toggle on={settings.use_rule_engine !== false} onChange={v=>updateSetting("use_rule_engine", v)}/>
+          <Toggle checked={settings.use_rule_engine !== false} onChange={v=>updateSetting("use_rule_engine", v)}/>
         </SettingsRow>
       </SettingsSection>
 
@@ -2773,7 +2777,7 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
                 <div>
                   <div style={{ fontSize: 10, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 4 }}>Enabled</div>
                   <div style={{ height: 35, display: "flex", alignItems: "center" }}>
-                    <Toggle on={!!aiForm.enabled} onChange={v => setAiForm({ ...aiForm, enabled: v })}/>
+                    <Toggle checked={!!aiForm.enabled} onChange={v => setAiForm({ ...aiForm, enabled: v })}/>
                   </div>
                 </div>
                 <div style={{ flex: 1, textAlign: "right" }}>

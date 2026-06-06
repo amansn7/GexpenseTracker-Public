@@ -91,15 +91,6 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
   const { isMobile } = useViewport();
   const [appliedSet, setAppliedSet] = useState(new Set());
   const [applyingCategory, setApplyingCategory] = useState(null);
-  const [suggestDone, setSuggestDone] = useState(false);
-  const suggestRef = React.useRef(null);
-  window.useFocusTrap(suggestRef, true);
-
-  React.useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
 
   const handleApply = async (suggestion) => {
     setApplyingCategory(suggestion.category);
@@ -127,11 +118,7 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
 
   const formContent = (
     <>
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
-        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>AI-Suggested Budget Plan</span>
-        <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
-      </div>
-      <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1 }}>
+      <div style={{ padding: "0 16px 16px", overflowY: "auto" }}>
         {loading ? (
           <ProcessingAnimation message="Generating budget suggestions" subMessage="Analyzing spending history" loading />
         ) : error ? (
@@ -139,9 +126,9 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
         ) : suggestions?.budgets?.length ? (
           <div className="stagger-group">
             {suggestions.summary && (
-              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5, '--i': 0 }}>{suggestions.summary}</div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginBottom: 12, lineHeight: 1.5 }}>{suggestions.summary}</div>
             )}
-            <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap", '--i': 1 }}>
+            <div style={{ display: "flex", gap: 16, marginBottom: 14, flexWrap: "wrap" }}>
               {suggestions.total_budget != null && (
                 <div><span style={{ fontSize: 10, color: "var(--ink-4)", display: "block" }}>Total Budget</span><span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 14, fontWeight: 600 }}>{fmtMoneyB(suggestions.total_budget)}</span></div>
               )}
@@ -161,7 +148,7 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
                 const isApplied = appliedSet.has(b.category);
                 const isApplying = applyingCategory === b.category;
                 return (
-                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", opacity: isApplied ? 0.6 : 1, '--i': i + 2 }}>
+                <div key={i} style={{ background: "var(--paper-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "10px 12px", opacity: isApplied ? 0.6 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <span style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{b.category}</span>
@@ -193,13 +180,13 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
             </div>
             {pendingCount > 0 && (
             <div style={{ marginTop: 16 }}>
-              <button onClick={handleApplyAll} disabled={!!applyingCategory} style={{ width: "100%", padding: "10px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: applyingCategory ? "default" : "pointer", opacity: applyingCategory ? 0.65 : 1, minHeight: 44 }}>
+              <Button onClick={handleApplyAll} disabled={!!applyingCategory} variant="primary" style={{ width: "100%", justifyContent: "center" }}>
                 {applyingCategory ? "Applying…" : `Apply All (${pendingCount})`}
-              </button>
+              </Button>
             </div>
             )}
-            </div>
-          ) : (
+          </div>
+        ) : (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-3)", fontSize: 13 }}>No budget suggestions available.</div>
         )}
       </div>
@@ -207,20 +194,13 @@ const SuggestAllModal = ({ suggestions, onClose, onApply, loading, error }) => {
   );
 
   return isMobile ? (
-    <div onClick={onClose} style={bottomSheetStyles.overlay}>
-      <div ref={suggestRef} onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
-        <div style={bottomSheetStyles.handle} />
-        <div style={bottomSheetStyles.content}>
-          {formContent}
-        </div>
-      </div>
-    </div>
+    <BottomSheet open title="AI-Suggested Budget Plan" onClose={onClose}>
+      {formContent}
+    </BottomSheet>
   ) : (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className="backdrop-in">
-      <div ref={suggestRef} className="modal-in" style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 520, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
-        {formContent}
-      </div>
-    </div>
+    <Modal open title="AI-Suggested Budget Plan" onClose={onClose} width={520}>
+      {formContent}
+    </Modal>
   );
 };
 
@@ -232,9 +212,6 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const budgetRef = React.useRef(null);
-  window.useFocusTrap(budgetRef, !closing);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
 
@@ -251,15 +228,6 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
-
-  React.useEffect(() => {
-    if (closing) return;
-    function onKey(e) { if (e.key === "Escape") handleClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [closing]);
-
-  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -359,40 +327,29 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
     } catch (e) { setErr(e.message); setSaving(false); }
   };
 
-  const inp = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
-  const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
-
   const isVariableIncome = adaptivePlanResult?.income_profile?.type === "variable";
 
   const adaptiveDetail = showAdaptiveDetail && adaptivePlanResult;
 
   const formContent = (
     <>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Budget" : "Add Budget"}</span>
-          <button onClick={handleClose} aria-label="Close" style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
-        </div>
-        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={lbl}>Category {item ? "" : "*"}</label>
-            {item ? (
-              <div style={{ ...inp, color: "var(--ink-3)", cursor: "default" }}>{item.category}</div>
-            ) : (
-              <input style={inp} value={form.category} onChange={e => set("category", e.target.value)} placeholder="e.g. Food, Transport, Entertainment" />
+      <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {item ? (
+          <Input label="Category" value={item.category} disabled />
+        ) : (
+          <Input label="Category *" value={form.category} onChange={e => set("category", e.target.value)} placeholder="e.g. Food, Transport, Entertainment" />
+        )}
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" }}>Monthly Limit (\u20B9) *</span>
+            {!item && (
+              <Button onClick={loadSuggestions} disabled={suggestLoading} size="sm" style={{ border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, minHeight: 44 }}>
+                <Icon name="sparkle" size={10} stroke="var(--accent)"/> {suggestLoading ? "Loading\u2026" : "Suggest"}
+              </Button>
             )}
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <label style={lbl}>Monthly Limit (₹) *</label>
-              {!item && (
-                <button onClick={loadSuggestions} disabled={suggestLoading}
-                  style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--line)", background: "none", color: "var(--accent)", fontSize: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3, minHeight: 44 }}>
-                  <Icon name="sparkle" size={10} stroke="var(--accent)"/> {suggestLoading ? "Loading…" : "Suggest"}
-                </button>
-              )}
-            </div>
-            <input style={inp} type="number" min="0" value={form.monthly_limit} onChange={e => set("monthly_limit", e.target.value)} placeholder="5000" />
-          </div>
+          <Input type="number" min="0" value={form.monthly_limit} onChange={e => set("monthly_limit", e.target.value)} placeholder="5000" />
+        </div>
           {!item && (
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)", cursor: "pointer" }}>
               <input type="checkbox" checked={anomalyEnabled} onChange={e => setAnomalyEnabled(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
@@ -511,35 +468,28 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
         </div>
         <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
           {item && !confirming && (
-            <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--neg)", background: "none", color: "var(--neg)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Delete</button>
+            <Button onClick={() => setConfirming(true)} variant="ghost" style={{ border: "1px solid var(--neg)", color: "var(--neg)" }}>Delete</Button>
           )}
           {item && confirming && (
             <>
-              <button onClick={del} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", minHeight: 44 }}>Confirm Delete</button>
-              <button onClick={() => setConfirming(false)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Cancel</button>
+              <Button onClick={del} disabled={saving} style={{ background: "var(--neg)", color: "var(--paper)", border: "none" }}>Confirm Delete</Button>
+              <Button onClick={() => setConfirming(false)} variant="ghost">Cancel</Button>
             </>
           )}
-          <button onClick={handleClose} style={{ marginLeft: confirming ? 0 : "auto", padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "none", color: "var(--ink-2)", fontSize: 13, cursor: "pointer", minHeight: 44 }}>Cancel</button>
-          <button onClick={save} disabled={saving} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1, minHeight: 44 }}>{saving ? "Saving…" : item ? "Save" : "Add Budget"}</button>
+          <Button onClick={onClose} variant="ghost" style={{ marginLeft: confirming ? 0 : "auto" }}>Cancel</Button>
+          <Button onClick={save} disabled={saving} variant="primary">{saving ? "Saving…" : item ? "Save" : "Add Budget"}</Button>
         </div>
     </>
   );
 
   return isMobile ? (
-    <div onClick={handleClose} style={bottomSheetStyles.overlay}>
-      <div ref={budgetRef} onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
-        <div style={bottomSheetStyles.handle} />
-        <div style={bottomSheetStyles.content}>
-          {formContent}
-        </div>
-      </div>
-    </div>
+    <BottomSheet open title={item ? "Edit Budget" : "Add Budget"} onClose={onClose}>
+      {formContent}
+    </BottomSheet>
   ) : (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div ref={budgetRef} className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 400, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
-        {formContent}
-      </div>
-    </div>
+    <Modal open title={item ? "Edit Budget" : "Add Budget"} onClose={onClose} width={420}>
+      {formContent}
+    </Modal>
   );
 };
 

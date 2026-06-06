@@ -399,7 +399,7 @@ const DashboardView = React.memo(({ transactions, categoryFilter, dateRange, set
           </div>
           <div style={dashStyles.secBody}>
           {statsLoading
-            ? <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{[1,2,3].map(i => <div key={i} style={{ display: "flex", gap: 10, alignItems: "center" }}><div style={{ width: 24, height: 24, borderRadius: 6, background: "var(--paper-2)", animation: "pulse 1.2s infinite" }}/><div style={{ flex: 1 }}><div style={{ height: 12, width: `${40 + i * 15}%`, background: "var(--paper-2)", borderRadius: 3, animation: "pulse 1.2s infinite" }}/><div style={{ height: 4, width: "100%", background: "var(--paper-2)", borderRadius: 3, marginTop: 6, animation: "pulse 1.2s infinite" }}/></div><div style={{ height: 12, width: 60, background: "var(--paper-2)", borderRadius: 3, animation: "pulse 1.2s infinite" }}/></div>)}</div>
+            ? <Skeleton variant="card" count={3} height={48} />
             : topMerchants.length === 0
             ? <div style={{ fontSize: 12, color: "var(--ink-4)" }}>No data for range</div>
             : (() => {

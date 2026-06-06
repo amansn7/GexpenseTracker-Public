@@ -27,10 +27,6 @@ const HealthView = React.memo(() => {
   const bars = data?.monthly_net || [];
   const maxAbs = bars.length ? Math.max(...bars.map(b => Math.abs(b.net)), 1) : 1;
 
-  const skeleton = (h, w) => (
-    <div style={{ height: h, width: w || "100%", background: "var(--paper-2)", borderRadius: 4, animation: "pulse 1.2s infinite" }}/>
-  );
-
   return (
     <div style={{ padding: "28px 32px 80px", overflowY: "auto", overflowX: "hidden", height: "calc(100dvh - 72px)", maxWidth: 900, margin: "0 auto", ...(isMobile ? { padding: "16px 14px 80px", height: mobileStyles.navOffset } : isTablet ? { padding: "24px 22px 64px" } : {}) }}>
 
@@ -40,7 +36,7 @@ const HealthView = React.memo(() => {
         {/* Savings Rate */}
         <div style={{ padding: "22px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Savings Rate</div>
-          {loading ? skeleton(40) : (
+          {loading ? <Skeleton height={40} /> : (
             <>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1, color: (data?.savings_rate || 0) >= 0 ? "var(--pos)" : "var(--neg)" }}>
                 {data != null ? `${data.savings_rate}%` : "—"}
@@ -55,7 +51,7 @@ const HealthView = React.memo(() => {
         {/* Runway */}
         <div style={{ padding: "22px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}>
           <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 14 }}>Runway</div>
-          {loading ? skeleton(40) : (
+          {loading ? <Skeleton height={40} /> : (
             <>
               <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 40, fontWeight: 400, letterSpacing: "-0.025em", lineHeight: 1 }}>
                 {data?.runway_months != null
@@ -73,7 +69,7 @@ const HealthView = React.memo(() => {
       {/* Current balance */}
       <div style={{ padding: "18px 24px", ...(isMobile ? { padding: "12px 14px" } : {}), background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, marginBottom: 16 }}>
         <div style={{ fontSize: 12, color: "var(--ink-3)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500, marginBottom: 10 }}>Current Balance</div>
-        {loading ? skeleton(28, "50%") : (
+        {loading ? <Skeleton height={28} width="50%" /> : (
           <>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 28, fontWeight: 400, letterSpacing: "-0.02em" }}>
               {fmt(data?.current_balance)}
@@ -102,7 +98,7 @@ const HealthView = React.memo(() => {
           </div>
         </div>
         <div style={{ padding: "20px 24px" }}>
-          {loading ? skeleton(80) : bars.length === 0 ? (
+          {loading ? <Skeleton height={80} /> : bars.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-4)", fontSize: 13 }}>
               Not enough history yet. Come back after a full month.
             </div>

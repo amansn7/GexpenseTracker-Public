@@ -18,23 +18,6 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
   const [err, setErr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const modalRef = React.useRef(null);
-  window.useFocusTrap(modalRef, !closing);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
-
-  React.useEffect(() => {
-    if (closing) return;
-    function onKey(e) { if (e.key === "Escape") handleClose(); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [closing]);
-
-  const handleClose = () => { if (closing) return; setClosing(true); setTimeout(onClose, 150); };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -70,10 +53,6 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
 
   const formContent = (
     <>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Geist', sans-serif", fontSize: 16, fontWeight: 500 }}>{item ? "Edit Recurring" : "Add Recurring"}</span>
-          <button onClick={handleClose} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={16}/></button>
-        </div>
         <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={lbl}>Name *</label>
@@ -81,7 +60,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={lbl}>Amount (₹)</label>
+              <label style={lbl}>Amount (\u20B9)</label>
               <input style={inp} type="number" min="0" value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0" />
             </div>
             <div>
@@ -115,29 +94,23 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
           {item && confirming && (
             <button onClick={del} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: 13, cursor: "pointer" }}>Confirm Delete</button>
           )}
-          <button onClick={handleClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          <button onClick={onClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--ink)", color: "var(--paper)", fontSize: 13, cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving\u2026" : "Save"}
           </button>
         </div>
     </>
   );
 
+  const title = item ? "Edit Recurring" : "Add Recurring";
   return isMobile ? (
-    <div onClick={handleClose} style={bottomSheetStyles.overlay}>
-      <div ref={modalRef} onClick={e => e.stopPropagation()} style={bottomSheetStyles.sheet}>
-        <div style={bottomSheetStyles.handle} />
-        <div style={bottomSheetStyles.content}>
-          {formContent}
-        </div>
-      </div>
-    </div>
+    <BottomSheet open title={title} onClose={onClose}>
+      {formContent}
+    </BottomSheet>
   ) : (
-    <div style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} className={closing ? "backdrop-out" : "backdrop-in"}>
-      <div ref={modalRef} className={closing ? "modal-out" : "modal-in"} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, width: "100%", maxWidth: 480, boxShadow: "0 24px 64px -16px var(--shadow-lg)", maxHeight: "90vh", overflowY: "auto" }}>
-        {formContent}
-      </div>
-    </div>
+    <Modal open title={title} onClose={onClose} width={480}>
+      {formContent}
+    </Modal>
   );
 };
 
