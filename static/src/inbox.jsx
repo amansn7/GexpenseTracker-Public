@@ -1097,6 +1097,25 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
                 </select>
                 {!isMobile && <span style={{ fontSize: 11, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", marginLeft: 4 }}>{filtered.length} transactions</span>}
                 {!isMobile && selectedId && <span style={{ fontSize: 10, color: "var(--ink-4)", fontFamily: "'Geist Mono', monospace", display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>↑↓ <span style={{ opacity: 0.4 }}>·</span> Esc</span>}
+                {filter === "needs_review" && selectedId && (
+                  <button
+                    onClick={async () => {
+                      const currentIdx = needsReviewItems.findIndex(t => t.id === selectedId);
+                      await updateTx(selectedId, { status: "confirmed" });
+                      setNeedsReviewItems(ts => ts.filter(t => t.id !== selectedId));
+                      const remaining = needsReviewItems.filter(t => t.id !== selectedId);
+                      if (remaining.length > 0) {
+                        const nextIdx = currentIdx < remaining.length ? currentIdx : remaining.length - 1;
+                        setSelectedId(remaining[nextIdx].id);
+                      } else {
+                        setSelectedId(null);
+                      }
+                    }}
+                    style={{ fontSize: 11, padding: "4px 10px", borderRadius: 6, border: "none", background: "var(--pos)", color: "white", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
+                  >
+                    <Icon name="check" size={11} stroke="white"/> Looks Good
+                  </button>
+                )}
               </>
             )}
           </div>
