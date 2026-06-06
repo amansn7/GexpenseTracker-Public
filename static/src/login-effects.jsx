@@ -133,10 +133,13 @@
         wrap.style.opacity="1";
         wrap.style.transform="translateY(0)";
       }
-      setTimeout(function(){tgl.style.transition="";},1100);
+      setTimeout(function(){
+        tgl.style.transition="";
+        el.style.transition="";
+        if(wrap){wrap.style.transition="";wrap.style.opacity="";wrap.style.transform="";}
+      },1100);
     },1100);
   }else{
     el.style.opacity="1";
-    if(wrap){wrap.style.opacity="1";wrap.style.transform="translateY(0)";}
   }
 })();
