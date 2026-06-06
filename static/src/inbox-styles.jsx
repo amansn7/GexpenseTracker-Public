@@ -13,7 +13,7 @@ const inboxStyles = {
   dayLabel: { padding: "20px 28px 8px", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ink-4)", fontWeight: 500, background: "var(--paper)", position: "sticky", top: 41, zIndex: 3, display: "flex", alignItems: "baseline", gap: 12 },
   dayTotal: { fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", textTransform: "none", letterSpacing: 0 },
 
-  row: { display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "13px 28px", borderBottom: "1px solid var(--line)", cursor: "pointer", transition: "background 120ms var(--ease-out-quart)", position: "relative" },
+  row: { display: "grid", gridTemplateColumns: "24px 16px 26px minmax(0, 1fr) 150px 100px 130px", gap: 12, alignItems: "center", padding: "9px 28px", borderBottom: "1px solid var(--line)", cursor: "pointer", transition: "background 120ms var(--ease-out-quart)", position: "relative" },
   rowSelected: { background: "var(--paper-2)" },
   rowUnread: { background: "var(--card)" },
 
