@@ -22,6 +22,11 @@
     pos.push(ix*SEP-(AX*SEP)/2,0,iy*SEP-(AY*SEP)/2);
     col.push(dc[0],dc[1],dc[2]);
   }
+  // Save grid positions, center all dots for chaotic entrance spread
+  var targetPos=pos.slice(),dotDelays=[];
+  for(var _d=0;_d<AX*AY;_d++)dotDelays.push(Math.random());
+  for(var _d=0;_d<pos.length;_d+=3){pos[_d]=0;pos[_d+2]=0;}
+  var spreadActive=false,spreadStart=0;
   var geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   var colorAttr=new THREE.Float32BufferAttribute(col,3);
@@ -62,6 +67,19 @@
     }
     if(need)colorAttr.needsUpdate=true;
 
+    // Chaotic spread: dots burst from center to grid positions
+    if(spreadActive){
+      var elapsed=Date.now()-spreadStart;
+      if(elapsed<2000){
+        var pa=geo.attributes.position.array;
+        for(var si=0;si<AX*AY;si++){
+          var sIdx=si*3,delay=dotDelays[si]*0.35;
+          var t=Math.max(0,Math.min(1,(elapsed/2000-delay)/(1-delay)));
+          t=1-Math.pow(1-t,4);
+          pa[sIdx]=targetPos[sIdx]*t;pa[sIdx+2]=targetPos[sIdx+2]*t;
+        }
+      }else{spreadActive=false;}
+    }
     var p=geo.attributes.position.array,i=0;
     for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
       var idx=i*3;
@@ -117,7 +135,8 @@
     // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
-    // Phase 2: bounce drop to center + sine wave fades in from the start
+    // Phase 2: bounce drop to center + dots burst from center chaotically + sine wave fades in
+    spreadActive=true;spreadStart=Date.now();
     tgl.style.transition="transform 1200ms cubic-bezier(.34,1.56,.64,1)";
     tgl.style.transform="translate("+cx+"px,"+cy+"px)";
     el.style.transition="opacity 1000ms ease";
