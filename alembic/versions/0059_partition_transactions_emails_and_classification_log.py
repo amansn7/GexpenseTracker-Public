@@ -218,11 +218,12 @@ def _upgrade_postgres():
     conn.execute(sa.text("ALTER TABLE transactions_partitioned RENAME TO transactions"))
 
     # ── 6. FK-like indexes (app-level integrity) ────────────────
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_duplicate_pairs_primary_tx_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_duplicate_pairs_duplicate_tx_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_transaction_corrections_transaction_id"))
     op.create_index("ix_duplicate_pairs_primary_tx_id", "duplicate_pairs", ["primary_tx_id"])
     op.create_index("ix_duplicate_pairs_duplicate_tx_id", "duplicate_pairs", ["duplicate_tx_id"])
     op.create_index("ix_transaction_corrections_transaction_id", "transaction_corrections", ["transaction_id"])
-
-
 def _downgrade_postgres():
     conn = op.get_bind()
 
