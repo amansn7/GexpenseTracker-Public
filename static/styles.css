@@ -88,7 +88,7 @@
   --ink:         #1a1814;
   --ink-2:       #3d3a33;
   --ink-3:       #78736a;
-  --ink-4:       #a8a297;
+  --ink-4: #8a8478;
   --line:        #e3dcca;
   --card:        #fbf9f3;
   --accent:      #c2410c;
@@ -433,6 +433,14 @@ body {
 .hover-bg { background: transparent; transition: background 120ms; }
 .hover-bg:hover { background: var(--paper-2, rgba(255,255,255,0.04)); }
 .hover-bg.active { background: var(--paper-2); }
+
+/* Row unread state — overridden by .hover-bg:hover */
+.row-unread { background: var(--card); }
+
+/* Checkbox hover placeholder */
+.chk-placeholder { display: none; }
+.anim-row-spring:hover .chk-placeholder { display: inline-block; }
+.anim-row-spring:hover .chk-default { display: none; }
 
 /* Nav button hover in sidebar */
 .nav-btn { background: transparent; transition: background 120ms, color 120ms; position: relative; }

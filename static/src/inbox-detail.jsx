@@ -1,7 +1,6 @@
 const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) => {
   const tag = TAGS[tx.tag];
   const isIncome = tx.amount > 0;
-  const [hovered, setHovered] = React.useState(false);
   const { isMobile } = useViewport();
   const rowStyle = isMobile
     ? { ...inboxStyles.row, gridTemplateColumns: "auto 26px minmax(0, 1fr) auto", gap: 8, padding: "12px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px))", alignItems: "start" }
@@ -9,10 +8,8 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
   return (
     <div
       onClick={onRowClick}
-      className="anim-row-spring"
-      style={{ ...rowStyle, ...((selected || hovered) ? inboxStyles.rowSelected : {}), ...(!selected && !hovered && !tx.read ? inboxStyles.rowUnread : {}) }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className={"anim-row-spring hover-bg" + (!tx.read ? " row-unread" : "")}
+      style={{ ...rowStyle, ...(selected ? inboxStyles.rowSelected : {}) }}
     >
       <div
         style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", width: isMobile ? "auto" : 20, justifyContent: isMobile ? "flex-start" : "center" }}
@@ -25,14 +22,15 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat }) =>
             checked={selected}
             onChange={e => { e.stopPropagation(); onCheckbox(); }}
             onClick={e => e.stopPropagation()}
-            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)", pointerEvents: "none" }}
+            style={{ cursor: "pointer", width: 14, height: 14, accentColor: "var(--accent)" }}
           />
-        ) : hovered ? (
-          <span style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid var(--ink-4)", display: "inline-block", boxSizing: "border-box" }}/>
         ) : (
           <>
-            {!tx.read && <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
-            {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
+            <span className="chk-placeholder" style={{ width: 13, height: 13, borderRadius: 3, border: "1.5px solid var(--ink-4)", boxSizing: "border-box" }}/>
+            <span className="chk-default">
+              {!tx.read && <span className="pulse-dot" style={{ width: 6, height: 6, borderRadius: 999, background: "var(--accent)" }}/>}
+              {tx.flag && <Icon name="star-f" size={12} stroke="var(--accent)" />}
+            </span>
           </>
         )}
       </div>
@@ -217,8 +215,8 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
     setTimeout(() => setSaving(false), 600);
   };
 
-  var touchStartY = React.useRef(0);
-  var swipeActivated = React.useRef(false);
+  const touchStartY = React.useRef(0);
+  const swipeActivated = React.useRef(false);
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
@@ -231,15 +229,15 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
 
   const handleTouchMove = (e) => {
     if (swipeActivated.current) {
-      var dx = e.touches[0].clientX - touchStartX.current;
+      const dx = e.touches[0].clientX - touchStartX.current;
       if (dx > 0) {
         swipeXRef.current = dx;
         setSwipeX(dx);
       }
       return;
     }
-    var ddx = e.touches[0].clientX - touchStartX.current;
-    var ddy = Math.abs(e.touches[0].clientY - touchStartY.current);
+    const ddx = e.touches[0].clientX - touchStartX.current;
+    const ddy = Math.abs(e.touches[0].clientY - touchStartY.current);
     if (ddx > 10 && ddx > ddy * 1.5) {
       swipeActivated.current = true;
       swipingRef.current = true;
@@ -250,7 +248,7 @@ const DetailPanel = ({ tx, onClose, onUpdate }) => {
   };
 
   const handleTouchEnd = () => {
-    var shouldClose = swipeXRef.current > 80;
+    const shouldClose = swipeXRef.current > 80;
     swipingRef.current = false;
     swipeActivated.current = false;
     setSwiping(false);

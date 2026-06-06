@@ -195,6 +195,32 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 
 6. `.view-enter` wraps ALL views in `app.jsx`. Its `@keyframes viewEnter` had `transform: translateY(4px)` in the `from` state with `animation-fill-mode: both`. This creates a containing block for `position: fixed` descendants during the 200ms animation window — any modal opened within that window is cut off at the top. Fix: remove `transform` from the keyframe entirely. The opacity-only `fadeIn` approach is safer for wrappers that contain `position: fixed` children.
 
+## Frontend Skill Selection (Dynamic Dispatch)
+
+### Context + Request Type → Skill Mapping
+1. Always load the **matching frontend skill first** before any UI work. The mapping lives in `AGENTS.md` under "Frontend Skill Selection" — consult the table every time.
+2. **Dispatch logic:**
+   - **audit / critique** → `impeccable` (/audit or /critique), then run `load-context.mjs` to gather PRODUCT.md + DESIGN.md context
+   - **polish** → `impeccable` (/polish)
+   - **craft/build** → `impeccable` (/craft or /shape), fall back to `design-taste-frontend` if output looks generic
+   - **motion / animation** → `design-motion-principles`
+   - **color / typography** → `impeccable` (/colorize or /typeset), fall back to `ui-ux-pro-max` for reference palettes/fonts
+   - **mobile responsiveness** → `impeccable` (/adapt)
+   - **bold direction / greenfield** → `frontend-design`
+3. **Never skip the context load step.** Before any `impeccable` command, run `load-context.mjs` — it fetches PRODUCT.md and DESIGN.md which define the register (brand vs product), color tokens, typography, elevation rules, and anti-patterns.
+4. **Anti-slop pass:** After primary skill work, optionally run `design-taste-frontend` as a secondary pass to catch generic AI output — especially for high-visibility surfaces (dashboard, landing, settings).
+
+### Task-to-Skill Quick Reference
+| Request Type | Primary Skill | Secondary |
+|---|---|---|
+| UI audit / critique | `impeccable` (/audit, /critique) | `design-motion-principles` (audit mode) |
+| Greenfield UI / new component | `impeccable` (/shape → /craft) | `frontend-design` for bold direction |
+| Polish existing UI | `impeccable` (/polish) | `design-taste-frontend` for anti-slop pass |
+| Motion / animation | `design-motion-principles` | `impeccable` (/animate) |
+| Color / typography | `impeccable` (/colorize, /typeset) | `ui-ux-pro-max` for references |
+| Mobile responsiveness | `impeccable` (/adapt) | — |
+| Pre-ship quality check | `impeccable` (/polish) | `release-check` for broader pass |
+
 ## Visual & CSS
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.

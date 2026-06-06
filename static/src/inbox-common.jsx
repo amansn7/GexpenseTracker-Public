@@ -59,18 +59,18 @@ const Confidence = ({ value }) => {
 };
 
 const FilterChip = ({ label, icon, count, active, onClick }) => {
-  const [hovered, setHovered] = React.useState(false);
+  const { isMobile } = useViewport();
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      aria-pressed={active}
+      className="hover-bg"
       style={{
         ...inboxStyles.chip,
         ...(active ? inboxStyles.chipActive : {}),
-        ...(!active && hovered ? inboxStyles.chipHover : {}),
         flexShrink: 0,
         whiteSpace: "nowrap",
+        ...(isMobile ? { minHeight: 44 } : {}),
       }}
     >
       {icon && <Icon name={icon} size={13} stroke={active ? "currentColor" : "var(--ink-4)"} style={inboxStyles.chipIcon} />}

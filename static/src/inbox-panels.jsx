@@ -4,6 +4,7 @@ const _looksLikeTx = (email) => {
 };
 
 const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
+  const { isMobile } = useViewport();
   const fmtAmt = (amt) => amt != null ? `\u20B9${Math.abs(amt).toLocaleString("en-IN")}` : "\u2014";
   const [fetchedBody, setFetchedBody] = React.useState(null);
   const [fetching, setFetching] = React.useState(false);
@@ -59,7 +60,7 @@ const TxCard = ({ tx, isPrimary, resolving, onResolve, pairId }) => {
             ) : (
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ fontSize: 11, color: "var(--ink-4)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{tx.email?.body_snippet}</div>
-                <button onClick={handleFetchBody} disabled={fetching} className="focus-ring" style={{ flexShrink: 0, fontSize: 10, padding: "2px 7px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer" }}>
+                <button onClick={handleFetchBody} disabled={fetching} className="focus-ring" style={{ flexShrink: 0, fontSize: 10, padding: "2px 7px", border: "1px solid var(--line)", borderRadius: 4, background: "transparent", color: "var(--ink-3)", cursor: fetching ? "default" : "pointer", ...(isMobile ? { minHeight: 44 } : {}) }}>
                   {fetching ? "\u2026" : "Full"}
                 </button>
               </div>
@@ -211,7 +212,6 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFoc
   const { isMobile } = useViewport();
   const looksLikeTx = React.useMemo(() => _looksLikeTx(email), [email]);
   const rowRef = React.useRef(null);
-  const [hovered, setHovered] = React.useState(false);
 
   React.useEffect(() => {
     if (isFocused && rowRef.current) rowRef.current.focus();
@@ -234,15 +234,13 @@ const ReviewEmailRow = ({ email, onKeep, onDiscard, isFocused, isSelected, onFoc
   }, [email.confidence]);
 
   return (
-    <div ref={rowRef} tabIndex={0}
+    <div ref={rowRef} tabIndex={0} className="hover-bg"
       onClick={() => { onFocus(); onTogglePreview(); }}
       onKeyDown={e => { if (e.key === "Enter") { onFocus(); onTogglePreview(); } }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       style={{
         display: "flex", alignItems: "center", gap: 6, height: isMobile ? 44 : 36, padding: "0 max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px))",
         borderBottom: "1px solid var(--line)", cursor: "pointer",
-        background: isSelected ? "var(--paper-2)" : hovered ? "var(--paper-2)" : "transparent",
+        ...(isSelected ? { background: "var(--paper-2)" } : {}),
         borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
         transition: "background 80ms ease, border-left-color 120ms ease",
       }}>
@@ -270,20 +268,22 @@ const GroupSection = ({ domain, emails, hasTxs, onKeep, onDiscard, collapsed: fo
 
   const handleDiscardAll = async () => {
     setBusy(true);
-    for (const e of emails) {
-      try { await API.post(`/api/emails/${e.id}/review`, { action: "discard" }); } catch (_) {}
-      onDiscard(e.id);
-    }
+    const ids = emails.map(e => e.id);
+    try {
+      await API.post("/api/emails/bulk-review", { email_ids: ids, action: "discard" });
+      ids.forEach(id => onDiscard(id));
+    } catch (_) {}
     setBusy(false);
     setConfirmDiscard(false);
   };
 
   const handleKeepAll = async () => {
     setBusy(true);
-    for (const e of emails) {
-      try { await API.post(`/api/emails/${e.id}/review`, { action: "keep" }); } catch (_) {}
-      onKeep(e.id);
-    }
+    const ids = emails.map(e => e.id);
+    try {
+      await API.post("/api/emails/bulk-review", { email_ids: ids, action: "keep" });
+      ids.forEach(id => onKeep(id));
+    } catch (_) {}
     setBusy(false);
   };
 
@@ -350,6 +350,7 @@ const ReviewDetailPanel = ({ email, onKeep, onDiscard, onClose }) => {
       else { onDiscard(email.id); setLearned("blocklisted"); }
     } catch(e) {
       console.error("Review action failed", e);
+      showToast("Review action failed. Please try again.");
     } finally {
       setLoading(false);
     }
