@@ -10,6 +10,7 @@ from app.auth_deps import get_current_user
 from app.classifier.classifier import classify_email
 from app.database import AsyncSessionLocal, get_db
 from app.models import Email, RuleSource, SenderRule, Transaction, TransactionStatus, User
+from app.services.enqueue_recompute import enqueue_recompute
 from app.services.llm_service import get_effective_llm_client
 
 logger = logging.getLogger(__name__)
@@ -347,5 +348,14 @@ async def batch_action(
             )
         )
 
+    affected_months: set[tuple[int, int]] = set()
+    for t, _e in rows:
+        if t.txn_date:
+            affected_months.add((t.txn_date.year, t.txn_date.month))
+
     await db.commit()
+
+    if affected_months:
+        await enqueue_recompute(current_user.id, affected_months)
+
     return {"updated": len(rows), "domain": body.domain, "label": label}

@@ -94,6 +94,10 @@ class UserSettings(Base):
     allowed_emails: Mapped[str | None] = mapped_column(Text, nullable=True)
     starting_balance: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     starting_balance_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    daily_llm_budget_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    llm_budget_tier: Mapped[str] = mapped_column(
+        String(20), default="free", nullable=False, server_default="free"
+    )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     user: Mapped["User"] = relationship(back_populates="settings")

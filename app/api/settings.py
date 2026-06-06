@@ -879,6 +879,10 @@ async def get_llm_usage(
     )
     month_calls, month_cost = month_result.one()
 
+    budget_cents = await _get_user_budget_cents(db, user.id)
+    tier = await _get_user_budget_tier(db, user.id)
+    daily_limit_usd = (budget_cents / 100.0) if budget_cents is not None else None
+
     return {
         "today": {
             "calls": int(today_calls),
@@ -891,10 +895,85 @@ async def get_llm_usage(
             "estimated_cost_usd": round(float(month_cost), 4),
         },
         "budget": {
-            "daily_limit_usd": settings.DAILY_LLM_BUDGET,
-            "remaining_usd": round(max(0.0, settings.DAILY_LLM_BUDGET - float(today_cost)), 4),
-            "exceeded": float(today_cost) >= settings.DAILY_LLM_BUDGET,
+            "daily_limit_usd": daily_limit_usd if daily_limit_usd is not None else settings.DAILY_LLM_BUDGET,
+            "remaining_usd": round(max(0.0, (daily_limit_usd or settings.DAILY_LLM_BUDGET) - float(today_cost)), 4),
+            "exceeded": daily_limit_usd is not None and float(today_cost) >= daily_limit_usd,
+            "tier": tier,
         },
+    }
+
+
+_LLM_BUDGET_TIERS: dict[str, int | None] = {
+    "free": 1,       # 1 cent/day
+    "pro": 10,       # 10 cents/day
+    "unlimited": None,
+}
+
+
+async def _get_user_budget_cents(db: AsyncSession, user_id: str) -> int | None:
+    """Return user's daily LLM budget in cents, or None for unlimited."""
+    try:
+        result = await db.execute(
+            select(UserSettings.daily_llm_budget_cents, UserSettings.llm_budget_tier).where(
+                UserSettings.user_id == user_id
+            )
+        )
+        row = result.one_or_none()
+        if row is None:
+            return _LLM_BUDGET_TIERS.get("free", 1)
+        budget_cents, tier = row
+        if tier == "unlimited":
+            return None
+        if budget_cents is not None:
+            return budget_cents
+        return _LLM_BUDGET_TIERS.get(tier, 1)
+    except Exception:
+        return _LLM_BUDGET_TIERS.get("free", 1)
+
+
+async def _get_user_budget_tier(db: AsyncSession, user_id: str) -> str:
+    """Return user's LLM budget tier string."""
+    try:
+        result = await db.execute(
+            select(UserSettings.llm_budget_tier).where(UserSettings.user_id == user_id)
+        )
+        row = result.scalar_one_or_none()
+        return row or "free"
+    except Exception:
+        return "free"
+
+
+@router.get("/account/settings/user-llm-budget")
+async def get_user_llm_budget(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return per-user LLM budget with tier, spend, and upgrade URL."""
+    today = date.today()
+    today_result = await db.execute(
+        select(func.coalesce(func.sum(LLMSpendTracker.estimated_cost), 0)).where(
+            LLMSpendTracker.user_id == user.id,
+            LLMSpendTracker.date == today,
+        )
+    )
+    spent_cents = round(float(today_result.scalar() or 0) * 100, 2)
+
+    budget_cents = await _get_user_budget_cents(db, user.id)
+    tier = await _get_user_budget_tier(db, user.id)
+
+    remaining_cents = None
+    exceeded = False
+    if budget_cents is not None:
+        remaining_cents = round(max(0.0, budget_cents - spent_cents), 2)
+        exceeded = spent_cents >= budget_cents
+
+    return {
+        "daily_budget_cents": budget_cents,
+        "spent_cents": spent_cents,
+        "remaining_cents": remaining_cents,
+        "tier": tier,
+        "exceeded": exceeded,
+        "upgrade_url": "/account/settings" if exceeded else None,
     }
 
 

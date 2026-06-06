@@ -144,6 +144,7 @@ async def resolve_pair(
         pair,
         body.action,
         db,
+        user_id=current_user.id,
         primary_email=kept_email,
         duplicate_email=discard_email,
         discard_tx_id=discard_tx_id,

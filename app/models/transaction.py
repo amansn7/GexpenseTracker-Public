@@ -42,6 +42,7 @@ class Transaction(Base):
         UniqueConstraint("email_id", name="uq_transactions_email_id"),
         Index("ix_transactions_email_id_txn_date", "email_id", "txn_date"),
         Index("ix_transactions_email_id_created_at", "email_id", "created_at"),
+        Index("ix_transactions_txn_date_id", "txn_date", "id"),
     )
 
     id: Mapped[str] = _uuid_col()

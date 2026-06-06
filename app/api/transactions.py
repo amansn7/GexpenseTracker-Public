@@ -1,14 +1,19 @@
+import base64
+import binascii
 import csv
 import io
+import logging
 from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import delete, desc, func, or_, select
+from sqlalchemy import and_, delete, desc, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+logger = logging.getLogger(__name__)
 
 from app.auth_deps import get_current_user
 from app.classifier.merchant_store import merchant_store
@@ -243,8 +248,9 @@ async def list_transactions(
     date_from: date | None = None,
     date_to: date | None = None,
     category: str | None = None,
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=1000),
+    cursor: str | None = Query(default=None),
+    offset: int | None = Query(default=None, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -274,6 +280,50 @@ async def list_transactions(
             conditions.append(func.lower(Transaction.category).in_(aliases))
 
     count_q = select(func.count(Transaction.id)).join(Email, Transaction.email_id == Email.id).where(*conditions)
+    total = (await db.execute(count_q)).scalar_one()
+
+    response: dict = {"items": [], "total": total}
+
+    if cursor is not None:
+        try:
+            decoded = base64.b64decode(cursor).decode("utf-8")
+            parts = decoded.split("|")
+            if len(parts) != 2:
+                raise ValueError("Invalid cursor format")
+            cursor_txn_date_str, cursor_id = parts
+            cursor_txn_date = date.fromisoformat(cursor_txn_date_str)
+        except (ValueError, binascii.Error):
+            raise HTTPException(status_code=400, detail="Invalid cursor format")
+
+        data_q = (
+            select(Transaction, Email)
+            .join(Email, Transaction.email_id == Email.id)
+            .where(*conditions)
+            .where(tuple_(Transaction.txn_date, Transaction.id) < (cursor_txn_date, cursor_id))
+            .order_by(desc(Transaction.txn_date), desc(Transaction.id))
+            .limit(limit + 1)
+        )
+        rows = (await db.execute(data_q)).all()
+
+        has_more = len(rows) > limit
+        if has_more:
+            rows = rows[:limit]
+
+        next_cursor = None
+        if has_more and rows:
+            last = rows[-1][0]
+            if last.txn_date:
+                next_cursor = base64.b64encode(f"{last.txn_date.isoformat()}|{last.id}".encode()).decode()
+
+        response["items"] = [format_transaction(t, e) for t, e in rows]
+        response["next_cursor"] = next_cursor
+        return response
+
+    if offset is not None:
+        logger.warning("Deprecation: offset parameter is deprecated, use cursor instead")
+    else:
+        offset = 0
+
     data_q = (
         select(Transaction, Email)
         .join(Email, Transaction.email_id == Email.id)
@@ -282,14 +332,11 @@ async def list_transactions(
         .offset(offset)
         .limit(limit)
     )
-    total = (await db.execute(count_q)).scalar_one()
     rows = (await db.execute(data_q)).all()
-    return {
-        "items": [format_transaction(t, e) for t, e in rows],
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-    }
+    response["items"] = [format_transaction(t, e) for t, e in rows]
+    response["offset"] = offset
+    response["limit"] = limit
+    return response
 
 
 @router.get("/search")

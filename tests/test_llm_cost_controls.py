@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -6,6 +7,7 @@ import pytest
 from app.classifier.classifier import (
     _compute_cost,
     _ESTIMATE_FALLBACK,
+    _get_user_budget_cents,
     batch_classify_emails,
     check_llm_budget,
     classify_email,
@@ -38,14 +40,17 @@ def _mock_verbose_result(
 
 @pytest.mark.asyncio
 async def test_check_llm_budget_under_budget():
-    """User under budget → returns True."""
+    """User under budget -> returns True."""
     mock_session = AsyncMock()
     today = date.today()
     mock_result = MagicMock()
-    mock_result.scalar.return_value = 2.5  # $2.50 spent today
+    mock_result.scalar.return_value = 0.05  # $0.05 spent today (under 10 cent budget)
     mock_session.execute = AsyncMock(return_value=mock_result)
 
-    with patch("app.classifier.classifier.date") as mock_date:
+    with (
+        patch("app.classifier.classifier.date") as mock_date,
+        patch("app.classifier.classifier._get_user_budget_cents", return_value=10),
+    ):
         mock_date.today.return_value = today
         result = await check_llm_budget(mock_session, "user-123")
 
@@ -54,14 +59,55 @@ async def test_check_llm_budget_under_budget():
 
 @pytest.mark.asyncio
 async def test_check_llm_budget_over_budget():
-    """User over budget → returns False."""
+    """User over budget -> returns False."""
     mock_session = AsyncMock()
     today = date.today()
     mock_result = MagicMock()
     mock_result.scalar.return_value = 15.0  # $15 spent, over $10 budget
     mock_session.execute = AsyncMock(return_value=mock_result)
 
-    with patch("app.classifier.classifier.date") as mock_date:
+    with (
+        patch("app.classifier.classifier.date") as mock_date,
+        patch("app.classifier.classifier._get_user_budget_cents", return_value=10),
+    ):
+        mock_date.today.return_value = today
+        result = await check_llm_budget(mock_session, "user-123")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_llm_budget_unlimited_tier():
+    """Unlimited tier -> always returns True regardless of spend."""
+    mock_session = AsyncMock()
+    today = date.today()
+    mock_result = MagicMock()
+    mock_result.scalar.return_value = 999.0
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with (
+        patch("app.classifier.classifier.date") as mock_date,
+        patch("app.classifier.classifier._get_user_budget_cents", return_value=None),
+    ):
+        mock_date.today.return_value = today
+        result = await check_llm_budget(mock_session, "user-123")
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_check_llm_budget_free_tier():
+    """Free tier (1 cent/day) -> over budget with just $0.02 spend."""
+    mock_session = AsyncMock()
+    today = date.today()
+    mock_result = MagicMock()
+    mock_result.scalar.return_value = 0.02  # 2 cents, over 1 cent free tier
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    with (
+        patch("app.classifier.classifier.date") as mock_date,
+        patch("app.classifier.classifier._get_user_budget_cents", return_value=1),
+    ):
         mock_date.today.return_value = today
         result = await check_llm_budget(mock_session, "user-123")
 
@@ -70,17 +116,77 @@ async def test_check_llm_budget_over_budget():
 
 @pytest.mark.asyncio
 async def test_check_llm_budget_no_session():
-    """No session → returns True (non-blocking)."""
+    """No session -> returns True (non-blocking)."""
     result = await check_llm_budget(None, "user-123")
     assert result is True
 
 
 @pytest.mark.asyncio
 async def test_check_llm_budget_no_user_id():
-    """No user_id → returns True (non-blocking)."""
+    """No user_id -> returns True (non-blocking)."""
     mock_session = AsyncMock()
     result = await check_llm_budget(mock_session, None)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_get_user_budget_cents_no_settings():
+    """No UserSettings row -> returns free tier default (1 cent)."""
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.one_or_none.return_value = None
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    budget = await _get_user_budget_cents(mock_session, "user-123")
+    assert budget == 1
+
+
+@pytest.mark.asyncio
+async def test_get_user_budget_cents_free_tier():
+    """Free tier with no custom budget -> 1 cent."""
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.one_or_none.return_value = (None, "free")
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    budget = await _get_user_budget_cents(mock_session, "user-123")
+    assert budget == 1
+
+
+@pytest.mark.asyncio
+async def test_get_user_budget_cents_pro_tier():
+    """Pro tier with no custom budget -> 10 cents."""
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.one_or_none.return_value = (None, "pro")
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    budget = await _get_user_budget_cents(mock_session, "user-123")
+    assert budget == 10
+
+
+@pytest.mark.asyncio
+async def test_get_user_budget_cents_unlimited():
+    """Unlimited tier -> None (no cap)."""
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.one_or_none.return_value = (None, "unlimited")
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    budget = await _get_user_budget_cents(mock_session, "user-123")
+    assert budget is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_budget_cents_custom_budget():
+    """Custom budget cents overrides tier default."""
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.one_or_none.return_value = (50, "pro")
+    mock_session.execute = AsyncMock(return_value=mock_result)
+
+    budget = await _get_user_budget_cents(mock_session, "user-123")
+    assert budget == 50
 
 
 @pytest.mark.asyncio
@@ -112,20 +218,20 @@ async def test_record_llm_spend_inserts_new():
 
 @pytest.mark.asyncio
 async def test_record_llm_spend_no_session():
-    """No session → no-op, no crash."""
+    """No session -> no-op, no crash."""
     await record_llm_spend(None, "user-123", "google", "gemini-flash")
 
 
 @pytest.mark.asyncio
 async def test_record_llm_spend_no_user_id():
-    """No user_id → no-op, no crash."""
+    """No user_id -> no-op, no crash."""
     mock_session = AsyncMock()
     await record_llm_spend(mock_session, None, "google", "gemini-flash")
 
 
 @pytest.mark.asyncio
 async def test_classify_email_budget_exceeded_falls_back_to_rules():
-    """Budget exceeded → LLM skipped, rules fallback used."""
+    """Budget exceeded -> LLM skipped, rules fallback used."""
     with patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=False):
         result = await classify_email(
             ClassificationContext(
@@ -146,7 +252,7 @@ async def test_classify_email_budget_exceeded_falls_back_to_rules():
 
 @pytest.mark.asyncio
 async def test_classify_email_under_budget_calls_llm():
-    """Under budget → LLM call proceeds normally."""
+    """Under budget -> LLM call proceeds normally."""
     with (
         patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock, return_value=True),
         patch(
@@ -172,7 +278,7 @@ async def test_classify_email_under_budget_calls_llm():
 
 @pytest.mark.asyncio
 async def test_classify_email_no_user_id_skips_budget_check():
-    """No user_id → budget check skipped, LLM proceeds."""
+    """No user_id -> budget check skipped, LLM proceeds."""
     with (
         patch("app.classifier.classifier.check_llm_budget", new_callable=AsyncMock) as mock_check,
         patch(
@@ -197,7 +303,7 @@ async def test_classify_email_no_user_id_skips_budget_check():
 
 @pytest.mark.asyncio
 async def test_batch_classify_emails_budget_exceeded_falls_back():
-    """Budget exceeded in batch → all emails fall back to rules."""
+    """Budget exceeded in batch -> all emails fall back to rules."""
     mock_client = AsyncMock()
     mock_client.batch_classify_verbose = AsyncMock()
 
@@ -221,7 +327,7 @@ async def test_batch_classify_emails_budget_exceeded_falls_back():
 
 @pytest.mark.asyncio
 async def test_batch_classify_emails_under_budget_proceeds():
-    """Under budget → batch LLM call proceeds."""
+    """Under budget -> batch LLM call proceeds."""
     mock_client = AsyncMock()
     mock_client.batch_classify_verbose = AsyncMock(
         return_value={
@@ -261,7 +367,10 @@ async def test_budget_resets_at_midnight():
     mock_result.scalar.return_value = 0.0  # $0 spent today
     mock_session.execute = AsyncMock(return_value=mock_result)
 
-    with patch("app.classifier.classifier.date") as mock_date:
+    with (
+        patch("app.classifier.classifier.date") as mock_date,
+        patch("app.classifier.classifier._get_user_budget_cents", return_value=10),
+    ):
         mock_date.today.return_value = today
         result = await check_llm_budget(mock_session, "user-123")
 
@@ -275,11 +384,13 @@ async def test_compute_cost_uses_fallback_for_unknown_provider():
     cost = _compute_cost("unknown", "unknown-model", 100, 50)
     assert cost == _ESTIMATE_FALLBACK
 
+
 @pytest.mark.asyncio
 async def test_compute_cost_returns_zero_for_free_tiers():
     """_compute_cost should return _ESTIMATE_FALLBACK for free-tier providers."""
     cost = _compute_cost("openrouter", "google/gemini-2.0-flash-exp:free", 500, 200)
     assert cost == _ESTIMATE_FALLBACK
+
 
 @pytest.mark.asyncio
 async def test_compute_cost_scales_with_tokens():
@@ -296,7 +407,47 @@ async def test_daily_llm_budget_config_default():
     assert settings.DAILY_LLM_BUDGET == 10.0
 
 
-# ── API endpoint tests ───────────────────────────────────────────────────────
+# --- In-memory tracker race condition tests ---
+
+
+@pytest.mark.asyncio
+async def test_in_memory_tracker_race_condition():
+    """LLMSpendTracker.add_call should be safe under concurrent access."""
+    from app.classifier.llm.client import _llm_spend_tracker
+
+    _llm_spend_tracker._date = ""
+    _llm_spend_tracker._spend = 0.0
+    _llm_spend_tracker._user_spend = {}
+
+    async def add_concurrently():
+        for _ in range(100):
+            await _llm_spend_tracker.add_call(estimated_cost=0.001, user_id="user-race")
+
+    await asyncio.gather(*[add_concurrently() for _ in range(10)])
+
+    # 10 coroutines x 100 calls x 0.001 each = 1.0
+    assert abs(_llm_spend_tracker.daily_spend - 1.0) < 0.0001
+
+
+@pytest.mark.asyncio
+async def test_in_memory_tracker_per_user():
+    """LLMSpendTracker should track per-user spend separately."""
+    from app.classifier.llm.client import _llm_spend_tracker
+
+    _llm_spend_tracker._date = ""
+    _llm_spend_tracker._spend = 0.0
+    _llm_spend_tracker._user_spend = {}
+
+    await _llm_spend_tracker.add_call(estimated_cost=0.01, user_id="user-a")
+    await _llm_spend_tracker.add_call(estimated_cost=0.02, user_id="user-b")
+    await _llm_spend_tracker.add_call(estimated_cost=0.03, user_id="user-a")
+
+    assert _llm_spend_tracker.user_daily_spend("user-a") == 0.04
+    assert _llm_spend_tracker.user_daily_spend("user-b") == 0.02
+    assert _llm_spend_tracker.daily_spend == 0.06
+
+
+# --- API endpoint tests ---
 
 
 @pytest.mark.asyncio
@@ -313,8 +464,13 @@ async def test_get_llm_usage_returns_correct_structure():
     mock_month_result = MagicMock()
     mock_month_result.one.return_value = (50, 0.005)
 
+    mock_user_settings_result = MagicMock()
+    mock_user_settings_result.one_or_none.return_value = (None, "free")
+
     mock_session = AsyncMock()
-    mock_session.execute = AsyncMock(side_effect=[mock_today_result, mock_month_result])
+    mock_session.execute = AsyncMock(
+        side_effect=[mock_today_result, mock_month_result, mock_user_settings_result]
+    )
 
     result = await get_llm_usage(user=mock_user, db=mock_session)
 
@@ -322,5 +478,84 @@ async def test_get_llm_usage_returns_correct_structure():
     assert "month" in result
     assert "budget" in result
     assert result["today"]["calls"] == 5
-    assert result["budget"]["daily_limit_usd"] == 10.0
+    assert result["budget"]["daily_limit_usd"] == 0.01
+    assert result["budget"]["tier"] == "free"
     assert result["month"]["calls"] == 50
+
+
+@pytest.mark.asyncio
+async def test_get_user_llm_budget_endpoint():
+    """GET /account/settings/user-llm-budget returns budget info."""
+    from app.api.settings import get_user_llm_budget
+
+    mock_user = MagicMock()
+    mock_user.id = "user-123"
+
+    # First execute: today's spend = 2 cents
+    mock_spend_result = MagicMock()
+    mock_spend_result.scalar.return_value = 0.02
+
+    # Second execute: user settings
+    mock_settings_result = MagicMock()
+    mock_settings_result.one_or_none.return_value = (None, "free")
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[mock_spend_result, mock_settings_result])
+
+    result = await get_user_llm_budget(user=mock_user, db=mock_session)
+
+    assert result["daily_budget_cents"] == 1
+    assert result["spent_cents"] == 2.0
+    assert result["remaining_cents"] == 0.0
+    assert result["tier"] == "free"
+    assert result["exceeded"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_user_llm_budget_under_budget():
+    """user-llm-budget returns not exceeded when under budget."""
+    from app.api.settings import get_user_llm_budget
+
+    mock_user = MagicMock()
+    mock_user.id = "user-123"
+
+    mock_spend_result = MagicMock()
+    mock_spend_result.scalar.return_value = 0.005  # 0.5 cents spent
+
+    mock_settings_result = MagicMock()
+    mock_settings_result.one_or_none.return_value = (None, "free")
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[mock_spend_result, mock_settings_result])
+
+    result = await get_user_llm_budget(user=mock_user, db=mock_session)
+
+    assert result["daily_budget_cents"] == 1
+    assert result["spent_cents"] == 0.5
+    assert result["remaining_cents"] == 0.5
+    assert result["exceeded"] is False
+    assert result["upgrade_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_llm_budget_unlimited():
+    """Unlimited tier -> no exceeded, no upgrade URL."""
+    from app.api.settings import get_user_llm_budget
+
+    mock_user = MagicMock()
+    mock_user.id = "user-123"
+
+    mock_spend_result = MagicMock()
+    mock_spend_result.scalar.return_value = 5.0
+
+    mock_settings_result = MagicMock()
+    mock_settings_result.one_or_none.return_value = (None, "unlimited")
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[mock_spend_result, mock_settings_result])
+
+    result = await get_user_llm_budget(user=mock_user, db=mock_session)
+
+    assert result["daily_budget_cents"] is None
+    assert result["exceeded"] is False
+    assert result["upgrade_url"] is None

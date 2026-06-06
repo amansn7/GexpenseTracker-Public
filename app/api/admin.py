@@ -404,20 +404,46 @@ async def list_audit_logs(
     skip: int = 0,
     limit: int = 50,
     action: str | None = None,
+    method: str | None = None,
+    user_id: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     current_user: User = Depends(_require_owner),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return audit log entries."""
-    from sqlalchemy import select
+    """Return audit log entries. Supports filtering by action, method, user_id, and date range."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import func, select
 
     from app.models import AuditLog
 
     query = select(AuditLog).order_by(AuditLog.created_at.desc())
+
     if action:
         query = query.where(AuditLog.action == action)
+    if method:
+        query = query.where(AuditLog.method == method.upper())
+    if user_id:
+        query = query.where(AuditLog.user_id == user_id)
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+            if dt_from.tzinfo is None:
+                dt_from = dt_from.replace(tzinfo=UTC)
+            query = query.where(AuditLog.created_at >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+            if dt_to.tzinfo is None:
+                dt_to = dt_to.replace(tzinfo=UTC)
+            query = query.where(AuditLog.created_at <= dt_to)
+        except ValueError:
+            pass
 
-    total_q = await db.execute(select(AuditLog.id))
-    total = len(total_q.all())
+    total = (await db.execute(select(func.count(AuditLog.id)))).scalar()
 
     rows = (await db.execute(query.offset(skip).limit(limit))).scalars().all()
     return {
@@ -427,10 +453,14 @@ async def list_audit_logs(
                 "id": r.id,
                 "user_id": r.user_id,
                 "action": r.action,
+                "method": r.method,
+                "path": r.path,
                 "resource_type": r.resource_type,
                 "resource_id": r.resource_id,
+                "status_code": r.status_code,
                 "details": r.details,
                 "ip_address": r.ip_address,
+                "user_agent": r.user_agent,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
             for r in rows

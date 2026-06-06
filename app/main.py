@@ -71,7 +71,16 @@ from app.api import sync as sync_api
 from app.config import settings
 from app.csrf import validate_csrf
 from app.rate_limiter import RATE_LIMIT_PREFIXES, RATE_LIMITS, rate_limiter
-from app.scheduler import scheduler, setup_scheduler
+
+
+AUDIT_EXEMPT_PATHS = frozenset({
+    "/api/auth/login",
+    "/api/auth/google",
+    "/api/auth/callback",
+    "/api/auth/token/refresh",
+    "/api/auth/csrf-token",
+    "/api/health",
+})
 
 
 @asynccontextmanager
@@ -102,7 +111,9 @@ async def lifespan(app: FastAPI):
         task_queue.register_handler("recompute", handle_recompute_task)
         await task_queue.connect()
         asyncio.create_task(task_queue.worker_loop())
-        setup_scheduler()
+        from app.arq_scheduler import start_arq_scheduler
+
+        await start_arq_scheduler()
 
         async def _startup_init():
             try:
@@ -130,10 +141,11 @@ async def lifespan(app: FastAPI):
         await stop_progress_writer()
         from app.workers.queue import task_queue
 
+        from app.arq_scheduler import stop_arq_scheduler
+
+        await stop_arq_scheduler()
         task_queue.stop()
         await task_queue.disconnect()
-        if scheduler.running:
-            scheduler.shutdown(wait=False)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -265,8 +277,183 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+async def _extract_user_id_for_audit(request: StarletteRequest) -> str | None:
+    """Extract user_id from session cookie or Bearer token for audit logging."""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        raw_token = auth.removeprefix("Bearer ").strip()
+        if raw_token:
+            try:
+                from app.jwt_utils import _public_keys
+
+                for key in _public_keys():
+                    try:
+                        payload = pyjwt.decode(raw_token, key, algorithms=["RS256"])
+                        sub = payload.get("sub")
+                        if sub:
+                            return sub
+                    except pyjwt.PyJWTError:
+                        continue
+            except Exception:
+                pass
+        return None
+
+    session_hex = request.cookies.get("session")
+    if session_hex:
+        try:
+            token_bytes = bytes.fromhex(session_hex)
+            try:
+                from app.database import AsyncSessionLocal
+                from app.models import Session as SessionModel
+
+                async with AsyncSessionLocal() as db:
+                    from sqlalchemy import select
+
+                    row = (await db.execute(select(SessionModel).where(SessionModel.token == token_bytes))).scalar_one_or_none()
+                    return str(row.user_id) if row else None
+            except Exception:
+                pass
+        except (ValueError, TypeError):
+            pass
+
+    return None
+
+
+def _infer_resource(path: str) -> tuple[str | None, str | None]:
+    """Infer resource_type and resource_id from a path like /api/transactions/42."""
+    import re
+
+    parts = [p for p in path.split("/") if p]
+    if len(parts) < 2:
+        return None, None
+    resource_type = parts[1]
+    uuid_pattern = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+    resource_id = None
+    for part in parts[2:]:
+        if uuid_pattern.match(part) or part.isdigit():
+            resource_id = part
+            break
+    return resource_type, resource_id
+
+
+async def _write_audit_entry(
+    action: str,
+    method: str,
+    path: str,
+    user_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    status_code: int | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    db: object = None,
+) -> None:
+    """Fire-and-forget audit log write using an independent session."""
+    if db is None:
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as session:
+            await _do_write_audit(
+                session, action, method, path, user_id,
+                resource_type, resource_id, status_code, ip_address, user_agent,
+            )
+    else:
+        await _do_write_audit(
+            db, action, method, path, user_id,
+            resource_type, resource_id, status_code, ip_address, user_agent,
+        )
+
+
+async def _do_write_audit(
+    db,
+    action: str,
+    method: str,
+    path: str,
+    user_id: str | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    status_code: int | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    try:
+        from app.models import AuditLog
+
+        entry = AuditLog(
+            action=action,
+            method=method,
+            path=path,
+            user_id=user_id,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            status_code=status_code,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        db.add(entry)
+        await db.commit()
+    except Exception:
+        logger = logging.getLogger(__name__)
+        logger.exception("auto_audit_write_failed")
+
+
+class AutoAuditMiddleware(BaseHTTPMiddleware):
+    """Auto-audit state-changing API requests (POST/PUT/PATCH/DELETE to /api/*)."""
+
+    EXEMPT = AUDIT_EXEMPT_PATHS
+
+    async def dispatch(self, request: StarletteRequest, call_next):
+        response = await call_next(request)
+
+        path = request.url.path
+        method = request.method
+
+        if method not in ("POST", "PUT", "PATCH", "DELETE"):
+            return response
+        if not path.startswith("/api/"):
+            return response
+        if path in self.EXEMPT:
+            return response
+
+        user_id = await _extract_user_id_for_audit(request)
+        resource_type, resource_id = _infer_resource(path)
+        action = f"{method} {path}"
+        status_code = response.status_code
+        ip_address = request.client.host if request.client else None
+        user_agent = request.headers.get("User-Agent")
+
+        if os.getenv("TESTING"):
+            await _write_audit_entry(
+                action=action,
+                method=method,
+                path=path,
+                user_id=user_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                status_code=status_code,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+        else:
+            asyncio.create_task(
+                _write_audit_entry(
+                    action=action,
+                    method=method,
+                    path=path,
+                    user_id=user_id,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    status_code=status_code,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                )
+            )
+
+        return response
+
+
 app = FastAPI(title="Expense Tracker", lifespan=lifespan)
 
+app.add_middleware(AutoAuditMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(AuthMiddleware)

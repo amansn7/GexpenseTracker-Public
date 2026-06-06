@@ -44,3 +44,5 @@ class SyncState(Base):
     last_history_id: Mapped[str | None] = mapped_column(String(255))
     # all | unread | read
     email_filter: Mapped[str] = mapped_column(String(10), default="all", server_default="all")
+    sync_interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    last_dedup_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

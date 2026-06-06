@@ -20,7 +20,7 @@ from app.classifier.merchant_entity import resolve_merchant
 from app.classifier.rule_engine_adapter import rule_engine_adapter
 from app.classifier.rules import MERCHANT_MAP, apply_rules
 from app.config import settings
-from app.models import ClassificationLog, ClassifierMethod, Label, LLMSpendTracker, TransactionStatus
+from app.models import ClassificationLog, ClassifierMethod, Label, LLMSpendTracker, TransactionStatus, UserSettings
 from app.services.category_service import CategoryService
 from app.services.llm_service import get_effective_llm_client
 from app.services.currency import (
@@ -163,8 +163,43 @@ def _compute_cost(provider: str, model: str, tokens_in: int, tokens_out: int) ->
     return max(cost, _ESTIMATE_FALLBACK)
 
 
+_LLM_BUDGET_TIERS: dict[str, int | None] = {
+    "free": 1,       # 1 cent/day
+    "pro": 10,       # 10 cents/day
+    "unlimited": None,
+}
+
+
+async def _get_user_budget_cents(session: AsyncSession, user_id: str) -> int | None:
+    """Return user's daily LLM budget in cents, or None for unlimited."""
+    try:
+        result = await session.execute(
+            select(UserSettings.daily_llm_budget_cents, UserSettings.llm_budget_tier).where(
+                UserSettings.user_id == user_id
+            )
+        )
+        row = result.one_or_none()
+        if row is None:
+            return _LLM_BUDGET_TIERS.get("free", 1)
+
+        budget_cents, tier = row
+        if tier == "unlimited":
+            return None
+
+        if budget_cents is not None:
+            return budget_cents
+
+        return _LLM_BUDGET_TIERS.get(tier, 1)
+    except Exception:
+        return _LLM_BUDGET_TIERS.get("free", 1)
+
+
 async def check_llm_budget(session: AsyncSession, user_id: str) -> bool:
-    """Return True if user's today's LLM spend is under the daily budget."""
+    """Return True if user's today's LLM spend is under the daily budget.
+
+    Checks both per-user budget and global budget. Returns True if either
+    the user has unlimited tier or if spend is under both limits.
+    """
     if not session or not user_id:
         return True
     try:
@@ -176,7 +211,14 @@ async def check_llm_budget(session: AsyncSession, user_id: str) -> bool:
             )
         )
         total_spend = float(result.scalar() or 0)
-        return total_spend < settings.DAILY_LLM_BUDGET
+
+        user_budget_cents = await _get_user_budget_cents(session, user_id)
+        if user_budget_cents is None:
+            return True  # unlimited tier
+
+        user_budget = user_budget_cents / 100.0
+        effective_budget = min(settings.DAILY_LLM_BUDGET, user_budget)
+        return total_spend < effective_budget
     except Exception:
         return True
 

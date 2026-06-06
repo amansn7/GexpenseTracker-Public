@@ -148,6 +148,7 @@ class DomainPairRule(Base):
     __tablename__ = "domain_pair_rules"
 
     id: Mapped[str] = _uuid_col()
+    user_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     domain_a: Mapped[str] = mapped_column(String(255), nullable=False)
     domain_b: Mapped[str] = mapped_column(String(255), nullable=False)
     confirmed_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -156,7 +157,7 @@ class DomainPairRule(Base):
     auto_resolve: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    __table_args__ = (sa.UniqueConstraint("domain_a", "domain_b", name="uq_domain_pair"),)
+    __table_args__ = (sa.UniqueConstraint("user_id", "domain_a", "domain_b", name="uq_domain_pair_user"),)
 
 
 class DuplicatePair(Base):

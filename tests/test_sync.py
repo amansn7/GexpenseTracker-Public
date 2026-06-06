@@ -30,36 +30,39 @@ async def test_fetch_new_messages_date_range_query():
 
 
 @pytest.mark.asyncio
-async def test_scheduler_uses_task_queue():
-    """Scheduled sync should enqueue through task queue, not call run_sync directly."""
-    from app.scheduler import setup_scheduler
-    from app.workers.queue import TaskQueue
+async def test_sync_scheduler_job_enqueues_through_task_queue(db_session):
+    """ARQ sync_scheduler_job enqueues eligible users through the task queue with medium priority."""
+    from datetime import UTC, datetime, timedelta
 
-    tq = TaskQueue()
-    tq.register_handler("sync", lambda t: {"status": "completed"})
+    from app.models import ConnectedAccount, SyncState
 
-    with patch("app.workers.queue.task_queue", tq):
-        with patch("app.scheduler.AsyncSessionLocal") as mock_session_cls:
-            mock_session = AsyncMock()
-            mock_owner = MagicMock()
-            mock_owner.id = "test-owner-id"
-            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session.__aexit__ = AsyncMock(return_value=False)
-            mock_session.execute = AsyncMock()
-            # Mock the scalar_one_or_none to return an owner
-            mock_result = MagicMock()
-            mock_result.scalar_one_or_none = MagicMock(return_value=mock_owner)
-            mock_session.execute.return_value = mock_result
-            mock_session_cls.return_value = mock_session
+    u = await _make_service_user(db_session)
+    db_session.add(ConnectedAccount(
+        user_id=u.id, provider="gmail", status="connected",
+        account_email="test@example.com",
+    ))
+    old_time = datetime.now(UTC) - timedelta(hours=4)
+    db_session.add(SyncState(user_id=u.id, last_synced_at=old_time, sync_interval_minutes=30))
+    await db_session.commit()
 
-            with patch("app.scheduler.scheduler") as mock_scheduler:
-                setup_scheduler()
+    captured = []
 
-                # Verify a job was added to the scheduler
-                assert mock_scheduler.add_job.called
+    async def fake_enqueue(task_type, user_id, payload, priority="high"):
+        captured.append({"user_id": user_id, "priority": priority, "payload": payload})
+        return f"task-{user_id}"
 
-    # Verify the task queue has the sync handler registered
-    assert "sync" in tq._handlers
+    q = AsyncMock()
+    q.enqueue = AsyncMock(side_effect=fake_enqueue)
+
+    with patch("app.workers.queue._get_task_queue", return_value=q), \
+         patch("app.database.get_worker_session", return_value=db_session):
+        from app.arq_worker import sync_scheduler_job
+        await sync_scheduler_job({})
+
+    assert len(captured) == 1
+    assert captured[0]["user_id"] == u.id
+    assert captured[0]["priority"] == "medium"
+    assert "run_at" in captured[0]["payload"]
 
 
 async def _make_service_user(db_session):

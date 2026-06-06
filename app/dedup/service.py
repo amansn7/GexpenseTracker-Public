@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models import DomainPairRule, DuplicatePair, Email, Transaction, TransactionCorrection
+from app.services.enqueue_recompute import enqueue_recompute
 
 logger = logging.getLogger(__name__)
 
@@ -555,10 +556,24 @@ async def detect_and_record_duplicates(
     tol = _amount_tolerance(amount)
     user_id = email.user_id
 
-    # Pre-load all DomainPairRule rows once (eliminates per-pair DB queries)
-    # DomainPairRule is a global table (not user-scoped)
-    rules_rows = (await db.execute(select(DomainPairRule))).scalars().all()
-    rules_map: dict[tuple[str, str], DomainPairRule] = {(r.domain_a, r.domain_b): r for r in rules_rows}
+    # Pre-load DomainPairRule rows scoped to this user
+    # User-specific rules (user_id == current user) override global rules (user_id IS NULL)
+    rules_rows = (
+        await db.execute(
+            select(DomainPairRule).where(
+                (DomainPairRule.user_id == user_id) | (DomainPairRule.user_id.is_(None))
+            )
+        )
+    ).scalars().all()
+    rules_map: dict[tuple[str, str], DomainPairRule] = {}
+    for r in rules_rows:
+        if r.user_id is None:
+            # Global rule — set as default, can be overridden below
+            rules_map[(r.domain_a, r.domain_b)] = r
+    for r in rules_rows:
+        if r.user_id == user_id:
+            # User-specific rule — overrides global
+            rules_map[(r.domain_a, r.domain_b)] = r
 
     # Pre-load all existing pairs in one query; check membership in O(1) below.
     paired_ids = await _load_paired_ids(tx.id, db)
@@ -930,9 +945,22 @@ async def batch_detect_duplicates(
     }
     new_pair_ids: list[str] = []
 
-    # Load ALL DomainPairRule rows once (eliminates per-pair DB queries)
-    all_rules = (await db.execute(select(DomainPairRule))).scalars().all()
-    rules_map: dict[tuple[str, str], DomainPairRule] = {(r.domain_a, r.domain_b): r for r in all_rules}
+    # Load DomainPairRule rows scoped to this user
+    # User-specific rules override global rules (user_id IS NULL)
+    all_rules = (
+        await db.execute(
+            select(DomainPairRule).where(
+                (DomainPairRule.user_id == user_id) | (DomainPairRule.user_id.is_(None))
+            )
+        )
+    ).scalars().all()
+    rules_map: dict[tuple[str, str], DomainPairRule] = {}
+    for r in all_rules:
+        if r.user_id is None:
+            rules_map[(r.domain_a, r.domain_b)] = r
+    for r in all_rules:
+        if r.user_id == user_id:
+            rules_map[(r.domain_a, r.domain_b)] = r
 
     # Collect date range and amounts for the windowed query
     dates = []
@@ -1112,6 +1140,7 @@ async def resolve_duplicate(
     action: str,
     db: AsyncSession,
     *,
+    user_id: str | None = None,
     primary_email: Email | None = None,
     duplicate_email: Email | None = None,
     discard_tx_id: str | None = None,
@@ -1119,6 +1148,8 @@ async def resolve_duplicate(
     """
     Apply a user resolution and update the DomainPairRule learning loop.
     action: 'confirmed' | 'dismissed'
+    user_id: the user making the resolution — used to scope the DomainPairRule.
+            When None, the rule is created as a global rule (legacy fallback).
     primary_email / duplicate_email: pass from caller to avoid re-querying.
     discard_tx_id: the TX to delete (confirmed only).
     """
@@ -1148,19 +1179,25 @@ async def resolve_duplicate(
         d2 = (duplicate_email.sender_domain or "").lower()
         if d1 and d2 and d1 != d2:
             domain_a, domain_b = _sorted_domains(d1, d2)
-            rule = (
+            # Prefer user-specific rule, fall back to global rule
+            rules = (
                 await db.execute(
                     select(DomainPairRule).where(
                         DomainPairRule.domain_a == domain_a,
                         DomainPairRule.domain_b == domain_b,
+                        (DomainPairRule.user_id == user_id) | (DomainPairRule.user_id.is_(None)),
                     )
                 )
-            ).scalar_one_or_none()
+            ).scalars().all()
+            rule = next((r for r in rules if r.user_id == user_id), None)
+            if rule is None:
+                rule = next((r for r in rules if r.user_id is None), None)
             if rule is None:
                 rule = DomainPairRule(
                     id=str(uuid.uuid4()),
                     domain_a=domain_a,
                     domain_b=domain_b,
+                    user_id=user_id,
                     confirmed_count=0,
                     dismissed_count=0,
                     confidence=0.0,
@@ -1206,4 +1243,9 @@ async def resolve_duplicate(
 
         discard_tx = (await db.execute(select(Transaction).where(Transaction.id == discard_tx_id))).scalar_one_or_none()
         if discard_tx:
+            tx_month = discard_tx.txn_date
             await db.delete(discard_tx)
+            if tx_month:
+                uid = user_id or (primary_email.user_id if primary_email else None)
+                if uid:
+                    await enqueue_recompute(uid, {(tx_month.year, tx_month.month)})

@@ -29,34 +29,51 @@ logger = logging.getLogger(__name__)
 
 
 class LLMSpendTracker:
-    """In-memory daily LLM spend tracker.
+    """In-memory daily LLM spend tracker with per-user tracking.
 
-    Tracks estimated spend per call against DAILY_LLM_BUDGET.
+    Tracks estimated spend per call against configurable budgets.
     Resets at midnight UTC. Not persisted across restarts.
+
+    Uses asyncio.Lock for atomic increment to prevent race conditions.
+    Supports both global and per-user spend tracking.
     """
 
     def __init__(self) -> None:
         self._date: str = ""
         self._spend: float = 0.0
+        self._user_spend: dict[str, float] = {}
+        self._lock: asyncio.Lock = asyncio.Lock()
 
     def _sync_date(self) -> None:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if self._date != today:
             self._date = today
             self._spend = 0.0
+            self._user_spend.clear()
 
     @property
     def daily_spend(self) -> float:
         self._sync_date()
         return self._spend
 
-    def add_call(self, estimated_cost: float = 0.0001) -> None:
+    def user_daily_spend(self, user_id: str) -> float:
         self._sync_date()
-        self._spend += estimated_cost
+        return self._user_spend.get(user_id, 0.0)
+
+    async def add_call(self, estimated_cost: float = 0.0001, user_id: str | None = None) -> None:
+        async with self._lock:
+            self._sync_date()
+            self._spend += estimated_cost
+            if user_id:
+                self._user_spend[user_id] = self._user_spend.get(user_id, 0.0) + estimated_cost
 
     def within_budget(self, budget: float) -> bool:
         self._sync_date()
         return self._spend < budget
+
+    def user_within_budget(self, user_id: str, budget: float) -> bool:
+        self._sync_date()
+        return self._user_spend.get(user_id, 0.0) < budget
 
 
 _llm_spend_tracker = LLMSpendTracker()
@@ -358,7 +375,7 @@ class MultiLLMClient:
             provider, user_prompt, response_format={"type": "json_object"}
         )
         logger.debug("Raw LLM response: %s", raw[:500])
-        _llm_spend_tracker.add_call()
+        await _llm_spend_tracker.add_call(user_id=self._user_id)
         return parse_response(raw), raw, tokens_in, tokens_out
 
     async def classify_verbose(
@@ -466,7 +483,7 @@ class MultiLLMClient:
             )
             if error is None:
                 raw, tokens_in, tokens_out = result
-                _llm_spend_tracker.add_call()
+                await _llm_spend_tracker.add_call(user_id=self._user_id)
                 results = parse_batch_response(raw, len(email_list))
                 return {
                     "results": results,
@@ -520,7 +537,7 @@ class MultiLLMClient:
             )
             if error is None:
                 raw, tokens_in, tokens_out = result
-                _llm_spend_tracker.add_call()
+                await _llm_spend_tracker.add_call(user_id=self._user_id)
                 return raw, provider.name, provider.model, tokens_in, tokens_out
             last_error = error
         raise last_error or RuntimeError("All LLM providers failed")

@@ -3,7 +3,7 @@ import os
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-# Prevent APScheduler from starting during tests
+# Prevent background worker/ARQ from starting during tests
 os.environ.setdefault("TESTING", "1")
 os.environ.setdefault("DEV_MODE", "true")
 os.environ.setdefault("FERNET_KEY", "test-fernet-key-for-tests-only-not-for-production")

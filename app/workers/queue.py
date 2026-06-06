@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -71,9 +72,15 @@ class Task:
         }
 
 
+class _SafeEncoder(json.JSONEncoder):
+    def default(self, o):
+        return repr(o)
+
+
 def _payload_hash(task_type: str, user_id: str, payload: dict) -> str:
-    stable_payload = {k: v for k, v in payload.items() if k != "trigger"}
-    raw = json.dumps({"type": task_type, "user_id": user_id, "payload": stable_payload}, sort_keys=True)
+    EXCLUDED_KEYS = {"trigger", "run_at"}
+    stable_payload = {k: v for k, v in payload.items() if k not in EXCLUDED_KEYS}
+    raw = json.dumps({"type": task_type, "user_id": user_id, "payload": stable_payload}, sort_keys=True, cls=_SafeEncoder)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
@@ -119,7 +126,7 @@ class TaskQueue:
         if task.type == "sync":
             self._running_users.discard(task.user_id)
 
-    async def enqueue(self, task_type: str, user_id: str, payload: dict) -> str | None:
+    async def enqueue(self, task_type: str, user_id: str, payload: dict, priority: str = "high", **kwargs) -> str | None:
         idem_key = _payload_hash(task_type, user_id, payload)
         async with self._lock:
             existing = self._idempotency.get(idem_key)
@@ -323,7 +330,19 @@ class RedisTaskQueue:
     def register_handler(self, task_type: str, handler):
         self._handlers[task_type] = handler
 
-    async def enqueue(self, task_type: str, user_id: str, payload: dict) -> str | None:
+    def _queue_key(self, task_type: str, priority: str = "high") -> str:
+        """Return Redis list key for a given task type and priority level.
+
+        Priority levels: high (user-triggered), medium (scheduled sync),
+        low (fetch-range, backfill). Default queue (no prefix) is high.
+        """
+        if priority == "medium":
+            return f"{self._QUEUE_PREFIX}medium:{task_type}"
+        if priority == "low":
+            return f"{self._QUEUE_PREFIX}low:{task_type}"
+        return f"{self._QUEUE_PREFIX}{task_type}"
+
+    async def enqueue(self, task_type: str, user_id: str, payload: dict, priority: str = "high") -> str | None:
         idem_key = _payload_hash(task_type, user_id, payload)
 
         existing = await self._redis.get(f"{self._IDEM_PREFIX}{idem_key}")
@@ -339,8 +358,10 @@ class RedisTaskQueue:
         task_id = str(uuid4())
         now = datetime.now(UTC)
 
-        pipeline = self._redis.pipeline()
-        pipeline.hset(f"{self._TASK_PREFIX}{task_id}", mapping={
+        # Extract run_at from payload for delayed execution, store separately
+        run_at_str = payload.pop("run_at", None) if isinstance(payload, dict) else None
+
+        task_mapping = {
             "id": task_id,
             "type": task_type,
             "user_id": user_id,
@@ -351,16 +372,22 @@ class RedisTaskQueue:
             "started_at": "",
             "completed_at": "",
             "error": "",
-        })
+            "priority": priority,
+        }
+        if run_at_str:
+            task_mapping["run_after"] = run_at_str
+
+        pipeline = self._redis.pipeline()
+        pipeline.hset(f"{self._TASK_PREFIX}{task_id}", mapping=task_mapping)
         pipeline.expire(f"{self._TASK_PREFIX}{task_id}", self._TASK_TTL)
         pipeline.setex(f"{self._IDEM_PREFIX}{idem_key}", self._IDEM_TTL, task_id)
-        pipeline.lpush(f"{self._QUEUE_PREFIX}{task_type}", task_id)
+        pipeline.lpush(self._queue_key(task_type, priority), task_id)
         pipeline.lpush(f"{self._USER_TASKS_PREFIX}{user_id}", task_id)
         pipeline.ltrim(f"{self._USER_TASKS_PREFIX}{user_id}", 0, self._MAX_USER_TASKS - 1)
         pipeline.expire(f"{self._USER_TASKS_PREFIX}{user_id}", self._TASK_TTL)
         await pipeline.execute()
 
-        logger.info("Enqueued task %s (type=%s, user=%s)", task_id, task_type, user_id)
+        logger.info("Enqueued task %s (type=%s, user=%s, priority=%s)", task_id, task_type, user_id, priority)
         return task_id
 
     async def get_status(self, task_id: str) -> dict | None:
@@ -400,9 +427,17 @@ class RedisTaskQueue:
     async def _release_sync_lock(self, user_id: str):
         await self._redis.srem(self._RUNNING_SYNC_KEY, user_id)
 
+    def _all_queue_keys(self) -> list[str]:
+        """Return queue keys in priority order: high -> medium -> low."""
+        keys = []
+        for priority in ("high", "medium", "low"):
+            for task_type in self._handlers:
+                keys.append(self._queue_key(task_type, priority))
+        return keys
+
     async def _worker(self, worker_id: int):
         logger.info("Redis worker %d started", worker_id)
-        queue_keys = [f"{self._QUEUE_PREFIX}{t}" for t in self._handlers.keys()]
+        queue_keys = self._all_queue_keys()
         while self._running:
             try:
                 result = await self._redis.blpop(queue_keys, timeout=self._BLPOP_TIMEOUT)
@@ -562,6 +597,10 @@ def _get_task_queue() -> TaskQueue | RedisTaskQueue:
             task_timeout=settings.TASK_TIMEOUT,
         )
         logger.info("Using Redis-backed task queue (workers=%d, timeout=%ds)", settings.WORKER_COUNT, settings.TASK_TIMEOUT)
+        return _task_queue_instance
+    if os.getenv("TESTING"):
+        _task_queue_instance = TaskQueue()
+        logger.info("Using in-memory TaskQueue (TESTING mode)")
         return _task_queue_instance
     raise RuntimeError(
         "REDIS_URL is not configured. The task queue requires Redis. "
