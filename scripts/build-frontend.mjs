@@ -79,7 +79,18 @@ async function buildReactWindowVendor() {
     target: ["es2017"],
     minify: !watch,
     logLevel: watch ? "silent" : "info",
-    external: ["react", "react-dom"],
+    plugins: [{
+      name: "external-globals",
+      setup(build) {
+        build.onResolve({ filter: /^(react|react-dom)$/ }, (args) => {
+          return { path: args.path, namespace: "external-globals" };
+        });
+        build.onLoad({ filter: /.*/, namespace: "external-globals" }, (args) => {
+          const g = { react: "React", "react-dom": "ReactDOM" }[args.path];
+          return { contents: `module.exports = ${g};` };
+        });
+      },
+    }],
   });
   if (!watch) console.log("  vendor/react-window.js  (global `ReactWindow`)");
 }

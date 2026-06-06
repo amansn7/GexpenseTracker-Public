@@ -231,7 +231,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 class AuthMiddleware(BaseHTTPMiddleware):
     """Block unauthenticated requests: 401 for API calls, redirect for browser pages."""
 
-    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/health", "/mobile"}
+    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/api/auth/passkey/login/begin", "/api/auth/passkey/login/complete", "/health", "/mobile"}
     CSRF_EXEMPT = {"/api/auth/csrf-token"}
 
     async def dispatch(self, request: StarletteRequest, call_next):

@@ -680,6 +680,84 @@ async def passkey_assert_complete(
     return {"ok": True}
 
 
+@router.post("/auth/passkey/login/begin")
+async def passkey_login_begin():
+    """Generate WebAuthn assertion options for passkey-first login (no session required).
+
+    Uses discoverable credentials (resident keys) so the platform authenticator
+    can present available credentials without knowing the user upfront.
+    """
+    from app.webauthn_utils import generate_assertion_challenge
+
+    result = generate_assertion_challenge()
+    return result
+
+
+@router.post("/auth/passkey/login/complete")
+async def passkey_login_complete(
+    body: PasskeyAssertCompleteBody,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a WebAuthn assertion and create a session for passkey-first login.
+
+    Looks up the user by credential_id (no prior session required).
+    Sets both the session cookie and passkey_verified cookie.
+    """
+    from app.webauthn_utils import verify_assertion_credential
+
+    cred_id = body.credential.get("id")
+    if not cred_id:
+        raise HTTPException(status_code=422, detail="Credential ID required")
+
+    stored = (
+        await db.execute(
+            select(WebAuthnCredential).where(WebAuthnCredential.credential_id == cred_id)
+        )
+    ).scalar_one_or_none()
+    if not stored:
+        raise HTTPException(status_code=404, detail="Credential not found")
+
+    user = (
+        await db.execute(select(User).where(User.id == stored.user_id))
+    ).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.scheduled_deletion_at:
+        sched = user.scheduled_deletion_at
+        if sched.tzinfo is None:
+            sched = sched.replace(tzinfo=UTC)
+        if sched <= datetime.now(UTC):
+            raise HTTPException(status_code=403, detail="Account deleted")
+
+    new_sign_count = verify_assertion_credential(
+        body.credential,
+        body.challenge_b64,
+        body.challenge_sig,
+        stored.public_key,
+        stored.sign_count,
+    )
+
+    stored.sign_count = new_sign_count
+
+    token = await _create_session(db, user)
+    _set_session_cookie(response, token)
+
+    secure = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+    pk_token = _sign_passkey_token(token.hex())
+    response.set_cookie(
+        PASSKEY_COOKIE_NAME,
+        value=pk_token,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        max_age=86400,
+        path="/",
+    )
+    return {"ok": True}
+
+
 async def _resolve_user_from_session(request: Request, db: AsyncSession) -> User | None:
     """Resolve user from session cookie or Bearer token."""
     auth_header = request.headers.get("Authorization", "")
