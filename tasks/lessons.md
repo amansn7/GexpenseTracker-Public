@@ -221,6 +221,20 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 | Mobile responsiveness | `impeccable` (/adapt) | — |
 | Pre-ship quality check | `impeccable` (/polish) | `release-check` for broader pass |
 
+## Entrance Animation Inline Style Cleanup
+
+1. After any entrance animation that applies inline `transition`, `opacity`, or `transform`, always clean up these inline styles once the animation completes. Leftover inline `transition` on `.wrap` (or any container) breaks CSS class-based transitions — the inline `transition` shorthand takes precedence and CSS `transition: background 200ms ease` on theme switch stops working.
+2. **Cleanup pattern:**
+   ```jsx
+   wrap.style.transition = "";
+   wrap.style.transform = "";
+   wrap.style.opacity = "";
+   ```
+   Exception: if CSS has `opacity: 0` on the element, clearing the inline `opacity` would cause it to disappear. Either keep `opacity: "1"` inline, or set `opacity: "1"` then clear it after the next frame (using `requestAnimationFrame`).
+3. For `position: fixed` elements (like the toggle), also clean up `position` and any positioning inlines after entrance — otherwise they remain fixed-positioned forever instead of returning to CSS flow layout.
+4. Always use `transform` and `opacity` only (GPU-accelerated, no layout triggers) for entrance motion. Never animate `height`, `width`, `top`, `left`, `margin`, or `padding`.
+5. Respect `prefers-reduced-motion: reduce` via CSS overrides rather than JS — CSS applies before JS runs, so there's no flash of animated content for users who prefer reduced motion.
+
 ## Visual & CSS
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.

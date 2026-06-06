@@ -35,7 +35,7 @@
   var pts=new THREE.Points(geo,mat);
   scene.add(pts);
 
-  var count=0,frame,targetBg=bgHex(),targetDot=dotRGB();
+  var count=0,frame,targetBg=bgHex(),targetDot=dotRGB(),waveChaos=0,waveChaosStart=0;
 
   function lerpHex(cur,target,speed){
     var cr=(cur>>16)&0xff,cg=(cur>>8)&0xff,cb=cur&0xff;
@@ -80,10 +80,23 @@
         }
       }else{spreadActive=false;}
     }
+    // Chaotic wave settle: high noise → decays into clean sine wave over 3.5s
+    if(waveChaosStart>0){
+      var ce=Date.now()-waveChaosStart;
+      waveChaos=Math.max(0,1-ce/3500);
+    }
     var p=geo.attributes.position.array,i=0;
     for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
       var idx=i*3;
-      p[idx+1]=Math.sin((ix+count)*0.3)*50+Math.sin((iy+count)*0.5)*50;
+      var targetY=Math.sin((ix+count)*0.3)*50+Math.sin((iy+count)*0.5)*50;
+      if(waveChaos>0){
+        var cf=waveChaos;
+        var noisy=Math.sin((ix+count)*(0.3+cf*2)+cf*30+ix*iy*0.1)*(50+cf*80)
+                 +Math.sin((iy+count)*(0.5+cf*1.5)+cf*20)*(50+cf*60);
+        p[idx+1]=targetY+noisy*cf;
+      }else{
+        p[idx+1]=targetY;
+      }
       i++;
     }
     geo.attributes.position.needsUpdate=true;
@@ -127,41 +140,44 @@
   updateTheme();
   animate();
 
-  // === Entrance: drop → wave reveal → slide to corner (once per session) ===
+  // === Entrance: continuous motion chain (no gaps between phases) ===
   var wrap=document.getElementById("main-content");
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
-    if(wrap){wrap.style.transform="translateY(10px)";}
     // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
-    // Phase 2: bounce drop to center + dots burst from center chaotically + sine wave fades in
+    // Phase 2: bounce drop to center + dots burst + wave chaos begins simultaneously
     spreadActive=true;spreadStart=Date.now();
-    tgl.style.transition="transform 1200ms cubic-bezier(.34,1.56,.64,1)";
+    waveChaos=1;waveChaosStart=Date.now();
+    tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
     tgl.style.transform="translate("+cx+"px,"+cy+"px)";
-    el.style.transition="opacity 1000ms ease";
+    el.style.transition="opacity 800ms ease";
     el.style.opacity="1";
-    // On bounce impact: toggle day/night with sound
+    // Phase 3: on bounce impact, toggle day/night + immediately redirect to corner
     setTimeout(function(){
       html.setAttribute("data-theme",dark()?"paper":"midnight");
       playToggleSound();
-    },420);
-    // Phase 3: after bounce settles, slide toggle to corner + reveal login card
-    setTimeout(function(){
+      // No gap — redirect mid-bounce toward bottom-right (continuous motion)
       tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
       tgl.style.transform="";
-      if(wrap){
-        wrap.style.transition="opacity 800ms ease,transform 800ms cubic-bezier(.34,1.56,.64,1)";
-        wrap.style.opacity="1";
-        wrap.style.transform="translateY(0)";
-      }
+      // Phase 4: login appears while toggle slides to corner
+      setTimeout(function(){
+        if(wrap){
+          wrap.style.transition="opacity 600ms ease,transform 600ms cubic-bezier(.34,1.56,.64,1)";
+          wrap.style.opacity="1";
+          wrap.style.transform="translateY(0)";
+        }
+      },400);
+      // Cleanup after toggle settles at corner
       setTimeout(function(){
         tgl.style.transition="";
         el.style.transition="";
         if(wrap){wrap.style.transition="";wrap.style.transform="";}
-      },1100);
-    },1400);
+      },1400);
+    },500);
   }else{
     el.style.opacity="1";
+    if(wrap)wrap.style.opacity="1";
   }
 })();

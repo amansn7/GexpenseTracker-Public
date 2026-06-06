@@ -204,6 +204,28 @@
 
 ---
 
+### 10. Login / Auth
+
+| Element | What | Duration | Easing | Notes |
+|---------|------|----------|--------|-------|
+| **Toggle entrance (drop)** | translateY from above viewport to center | 1200ms | `cubic-bezier(.34,1.56,.64,1)` | Full overshoot bounce — matches toggle hover curve |
+| **Three.js dot burst** | Dots spread from center (0,0,0) to grid positions | 2000ms, stagger 0-35% | `ease-out-quart` | `spreadActive` is one-shot; dots animate Y sine wave continuously |
+| **#bg canvas fade-in** | Opacity 0 → 1 | 1000ms | `ease-out` | Starts at same time as drop |
+| **Day/night toggle on impact** | Sets `data-theme` opposite, calls `playToggleSound()` | ~420ms (triggered, not timed) | — | No localStorage save — visual demo only |
+| **Toggle slide to bottom-right** | translateX/Y from center to final position | 1000ms | `cubic-bezier(.34,1.56,.64,1)` | Same overshoot curve |
+| **Login card materialize** | Opacity + translateY | 800ms | `var(--ease-out-quart)` | Starts at 1400ms (after drop resolves) |
+| **Inline style cleanup** | Remove `transition`, `opacity`, `transform` from `.wrap` | ~2500ms | — | Leaves `opacity:1` since CSS has `opacity:0`; clears `transition` so CSS theme class transitions work |
+| **Reduced-motion** | Skip all entrance, show everything immediately | — | — | CSS `.wrap { opacity:1 }`, `#bg { opacity:1 }` override at `prefers-reduced-motion: reduce` |
+
+**Key implementation details:**
+- Toggle starts off-screen top (`translate`) with no CSS transition — JS snap-positions it, then applies transition for the drop.
+- `#bg` starts `opacity:0` via CSS (no inline style needed).
+- Sound effect on day/night toggle uses existing `playToggleSound()` function.
+- Reduced-motion CSS overrides `opacity:0` on `.wrap` and `#bg` so content is immediately visible.
+- Compiled to `static/dist/login-effects.js` (4095 bytes), hashed in `templates/login.html`.
+
+---
+
 ## What NOT to Animate
 
 - **Sidebar nav items** — they're static navigation, motion would feel sluggish
