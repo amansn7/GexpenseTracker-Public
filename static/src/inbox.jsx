@@ -629,9 +629,9 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
 
   const getItemSize = React.useCallback((index) => {
     const item = flatItems[index];
-    if (!item) return 44;
-    if (item.type === "header") return isMobile ? 35 : 36;
-    return isMobile ? 52 : 44;
+    if (!item) return 45;
+    if (item.type === "header") return isMobile ? 35 : 44;
+    return isMobile ? 53 : 45;
   }, [flatItems, isMobile]);
 
   const handleItemsRendered = React.useCallback(({ visibleStopIndex }) => {
