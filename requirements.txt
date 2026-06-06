@@ -24,6 +24,7 @@ qrcode[pil]>=7.4.2
 sentry-sdk[fastapi]>=2.0.0
 structlog>=24.1.0
 redis>=5.0.0
+arq>=0.26.0
 webauthn>=2.0.0
 
 # Dev dependencies (CI-only)
