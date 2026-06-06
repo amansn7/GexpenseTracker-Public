@@ -56,9 +56,18 @@ async function buildVendor() {
 }
 
 async function buildReactWindowVendor() {
-  const pkg = join("node_modules", "react-window", "dist", "react-window.js");
-  if (!existsSync(pkg)) {
+  // Resolve entry point from the package's module field (ESM) or main (CJS),
+  // falling back to the legacy path used by react-window 2.x.
+  const pkgJsonPath = join("node_modules", "react-window", "package.json");
+  if (!existsSync(pkgJsonPath)) {
     if (!watch) console.log("  Skipping react-window (not found)");
+    return;
+  }
+  const pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf8"));
+  const entry = pkgJson.module || pkgJson.main || "dist/react-window.js";
+  const pkg = join("node_modules", "react-window", entry);
+  if (!existsSync(pkg)) {
+    if (!watch) console.log(`  Skipping react-window (entry not found: ${entry})`);
     return;
   }
   await build({
@@ -70,6 +79,7 @@ async function buildReactWindowVendor() {
     target: ["es2017"],
     minify: !watch,
     logLevel: watch ? "silent" : "info",
+    external: ["react", "react-dom"],
   });
   if (!watch) console.log("  vendor/react-window.js  (global `ReactWindow`)");
 }

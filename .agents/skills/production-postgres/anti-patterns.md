@@ -1,0 +1,24 @@
+# PostgreSQL Anti-Patterns
+
+Common PostgreSQL anti-patterns extracted from the production-postgres skill. Every entry comes from real outage post-mortems.
+
+| Anti-Pattern | Why It Is Bad | Fix |
+|---|---|---|
+| `SELECT *` in production code | Fetches unnecessary columns, wastes network bandwidth, breaks when columns are added/removed, prevents covering-index optimizations | Explicitly list only the columns you need |
+| Missing foreign key indexes | PostgreSQL does NOT auto-index FKs. JOINs on the FK do sequential scans; `ON DELETE CASCADE` on the parent locks and fully scans the child table | `CREATE INDEX CONCURRENTLY ix_<table>_<fk_col> ON <table> (<fk_col>)` for every FK |
+| No connection pooling | Each PostgreSQL connection consumes ~10 MB of RAM. Without pooling, a traffic spike opens hundreds of connections and PostgreSQL degrades or OOMs past ~100-200 active connections | Use PgBouncer (transaction mode, `default_pool_size=25`) or asyncpg's built-in pool (`max_size=20`) |
+| Unsafe migrations (no `lock_timeout`) | A migration waiting for a lock queues behind a long-running query and blocks ALL subsequent queries, causing a full outage | `SET lock_timeout = '2s'` as the first statement in every migration |
+| ENUM types instead of CHECK constraints | Adding ENUM values requires a migration; removing values is nearly impossible without recreating the type and rewriting every column that uses it | Use `TEXT` with a `CHECK (col IN (...))` constraint, or a lookup table for frequently changing values |
+| No backup testing | An untested backup is not a backup. Corrupt dumps, missing WAL segments, and wrong `pg_restore` flags are discovered during an outage instead of during a drill | Restore to staging monthly. Measure restore time. Run smoke tests against the restored database |
+| N+1 queries | 1 query for a list, then N queries for related data. Turns a 2 ms page load into a 2-second page load as the dataset grows | Eager-load relationships: SQLAlchemy `joinedload()` / `selectinload()`, Django `select_related()` / `prefetch_related()` |
+| Missing `EXPLAIN ANALYZE` | Guessing at query performance instead of measuring it. Missed sequential scans, wrong join strategies, and stale statistics go unnoticed | Run `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)` on every slow or critical query. Look for Seq Scans on large tables, row-estimate mismatches (10x+), and disk-spill sorts |
+| Adding `NOT NULL` with `DEFAULT` on large tables | Takes an `ACCESS EXCLUSIVE` lock and rewrites the entire table. Locks the table for minutes or hours depending on size | Use the 3-step pattern: (1) add nullable column, (2) backfill in batches, (3) add `NOT NULL` constraint with `NOT VALID` then `VALIDATE` |
+| `CREATE INDEX` without `CONCURRENTLY` | Regular `CREATE INDEX` locks the table for writes for the entire duration of the index build | Always use `CREATE INDEX CONCURRENTLY`. Must run outside a transaction (use `autocommit_block()` in Alembic) |
+| Column renames in a single migration | During a rolling deploy old code references the old name, new code references the new name -- one of them breaks | Use expand-contract: (1) add new column + sync trigger, (2) deploy code using new column, (3) drop old column and trigger |
+| Adding constraints without `NOT VALID` | Scanning the entire table under a strong lock to validate existing rows. Blocks writes for large tables | Split into two steps: `ADD CONSTRAINT ... NOT VALID` (fast, weak lock) then `VALIDATE CONSTRAINT` (allows writes, `ShareUpdateExclusiveLock`) |
+| UUID as primary key | UUIDs fragment B-tree indexes and slow down inserts because values are random, not sequential | Use `BIGSERIAL` for internal PKs (fast joins, compact, sequential). Expose a `UUID` column as `public_id` for APIs |
+| JSON instead of JSONB | `JSON` stores raw text with no parsing, no indexing, and no deduplication. Cannot use GIN indexes or containment operators | Always use `JSONB`. Add a GIN index for flexible querying. Validate structure with CHECK constraints |
+| No `idle_in_transaction_session_timeout` | Long-running idle transactions hold locks, block autovacuum, and cause table bloat | `ALTER DATABASE myapp SET idle_in_transaction_session_timeout = '30s'` |
+| No `statement_timeout` | A single runaway query can consume all CPU and I/O, starving every other query | `ALTER DATABASE myapp SET statement_timeout = '30s'` |
+| Unused indexes left in place | Every unused index costs write performance (maintained on every INSERT/UPDATE/DELETE) and wastes disk space | Monitor `pg_stat_user_indexes` for `idx_scan = 0`. Drop unused, non-unique indexes regularly |
+| Single massive UPDATE for backfills | Generates huge WAL, locks the table, and can exhaust disk space or replication slots | Batch in chunks: `UPDATE ... WHERE id IN (SELECT id FROM ... WHERE ... LIMIT 1000)` in a loop |

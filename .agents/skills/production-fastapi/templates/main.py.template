@@ -1,0 +1,314 @@
+"""
+Production-ready FastAPI application template.
+
+Usage:
+  Copy this file to your project, rename to main.py, and customize.
+  All production patterns are included: structured logging, health checks,
+  CORS, security headers, error handling, and graceful shutdown.
+"""
+
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+
+import httpx
+import structlog
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
+
+# ---------------------------------------------------------------------------
+# Configuration — fail fast on missing required env vars
+# ---------------------------------------------------------------------------
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    app_name: str = "my-service"
+    app_version: str = "0.1.0"
+    environment: str = "development"
+    debug: bool = False
+
+    database_url: str  # required — startup fails if missing
+    db_pool_size: int = 10
+    db_max_overflow: int = 5
+
+    redis_url: str = "redis://localhost:6379/0"
+    cors_origins: list[str] = ["http://localhost:3000"]
+    log_level: str = "INFO"
+
+
+settings = Settings()  # validates on import — fail fast
+
+# ---------------------------------------------------------------------------
+# Structured Logging
+# ---------------------------------------------------------------------------
+
+def configure_logging(environment: str) -> None:
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.format_exc_info,
+    ]
+
+    if environment == "production":
+        renderer = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer()
+
+    structlog.configure(
+        processors=[
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    import logging
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+    )
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(getattr(logging, settings.log_level.upper()))
+
+    # Silence noisy libraries
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+logger = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# ASGI Middleware (pure ASGI — never use BaseHTTPMiddleware)
+# ---------------------------------------------------------------------------
+
+import uuid
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+
+class RequestIDMiddleware:
+    """Generate a unique request ID for every request. Binds to structlog contextvars."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        request_id = str(uuid.uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
+        structlog.contextvars.clear_contextvars()
+        structlog.contextvars.bind_contextvars(request_id=request_id)
+
+        async def send_with_request_id(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_request_id)
+
+
+class SecurityHeadersMiddleware:
+    """Add security headers to every response."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend([
+                    (b"strict-transport-security", b"max-age=63072000; includeSubDomains"),
+                    (b"x-content-type-options", b"nosniff"),
+                    (b"x-frame-options", b"DENY"),
+                    (b"x-xss-protection", b"0"),
+                    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+                    (b"permissions-policy", b"camera=(), microphone=(), geolocation=()"),
+                ])
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+# ---------------------------------------------------------------------------
+# Error Handling — RFC 7807 Problem Details
+# ---------------------------------------------------------------------------
+
+class AppError(Exception):
+    def __init__(self, detail: str, status_code: int = 500, error_type: str = "internal_error"):
+        self.detail = detail
+        self.status_code = status_code
+        self.error_type = error_type
+
+
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    request_id = request.state.request_id if hasattr(request.state, "request_id") else None
+    logger.warning("handled_error", error_type=exc.error_type, detail=exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "type": f"/errors/{exc.error_type}",
+            "title": exc.error_type.replace("_", " ").title(),
+            "status": exc.status_code,
+            "detail": exc.detail,
+            "instance": str(request.url),
+            "request_id": request_id,
+        },
+    )
+
+
+async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    request_id = request.state.request_id if hasattr(request.state, "request_id") else None
+    logger.exception("unhandled_error", request_id=request_id)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "type": "/errors/internal_error",
+            "title": "Internal Server Error",
+            "status": 500,
+            "detail": "An unexpected error occurred.",
+            "request_id": request_id,
+        },
+    )
+
+# ---------------------------------------------------------------------------
+# Health Checks
+# ---------------------------------------------------------------------------
+
+from fastapi import APIRouter
+import asyncio
+
+health_router = APIRouter(tags=["health"])
+
+
+@health_router.get("/health/live")
+async def liveness() -> dict:
+    """Is the process alive? Always returns 200."""
+    return {"status": "alive", "timestamp": datetime.now(UTC).isoformat()}
+
+
+@health_router.get("/health/ready")
+async def readiness(request: Request) -> JSONResponse:
+    """Can we handle requests? Checks all dependencies."""
+    checks = {}
+    all_healthy = True
+
+    # Database check
+    try:
+        async with asyncio.timeout(2.0):
+            async with request.app.state.db_engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        checks["database"] = {"status": "healthy"}
+    except Exception as e:
+        checks["database"] = {"status": "unhealthy", "error": str(e)}
+        all_healthy = False
+
+    status_code = 200 if all_healthy else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if all_healthy else "not_ready",
+            "checks": checks,
+            "timestamp": datetime.now(UTC).isoformat(),
+        },
+    )
+
+# ---------------------------------------------------------------------------
+# Application Lifespan
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- Startup ---
+    configure_logging(settings.environment)
+
+    app.state.db_engine = create_async_engine(
+        settings.database_url,
+        pool_size=settings.db_pool_size,
+        max_overflow=settings.db_max_overflow,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+    )
+    app.state.http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(10.0, connect=5.0),
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+    )
+
+    logger.info("application_started", version=settings.app_version, environment=settings.environment)
+
+    yield
+
+    # --- Shutdown ---
+    await app.state.http_client.aclose()
+    await app.state.db_engine.dispose()
+    logger.info("application_stopped")
+
+# ---------------------------------------------------------------------------
+# Create the App
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title=settings.app_name,
+    version=settings.app_version,
+    lifespan=lifespan,
+    docs_url="/docs" if settings.environment != "production" else None,
+    redoc_url=None,
+)
+
+# Middleware (order matters: outermost first)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
+
+# Error handlers
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(Exception, unhandled_error_handler)
+
+# Routes
+app.include_router(health_router)
+
+
+# ---------------------------------------------------------------------------
+# Example endpoint (remove in your project)
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+async def root():
+    return {"service": settings.app_name, "version": settings.app_version}

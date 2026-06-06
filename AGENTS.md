@@ -102,22 +102,90 @@ Use this when you need `asyncpg`, SQLAlchemy ORM, or access to app modules (`fro
 - `.mcp.json`: MCP server configuration
 - `graphify-out/` and `.code-review-graph/`: generated graph artifacts
 
-## Frontend Hook: Always use impeccable skill
+## Frontend Skill Selection
 
-**Rule:** For ANY frontend task — design, redesign, audit, polish, animate, colorize, extract, optimize, adapt, or improve a UI — invoke the `impeccable` skill FIRST before doing anything else.
+Always load the matching skill FIRST for any frontend task. Never skip this step.
 
-This applies to:
-- Websites, landing pages, dashboards, product UI, app shells
-- Components, forms, settings, onboarding, empty states
-- UX review, visual hierarchy, information architecture, cognitive load
-- Accessibility, performance, responsive behavior, theming
-- Typography, fonts, spacing, layout, alignment, color, motion
-- Micro-interactions, UX copy, error states, edge cases, i18n
-- Design systems, tokens, reusable patterns
+### Available Skills
 
-Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `component`, `theme`, `responsive`, `animate`, `polish`, `redesign`, `audit`, `visual`, `ux`
+| Skill | Install Name | Source | Best For |
+|---|---|---|---|
+| **impeccable** | `impeccable` | pbakaus/impeccable | General design: polish, audit, critique, distill, layout, typography, color, UX writing, motion. 23 commands. Default for any UI task. |
+| **design-taste-frontend** | `design-taste-frontend` | Leonxlnx/taste-skill | Anti-slop premium output. Adjustable dials: DESIGN_VARIANCE, MOTION_INTENSITY, VISUAL_DENSITY. Use when default output looks generic. |
+| **frontend-design** | `frontend-design` | anthropics/claude-code (built-in) | Bold aesthetic direction, creative freedom, distinctive visual identity. Use for greenfield design or when you want extreme choices. |
+| **design-motion-principles** | `design-motion-principles` | kylezantos/design-motion-principles | Motion audits and creation. 3 designer lenses: Emil Kowalski (restraint/speed), Jakub Krehel (polish), Jhey Tompkins (playful). Use for animation review or adding motion. |
+| **ui-ux-pro-max** | `ui-ux-pro-max` | nextlevelbuilder/ui-ux-pro-max-skill | Design intelligence database: 50+ UI styles, 161 color palettes, 57 font pairings, 99 UX guidelines, 25 chart types. Use when you need design reference or inspiration. |
 
-**Never skip this step.** Even for "small" frontend fixes, load impeccable first to get the full design system context and workflow guidance.
+### Task-to-Skill Mapping
+
+| Task | Primary Skill | Secondary Skill |
+|---|---|---|
+| Greenfield UI / new component | `impeccable` (shape → build) | `frontend-design` for bold direction |
+| Polish existing UI | `impeccable` (/polish) | `design-taste-frontend` for anti-slop pass |
+| UI audit / critique | `impeccable` (/audit, /critique) | `design-motion-principles` (audit mode) |
+| Motion design / animation | `design-motion-principles` | `impeccable` (/animate) |
+| Typography / color system | `impeccable` (/typeset, /colorize) | `ui-ux-pro-max` for font/color references |
+| Layout / spacing | `impeccable` (/layout) | `design-taste-frontend` (variance dials) |
+| Design reference / inspiration | `ui-ux-pro-max` (search) | `frontend-design` for aesthetic direction |
+| Mobile responsiveness | `impeccable` (/adapt) | — |
+| UX writing / copy | `impeccable` (/clarify) | — |
+| Accessibility pass | `impeccable` (/audit → a11y) | — |
+| Empty states / onboarding | `impeccable` (/onboard) | — |
+| Make it bolder / quieter | `impeccable` (/bolder, /quieter) | `design-taste-frontend` (variance dial) |
+| Pre-ship quality check | `impeccable` (/polish) | — |
+
+**Order of operations:** Load `impeccable` first for most tasks. If it doesn't have the right command, fall back to the specialized skill listed above. Never proceed without loading at least one design skill.
+
+Trigger keywords: `ui`, `frontend`, `design`, `style`, `css`, `layout`, `component`, `theme`, `responsive`, `animate`, `polish`, `redesign`, `audit`, `visual`, `ux`, `motion`, `typography`, `color`
+
+## Backend Skill Selection
+
+Always load the matching skill FIRST for any backend task. Never skip this step.
+
+### Installed Skills (project-specific)
+
+These skills are already in `.agents/skills/` for this project's domain:
+
+| Skill | Best For |
+|---|---|
+| **classifier-audit** | Email classification, extraction, provider fallback, merchant normalization, LLM response handling |
+| **sync-debug** | Gmail sync, incremental history fetch, duplicate handling, scheduling |
+| **browser-smoke** | Browser-based smoke validation for inbox, dashboard, settings, responsive UI |
+| **release-check** | Pre-ship regression pass across backend, frontend build, and key user flows |
+
+### Available Skills (general backend)
+
+| Skill | Install Name | Source | Best For |
+|---|---|---|---|
+| **python-backend-stack** | `python-backend-stack` | manikosto/claude-code-python-stack | Full Python backend toolkit: FastAPI, SQLAlchemy 2.0 async, Alembic, Pytest, PostgreSQL, Docker, Redis. 20 skills, 11 agents. |
+| **production-stack** | `production-stack` | vstorm-co/production-stack-skills | Production hardening: `production-fastapi` (lifespan, ASGI middleware, Pydantic v2, async), `production-postgres` (zero-downtime migrations, indexing, pooling), `production-docker`, `production-security`, `production-deploy`, `production-monitoring`. |
+| **async-testing-expert** | `async-testing-expert` | rafaelkamimura/claude-tools | Async pytest for FastAPI + SQLAlchemy. DAO/Service/Router layer testing, AsyncClient fixtures, FakeConnection/AsyncMock patterns. |
+| **railway-deploy** | `railway-deploy` | mshumer/claude-skill-railway | Railway CLI integration: status, health, logs, deploy, redeploy, vars, db shell, switch, link. |
+| **secure-coding** | `secure-coding` | securityreviewai/secure-coding-skill | FastAPI security: SSRF, rate limiting, CSP, JWT, OWASP Top 10, security headers. |
+| **sqlalchemy-orm** | `sqlalchemy-orm` | bobmatnyc/claude-mpm-skills | Async SQLAlchemy 2.0: `Mapped[T]`, `mapped_column()`, AsyncSession, connection pooling, N+1 prevention, Alembic. |
+
+### Task-to-Skill Mapping
+
+| Task | Primary Skill | Secondary Skill |
+|---|---|---|
+| New API endpoint / route | `fastapi-patterns` (from python-backend-stack) | `production-stack` for production hardening |
+| Database model / migration | `sqlalchemy-orm` | `alembic-migrations` (from python-backend-stack) |
+| Async pytest / test suite | `async-testing-expert` | `python-backend-stack` for fixture patterns |
+| Security audit / hardening | `secure-coding` | `production-stack` (production-security) |
+| Railway deployment / ops | `railway-deploy` | `production-stack` (production-deploy) |
+| Code review / linting | `python-conventions` (from python-backend-stack) | — |
+| API contract / OpenAPI | `rest-api-design` (from python-backend-stack) | — |
+| Docker / containerize | `production-stack` (production-docker) | — |
+| Performance / profiling | `production-stack` (production-monitoring) | — |
+| Email classifier work | `classifier-audit` | `sync-debug` for data context |
+| Gmail sync / dedup | `sync-debug` | — |
+| Pre-ship regression | `release-check` | `python-backend-stack` (run tests + lint) |
+| Error handling / retry | `production-stack` (production-error-handling) | — |
+| Authentication / JWT | `secure-coding` | `fastapi-patterns` (from python-backend-stack) |
+
+**Order of operations:** Start with the domain-specific skill (classifier-audit, sync-debug, release-check) for project-specific work. For general backend work, load `python-backend-stack` first — it covers the widest surface. Specialize with `production-stack` for hardening or `async-testing-expert` for tests.
+
+Trigger keywords: `backend`, `api`, `endpoint`, `route`, `database`, `sqlalchemy`, `alembic`, `migration`, `pytest`, `test`, `docker`, `deploy`, `railway`, `security`, `auth`, `jwt`, `sync`, `classifier`, `email`, `gmail`
 
 <claude-mem-context>
 # Memory Context

@@ -1,0 +1,106 @@
+# =============================================================================
+# Prometheus scrape configuration template
+# Scrapes metrics from your application and common exporters
+# =============================================================================
+
+global:
+  scrape_interval: 15s        # Default scrape interval
+  evaluation_interval: 15s    # Rule evaluation interval
+  scrape_timeout: 10s         # Timeout per scrape
+
+# Alert rules
+rule_files:
+  - "alert_rules.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+# Scrape targets
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # Application metrics
+  # ---------------------------------------------------------------------------
+  - job_name: "api"
+    metrics_path: /metrics
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - "api:8000"
+        labels:
+          service: "api"
+          environment: "production"
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (via postgres_exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: "postgres"
+    static_configs:
+      - targets:
+          - "postgres-exporter:9187"
+        labels:
+          service: "postgres"
+
+  # ---------------------------------------------------------------------------
+  # Redis (via redis_exporter)
+  # ---------------------------------------------------------------------------
+  - job_name: "redis"
+    static_configs:
+      - targets:
+          - "redis-exporter:9121"
+        labels:
+          service: "redis"
+
+  # ---------------------------------------------------------------------------
+  # Node exporter (host metrics)
+  # ---------------------------------------------------------------------------
+  - job_name: "node"
+    static_configs:
+      - targets:
+          - "node-exporter:9100"
+
+  # ---------------------------------------------------------------------------
+  # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - "localhost:9090"
+
+# =============================================================================
+# Example alert rules (save as alert_rules.yml)
+# =============================================================================
+#
+# groups:
+#   - name: api_alerts
+#     rules:
+#       # High error rate
+#       - alert: HighErrorRate
+#         expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+#         for: 2m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "High error rate ({{ $value | humanizePercentage }})"
+#           runbook: "https://wiki.example.com/runbooks/high-error-rate"
+#
+#       # High latency
+#       - alert: HighLatency
+#         expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1.0
+#         for: 5m
+#         labels:
+#           severity: warning
+#         annotations:
+#           summary: "p95 latency above 1s ({{ $value | humanizeDuration }})"
+#
+#       # Service down
+#       - alert: ServiceDown
+#         expr: up{job="api"} == 0
+#         for: 1m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "API service is down"
