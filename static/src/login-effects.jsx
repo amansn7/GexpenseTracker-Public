@@ -124,10 +124,10 @@
       physX+=physVX;
       physY+=physVY;
 
-      if(physX>physTgtX){physX=physTgtX;physVX*=-0.1;physVY*=0.95;}
-      if(physY>physTgtY){physY=physTgtY;physVY*=-0.1;physVX*=0.95;}
-      if(physX<38){physX=38;physVX*=-0.1;}
-      if(physY<38){physY=38;physVY*=-0.1;}
+      if(physX>physTgtX){physX=physTgtX;physVX*=-0.25;physVY*=0.95;}
+      if(physY>physTgtY){physY=physTgtY;physVY*=-0.25;physVX*=0.95;}
+      if(physX<38){physX=38;physVX*=-0.2;}
+      if(physY<38){physY=38;physVY*=-0.2;}
 
       var spd=Math.sqrt(physVX*physVX+physVY*physVY);
       if(spd<2&&Math.abs(physX-physTgtX)<20&&Math.abs(physY-physTgtY)<20){
@@ -172,21 +172,20 @@
   updateTheme();
   animate();
 
-  // === Entrance: raindrop drop → single-point chaos spread → physics trickle → settle → reveal ===
+  // === Entrance: raindrop drop → center → quick bounces right → settle → reveal ===
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
-    var dpx=cx*0.6,dpy=cy*0.6;
 
     // Phase 1: toggle above viewport (invisible, no dots visible)
     tgl.style.transition="none";
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
 
-    // Phase 2: toggle drops diagonally toward bottom-right, canvas stays hidden
-    tgl.style.transition="transform 700ms cubic-bezier(.42,0,1,1)";
-    tgl.style.transform="translate("+dpx+"px,"+dpy+"px)";
+    // Phase 2: toggle drops to center, canvas stays hidden
+    tgl.style.transition="transform 500ms cubic-bezier(.42,0,1,1)";
+    tgl.style.transform="translate("+cx+"px,"+cy+"px)";
 
-    // Phase 3: impact! Canvas reveals, chaos explodes from center point, toggle physics begins
+    // Phase 3: impact! Canvas reveals, chaos explodes, toggle bounces from center toward right
     setTimeout(function(){
       el.style.transition="opacity 200ms cubic-bezier(.16,1,.3,1)";
       el.style.opacity="1";
@@ -197,37 +196,37 @@
       html.setAttribute("data-theme",dark()?"paper":"midnight");
       playToggleSound();
 
-      physX=window.innerWidth*0.7-15;
-      physY=window.innerHeight*0.7-15;
-      physVX=12+Math.random()*4;
-      physVY=6+Math.random()*3;
+      physX=window.innerWidth/2;
+      physY=window.innerHeight/2;
+      physVX=30+Math.random()*8;
+      physVY=3+Math.random()*2;
       physTgtX=window.innerWidth-38;
       physTgtY=window.innerHeight-38;
       tgl.style.transition="none";
       physActive=true;
 
-      // Phase 4: after chaos settles, reveal login card
+      // Phase 4: reveal login card as toggle bounces on the right half
       setTimeout(function(){
         if(wrap){
           wrap.style.transition="opacity 700ms cubic-bezier(.25,1,.5,1)";
           wrap.style.opacity="1";
           setTimeout(function(){wrap.style.transition="";},800);
         }
-      },4200);
+      },500);
 
       setTimeout(function(){
         if(physActive){
           physActive=false;
-          tgl.style.transition="transform 400ms ease-out";
+          tgl.style.transition="transform 500ms cubic-bezier(.34,1.56,.64,1)";
           tgl.style.transform="";
         }
-      },1500);
+      },900);
 
       setTimeout(function(){
         tgl.style.transition="";
         el.style.transition="";
       },2500);
-    },660);
+    },470);
   }else{
     el.style.opacity="1";
     if(wrap){wrap.style.opacity="1";}
