@@ -22,6 +22,11 @@
     pos.push(ix*SEP-(AX*SEP)/2,0,iy*SEP-(AY*SEP)/2);
     col.push(dc[0],dc[1],dc[2]);
   }
+  // Save grid positions, center all dots for chaotic entrance spread
+  var targetPos=pos.slice(),dotDelays=[];
+  for(var _d=0;_d<AX*AY;_d++)dotDelays.push(Math.random());
+  for(var _d=0;_d<pos.length;_d+=3){pos[_d]=0;pos[_d+2]=0;}
+  var spreadActive=false,spreadStart=0;
   var geo=new THREE.BufferGeometry();
   geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3));
   var colorAttr=new THREE.Float32BufferAttribute(col,3);
@@ -30,7 +35,7 @@
   var pts=new THREE.Points(geo,mat);
   scene.add(pts);
 
-  var count=0,frame,targetBg=bgHex(),targetDot=dotRGB(),rippleStart=0;
+  var count=0,frame,targetBg=bgHex(),targetDot=dotRGB(),waveChaos=0,waveChaosStart=0;
 
   function lerpHex(cur,target,speed){
     var cr=(cur>>16)&0xff,cg=(cur>>8)&0xff,cb=cur&0xff;
@@ -62,27 +67,35 @@
     }
     if(need)colorAttr.needsUpdate=true;
 
-    // Sine wave ripples outward from drop point (center) on toggle impact
+    // Chaotic spread: dots burst from center to grid positions
+    if(spreadActive){
+      var elapsed=Date.now()-spreadStart;
+      if(elapsed<2000){
+        var pa=geo.attributes.position.array;
+        for(var si=0;si<AX*AY;si++){
+          var sIdx=si*3,delay=dotDelays[si]*0.35;
+          var t=Math.max(0,Math.min(1,(elapsed/2000-delay)/(1-delay)));
+          t=1-Math.pow(1-t,4);
+          pa[sIdx]=targetPos[sIdx]*t;pa[sIdx+2]=targetPos[sIdx+2]*t;
+        }
+      }else{spreadActive=false;}
+    }
+    // Chaotic wave settle: high noise decays into clean sine wave over 3.5s
+    if(waveChaosStart>0){
+      var ce=Date.now()-waveChaosStart;
+      waveChaos=Math.max(0,1-ce/3500);
+    }
     var p=geo.attributes.position.array,i=0;
-    var cxi=(AX-1)/2,cyi=(AY-1)/2;
-    var front=-1;
-    if(rippleStart>0) front=(Date.now()-rippleStart)/1000*8;
     for(var ix=0;ix<AX;ix++)for(var iy=0;iy<AY;iy++){
       var idx=i*3;
-      var baseY=Math.sin((ix+count)*0.3)*50+Math.sin((iy+count)*0.5)*50;
-      if(front<0){
-        p[idx+1]=0;
+      var targetY=Math.sin((ix+count)*0.3)*50+Math.sin((iy+count)*0.5)*50;
+      if(waveChaos>0){
+        var cf=waveChaos;
+        var noisy=Math.sin((ix+count)*(0.3+cf*2)+cf*30+ix*iy*0.1)*(50+cf*80)
+                 +Math.sin((iy+count)*(0.5+cf*1.5)+cf*20)*(50+cf*60);
+        p[idx+1]=targetY+noisy*cf;
       }else{
-        var dist=Math.sqrt((ix-cxi)*(ix-cxi)+(iy-cyi)*(iy-cyi));
-        if(dist<front-1){
-          var behindFront=front-dist-1;
-          var growAmp=Math.min(1,behindFront/7);
-          p[idx+1]=baseY*growAmp;
-        }else if(dist<front+1){
-          p[idx+1]=baseY*Math.max(0,(front+1-dist)/2);
-        }else{
-          p[idx+1]=0;
-        }
+        p[idx+1]=targetY;
       }
       i++;
     }
@@ -127,33 +140,36 @@
   updateTheme();
   animate();
 
-  // === Entrance: toggle drops → sine wave ripples from impact point ===
+  // === Entrance: continuous motion chain (no gaps between phases) ===
   var wrap=document.getElementById("main-content");
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
-    // Phase 1: toggle above viewport (instant snap, no transition)
+    // Phase 1: toggle above viewport (instant)
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
-    // Phase 2: toggle drops to center, canvas fades in over flat dot grid
+    // Phase 2: bounce drop to center + dots burst + wave chaos begins simultaneously
+    spreadActive=true;spreadStart=Date.now();
+    waveChaos=1;waveChaosStart=Date.now();
     tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
     tgl.style.transform="translate("+cx+"px,"+cy+"px)";
     el.style.transition="opacity 800ms ease";
     el.style.opacity="1";
-    // Phase 3: on impact — sine wave ripples outward + day/night flip + redirect to corner
+    // Phase 3: on bounce impact, toggle day/night + immediately redirect to corner
     setTimeout(function(){
-      rippleStart=Date.now();
       html.setAttribute("data-theme",dark()?"paper":"midnight");
       playToggleSound();
+      // No gap — redirect mid-bounce toward bottom-right (continuous motion)
       tgl.style.transition="transform 1000ms cubic-bezier(.34,1.56,.64,1)";
       tgl.style.transform="";
-      // Phase 4: login card appears as ripple spreads
+      // Phase 4: login appears while toggle slides to corner
       setTimeout(function(){
         if(wrap){
-          wrap.style.transition="opacity 600ms ease";
+          wrap.style.transition="opacity 600ms ease,transform 600ms cubic-bezier(.34,1.56,.64,1)";
           wrap.style.opacity="1";
+          wrap.style.transform="translateY(0)";
         }
       },400);
-      // Cleanup inline styles after toggle settles
+      // Cleanup after toggle settles at corner
       setTimeout(function(){
         tgl.style.transition="";
         el.style.transition="";
