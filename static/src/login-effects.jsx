@@ -124,10 +124,10 @@
       physX+=physVX;
       physY+=physVY;
 
-      if(physX>physTgtX){physX=physTgtX;physVX*=-0.25;physVY*=0.95;}
-      if(physY>physTgtY){physY=physTgtY;physVY*=-0.25;physVX*=0.95;}
-      if(physX<38){physX=38;physVX*=-0.2;}
-      if(physY<38){physY=38;physVY*=-0.2;}
+      if(physX>physTgtX){physX=physTgtX;physVX=0;physVY*=0.95;}
+      if(physY>physTgtY){physY=physTgtY;physVY=0;physVX*=0.95;}
+      if(physX<38){physX=38;physVX=0;}
+      if(physY<38){physY=38;physVY=0;}
 
       var spd=Math.sqrt(physVX*physVX+physVY*physVY);
       if(spd<2&&Math.abs(physX-physTgtX)<20&&Math.abs(physY-physTgtY)<20){
@@ -198,21 +198,21 @@
 
       physX=window.innerWidth/2;
       physY=window.innerHeight/2;
-      physVX=30+Math.random()*8;
-      physVY=3+Math.random()*2;
+      physVX=18+Math.random()*6;
+      physVY=8+Math.random()*4;
       physTgtX=window.innerWidth-38;
       physTgtY=window.innerHeight-38;
       tgl.style.transition="none";
       physActive=true;
 
-      // Phase 4: reveal login card as toggle bounces on the right half
+      // Phase 4: reveal login card as toggle arcs toward bottom-right
       setTimeout(function(){
         if(wrap){
           wrap.style.transition="opacity 700ms cubic-bezier(.25,1,.5,1)";
           wrap.style.opacity="1";
           setTimeout(function(){wrap.style.transition="";},800);
         }
-      },500);
+      },350);
 
       setTimeout(function(){
         if(physActive){
@@ -220,7 +220,7 @@
           tgl.style.transition="transform 500ms cubic-bezier(.34,1.56,.64,1)";
           tgl.style.transform="";
         }
-      },900);
+      },800);
 
       setTimeout(function(){
         tgl.style.transition="";
