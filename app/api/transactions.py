@@ -9,12 +9,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import and_, delete, desc, func, or_, select, tuple_
+from sqlalchemy import and_, case, delete, desc, func, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
+from app.api.stats import MonthKey
 from app.auth_deps import get_current_user
 from app.classifier.merchant_store import merchant_store
 from app.config import settings
@@ -378,16 +379,99 @@ async def search_transactions(
             match_cond = text_cond
         conditions.append(match_cond)
 
-    rows = (
-        await db.execute(
-            select(Transaction, Email)
-            .join(Email, Transaction.email_id == Email.id)
-            .where(*conditions)
-            .order_by(desc(Transaction.created_at))
-            .limit(limit)
+    items_query = (
+        select(Transaction, Email)
+        .join(Email, Transaction.email_id == Email.id)
+        .where(*conditions)
+        .order_by(desc(Transaction.created_at))
+        .limit(limit)
+    )
+    rows = (await db.execute(items_query)).all()
+    items = [format_transaction(t, e) for t, e in rows]
+
+    # ── Insights aggregation (unlimited, same filters) ──
+    join_conditions = [
+        Email.user_id == current_user.id,
+        Transaction.label != "ignore",
+    ]
+    if len(q) >= 2:
+        join_conditions.append(match_cond)
+    if amount_min is not None:
+        join_conditions.append(Transaction.amount >= amount_min)
+    if amount_max is not None:
+        join_conditions.append(Transaction.amount <= amount_max)
+    insights_where = and_(*join_conditions)
+
+    # 1. Aggregate totals
+    agg_q = (
+        select(
+            func.count(Transaction.id).label("transaction_count"),
+            func.sum(
+                case((Transaction.label == "expense", Transaction.amount), else_=0)
+            ).label("total_expenses"),
+            func.sum(
+                case((Transaction.label == "income", Transaction.amount), else_=0)
+            ).label("total_income"),
+            func.avg(Transaction.amount).label("avg_amount"),
+            func.min(Transaction.txn_date).label("date_from"),
+            func.max(Transaction.txn_date).label("date_to"),
         )
-    ).all()
-    return {"items": [format_transaction(t, e) for t, e in rows]}
+        .join(Email, Transaction.email_id == Email.id)
+        .where(insights_where)
+    )
+    agg = (await db.execute(agg_q)).one()
+
+    # 2. Top merchants
+    merchants_q = (
+        select(
+            Transaction.merchant,
+            func.count(Transaction.id).label("count"),
+            func.sum(Transaction.amount).label("total"),
+        )
+        .join(Email, Transaction.email_id == Email.id)
+        .where(insights_where, Transaction.merchant.isnot(None), Transaction.merchant != "")
+        .group_by(Transaction.merchant)
+        .order_by(desc("count"))
+        .limit(5)
+    )
+    top_merchants = [
+        {"merchant": r.merchant, "count": r.count, "total": float(r.total)}
+        for r in (await db.execute(merchants_q)).all()
+    ]
+
+    # 3. Monthly trend (grouped, up to 12 months)
+    monthly_q = (
+        select(
+            MonthKey(Transaction.txn_date).label("month"),
+            func.count(Transaction.id).label("count"),
+            func.sum(Transaction.amount).label("total"),
+        )
+        .join(Email, Transaction.email_id == Email.id)
+        .where(insights_where, Transaction.txn_date.isnot(None))
+        .group_by(MonthKey(Transaction.txn_date))
+        .order_by(desc("month"))
+        .limit(12)
+    )
+    monthly_raw = (await db.execute(monthly_q)).all()
+    monthly_trend = [
+        {"month": r.month, "count": r.count, "total": float(r.total)}
+        for r in reversed(monthly_raw)
+    ]
+
+    insights = {
+        "transaction_count": agg.transaction_count,
+        "total_expenses": float(agg.total_expenses) if agg.total_expenses else 0,
+        "total_income": float(agg.total_income) if agg.total_income else 0,
+        "avg_amount": round(float(agg.avg_amount), 2) if agg.avg_amount else 0,
+        "date_range": {
+            "from": str(agg.date_from) if agg.date_from else None,
+            "to": str(agg.date_to) if agg.date_to else None,
+        },
+        "top_merchants": top_merchants,
+        "monthly_trend": monthly_trend,
+    }
+
+    return {"items": items, "insights": insights}
 
 
 @router.get("/transactions/low-confidence")

@@ -1787,6 +1787,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
 
 const SearchView = React.memo(({ query, categoryFilter }) => {
   const [results, setResults] = React.useState([]);
+  const [insights, setInsights] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState(null);
   const [pickerFor, setPickerFor] = React.useState(null);
@@ -1881,6 +1882,7 @@ const SearchView = React.memo(({ query, categoryFilter }) => {
         let items = (d.items || []).map(transformTransaction);
         if (categoryFilter) items = items.filter(t => t.cat === categoryFilter);
         setResults(items);
+        setInsights(d.insights || null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -1963,6 +1965,105 @@ const SearchView = React.memo(({ query, categoryFilter }) => {
           <div style={{ padding: isMobile ? "72px max(14px, env(safe-area-inset-right, 0px)) 72px max(14px, env(safe-area-inset-left, 0px))" : "72px 32px", textAlign: "center" }}>
             <div style={{ fontFamily: "'Geist', sans-serif", fontSize: isMobile ? 18 : 20, color: "var(--ink-3)", marginBottom: 8 }}>No results</div>
             <div style={{ fontSize: 13, color: "var(--ink-4)" }}>Try a different merchant, category, or amount</div>
+          </div>
+        )}
+
+        {!loading && insights && results.length > 0 && (
+          <div style={{
+            padding: isMobile ? "12px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px))" : "12px 28px 8px",
+            borderBottom: "1px solid var(--line)",
+            background: "var(--paper)",
+          }}>
+            <div style={{
+              display: "flex",
+              gap: 8,
+              ...(isMobile ? { flexWrap: "wrap" } : {}),
+            }}>
+              {(() => {
+                const onlyExpenses = insights.total_expenses > 0 && insights.total_income === 0;
+                const onlyIncome = insights.total_income > 0 && insights.total_expenses === 0;
+                const both = insights.total_expenses > 0 && insights.total_income > 0;
+                const net = insights.total_income - insights.total_expenses;
+                let primaryLabel, primaryValue, primaryColor;
+                if (onlyExpenses) {
+                  primaryLabel = "Total spent";
+                  primaryValue = `₹${insights.total_expenses.toLocaleString("en-IN")}`;
+                  primaryColor = "var(--neg)";
+                } else if (onlyIncome) {
+                  primaryLabel = "Total earned";
+                  primaryValue = `₹${insights.total_income.toLocaleString("en-IN")}`;
+                  primaryColor = "var(--pos)";
+                } else if (both) {
+                  primaryLabel = net >= 0 ? "Net saved" : "Net spent";
+                  primaryValue = `₹${Math.abs(net).toLocaleString("en-IN")}`;
+                  primaryColor = net >= 0 ? "var(--pos)" : "var(--neg)";
+                } else {
+                  primaryLabel = "Total";
+                  primaryValue = "₹0";
+                  primaryColor = "var(--ink)";
+                }
+                const fmtDateShort = (d) => {
+                  if (!d) return "";
+                  const dt = new Date(d + "T00:00:00");
+                  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                };
+                const fmtDateFull = (d) => {
+                  if (!d) return "";
+                  const dt = new Date(d + "T00:00:00");
+                  return dt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+                };
+                const cards = [
+                  { label: primaryLabel, value: primaryValue, color: primaryColor },
+                  { label: "Transactions", value: insights.transaction_count.toLocaleString("en-IN") },
+                  { label: "Avg / txn", value: `₹${insights.avg_amount.toLocaleString("en-IN")}` },
+                ];
+                if (insights.date_range?.from && insights.date_range?.to) {
+                  cards.push({
+                    label: "Period",
+                    value: `${fmtDateShort(insights.date_range.from)}\u2013${fmtDateFull(insights.date_range.to)}`,
+                  });
+                }
+                return cards;
+              })().map(card => (
+                <div key={card.label} style={{
+                  flex: 1,
+                  ...(isMobile ? { minWidth: "calc(50% - 4px)" } : {}),
+                  background: "var(--card)",
+                  borderRadius: 8,
+                  padding: "10px 12px",
+                  border: "1px solid var(--line)",
+                }}>
+                  <div style={{
+                    fontFamily: "'Geist Mono', monospace",
+                    fontSize: isMobile ? 15 : 18,
+                    fontWeight: 700,
+                    color: card.color || "var(--ink)",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}>{card.value}</div>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", marginTop: 3, fontWeight: 500 }}>{card.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {insights.top_merchants?.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, color: "var(--ink-4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 500 }}>Top</span>
+                {insights.top_merchants.map((m, i) => (
+                  <React.Fragment key={m.merchant}>
+                    {i > 0 && <span style={{ color: "var(--ink-4)", fontSize: 9 }}>·</span>}
+                    <span style={{ fontSize: 11, color: "var(--ink-2)", fontWeight: 500, whiteSpace: "nowrap" }}>
+                      {m.merchant}
+                      <span style={{ fontFamily: "'Geist Mono', monospace", color: "var(--ink-3)", fontSize: 10, marginLeft: 3 }}>
+                        ₹{m.total.toLocaleString("en-IN")}
+                      </span>
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
