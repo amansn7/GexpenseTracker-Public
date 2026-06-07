@@ -117,22 +117,22 @@
     geo.attributes.position.needsUpdate=true;
 
     if(physActive){
-      physVY+=0.35;
-      physVX+=0.03;
-      physVX*=0.985;
-      physVY*=0.985;
+      physVY+=0.15;
+      physVX+=0.02;
+      physVX*=0.97;
+      physVY*=0.97;
       physX+=physVX;
       physY+=physVY;
 
-      if(physX>physTgtX){physX=physTgtX;physVX*=-0.3;physVY*=0.95;}
-      if(physY>physTgtY){physY=physTgtY;physVY*=-0.3;physVX*=0.95;}
-      if(physX<38){physX=38;physVX*=-0.3;}
-      if(physY<38){physY=38;physVY*=-0.3;}
+      if(physX>physTgtX){physX=physTgtX;physVX*=-0.1;physVY*=0.95;}
+      if(physY>physTgtY){physY=physTgtY;physVY*=-0.1;physVX*=0.95;}
+      if(physX<38){physX=38;physVX*=-0.1;}
+      if(physY<38){physY=38;physVY*=-0.1;}
 
       var spd=Math.sqrt(physVX*physVX+physVY*physVY);
-      if(spd<0.3&&Math.abs(physX-physTgtX)<3&&Math.abs(physY-physTgtY)<3){
+      if(spd<2&&Math.abs(physX-physTgtX)<20&&Math.abs(physY-physTgtY)<20){
         physActive=false;
-        tgl.style.transition="";
+        tgl.style.transition="transform 200ms ease-out";
         tgl.style.transform="";
       }else{
         tgl.style.transition="none";
@@ -175,15 +175,16 @@
   // === Entrance: raindrop drop → single-point chaos spread → physics trickle → settle → reveal ===
   if(!window.matchMedia("(prefers-reduced-motion:reduce)").matches){
     var cx=38-window.innerWidth/2,cy=38-window.innerHeight/2;
+    var dpx=cx*0.6,dpy=cy*0.6;
 
     // Phase 1: toggle above viewport (invisible, no dots visible)
     tgl.style.transition="none";
     tgl.style.transform="translate("+cx+"px,"+(cy-window.innerHeight-60)+"px)";
     void tgl.offsetHeight;
 
-    // Phase 2: toggle drops like a raindrop — gravity ease-in, canvas stays hidden
-    tgl.style.transition="transform 900ms cubic-bezier(.42,0,1,1)";
-    tgl.style.transform="translate("+cx+"px,"+cy+"px)";
+    // Phase 2: toggle drops diagonally toward bottom-right, canvas stays hidden
+    tgl.style.transition="transform 700ms cubic-bezier(.42,0,1,1)";
+    tgl.style.transform="translate("+dpx+"px,"+dpy+"px)";
 
     // Phase 3: impact! Canvas reveals, chaos explodes from center point, toggle physics begins
     setTimeout(function(){
@@ -196,10 +197,10 @@
       html.setAttribute("data-theme",dark()?"paper":"midnight");
       playToggleSound();
 
-      physX=window.innerWidth/2;
-      physY=window.innerHeight/2;
-      physVX=2.2+Math.random()*0.8;
-      physVY=1+Math.random()*0.5;
+      physX=window.innerWidth*0.7-15;
+      physY=window.innerHeight*0.7-15;
+      physVX=12+Math.random()*4;
+      physVY=6+Math.random()*3;
       physTgtX=window.innerWidth-38;
       physTgtY=window.innerHeight-38;
       tgl.style.transition="none";
@@ -215,10 +216,18 @@
       },4200);
 
       setTimeout(function(){
+        if(physActive){
+          physActive=false;
+          tgl.style.transition="transform 400ms ease-out";
+          tgl.style.transform="";
+        }
+      },1500);
+
+      setTimeout(function(){
         tgl.style.transition="";
         el.style.transition="";
-      },6000);
-    },850);
+      },2500);
+    },660);
   }else{
     el.style.opacity="1";
     if(wrap){wrap.style.opacity="1";}
