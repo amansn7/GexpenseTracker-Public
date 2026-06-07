@@ -157,11 +157,18 @@ function concatLazyChunks() {
 
 function applyContentHashes() {
   // Collect all distributed files to hash
+  // Also hash any .js in the login template that isn't a bundle/chunk
+  const loginScripts = readFileSync("templates/login.html", "utf8").match(
+    /\/static\/dist\/([\w./-]+\.js)/g
+  ) || [];
+  const loginKeys = loginScripts.map((s) => s.replace("/static/dist/", ""));
+
   const distFiles = [
     ...BUNDLES.map((b) => `${b.name}.js`),
     ...Object.keys(LAZY_CHUNKS).map((name) => `${name}.js`),
     "vendor/d3-sankey.js",
     "vendor/react-window.js",
+    ...loginKeys,
   ];
 
   const hashMap = {};
