@@ -668,7 +668,7 @@ const InviteSection = ({ account }) => {
 
 // ── SettingsView ──────────────────────────────────────────────
 
-const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount }) => {
+const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing, account, setAccount, theme, setTheme }) => {
   const { isMobile } = useViewport();
   const mq = mqOverrides(isMobile);
   const settings = account?.settings || {};

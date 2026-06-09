@@ -432,7 +432,9 @@ const App = () => {
       navigator.serviceWorker.getRegistration().then(reg => {
         if (reg && reg.waiting) {
           reg.waiting.postMessage({ type: "SKIP_WAITING" });
-          window.location.reload();
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload();
+          });
         }
       });
     }
@@ -618,7 +620,7 @@ const App = () => {
           <ViewSlot view="goals" activeView={view}><ViewChunkLoader view="goals">{() => <GoalsView />}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="budgets" activeView={view}><ViewChunkLoader view="budgets">{() => <BudgetsView />}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="profile" activeView={view}><ViewChunkLoader view="profile">{() => account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>}</ViewChunkLoader></ViewSlot>
-          <ViewSlot view="settings" activeView={view}><ViewChunkLoader view="settings">{() => account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader></ViewSlot>
+          <ViewSlot view="settings" activeView={view}><ViewChunkLoader view="settings">{() => account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount} theme={theme} setTheme={setTheme}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="today" activeView={view}><ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="picture" activeView={view}><ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="review" activeView={view}><InboxView

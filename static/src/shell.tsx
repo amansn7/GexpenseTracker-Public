@@ -329,36 +329,6 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       </div>
     ))}
 
-    {/* Appearance — equal-width theme buttons via grid */}
-    <div style={{ padding: "12px 8px 4px", marginTop: "auto" }}>
-      <div style={{ fontSize: "0.6875rem", letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--ink-4)", padding: "0 0 6px", fontWeight: 600 }}>Appearance</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
-        {[
-          ["auto","linear-gradient(135deg, var(--theme-paper-swatch) 50%, var(--theme-midnight-swatch) 50%)","Auto","var(--ink)"],
-          ["paper","var(--theme-paper-swatch)","Paper","#1a1814"],
-          ["cool","var(--theme-cool-swatch)","Cool","#171923"],
-          ["midnight","var(--theme-midnight-swatch)","Midnight","#efe9d8"],
-          ["observatory","var(--theme-observatory-swatch)","Observatory","#e8e4df"],
-        ].map(([k,swatch,label,ink]) => (
-          <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k} onClick={() => { window.hapticLight?.(); setTheme && setTheme(k); }}
-            className="theme-btn btn-press"
-            style={{
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
-              minHeight: 48, borderRadius: 6, cursor: "pointer", padding: "6px 2px",
-              background: swatch,
-              border: theme === k ? "2px solid var(--accent)" : "1px solid var(--line)",
-              transition: "border-color 120ms ease, transform 80ms",
-            }}
-          >
-            <span style={{
-              fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.02em", lineHeight: 1,
-              color: theme === k ? ink : ink + "99",
-            }}>{label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-
     <div style={{ padding: "4px 8px 8px" }}>
       <AccountTrigger />
       {menu && (
