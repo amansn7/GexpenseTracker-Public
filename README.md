@@ -182,7 +182,8 @@ node scripts/build-frontend.mjs --watch  # dev watch mode
 ├── Dockerfile
 ├── docker-compose.yml       # Cloud mode (PostgreSQL + Redis)
 ├── docker-compose.local.yml # Local mode (SQLite)
-└── railway.toml             # Railway deploy config
+├── Dockerfile
+└── entrypoint.sh
 ```
 
 ---
