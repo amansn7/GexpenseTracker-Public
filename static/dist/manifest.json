@@ -1,6 +1,6 @@
 {
-  "version": "21490ce5",
-  "timestamp": "2026-06-09T04:53:00.858Z",
+  "version": "711d3576",
+  "timestamp": "2026-06-09T05:17:48.385Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -27,7 +27,7 @@
     "/static/dist/budgets.js?v=4863e651",
     "/static/dist/account.js?v=02abebd2",
     "/static/dist/admin.js?v=b17501c0",
-    "/static/dist/onboarding.js?v=91d1ecd9",
+    "/static/dist/onboarding.js?v=3a2d3c0a",
     "/static/dist/esm/app.esm.js?v=1efea4d9"
   ],
   "bundles": {
@@ -117,13 +117,13 @@
     },
     "onboarding": {
       "file": "onboarding.js",
-      "size": 32007,
-      "size_kb": 31.3,
-      "hash": "91d1ecd9"
+      "size": 32407,
+      "size_kb": 31.6,
+      "hash": "3a2d3c0a"
     }
   },
   "always_loaded_size_kb": 563,
-  "total_size_kb": 1055.7,
+  "total_size_kb": 1056.1,
   "budgets": {
     "passed": false,
     "violations": [

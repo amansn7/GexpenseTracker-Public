@@ -33,7 +33,7 @@ const registerPasskey = async (deviceName) => {
     const opts = begin.options;
     opts.challenge = _b64url(opts.challenge);
     opts.user.id = _b64url(opts.user.id);
-    const credential = await navigator.credentials.create({ publicKey: opts });
+    const credential = await navigator.credentials.create({ publicKey: opts, signal: AbortSignal.timeout(60000) });
     const credentialData = credential.toJSON ? credential.toJSON() : _serializeCred(credential);
     const complete = await API.post("/api/auth/passkey/register/complete", {
       credential: credentialData,
@@ -47,12 +47,12 @@ const registerPasskey = async (deviceName) => {
   }
 };
 
-const assertPasskey = async () => {
+const assertPasskey = async (signal?: AbortSignal) => {
   try {
     const begin = await API.post("/api/auth/passkey/assert/begin");
     const pkOptions = begin.options;
     pkOptions.challenge = _b64url(pkOptions.challenge);
-    const credential = await navigator.credentials.get({ publicKey: pkOptions });
+    const credential = await navigator.credentials.get({ publicKey: pkOptions, signal: signal ?? AbortSignal.timeout(60000) });
     const assertionData = credential.toJSON ? credential.toJSON() : _serializeAssertion(credential);
     const complete = await API.post("/api/auth/passkey/assert/complete", {
       credential: assertionData,

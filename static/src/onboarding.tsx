@@ -782,7 +782,12 @@ const PasskeyChallenge = () => {
     if (result.ok) {
       window.location.reload();
     } else {
-      setError(result.error);
+      const msg = result.error || "Verification failed.";
+      if (msg.includes("timed out") || msg.includes("abort") || /timeout/i.test(msg)) {
+        setError("Passkey prompt timed out. Try again or use another method.");
+      } else {
+        setError(msg);
+      }
     }
     setVerifying(false);
   };
@@ -834,6 +839,23 @@ const PasskeyChallenge = () => {
       >
         {verifying ? "Verifying…" : "Use passkey"}
       </button>
+      {verifying && (
+        <button
+          onClick={() => { setVerifying(false); setError(null); }}
+          style={{
+            background: "none",
+            border: "none",
+            color: "var(--ink-2)",
+            fontSize: "0.8125rem",
+            cursor: "pointer",
+            fontFamily: "inherit",
+            textDecoration: "underline",
+            padding: 0,
+          }}
+        >
+          Cancel
+        </button>
+      )}
     </div>
   );
 };
