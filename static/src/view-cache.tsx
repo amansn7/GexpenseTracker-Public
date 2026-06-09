@@ -4,7 +4,7 @@
 const ViewCacheContext = React.createContext({ cachedViews: [] });
 
 const ViewSlot = ({ view, activeView, children }) => {
-  const { cachedViews } = useContext(ViewCacheContext);
+  const { cachedViews } = React.useContext(ViewCacheContext);
   const isActive = view === activeView;
   const inCache = cachedViews.includes(view);
 
