@@ -22,13 +22,13 @@ const Modal = ({ open, onClose, title, children, width = 420, danger = false, cl
   return ReactDOM.createPortal(
     <div
       className={`${closing ? "backdrop-out" : "backdrop-in"} ${className}`}
-      style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+      style={{ position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, overflow: "hidden" }}
       onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
       <div
         ref={modalRef}
         className={closing ? "modal-out" : "modal-in"}
-        style={{ background: "var(--card)", border: danger ? "1px solid var(--neg-soft)" : "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: width, position: "relative", maxHeight: "calc(100vh - 40px)", overflowY: "auto" }}
+        style={{ background: "var(--card)", border: danger ? "1px solid var(--neg-soft)" : "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: width, position: "relative", maxHeight: "calc(100vh - 40px)", overflowY: "auto", minHeight: 0 }}
       >
         {title && (
           <div style={{ fontFamily: "'Geist', sans-serif", fontSize: "1.125rem", fontWeight: 500, color: danger ? "var(--neg)" : "var(--ink)", marginBottom: 8 }}>{title}</div>

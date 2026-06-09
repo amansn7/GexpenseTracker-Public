@@ -466,11 +466,11 @@ const App = () => {
       )}
       {swUpdateReady && (
         <div style={{
-          position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
-          zIndex: 9999, background: "var(--card)", color: "var(--ink)",
-          border: "1px solid var(--line)", borderRadius: 10,
-          padding: "12px 16px", display: "flex", alignItems: "center", gap: 12,
-          boxShadow: "0 8px 24px var(--shadow-lg)",
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+          background: "var(--card)", color: "var(--ink)",
+          borderBottom: "1px solid var(--line)",
+          padding: "10px 14px", display: "flex", alignItems: "center",
+          justifyContent: "center", gap: 12,
           fontSize: "0.8125rem", fontFamily: "inherit",
           animation: "fadeIn 200ms ease-out",
         }}>
