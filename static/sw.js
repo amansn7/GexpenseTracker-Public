@@ -60,7 +60,7 @@ self.addEventListener("activate", (e) => {
 });
 
 function isFontUrl(url) {
-  return url.hostname === "fonts.gstatic.com" || url.hostname === "fonts.googleapis.com";
+  return url.hostname === "fonts.gstatic.com";
 }
 
 function isApiCall(url) {
