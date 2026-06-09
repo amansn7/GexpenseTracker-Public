@@ -6,6 +6,8 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React 18"/>
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square" alt="License"/>
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"/>
+  <a href="https://github.com/amansn7/GexpenseTracker-Public/actions/workflows/ci.yml"><img src="https://github.com/amansn7/GexpenseTracker-Public/actions/workflows/ci.yml/badge.svg?style=flat-square" alt="CI"/></a>
+  <a href="https://amansn7.github.io/GexpenseTracker-Public/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-blue?style=flat-square" alt="Docs"/></a>
   <br/><br/>
   <h1>MoneyFlow</h1>
   <p><strong>Inbox for your money</strong> — automatically track expenses from Gmail · rule engine + multi-provider LLM · warm minimal design</p>

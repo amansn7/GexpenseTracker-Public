@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneyFlow — Docs</title>
+  <style>
+    :root {
+      --bg: #faf7f2;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e5ddd4;
+      --accent: #2563eb;
+      --accent-bg: #dbeafe;
+      --code-bg: #f1ede8;
+      --radius: 8px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: .25rem; }
+    h2 { font-size: 1.3rem; font-weight: 600; margin-top: 2rem; margin-bottom: .75rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: .5rem; }
+    p, li { margin-bottom: .5rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    ul, ol { padding-left: 1.3rem; margin-bottom: 1rem; }
+    code {
+      background: var(--code-bg);
+      padding: .15rem .4rem;
+      border-radius: 4px;
+      font-size: .9em;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      font-size: .9rem;
+      margin-bottom: 1rem;
+    }
+    .badge { display: inline-block; margin: 0 .25rem .5rem 0; }
+    .hero { margin: 2rem 0; }
+    .hero p { font-size: 1.1rem; color: var(--muted); }
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h3 { margin-top: 0; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+    .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="hero">
+      <h1>MoneyFlow</h1>
+      <p>Inbox for your money — automatically track expenses from Gmail using a rule engine + multi-provider LLM.</p>
+    </div>
+
+    <p>
+      <a class="badge" href="https://github.com/amansn7/GexpenseTracker-Public"><img src="https://img.shields.io/badge/github-amansn7/GexpenseTracker--Public-blue?logo=github" alt="GitHub"></a>
+      <a class="badge" href="https://github.com/amansn7/GexpenseTracker-Public/actions/workflows/ci.yml"><img src="https://github.com/amansn7/GexpenseTracker-Public/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+      <a class="badge" href="https://github.com/amansn7/GexpenseTracker-Public/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
+    </p>
+
+    <h2>Overview</h2>
+    <p>MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invoices, receipts, UPI confirmations) using a two-stage pipeline — domain rules with fallback to a multi-provider LLM — and gives you a live dashboard of your spending without manually entering a single transaction.</p>
+
+    <h2>Quick Start</h2>
+
+    <div class="card">
+      <h3>🏠 Local mode (no external services)</h3>
+      <pre>git clone https://github.com/amansn7/GexpenseTracker-Public.git
+cd GexpenseTracker-Public
+bash scripts/setup-local.sh
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000</pre>
+      <p>Open <a href="http://localhost:8000">http://localhost:8000</a> and click <strong>"Start locally"</strong>.</p>
+    </div>
+
+    <div class="card">
+      <h3>🐳 Docker (local mode)</h3>
+      <pre>docker compose -f docker-compose.local.yml up --build</pre>
+      <p>Open <a href="http://localhost:8000">http://localhost:8000</a>.</p>
+    </div>
+
+    <div class="card">
+      <h3>☁️ Cloud mode (Gmail sync)</h3>
+      <pre>cp .env.example .env
+# Edit .env: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+#            SECRET_KEY, FERNET_KEY, REDIS_URL
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/expense_tracker"
+alembic upgrade head
+uvicorn app.main:app --reload</pre>
+    </div>
+
+    <h2>Features</h2>
+    <div class="grid-2">
+      <div class="card"><h3>📥 Gmail Sync</h3>Incremental sync using Gmail history IDs. 90-day fallback, configurable filters, manual re-scan with live progress polling.</div>
+      <div class="card"><h3>🤖 Smart Classification</h3>Rule engine (18 built-in vendors) + multi-provider LLM fallback (Gemini, Grok, Groq, Scaleway, OpenRouter, Cloudflare).</div>
+      <div class="card"><h3>📊 7 Screens</h3>Inbox, Money Flow (Sankey), Dashboard, Health, Reports, Recurring, Debt — all with category & date range filtering.</div>
+      <div class="card"><h3>🧠 Auto-Learning</h3>Fixing a transaction creates a domain rule. Bulk retrain, fuzzy merchant aliasing, auto-resolve duplicate pairs at ≥85% confidence.</div>
+      <div class="card"><h3>🎨 3 Themes</h3>Paper (warm cream), Cool (gray-blue), Midnight (dark charcoal). Cmd+K global search across everything.</div>
+      <div class="card"><h3>🔒 Security</h3>Google OAuth 2.0, optional TOTP 2FA, multi-user via email allowlist, bring your own LLM key.</div>
+    </div>
+
+    <h2>Tech Stack</h2>
+    <table>
+      <tr><th>Layer</th><th>Technology</th></tr>
+      <tr><td>Backend</td><td>FastAPI (async) + SQLAlchemy 2.0 async + Alembic</td></tr>
+      <tr><td>Database</td><td>PostgreSQL (prod) / SQLite (dev)</td></tr>
+      <tr><td>Frontend</td><td>Vanilla JSX (esbuild → React 18 CDN) + Jinja2 shell</td></tr>
+      <tr><td>Gmail</td><td>Google OAuth 2.0 + Gmail REST API</td></tr>
+      <tr><td>LLM</td><td>Gemini, Grok (xAI), Groq, Scaleway, OpenRouter, Cloudflare Workers AI</td></tr>
+      <tr><td>Container</td><td>Docker + docker-compose</td></tr>
+      <tr><td>Deploy</td><td>Railway (via Dockerfile)</td></tr>
+    </table>
+
+    <h2>Project Structure</h2>
+    <pre>├── app/               # FastAPI backend (routes, models, classifier, gmail)
+├── static/            # React frontend (JSX + CSS)
+├── templates/         # HTML shell
+├── tests/             # Pytest async test suite
+├── alembic/           # Database migrations
+├── scripts/           # Build & setup helpers
+├── Dockerfile
+├── docker-compose.yml
+└── README.md</pre>
+
+    <h2>CI Status</h2>
+    <p>Automated CI runs on every push to <code>main</code> and every PR:</p>
+    <ul>
+      <li>Python 3.11 + PostgreSQL 16</li>
+      <li>Async test suite with <code>pytest</code> (60%+ coverage threshold)</li>
+      <li>Ruff lint & format checks</li>
+      <li>MyPy type checking on core modules</li>
+      <li>Frontend build via esbuild</li>
+      <li>Security audit via <code>pip-audit</code></li>
+    </ul>
+
+    <div class="footer">
+      <p><a href="https://github.com/amansn7/GexpenseTracker-Public">GitHub</a> · Apache 2.0 License · Built by <a href="https://github.com/amansn7">Aman Saini</a></p>
+    </div>
+  </div>
+</body>
+</html>
