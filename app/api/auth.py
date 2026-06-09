@@ -116,13 +116,13 @@ async def _get_or_create_user(
         return user
 
     # New user: determine role and check invitations for non-owner users
-    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
+    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != settings.SEED_USER_EMAIL))) or 0
 
     if existing_count == 0:
         role = UserRole.owner
     else:
         owner = (
-            await db.execute(select(User).where(User.role == UserRole.owner, User.email != "service@localhost"))
+            await db.execute(select(User).where(User.role == UserRole.owner, User.email != settings.SEED_USER_EMAIL))
         ).scalar_one_or_none()
         if owner is None:
             role = UserRole.owner
@@ -343,7 +343,7 @@ async def auth_me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    seed_row = (await db.execute(select(User).where(User.email == "service@localhost"))).scalar_one_or_none()
+    seed_row = (await db.execute(select(User).where(User.email == settings.SEED_USER_EMAIL))).scalar_one_or_none()
     has_seed_data = False
     if seed_row:
         try:
@@ -399,7 +399,7 @@ async def claim_seed_data(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    seed_row = (await db.execute(select(User).where(User.email == "service@localhost"))).scalar_one_or_none()
+    seed_row = (await db.execute(select(User).where(User.email == settings.SEED_USER_EMAIL))).scalar_one_or_none()
     if not seed_row:
         return {"transferred": 0}
     result = await db.execute(update(Email).where(Email.user_id == seed_row.id).values(user_id=user.id))

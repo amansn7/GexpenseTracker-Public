@@ -46,7 +46,7 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     if settings.INVITE_CODE and body.invite_code != settings.INVITE_CODE:
         raise HTTPException(status_code=403, detail="Invalid invite code")
 
-    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != "service@localhost"))) or 0
+    existing_count = (await db.scalar(select(func.count(User.id)).where(User.email != settings.SEED_USER_EMAIL))) or 0
     role = UserRole.owner.value if existing_count == 0 else UserRole.member.value
     user = User(email=email, role=role, status=UserStatus.active.value, onboarding_complete=True)
     if settings.ENABLE_LLM_TRIAL:

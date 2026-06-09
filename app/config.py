@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     DLQ_MAX_RETRIES: int = 3
     TASK_TIMEOUT: int = 300
 
+    # Seed service user email — used as sentinel to exclude the internal
+    # service account from user counts and ownership checks.
+    SEED_USER_EMAIL: str = "service@localhost"
+
     # Local mode — run without Google OAuth / Gmail / Redis / PostgreSQL
     # Set to true for a fully self-contained local deployment using SQLite,
     # in-memory task queue, and email+passkey auth (no external dependencies).
