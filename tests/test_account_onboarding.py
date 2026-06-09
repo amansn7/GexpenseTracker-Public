@@ -38,7 +38,7 @@ async def test_onboarding_creates_user_profile_settings_and_defaults(db_session)
         assert data["user"]["email"] == "user@example.com"
         assert data["user"]["role"] == "owner"
         assert data["user"]["onboarding_complete"] is True
-        assert data["profile"]["full_name"] == "Aman Saini"
+        assert data["profile"]["full_name"] == "Test User"
         assert data["settings"]["daily_digest"] is True
         assert len(data["connected_accounts"]) == 1
         assert data["connected_accounts"][0]["provider"] == "gmail"
