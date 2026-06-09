@@ -39,7 +39,7 @@ const DashboardView = React.memo(({ transactions, categoryFilter, dateRange, set
   const [error, setError] = React.useState(null);
   const [retryCount, setRetryCount] = React.useState(0);
   const dashScrollRef = React.useRef(null);
-  const { pulling: dashPulling, refreshing: dashRefreshing, pullY: dashPullY, handleTouchStart: dashTouchStart, handleTouchMove: dashTouchMove, handleTouchEnd: dashTouchEnd } = usePullToRefresh(function() { setRetryCount(function(c) { return c + 1; }); }, { scrollRef: dashScrollRef });
+  const { pulling: dashPulling, refreshing: dashRefreshing, pullY: dashPullY, handleTouchStart: dashTouchStart, handleTouchMove: dashTouchMove, handleTouchEnd: dashTouchEnd } = window.usePullToRefresh(function() { setRetryCount(function(c) { return c + 1; }); }, { scrollRef: dashScrollRef });
   const [insightsData, setInsightsData] = React.useState(null);
   const [insightsLoading, setInsightsLoading] = React.useState(false);
 

@@ -18,14 +18,14 @@ interface StatsSectionsResponse {
 
 const ReportsView = React.memo(() => {
   const { isMobile } = useViewport();
-  const { loading, data, error, retry } = useAsync<MonthlySummary[]>(
+  const { loading, data, error, retry } = window.useAsync<MonthlySummary[]>(
     () => API.get<StatsSectionsResponse>("/api/stats?sections=monthlySummary")
       .then(d => d.monthlySummary?.months || []),
     []
   );
   const months = data || [];
   const reportsScrollRef = React.useRef(null);
-  const { pulling: rPulling, refreshing: rRefreshing, pullY: rPullY, handleTouchStart: rTouchStart, handleTouchMove: rTouchMove, handleTouchEnd: rTouchEnd } = usePullToRefresh(retry, { scrollRef: reportsScrollRef });
+  const { pulling: rPulling, refreshing: rRefreshing, pullY: rPullY, handleTouchStart: rTouchStart, handleTouchMove: rTouchMove, handleTouchEnd: rTouchEnd } = window.usePullToRefresh(retry, { scrollRef: reportsScrollRef });
 
   const savingsBadge = (rate: number) => {
     const bg = rate >= 20 ? "var(--pos-soft)" : rate >= 10 ? "color-mix(in srgb, var(--amber) 20%, transparent)" : "var(--neg-soft)";

@@ -4,12 +4,12 @@
 const HealthView = React.memo(() => {
   const { isMobile, isTablet } = useViewport();
   const [months, setMonths] = React.useState(6);
-  const { loading, data, error, retry } = useAsync(
+  const { loading, data, error, retry } = window.useAsync(
     () => API.get(`/api/stats?sections=health&months=${months}`).then(d => d.health || null),
     [months]
   );
   const healthScrollRef = React.useRef(null);
-  const { pulling: hPulling, refreshing: hRefreshing, pullY: hPullY, handleTouchStart: hTouchStart, handleTouchMove: hTouchMove, handleTouchEnd: hTouchEnd } = usePullToRefresh(retry, { scrollRef: healthScrollRef });
+  const { pulling: hPulling, refreshing: hRefreshing, pullY: hPullY, handleTouchStart: hTouchStart, handleTouchMove: hTouchMove, handleTouchEnd: hTouchEnd } = window.usePullToRefresh(retry, { scrollRef: healthScrollRef });
 
   const fmt = (n) => {
     if (n == null) return "—";

@@ -1,6 +1,6 @@
 {
-  "version": "21916357",
-  "timestamp": "2026-06-09T03:17:14.951Z",
+  "version": "1aae798b",
+  "timestamp": "2026-06-09T03:24:18.674Z",
   "shell": [
     "/static/styles.css?v=aaec0151",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -16,11 +16,11 @@
     "/static/dist/components/Toggle.js?v=8f5a7c55",
     "/static/dist/mf-core.js?v=bedf73f3",
     "/static/dist/mf-app.js?v=4273cbfb",
-    "/static/dist/inbox.js?v=bc17b713",
-    "/static/dist/flow.js?v=5a098d67",
-    "/static/dist/dashboard.js?v=e25080e1",
-    "/static/dist/health.js?v=97b8572d",
-    "/static/dist/reports.js?v=5a7210b4",
+    "/static/dist/inbox.js?v=1f666cc1",
+    "/static/dist/flow.js?v=23e525ff",
+    "/static/dist/dashboard.js?v=2c3d42bd",
+    "/static/dist/health.js?v=5fbf7f4e",
+    "/static/dist/reports.js?v=8ecfb765",
     "/static/dist/recurring.js?v=acd33ecf",
     "/static/dist/debt.js?v=8d614bf8",
     "/static/dist/goals.js?v=929df045",
@@ -28,7 +28,7 @@
     "/static/dist/account.js?v=8ec45dfe",
     "/static/dist/admin.js?v=b17501c0",
     "/static/dist/onboarding.js?v=91d1ecd9",
-    "/static/dist/esm/app.esm.js?v=e2a37ab5"
+    "/static/dist/esm/app.esm.js?v=552dcdd9"
   ],
   "bundles": {
     "mf-core": {
@@ -51,33 +51,33 @@
     },
     "inbox": {
       "file": "inbox.js",
-      "size": 129743,
+      "size": 129750,
       "size_kb": 126.7,
-      "hash": "bc17b713"
+      "hash": "1f666cc1"
     },
     "flow": {
       "file": "flow.js",
-      "size": 40360,
+      "size": 40367,
       "size_kb": 39.4,
-      "hash": "5a098d67"
+      "hash": "23e525ff"
     },
     "dashboard": {
       "file": "dashboard.js",
-      "size": 31578,
+      "size": 31585,
       "size_kb": 30.8,
-      "hash": "e25080e1"
+      "hash": "2c3d42bd"
     },
     "health": {
       "file": "health.js",
-      "size": 7684,
+      "size": 7698,
       "size_kb": 7.5,
-      "hash": "97b8572d"
+      "hash": "5fbf7f4e"
     },
     "reports": {
       "file": "reports.js",
-      "size": 7504,
+      "size": 7518,
       "size_kb": 7.3,
-      "hash": "5a7210b4"
+      "hash": "8ecfb765"
     },
     "recurring": {
       "file": "recurring.js",

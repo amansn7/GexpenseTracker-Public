@@ -15,7 +15,7 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
   const listRef = React.useRef(null);
   const listApiRef = React.useRef(null);
   const { VariableSizeList: VList } = window.ReactWindow || {};
-  const { pullY, pulling, refreshing, handleTouchStart: pullTouchStart, handleTouchMove: pullTouchMove, handleTouchEnd: pullTouchEnd } = usePullToRefresh(loadData, { scrollRef: listRef });
+  const { pullY, pulling, refreshing, handleTouchStart: pullTouchStart, handleTouchMove: pullTouchMove, handleTouchEnd: pullTouchEnd } = window.usePullToRefresh(loadData, { scrollRef: listRef });
   const datePresets = DateUtils.DATE_PRESETS;
   const currentPreset = datePresets.find(p => {
     const range = p.get();
