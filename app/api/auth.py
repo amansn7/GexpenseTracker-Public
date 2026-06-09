@@ -39,6 +39,7 @@ from app.models import (
     Session,
     User,
     UserAIService,
+    UserCategory,
     UserProfile,
     UserRole,
     UserSettings,
@@ -199,7 +200,10 @@ async def get_csrf_token(response: Response):
 
 
 @router.get("/auth/google")
-async def start_google_auth(db: AsyncSession = Depends(get_db)):
+async def start_google_auth(
+    redirect: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     flow = get_oauth_flow()
     auth_url, state = flow.authorization_url(
         access_type="offline",
@@ -212,6 +216,7 @@ async def start_google_auth(db: AsyncSession = Depends(get_db)):
         OAuthState(
             state=state,
             expires_at=datetime.now(UTC) + timedelta(minutes=OAUTH_STATE_MINUTES),
+            redirect_uri=redirect,
         )
     )
     await db.commit()
@@ -266,8 +271,19 @@ async def google_callback(
     await db.commit()
     token = await _create_session(db, user)
 
-    # Mobile clients send Accept: application/json — return JWT pair directly.
-    # Browsers follow the redirect as before.
+    # Mobile clients via Capacitor browser plugin: redirect to the stored
+    # redirect_uri (an HTTP endpoint on the same origin) with JWT tokens as
+    # query params. The Capacitor bridge captures the token from the
+    # browserPageLoaded event, closes the browser, and continues in the WebView.
+    if state_row.redirect_uri:
+        pair = _jwt_response_for_user(user)
+        sep = "&" if "?" in state_row.redirect_uri else "?"
+        return RedirectResponse(
+            f"{state_row.redirect_uri}{sep}access_token={pair['access_token']}&refresh_token={pair['refresh_token']}",
+            status_code=302,
+        )
+
+    # Mobile clients (direct API call): return JWT pair as JSON.
     accept = request.headers.get("Accept", "")
     if "application/json" in accept:
         return JSONResponse(_jwt_response_for_user(user))
@@ -391,9 +407,64 @@ async def claim_seed_data(
     return {"transferred": result.rowcount}
 
 
+@router.get("/auth/check-mode")
+async def check_mode():
+    """Return 200 if LOCAL_MODE is enabled, 404 otherwise.
+    Used by the login page to conditionally show the local login button.
+    """
+    if not settings.LOCAL_MODE:
+        raise HTTPException(status_code=404, detail="Local mode not enabled")
+    return {"local_mode": True}
+
+
 @router.get("/auth/status")
 async def auth_status():
     return {"authenticated": True}
+
+
+@router.post("/auth/local-login")
+async def local_login(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Local mode login — creates a session for the default local user.
+
+    Only available when LOCAL_MODE=true. No Google OAuth required.
+    Creates the first user on first login if none exists.
+    """
+    if not settings.LOCAL_MODE:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    email = "local@moneyflow.local"
+    user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+
+    if user is None:
+        user = User(email=email, role=UserRole.owner, status=UserStatus.active, onboarding_complete=False)
+        db.add(user)
+        await db.flush()
+        db.add(UserProfile(user_id=user.id, full_name="Local User"))
+        db.add(UserSettings(user_id=user.id))
+        db.add(
+            ConnectedAccount(user_id=user.id, provider="gmail", account_email=email, status="disconnected")
+        )
+        from app.api._account_helpers import DEFAULT_CATEGORIES as _DEFAULT_CATEGORIES
+        for idx, (name, color, kind) in enumerate(_DEFAULT_CATEGORIES):
+            db.add(UserCategory(user_id=user.id, name=name, color=color, kind=kind, sort_order=idx))
+        await db.commit()
+        await db.refresh(user)
+    elif user.scheduled_deletion_at:
+        raise HTTPException(status_code=403, detail="Account scheduled for deletion")
+
+    token = await _create_session(db, user)
+    _set_session_cookie(response, token)
+
+    accept = request.headers.get("Accept", "")
+    if "application/json" in accept:
+        from app.api._account_helpers import _load_user_bundle
+        return JSONResponse(await _load_user_bundle(db, user))
+
+    return RedirectResponse("/", status_code=302)
 
 
 @router.get("/auth/invitations")

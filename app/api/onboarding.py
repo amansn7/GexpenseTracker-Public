@@ -79,6 +79,30 @@ async def start_onboarding(body: OnboardingBody, db: AsyncSession = Depends(get_
     return await _load_user_bundle(db, user)
 
 
+@router.post("/account/onboarding/skip-gmail", status_code=200)
+async def skip_gmail(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Skip Gmail connection during onboarding — available in LOCAL_MODE.
+
+    Marks the connected_account as intentionally disconnected so the UI
+    doesn't keep prompting for Gmail connection.
+    """
+    account = (
+        await db.execute(
+            select(ConnectedAccount).where(
+                ConnectedAccount.user_id == current_user.id,
+                ConnectedAccount.provider == "gmail",
+            )
+        )
+    ).scalar_one_or_none()
+    if account and account.status == "disconnected":
+        account.external_id = "local-skip"
+        await db.commit()
+    return {"ok": True}
+
+
 @router.patch("/account/onboarding/complete", status_code=200)
 async def mark_onboarding_complete(
     db: AsyncSession = Depends(get_db),

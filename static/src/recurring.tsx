@@ -1,0 +1,331 @@
+// @ts-nocheck
+// Recurring expenses view
+
+const { useState, useEffect, useRef } = React;
+
+const FREQ_LABELS = { monthly: "Monthly", weekly: "Weekly", "bi-weekly": "Bi-weekly", yearly: "Yearly" };
+const FREQ_COLORS = {
+  monthly:    { bg: "var(--cat-other)",   ink: "var(--cat-other-ink)" },
+  weekly:     { bg: "var(--cat-travel)",  ink: "var(--cat-travel-ink)" },
+  "bi-weekly":{ bg: "var(--cat-util)",    ink: "var(--cat-util-ink)" },
+  yearly:     { bg: "var(--cat-sub)",     ink: "var(--cat-sub-ink)" },
+};
+
+const defaultForm = () => ({ name: "", amount: "", category: "", frequency: "monthly", notes: "", active: true });
+
+const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
+  const { isMobile } = useViewport();
+  const [form, setForm] = useState(item ? { ...item, amount: item.amount ?? "" } : defaultForm());
+  const [err, setErr] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.name.trim()) { setErr("Name is required"); return; }
+    setSaving(true); setErr(null);
+    try {
+      const body = {
+        name: form.name.trim(),
+        amount: form.amount !== "" ? parseFloat(form.amount) : null,
+        category: form.category || null,
+        frequency: form.frequency,
+        notes: form.notes || null,
+        active: form.active,
+      };
+      const result = item
+        ? await API.patch(`/api/recurring/${item.id}`, body)
+        : await API.post("/api/recurring", body);
+      onSave(result, !!item);
+    } catch (e) { setErr(e.message); setSaving(false); }
+  };
+
+  const del = async () => {
+    setSaving(true);
+    try {
+      await API.delete(`/api/recurring/${item.id}`);
+      onDelete(item.id);
+    } catch (e) { setErr(e.message); setSaving(false); }
+  };
+
+  const inp = { width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", fontSize: "0.8125rem", fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+  const lbl = { fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 4, display: "block" };
+
+  const formContent = (
+    <>
+        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={lbl}>Name *</label>
+            <input style={inp} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Netflix, Rent" />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={lbl}>Amount (\u20B9)</label>
+              <input style={inp} type="number" min="0" value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={lbl}>Frequency</label>
+              <select style={inp} value={form.frequency} onChange={e => set("frequency", e.target.value)}>
+                {Object.entries(FREQ_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Category</label>
+            <select style={inp} value={form.category} onChange={e => set("category", e.target.value)}>
+              <option value="">— None —</option>
+              {CategoryService.expenseCategories().map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea style={{ ...inp, resize: "vertical", minHeight: 60 }} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Optional notes" />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: "0.8125rem" }}>
+            <input type="checkbox" checked={form.active} onChange={e => set("active", e.target.checked)} />
+            Active
+          </label>
+          {err && <div style={{ fontSize: "0.75rem", color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
+        </div>
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+          {item && !confirming && (
+            <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--neg)", fontSize: "0.8125rem", cursor: "pointer" }}>Delete</button>
+          )}
+          {item && confirming && (
+            <button onClick={() => { window.hapticHeavy?.(); del(); }} style={{ padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--neg)", color: "var(--paper)", fontSize: "0.8125rem", cursor: "pointer" }}>Confirm Delete</button>
+          )}
+          <button onClick={onClose} style={{ marginLeft: "auto", padding: "8px 16px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: "0.8125rem", cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => { window.hapticLight?.(); save(); }} disabled={saving} style={{ padding: "8px 18px", borderRadius: 6, border: "none", background: "var(--ink)", color: "var(--paper)", fontSize: "0.8125rem", cursor: saving ? "default" : "pointer", opacity: saving ? 0.65 : 1 }}>
+            {saving ? "Saving\u2026" : "Save"}
+          </button>
+        </div>
+    </>
+  );
+
+  const title = item ? "Edit Recurring" : "Add Recurring";
+  return isMobile ? (
+    <BottomSheet open title={title} onClose={onClose}>
+      {formContent}
+    </BottomSheet>
+  ) : (
+    <Modal open title={title} onClose={onClose} width={480}>
+      {formContent}
+    </Modal>
+  );
+};
+
+const RecurringView = React.memo(({ userCategories }) => {
+  const { isMobile, isTablet } = useViewport();
+  const [items, setItems] = useState([]);
+  const [monthly, setMonthly] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState("active");
+  const [modal, setModal] = useState(null); // null | "new" | item object
+  const [finding, setFinding] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [savingSuggestions, setSavingSuggestions] = useState(new Set());
+
+  const load = () => {
+    setLoading(true);
+    API.get("/api/recurring")
+      .then(d => { setItems(d.items); setMonthly(d.monthly_total); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  };
+  useEffect(load, []);
+
+  const toggleActive = async (item) => {
+    const updated = { ...item, active: !item.active };
+    setItems(its => its.map(i => i.id === item.id ? { ...i, active: !i.active } : i));
+    try {
+      await API.patch(`/api/recurring/${item.id}`, { name: item.name, amount: item.amount, category: item.category, frequency: item.frequency, notes: item.notes, active: !item.active });
+    } catch (_) { setItems(its => its.map(i => i.id === item.id ? item : i)); }
+  };
+
+  const onSave = (result, isEdit) => {
+    if (isEdit) setItems(its => its.map(i => i.id === result.id ? result : i));
+    else setItems(its => [...its, result]);
+    setModal(null);
+    load();
+  };
+  const onDelete = (id) => { setItems(its => its.filter(i => i.id !== id)); setModal(null); load(); };
+
+  const findRecurring = async () => {
+    setFinding(true);
+    setSuggesting(true);
+    setSuggestions([]);
+    try {
+      const result = await API.post("/api/recurring/find-from-transactions");
+      setSuggestions(result.suggestions || []);
+    } catch (_) {
+      showToast("LLM analysis failed. Check your AI service config.");
+    } finally {
+      setFinding(false);
+    }
+  };
+
+  const acceptSuggestion = async (s, idx) => {
+    setSavingSuggestions(prev => new Set([...prev, idx]));
+    try {
+      const body = {
+        name: s.name,
+        amount: s.amount ?? null,
+        category: s.category || null,
+        frequency: s.frequency || "monthly",
+        notes: s.reasoning || null,
+        active: true,
+      };
+      await API.post("/api/recurring", body);
+      setSuggestions(prev => prev.filter((_, i) => i !== idx));
+      showToast(`${s.name} added to recurring`);
+    } catch (_) {
+      showToast("Failed to save. Try again.");
+    } finally {
+      setSavingSuggestions(prev => { const n = new Set(prev); n.delete(idx); return n; });
+    }
+  };
+
+  const dismissSuggestion = (idx) => {
+    setSuggestions(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const visible = filter === "active" ? items.filter(i => i.active) : items;
+
+  const secBand = { borderBottom: "1px solid var(--line)", padding: "10px 28px", background: "var(--paper-2)", display: "flex", alignItems: "center", gap: 10 };
+  const secTitle = { fontFamily: "'Geist', sans-serif", fontSize: "0.8125rem", fontWeight: 500, color: "var(--ink-2)" };
+
+  if (loading) return (
+    <div aria-live="polite" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200 }}>
+      <div role="status" style={{ width: 24, height: 24, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite" }} />
+    </div>
+  );
+
+  if (error) return <div role="alert" style={{ padding: 28, color: "var(--neg)", fontSize: "0.8125rem" }}>{error}</div>;
+
+  return (
+    <div className="fade-in">
+      {modal && (
+        <RecurringModal
+          item={modal === "new" ? null : modal}
+          onSave={onSave}
+          onDelete={onDelete}
+          onClose={() => setModal(null)}
+          userCategories={userCategories}
+        />
+      )}
+
+      <div style={{ ...secBand, ...(isMobile ? { padding: "10px 14px", gap: 6, flexWrap: "wrap" } : {}) }}>
+        <span style={secTitle}>Recurring Expenses</span>
+        <span style={{ marginLeft: 12, fontFamily: "'Geist Mono', monospace", fontSize: "0.75rem", color: "var(--ink-3)" }}>
+          ₹{monthly.toLocaleString("en-IN", { maximumFractionDigits: 0 })}/mo
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, ...(isMobile ? { flexWrap: "wrap", width: "100%", marginTop: 4 } : {}) }}>
+          <div role="radiogroup" aria-label="Filter" style={{ display: "flex", gap: 6 }}>
+          {[["active","Active"],["all","All"]].map(([k, l]) => (
+            <button key={k} role="radio" aria-checked={filter === k} onClick={() => setFilter(k)} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: filter === k ? "var(--ink)" : "var(--card)", color: filter === k ? "var(--paper)" : "var(--ink-2)", fontSize: "0.75rem", cursor: "pointer", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+              onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
+              onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}>{l}</button>
+          ))}
+          </div>
+          <button onClick={findRecurring} disabled={finding} style={{ padding: "5px 12px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-2)", fontSize: "0.75rem", cursor: finding ? "default" : "pointer", opacity: finding ? 0.65 : 1, display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="search" size={12}/> {finding ? "Analyzing…" : "Find Recurring"}
+          </button>
+          <button onClick={() => setModal("new")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--accent)", color: "var(--paper)", fontSize: "0.75rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="plus" size={12} stroke="var(--paper)"/> Add
+          </button>
+        </div>
+      </div>
+
+      {finding && (
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 20, textAlign: "center", color: "var(--ink-3)", fontSize: "0.8125rem" }}>
+          <div style={{ width: 20, height: 20, border: "2px solid var(--line)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 700ms linear infinite", margin: "0 auto 10px" }} />
+          Analyzing your transactions for recurring patterns…
+        </div>
+      )}
+
+      {suggesting && !finding && suggestions.length === 0 && (
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", textAlign: "center", color: "var(--ink-3)", fontSize: "0.8125rem" }}>
+          No recurring patterns found in your transactions.
+          <button onClick={() => setSuggesting(false)} style={{ marginLeft: 8, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: "0.8125rem" }}>Dismiss</button>
+        </div>
+      )}
+
+      {suggesting && suggestions.length > 0 && (
+        <div style={{ margin: "0 28px 8px", ...(isMobile ? { margin: "0 14px 8px" } : {}), padding: 16, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontFamily: "'Geist', sans-serif", fontSize: "0.875rem", fontWeight: 500, color: "var(--ink)" }}>Suggested Recurring</span>
+            <button onClick={() => { setSuggesting(false); setSuggestions([]); }} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer", color: "var(--ink-3)", padding: 4 }}><Icon name="x" size={14}/></button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {suggestions.map((s, i) => {
+              const cat = CategoryService.display(s.category);
+              const freqColor = FREQ_COLORS[s.frequency] || FREQ_COLORS.monthly;
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--paper-2)" }}>
+                  {cat && <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: cat.bg, border: `1px solid ${cat.ink}22` }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
+                    <div style={{ fontSize: "0.6875rem", color: "var(--ink-4)", marginTop: 2 }}>{s.reasoning}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {s.amount != null && (
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: "0.8125rem", color: "var(--neg)", fontWeight: 600 }}>₹{Number(s.amount).toLocaleString("en-IN", { maximumFractionDigits: 0 })}</span>
+                    )}
+                    <span style={{ fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 99, background: freqColor.bg, color: freqColor.ink, fontWeight: 500 }}>
+                      {FREQ_LABELS[s.frequency] || s.frequency}
+                    </span>
+                    <span style={{ fontSize: "0.6875rem", color: "var(--ink-4)" }}>{Math.round((s.confidence || 0) * 100)}%</span>
+                    <button onClick={() => acceptSuggestion(s, i)} disabled={savingSuggestions.has(i)} style={{ padding: "5px 12px", borderRadius: 5, border: "none", background: "var(--pos)", color: "var(--paper)", fontSize: "0.75rem", cursor: savingSuggestions.has(i) ? "default" : "pointer", opacity: savingSuggestions.has(i) ? 0.65 : 1 }}>Accept</button>
+                    <button onClick={() => dismissSuggestion(i)} style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-3)", fontSize: "0.75rem", cursor: "pointer" }}>Skip</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: "16px 28px", ...(isMobile ? { padding: "16px 14px" } : {}) }}>
+        {!visible.length ? (
+          <div style={{ padding: "40px 0", textAlign: "center", color: "var(--ink-3)", fontSize: "0.8125rem" }}>
+            {filter === "active" ? "No active recurring items." : "No recurring items yet."} <button onClick={() => setModal("new")} style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: "0.8125rem" }}>Add one</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {visible.map(item => {
+              const cat = CategoryService.display(item.category);
+              const freq = FREQ_COLORS[item.frequency] || FREQ_COLORS.monthly;
+              return (
+                <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--card)", opacity: item.active ? 1 : 0.55 }}>
+                  {cat && <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: cat.bg, border: `1px solid ${cat.ink}22` }} />}
+                  <span style={{ flex: 1, fontWeight: 500, fontSize: "0.8125rem", color: "var(--ink)" }}>{item.name}</span>
+                  {item.amount != null && (
+                    <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: "0.8125rem", color: "var(--neg)", fontWeight: 600 }}>
+                      ₹{item.amount.toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                    </span>
+                  )}
+                  <span style={{ fontSize: "0.6875rem", padding: "2px 8px", borderRadius: 99, background: freq.bg, color: freq.ink, fontWeight: 500 }}>
+                    {FREQ_LABELS[item.frequency] || item.frequency}
+                  </span>
+                  <button
+                    onClick={() => toggleActive(item)}
+                    title={item.active ? "Deactivate" : "Activate"}
+                    style={{ width: 28, height: 16, borderRadius: 99, border: "none", background: item.active ? "var(--pos)" : "var(--line)", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 140ms" }}>
+                    <span style={{ position: "absolute", top: 2, left: item.active ? 14 : 2, width: 12, height: 12, borderRadius: 99, background: "var(--paper)", transition: "left 140ms" }} />
+                  </button>
+                  <button onClick={() => setModal(item)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--ink-4)", padding: 4, borderRadius: 4 }}>
+                    <Icon name="edit" size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+(window as any).RecurringView = RecurringView;

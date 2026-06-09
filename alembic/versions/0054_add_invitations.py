@@ -21,8 +21,8 @@ def upgrade() -> None:
         sa.Column('email', sa.String(255), nullable=False, index=True),
         sa.Column('invited_by', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('status', sa.String(20), nullable=False, server_default='pending'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("(now() at time zone 'utc')")),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("(now() at time zone 'utc')")),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint('id'),
     )
 

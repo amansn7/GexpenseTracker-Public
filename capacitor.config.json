@@ -1,0 +1,21 @@
+{
+  "appId": "com.gexpense.moneyflow",
+  "appName": "MoneyFlow",
+  "webDir": "capacitor",
+  "server": {
+    "url": "https://gexpense-production.up.railway.app",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#14120e",
+      "showSpinner": true,
+      "spinnerColor": "#d4922a"
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#14120e"
+    }
+  }
+}

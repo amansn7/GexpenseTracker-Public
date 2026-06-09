@@ -24,8 +24,8 @@ def upgrade() -> None:
         sa.Column('public_key', sa.Text, nullable=False),
         sa.Column('sign_count', sa.Integer, nullable=False, server_default='0'),
         sa.Column('device_name', sa.String(120), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("(now() at time zone 'utc')")),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("(now() at time zone 'utc')")),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint('id'),
     )
 

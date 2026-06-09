@@ -72,8 +72,6 @@ PROTECTED = [
     # auth self-service (require valid session)
     ("GET", "/api/auth/me"),
     ("POST", "/api/auth/logout"),
-    ("GET", "/api/auth/allowlist"),
-    ("POST", "/api/auth/allowlist"),
     ("POST", "/api/auth/claim-seed-data"),
 ]
 

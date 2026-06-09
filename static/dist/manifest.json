@@ -1,0 +1,133 @@
+{
+  "version": "0e610eca",
+  "timestamp": "2026-06-09T02:46:44.682Z",
+  "shell": [
+    "/static/styles.css?v=aaec0151",
+    "/static/vendor/react.production.min.js?v=d949f1c3",
+    "/static/vendor/react-dom.production.min.js?v=35f4f974",
+    "/static/dist/vendor/d3-sankey.js?v=49d2a337",
+    "/static/dist/vendor/react-window.js?v=5cafea92",
+    "/static/dist/components/Button.js?v=d7dc7e44",
+    "/static/dist/components/Input.js?v=25b90d27",
+    "/static/dist/components/Modal.js?v=2cd37857",
+    "/static/dist/components/BottomSheet.js?v=95fbed6e",
+    "/static/dist/components/ProgressBar.js?v=348b498b",
+    "/static/dist/components/Skeleton.js?v=999a12d3",
+    "/static/dist/components/Toggle.js?v=8f5a7c55",
+    "/static/dist/mf-core.js?v=a89e5313",
+    "/static/dist/mf-app.js?v=4273cbfb",
+    "/static/dist/inbox.js?v=bc17b713",
+    "/static/dist/flow.js?v=5a098d67",
+    "/static/dist/dashboard.js?v=e25080e1",
+    "/static/dist/health.js?v=97b8572d",
+    "/static/dist/reports.js?v=5a7210b4",
+    "/static/dist/recurring.js?v=acd33ecf",
+    "/static/dist/debt.js?v=8d614bf8",
+    "/static/dist/goals.js?v=929df045",
+    "/static/dist/budgets.js?v=feebe21d",
+    "/static/dist/account.js?v=8ec45dfe",
+    "/static/dist/admin.js?v=b17501c0",
+    "/static/dist/onboarding.js?v=91d1ecd9",
+    "/static/dist/esm/app.esm.js?v=cea010c7"
+  ],
+  "bundles": {
+    "mf-core": {
+      "file": "mf-core.js",
+      "size": 93946,
+      "size_kb": 91.7,
+      "hash": "a89e5313"
+    },
+    "mf-app": {
+      "file": "mf-app.js",
+      "size": 25126,
+      "size_kb": 24.5,
+      "hash": "4273cbfb"
+    },
+    "styles.css": {
+      "file": "styles.css",
+      "size": 50409,
+      "size_kb": 49.2,
+      "hash": "e3b0c442"
+    },
+    "inbox": {
+      "file": "inbox.js",
+      "size": 129743,
+      "size_kb": 126.7,
+      "hash": "bc17b713"
+    },
+    "flow": {
+      "file": "flow.js",
+      "size": 40360,
+      "size_kb": 39.4,
+      "hash": "5a098d67"
+    },
+    "dashboard": {
+      "file": "dashboard.js",
+      "size": 31578,
+      "size_kb": 30.8,
+      "hash": "e25080e1"
+    },
+    "health": {
+      "file": "health.js",
+      "size": 7684,
+      "size_kb": 7.5,
+      "hash": "97b8572d"
+    },
+    "reports": {
+      "file": "reports.js",
+      "size": 7504,
+      "size_kb": 7.3,
+      "hash": "5a7210b4"
+    },
+    "recurring": {
+      "file": "recurring.js",
+      "size": 14652,
+      "size_kb": 14.3,
+      "hash": "acd33ecf"
+    },
+    "debt": {
+      "file": "debt.js",
+      "size": 9388,
+      "size_kb": 9.2,
+      "hash": "8d614bf8"
+    },
+    "goals": {
+      "file": "goals.js",
+      "size": 11420,
+      "size_kb": 11.2,
+      "hash": "929df045"
+    },
+    "budgets": {
+      "file": "budgets.js",
+      "size": 42281,
+      "size_kb": 41.3,
+      "hash": "feebe21d"
+    },
+    "account": {
+      "file": "account.js",
+      "size": 135143,
+      "size_kb": 132,
+      "hash": "8ec45dfe"
+    },
+    "admin": {
+      "file": "admin.js",
+      "size": 41550,
+      "size_kb": 40.6,
+      "hash": "b17501c0"
+    },
+    "onboarding": {
+      "file": "onboarding.js",
+      "size": 32007,
+      "size_kb": 31.3,
+      "hash": "91d1ecd9"
+    }
+  },
+  "always_loaded_size_kb": 563.9,
+  "total_size_kb": 1055.4,
+  "budgets": {
+    "passed": false,
+    "violations": [
+      "always-loaded 563.9KB (max 250KB)"
+    ]
+  }
+}

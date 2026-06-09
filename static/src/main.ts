@@ -1,0 +1,22 @@
+// ESM entry point — imports trigger side effects that register window.* globals
+import "./utils/format";
+import "./types/validation";
+import "./components/Skeleton";
+import "./date-utils";
+import "./data";
+import "./icons";
+import "./focus-trap";
+import "./error-boundary";
+import "./keyboard-hint";
+import "./sound";
+import "./sync-progress";
+import "./settings-ui";
+import "./inbox-styles";
+import "./inbox-common";
+import "./view-cache";
+import "./hooks/useHistory";
+import "./contexts";
+import "./haptic";
+import "./shell";
+import "./capacitor-bridge";
+import "./app";

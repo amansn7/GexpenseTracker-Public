@@ -1,18 +1,21 @@
 <!doctype html>
 <html lang="en" data-theme="paper">
-<script nonce="{{ request.state.nonce }}">try { var t=localStorage.getItem("mf_theme"); if (t) document.documentElement.setAttribute("data-theme", t); } catch(e) {}</script>
+<script nonce="{{ request.state.nonce }}">try { var t=localStorage.getItem("mf_theme"); if (t) document.documentElement.setAttribute("data-theme", t === "auto" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "midnight" : "paper") : t); } catch(e) {}</script>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MoneyFlow — Inbox for your money</title>
+<meta name="description" content="MoneyFlow — your inbox for money. Track expenses, manage budgets, and understand your finances.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/styles.css?v=18">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="script" href="/static/vendor/react.production.min.js?v=18.3.1">
+<link rel="preload" as="script" href="/static/vendor/react-dom.production.min.js?v=18.3.1">
+<link rel="stylesheet" href="/static/styles.css?v=aaec0151">
 <style nonce="{{ request.state.nonce }}">
   /* cat-* colors now live in styles.css per theme */
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Inter', 'Geist', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: 'Geist', 'Inter', system-ui, sans-serif; font-size: 14px; -webkit-font-smoothing: antialiased; }
   body { min-height: 100vh; }
   .ui-heading { font-family: 'Geist', sans-serif; font-optical-sizing: auto; letter-spacing: -0.01em; }
   .italic-serif { font-family: 'Instrument Serif', serif; font-style: italic; }
@@ -22,11 +25,6 @@
   #root { display: block; }
   button { font-family: inherit; cursor: pointer; }
   input, textarea { font-family: inherit; }
-
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
-  ::-webkit-scrollbar-track { background: transparent; }
 
   .noise::before {
     content: "";
@@ -161,7 +159,16 @@
 </head>
 <body class="noise">
   <a href="#root" class="skip-link">Skip to content</a>
-  <div id="root" tabindex="-1"></div>
+  <div id="root" tabindex="-1">
+    <div id="app-splash" style="display:flex;align-items:center;justify-content:center;min-height:100dvh;flex-direction:column;gap:20px;background:#f6f3ec;color:#1a1814;">
+      <div style="font-family:'Instrument Serif',serif;font-style:italic;font-size:32px;letter-spacing:-0.03em;animation:fadeIn 400ms ease-out;">MoneyFlow</div>
+      <div style="display:flex;gap:5px;">
+        <div style="width:5px;height:5px;border-radius:50%;background:#c2410c;animation:pulse 1.5s ease-in-out infinite;"></div>
+        <div style="width:5px;height:5px;border-radius:50%;background:#78736a;animation:pulse 1.5s ease-in-out infinite;animation-delay:0.3s;"></div>
+        <div style="width:5px;height:5px;border-radius:50%;background:#78736a;animation:pulse 1.5s ease-in-out infinite;animation-delay:0.6s;"></div>
+      </div>
+    </div>
+  </div>
   <div id="modal-root"></div>
 
   <script src="/static/vendor/react.production.min.js?v=18.3.1"></script>
@@ -169,6 +176,7 @@
 
   <script src="/static/dist/vendor/d3-sankey.js?v=49d2a337"></script>
   <script src="/static/dist/vendor/react-window.js?v=29dd70d5"></script>
+  <script defer src="/static/dist/vendor/zod.js"></script>
 
   <script src="/static/dist/components/Button.js"></script>
   <script src="/static/dist/components/Input.js"></script>
@@ -178,8 +186,42 @@
   <script src="/static/dist/components/Toggle.js"></script>
   <script src="/static/dist/components/Skeleton.js"></script>
 
-  <script nonce="{{ request.state.nonce }}">window.__mfChunks={"inbox":"/static/dist/inbox.js?v=e8537b8a","flow":"/static/dist/flow.js?v=34784276","dashboard":"/static/dist/dashboard.js?v=a63daa93","health":"/static/dist/health.js?v=6f2c7dc4","reports":"/static/dist/reports.js?v=56cd5d50","recurring":"/static/dist/recurring.js?v=0e5f3a88","debt":"/static/dist/debt.js?v=dcebc078","goals":"/static/dist/goals.js?v=c70cbe07","budgets":"/static/dist/budgets.js?v=62aaa178","account":"/static/dist/account.js?v=fc0f5c53","admin":"/static/dist/admin.js?v=795e8318","onboarding":"/static/dist/onboarding.js?v=8a0cc937"};</script>
-  <script src="/static/dist/mf-core.js?v=b9ad5e31"></script>
-  <script src="/static/dist/mf-app.js?v=52640152"></script>
+  <script nonce="{{ request.state.nonce }}">window.__mfLocalMode={% if local_mode %}true{% else %}false{% endif %};window.__mfChunks={"inbox":"/static/dist/inbox.js?v=0f655209","flow":"/static/dist/flow.js?v=b9718b83","dashboard":"/static/dist/dashboard.js?v=01bfda1d","health":"/static/dist/health.js?v=1f174f24","reports":"/static/dist/reports.js?v=7aaf4bff","recurring":"/static/dist/recurring.js?v=64f375c8","debt":"/static/dist/debt.js?v=eb15eb30","goals":"/static/dist/goals.js?v=8aace5f1","budgets":"/static/dist/budgets.js?v=5ec8804b","account":"/static/dist/account.js?v=8ec45dfe","admin":"/static/dist/admin.js?v=b17501c0","onboarding":"/static/dist/onboarding.js?v=6f9fa498"};</script>
+
+  <script nonce="{{ request.state.nonce }}">
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    reg.addEventListener('updatefound', function() {
+      var sw = reg.installing;
+      sw.addEventListener('statechange', function() {
+        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+          window.__swUpdateAvailable = true;
+          document.dispatchEvent(new CustomEvent('sw-update-ready'));
+        }
+      });
+    });
+  }).catch(function(err) {
+    console.log('SW registration failed:', err);
+  });
+}
+  </script>
+
+  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=b664cb39">
+
+  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=b664cb39">
+
+  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=b664cb39">
+
+  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=b664cb39">
+
+  <script nonce="{{ request.state.nonce }}">window.__mfChunksESM={"inbox":"/static/dist/esm/lazy/inbox.esm.js?v=52793c3e","flow":"/static/dist/esm/lazy/flow.esm.js?v=1a306843","dashboard":"/static/dist/esm/lazy/dashboard.esm.js?v=830be175","health":"/static/dist/esm/lazy/health.esm.js?v=c9ef0db8","reports":"/static/dist/esm/lazy/reports.esm.js?v=3c50a31f","recurring":"/static/dist/esm/lazy/recurring.esm.js?v=3f25ac24","debt":"/static/dist/esm/lazy/debt.esm.js?v=cc0f3316","goals":"/static/dist/esm/lazy/goals.esm.js?v=602ea0c8","budgets":"/static/dist/esm/lazy/budgets.esm.js?v=26130c97","account":"/static/dist/esm/lazy/account.esm.js?v=9ee4c54e","admin":"/static/dist/esm/lazy/admin.esm.js?v=1787ddc5","onboarding":"/static/dist/esm/lazy/onboarding.esm.js?v=0ac3a310"};</script>
+  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=cea010c7">
+  <link rel="modulepreload" href="/static/dist/esm/lazy/inbox.esm.js?v=52793c3e">
+  <link rel="modulepreload" href="/static/dist/esm/lazy/flow.esm.js?v=1a306843">
+  <link rel="modulepreload" href="/static/dist/esm/lazy/dashboard.esm.js?v=830be175">
+  <script type="module" src="/static/dist/esm/app.esm.js?v=cea010c7"></script>
+  <script nonce="{{ request.state.nonce }}">window.__mfChunks={"inbox":"/static/dist/inbox.js?v=bc17b713","flow":"/static/dist/flow.js?v=5a098d67","dashboard":"/static/dist/dashboard.js?v=e25080e1","health":"/static/dist/health.js?v=97b8572d","reports":"/static/dist/reports.js?v=5a7210b4","recurring":"/static/dist/recurring.js?v=acd33ecf","debt":"/static/dist/debt.js?v=8d614bf8","goals":"/static/dist/goals.js?v=929df045","budgets":"/static/dist/budgets.js?v=feebe21d","account":"/static/dist/account.js?v=8ec45dfe","admin":"/static/dist/admin.js?v=b17501c0","onboarding":"/static/dist/onboarding.js?v=91d1ecd9"};</script>
+  <script src="/static/dist/mf-core.js?v=a89e5313"></script>
+  <script src="/static/dist/mf-app.js?v=4273cbfb"></script>
 </body>
 </html>

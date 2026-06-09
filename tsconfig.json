@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react",
+    "strict": true,
+    "ignoreDeprecations": "6.0",
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowUmdGlobalAccess": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["static/src/types/*"]
+    }
+  },
+  "include": ["static/src/**/*.ts", "static/src/**/*.tsx", "static/src/**/*.jsx"],
+  "exclude": ["node_modules", "static/dist"]
+}

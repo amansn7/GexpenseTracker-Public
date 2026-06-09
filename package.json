@@ -6,21 +6,39 @@
     "build": "node scripts/build-frontend.mjs",
     "watch": "node scripts/build-frontend.mjs --watch",
     "test": "node scripts/build-frontend.mjs && npx playwright test",
-    "test:frontend": "npx playwright test"
+    "test:frontend": "npx playwright test",
+    "mobile:build": "node scripts/build-frontend.mjs && npx cap copy",
+    "mobile:sync": "npx cap sync",
+    "mobile:ios": "node scripts/build-frontend.mjs && npx cap copy && npx cap open ios",
+    "mobile:update": "npx cap update ios"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@capacitor/app": "^5.0.8",
+    "@capacitor/browser": "^5.2.1",
+    "@capacitor/cli": "^5.7.8",
+    "@capacitor/core": "^5.7.8",
+    "@capacitor/haptics": "^5.0.8",
+    "@capacitor/ios": "^5.7.8",
+    "@capacitor/share": "^5.0.8",
+    "@capacitor/splash-screen": "^5.0.8",
+    "@capacitor/status-bar": "^5.0.8",
     "@zilliz/claude-context-mcp": "^0.1.12",
     "langchain": "^1.3.5",
     "playwright": "^1.60.0",
-    "react-window": "^1.8.11"
+    "react-window": "^1.8.11",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.60.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
     "d3-sankey": "^0.12.3",
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "typescript": "^6.0.3"
   }
 }

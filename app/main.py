@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import secrets as _secrets
@@ -38,7 +39,7 @@ import asyncio
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -79,6 +80,8 @@ AUDIT_EXEMPT_PATHS = frozenset({
     "/api/auth/callback",
     "/api/auth/token/refresh",
     "/api/auth/csrf-token",
+    "/api/auth/check-mode",
+    "/api/auth/local-login",
     "/api/health",
 })
 
@@ -89,19 +92,33 @@ async def lifespan(app: FastAPI):
     if dsn:
         sentry_sdk.init(dsn=dsn, traces_sample_rate=0.1)
 
-    if settings.SECRET_KEY == "change-me-in-production" and not os.getenv("TESTING"):
-        raise RuntimeError(
-            "SECRET_KEY is still the default value. Set a secure random key in .env before starting the server."
-        )
-    if not settings.FERNET_KEY and not os.getenv("TESTING"):
-        raise RuntimeError(
-            "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
-        )
-    if not settings.JWT_PRIVATE_KEY and not settings.JWT_PUBLIC_KEY and not os.getenv("TESTING"):
+    is_testing = os.getenv("TESTING")
+    is_local = settings.LOCAL_MODE
+
+    if is_local:
+        if settings.SECRET_KEY == "change-me-in-production" or not settings.SECRET_KEY:
+            settings.SECRET_KEY = _secrets.token_hex(32)
+            logging.getLogger(__name__).warning("LOCAL_MODE: auto-generated SECRET_KEY")
+        if not settings.FERNET_KEY:
+            from cryptography.fernet import Fernet
+            settings.FERNET_KEY = Fernet.generate_key().decode()
+            logging.getLogger(__name__).warning("LOCAL_MODE: auto-generated FERNET_KEY")
+    else:
+        if settings.SECRET_KEY == "change-me-in-production" and not is_testing:
+            raise RuntimeError(
+                "SECRET_KEY is still the default value. Set a secure random key in .env before starting the server."
+            )
+        if not settings.FERNET_KEY and not is_testing:
+            raise RuntimeError(
+                "FERNET_KEY is not configured. Generate a Fernet key and set it in .env before starting the server."
+            )
+
+    if not settings.JWT_PRIVATE_KEY and not settings.JWT_PUBLIC_KEY and not is_testing and not is_local:
         logging.getLogger(__name__).warning(
             "JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are not configured. Bearer JWT authentication will be unavailable; session-based auth still works."
         )
-    if not os.getenv("TESTING"):
+
+    if not is_testing:
         from app.workers.queue import task_queue
         from app.workers.recompute_worker import handle_recompute_task
         from app.workers.sync_worker import register, register_fetch_range
@@ -116,6 +133,9 @@ async def lifespan(app: FastAPI):
         await start_arq_scheduler()
 
         async def _startup_init():
+            if is_local:
+                logging.getLogger(__name__).info("LOCAL_MODE: skipping cache startup and progress writer")
+                return
             try:
                 from app.classifier.merchant import load_alias_cache_from_db
                 from app.classifier.merchant_entity import load_db_aliases
@@ -165,6 +185,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+                "worker-src 'self'; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: blob:; "
@@ -176,6 +197,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 f"script-src 'self' 'nonce-{nonce}'; "
+                "worker-src 'self'; "
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                 "font-src 'self' https://fonts.gstatic.com; "
                 "img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; "
@@ -231,7 +253,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 class AuthMiddleware(BaseHTTPMiddleware):
     """Block unauthenticated requests: 401 for API calls, redirect for browser pages."""
 
-    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/api/auth/passkey/login/begin", "/api/auth/passkey/login/complete", "/health", "/mobile"}
+    EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/api/auth/passkey/login/begin", "/api/auth/passkey/login/complete", "/api/auth/check-mode", "/api/auth/local-login", "/health", "/mobile", "/oauth/success", "/sw.js"}
     CSRF_EXEMPT = {"/api/auth/csrf-token"}
 
     async def dispatch(self, request: StarletteRequest, call_next):
@@ -499,12 +521,28 @@ app.include_router(exports_api.router, prefix="/api")
 
 @app.get("/health")
 async def health():
-    return JSONResponse({"status": "ok"})
+    build_info = None
+    manifest_path = "static/dist/manifest.json"
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+            build_info = {
+                "core_size_kb": manifest.get("always_loaded_size_kb", 0),
+                "total_size_kb": manifest.get("total_size_kb", 0),
+                "budget_pass": manifest.get("budgets", {}).get("passed", True),
+            }
+        except Exception:
+            pass
+    result = {"status": "ok"}
+    if build_info:
+        result["build"] = build_info
+    return JSONResponse(result)
 
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request, "local_mode": settings.LOCAL_MODE})
 
 
 @app.get("/dashboard-old")
@@ -558,6 +596,19 @@ async def mobile_app(request: Request):
         return HTMLResponse(content=f.read(), headers={"Cache-Control": "no-store"})
 
 
+@app.get("/oauth/success", response_class=HTMLResponse)
+async def oauth_mobile_success():
+    """Page loaded by Capacitor Browser plugin after successful OAuth.
+    The JWT tokens arrive as query params; the Capacitor bridge extracts
+    them from the browserPageLoaded event and closes this tab."""
+    return HTMLResponse("""<!DOCTYPE html><html><body><p>Signed in — close this tab.</p><script>window.close()</script></body></html>""")
+
+
+@app.get("/sw.js")
+async def serve_sw():
+    return FileResponse("static/sw.js", media_type="application/javascript")
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request, "local_mode": settings.LOCAL_MODE})

@@ -100,5 +100,10 @@ class Settings(BaseSettings):
     DLQ_MAX_RETRIES: int = 3
     TASK_TIMEOUT: int = 300
 
+    # Local mode — run without Google OAuth / Gmail / Redis / PostgreSQL
+    # Set to true for a fully self-contained local deployment using SQLite,
+    # in-memory task queue, and email+passkey auth (no external dependencies).
+    LOCAL_MODE: bool = False
+
 
 settings = Settings()

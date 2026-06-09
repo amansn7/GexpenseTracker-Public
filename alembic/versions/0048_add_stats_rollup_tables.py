@@ -64,12 +64,12 @@ def upgrade() -> None:
         sa.Column("running_balance", sa.Numeric(12, 2), nullable=False, server_default="0"),
         sa.Column("top_categories", sa.Text, nullable=True),
     )
-    op.create_unique_constraint("uq_daily_snapshot_user_date",
-                                "daily_snapshots", ["user_id", "date"])
+    op.create_index("uq_daily_snapshot_user_date",
+                    "daily_snapshots", ["user_id", "date"], unique=True)
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_daily_snapshot_user_date", "daily_snapshots", type_="unique")
+    op.drop_index("uq_daily_snapshot_user_date", table_name="daily_snapshots")
     op.drop_table("daily_snapshots")
     op.drop_index("ix_period_rollups_user_period", table_name="period_rollups")
     op.drop_table("period_rollups")

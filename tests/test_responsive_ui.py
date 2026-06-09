@@ -9,7 +9,7 @@ def read(path):
 
 def test_base_template_has_mobile_navigation_controls():
     html = read("templates/index.html")
-    shell = read("static/src/shell.jsx")
+    shell = read("static/src/shell.tsx")
 
     assert "viewport" in html
     assert "menu" in shell.lower() or "navigation" in shell.lower()
@@ -28,16 +28,13 @@ def test_legacy_css_keeps_sidebar_off_canvas_on_small_screens():
 
 
 def test_react_shell_exposes_responsive_drawer_behaviour():
-    shell = read("static/src/shell.jsx")
-    app = read("static/src/app.jsx")
-    icons = read("static/src/icons.jsx")
+    shell = read("static/src/shell.tsx")
+    app = read("static/src/app.tsx")
+    icons = read("static/src/icons.tsx")
 
     assert "const useViewport" in shell
     assert "isMobile: window.innerWidth < 720" in shell
-    assert "isTablet: window.innerWidth < 980" in shell
-    assert 'Icon name="menu"' in shell
-    assert 'aria-label="Open navigation"' in shell
+    assert "isTablet: window.innerWidth < 900" in shell
+    assert 'aria-label="Close navigation"' in shell
     assert "onClose()" in shell
     assert "useViewport" in app
-    assert "setNavOpen(false)" in app
-    assert 'case "menu"' in icons

@@ -39,9 +39,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_transactions_lower_category")
-    op.drop_index('ix_transactions_email_id_txn_date', table_name='transactions')
-    op.drop_index('ix_transactions_email_id_created_at', table_name='transactions')
-    op.drop_index('ix_classification_log_email_id', table_name='classification_log')
-    op.drop_index('ix_classification_log_created_at', table_name='classification_log')
-    op.drop_index('ix_duplicate_pairs_duplicate_tx_id', table_name='duplicate_pairs')
-    op.drop_index('ix_goal_contributions_contributed_at', table_name='goal_contributions')
+    op.execute("DROP INDEX IF EXISTS ix_transactions_email_id_txn_date")
+    op.execute("DROP INDEX IF EXISTS ix_transactions_email_id_created_at")
+    op.execute("DROP INDEX IF EXISTS ix_classification_log_email_id")
+    op.execute("DROP INDEX IF EXISTS ix_classification_log_created_at")
+    op.execute("DROP INDEX IF EXISTS ix_duplicate_pairs_duplicate_tx_id")
+    op.execute("DROP INDEX IF EXISTS ix_goal_contributions_contributed_at")

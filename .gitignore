@@ -36,5 +36,10 @@ skills-lock.json
 test-results/
 test_e2e.db
 
+# capacitor native platforms (generated)
+ios/
+android/
+*.xcworkspace
+
 # external projects
 money-movie/

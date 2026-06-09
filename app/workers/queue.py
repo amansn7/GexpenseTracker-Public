@@ -602,9 +602,13 @@ def _get_task_queue() -> TaskQueue | RedisTaskQueue:
         _task_queue_instance = TaskQueue()
         logger.info("Using in-memory TaskQueue (TESTING mode)")
         return _task_queue_instance
+    if settings.LOCAL_MODE:
+        _task_queue_instance = TaskQueue()
+        logger.info("Using in-memory TaskQueue (LOCAL_MODE)")
+        return _task_queue_instance
     raise RuntimeError(
         "REDIS_URL is not configured. The task queue requires Redis. "
-        "Set REDIS_URL in your .env or environment variables."
+        "Set REDIS_URL in your .env or environment variables, or enable LOCAL_MODE."
     )
 
 

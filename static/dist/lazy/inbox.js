@@ -1,0 +1,1 @@
+"use strict";(()=>{var i=require("../inbox-detail"),m=require("../inbox-panels"),o=require("../inbox-search"),p=require("../inbox-review"),r=require("../inbox-duplicates"),t=require("../inbox-bulk-reclass"),a=require("../inbox");})();

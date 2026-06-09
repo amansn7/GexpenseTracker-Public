@@ -16,11 +16,14 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from tests.rsa_test_keys import TEST_RSA_PRIVATE, TEST_RSA_PUBLIC
+
 os.environ.setdefault("TESTING", "1")
-os.environ.setdefault("JWT_SECRET", "test-secret-key-at-least-32-chars!!")
+os.environ.setdefault("JWT_PRIVATE_KEY", TEST_RSA_PRIVATE)
+os.environ.setdefault("JWT_PUBLIC_KEY", TEST_RSA_PUBLIC)
 
 from app.database import get_db
-from app.jwt_utils import create_access_token, create_refresh_token
+from app.jwt_utils import _ALGORITHM, _private_key, create_access_token, create_refresh_token
 from app.main import app
 from app.models import Base, DeviceToken, RefreshTokenBlacklist, User, UserRole, UserSettings, UserStatus
 
@@ -125,7 +128,7 @@ async def test_refresh_with_blacklisted_token(authed):
         "exp": now + 30 * 86400,
         "jti": jti,
     }
-    refresh_with_jti = pyjwt.encode(payload, os.environ["JWT_SECRET"], algorithm="HS256")
+    refresh_with_jti = pyjwt.encode(payload, _private_key(), algorithm=_ALGORITHM)
 
     # Blacklist it
     db.add(RefreshTokenBlacklist(user_id=user.id, jti=jti))
@@ -242,7 +245,7 @@ async def test_logout_bearer_blacklists_refresh(authed):
         "exp": now + 30 * 86400,
         "jti": jti,
     }
-    refresh_with_jti = pyjwt.encode(payload, os.environ["JWT_SECRET"], algorithm="HS256")
+    refresh_with_jti = pyjwt.encode(payload, _private_key(), algorithm=_ALGORITHM)
 
     resp = await client.post(
         "/api/auth/logout",

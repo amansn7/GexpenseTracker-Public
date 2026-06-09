@@ -76,7 +76,14 @@ async def update_sync_settings(
 
 
 @router.post("/sync/trigger")
-async def trigger_sync(current_user=Depends(get_current_user)):
+async def trigger_sync(db: AsyncSession = Depends(get_db), current_user=Depends(get_current_user)):
+    from app.gmail.auth import get_credentials_for_user
+
+    creds = await get_credentials_for_user(db, current_user.id)
+    if not creds:
+        if settings.LOCAL_MODE:
+            raise HTTPException(status_code=400, detail="No Gmail connected — add transactions manually or import a CSV")
+        raise HTTPException(status_code=503, detail="Gmail not authenticated. Connect Gmail first.")
     from app.workers.queue import task_queue
 
     user_id = getattr(current_user, "id", None)

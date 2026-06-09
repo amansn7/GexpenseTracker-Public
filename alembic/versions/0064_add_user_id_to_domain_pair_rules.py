@@ -33,7 +33,7 @@ def upgrade() -> None:
         with op.batch_alter_table("domain_pair_rules") as batch_op:
             batch_op.add_column(sa.Column("user_id", sa.String(36), nullable=True))
             batch_op.create_foreign_key(
-                "fk_domain_pair_rules_user_id", "domain_pair_rules", "users", ["user_id"], ["id"], ondelete="CASCADE"
+                "fk_domain_pair_rules_user_id", "users", ["user_id"], ["id"], ondelete="CASCADE"
             )
             batch_op.create_index("ix_domain_pair_rules_user_id", ["user_id"])
             batch_op.drop_constraint("uq_domain_pair", type_="unique")

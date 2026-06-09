@@ -90,70 +90,73 @@ MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invo
 
 ## Quick Start
 
-### Prerequisites
-- Python 3.11+
-- Node.js (for frontend build)
-- PostgreSQL (optional — SQLite works for dev)
-- Google Cloud project with Gmail API enabled
+MoneyFlow runs in two modes:
 
-### 1. Clone & Configure
+| Mode | External deps | Best for |
+|---|---|---|
+| **Local** (default) | None — SQLite + in-memory | Trying it out, personal use |
+| **Cloud** | PostgreSQL, Redis, Google OAuth + Gmail API | Multi-user, Gmail sync |
+
+---
+
+### 🏠 Local Mode (one command)
+
+No Google account, no PostgreSQL, no Redis needed. Your data stays on your machine.
 
 ```bash
+# Clone & setup
 git clone https://github.com/yourusername/gexpense-tracker.git
 cd gexpense-tracker
-cp .env.example .env
+bash scripts/setup-local.sh
+
+# Start
+source .venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Environment Variables
+Open [http://localhost:8000](http://localhost:8000) and click **"Start locally"**.
 
-Minimum required in `.env`:
+> Add transactions manually or import a CSV. In local mode, the app uses SQLite (`./data/expense.db`) and an in-memory task queue — zero external services.
 
-```env
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/expense_tracker
-# or for local dev:
-# DATABASE_URL=sqlite+aiosqlite:///./data/expense.db
+### 🐳 Run with Docker (local mode)
 
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/callback
-
-SECRET_KEY=generate-a-random-secret-here
+```bash
+docker compose -f docker-compose.local.yml up --build
 ```
 
-At least one LLM key (recommended: Gemini, free tier available):
-```env
-GOOGLE_AI_API_KEY=your_gemini_key
-```
+Open [http://localhost:8000](http://localhost:8000).  
+Uses SQLite + in-memory queue — zero external services.
 
-### 3. Run with Docker
+### 🐳 Run with Docker (cloud mode — requires PostgreSQL + Redis)
 
 ```bash
 docker-compose up --build
 ```
 
-Open [http://localhost:8000](http://localhost:8000).
-
 > **PostgreSQL on existing data**: If you are reusing an existing PostgreSQL database, run the dedup preflight before migrations to avoid unique constraint failures (see [PostgreSQL Migration Procedure](#postgresql-migration-procedure)).
 
-### 4. Run Locally (SQLite)
+### ☁️ Full cloud mode (Gmail + Redis)
 
 ```bash
+cp .env.example .env
+# Edit .env: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SECRET_KEY, FERNET_KEY, REDIS_URL
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-export DATABASE_URL="sqlite+aiosqlite:///./data/expense.db"
+# Use PostgreSQL (not SQLite)
+export DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/expense_tracker"
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-### 5. Build Frontend (if editing JSX)
+### 🔨 Build Frontend (if editing JSX)
 
 ```bash
 node scripts/build-frontend.mjs          # one-shot build
 node scripts/build-frontend.mjs --watch  # dev mode with file watching
 ```
 
-### 6. Connect Gmail
+### 🔗 Connect Gmail (cloud mode only)
 
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
 2. Enable **Gmail API**

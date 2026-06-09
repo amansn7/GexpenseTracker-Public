@@ -593,6 +593,21 @@ async def stats_monthly_summary(
     return await get_monthly_summary(current_user.id, 12, db)
 
 
+@router.get("/stats/monthly-trend")
+async def stats_monthly_trend(
+    period: str = "1m",
+    date_from: date | None = None,
+    date_to: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if date_from and date_to:
+        pass
+    elif period not in ("1m", "3m", "6m", "1y"):
+        raise HTTPException(status_code=422, detail="period must be one of: 1m, 3m, 6m, 1y")
+    return await _compute_monthly_trend(period, date_from, date_to, current_user.id, db)
+
+
 @router.get("/stats/income-vs-expense")
 async def stats_income_vs_expense(
     period: str = "1m",

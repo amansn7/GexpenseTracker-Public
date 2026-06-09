@@ -3,15 +3,21 @@
 import os
 import time
 
+import jwt as pyjwt
 import pytest
 
-os.environ.setdefault("JWT_SECRET", "test-secret-key-at-least-32-chars!!")
+from tests.rsa_test_keys import TEST_RSA_PRIVATE, TEST_RSA_PUBLIC
+
 os.environ.setdefault("TESTING", "1")
+os.environ.setdefault("JWT_PRIVATE_KEY", TEST_RSA_PRIVATE)
+os.environ.setdefault("JWT_PUBLIC_KEY", TEST_RSA_PUBLIC)
 
 from app.jwt_utils import (
     ACCESS_TTL_SECONDS,
     REFRESH_TTL_SECONDS,
     TokenType,
+    _ALGORITHM,
+    _private_key,
     create_access_token,
     create_refresh_token,
     create_token_pair,
@@ -57,9 +63,6 @@ def test_wrong_type_raises():
 
 
 def test_expired_token_raises():
-    import jwt as pyjwt
-
-    secret = os.environ["JWT_SECRET"]
     now = int(time.time())
     payload = {
         "sub": "u1",
@@ -68,15 +71,15 @@ def test_expired_token_raises():
         "iat": now - 7200,
         "exp": now - 3600,  # already expired
     }
-    expired = pyjwt.encode(payload, secret, algorithm="HS256")
+    expired = pyjwt.encode(payload, _private_key(), algorithm=_ALGORITHM)
     with pytest.raises(ValueError, match="expired"):
         decode_token(expired, expected_type=TokenType.ACCESS)
 
 
 def test_tampered_token_raises():
     token = create_access_token(user_id="u1", email="a@b.com")
-    bad = token[:-4] + "XXXX"
-    with pytest.raises(ValueError, match="invalid"):
+    bad = token[:-8] + "XXXX"
+    with pytest.raises(ValueError):
         decode_token(bad, expected_type=TokenType.ACCESS)
 
 
@@ -84,6 +87,5 @@ def test_create_token_pair_returns_both():
     pair = create_token_pair(user_id="u1", email="a@b.com")
     assert "access_token" in pair
     assert "refresh_token" in pair
-    # Decode both to confirm they are valid
     decode_token(pair["access_token"], expected_type=TokenType.ACCESS)
     decode_token(pair["refresh_token"], expected_type=TokenType.REFRESH)

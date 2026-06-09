@@ -227,3 +227,4 @@ class OAuthState(Base):
     state: Mapped[str] = mapped_column(String(256), nullable=False, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    redirect_uri: Mapped[str | None] = mapped_column(String(512), nullable=True, default=None)

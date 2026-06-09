@@ -68,7 +68,7 @@ def upgrade() -> None:
         with op.batch_alter_table("duplicate_pairs") as batch_op:
             batch_op.create_index(
                 "uq_duplicate_pair_symmetric",
-                [sa.text("LEAST(primary_tx_id, duplicate_tx_id), GREATEST(primary_tx_id, duplicate_tx_id)")],
+                [sa.text("MIN(primary_tx_id, duplicate_tx_id), MAX(primary_tx_id, duplicate_tx_id)")],
                 unique=True,
             )
     else:

@@ -3,8 +3,8 @@ set -e
 
 PORT="${PORT:-8000}"
 
-# Skip TCP wait on Railway (managed Postgres is always reachable via DATABASE_URL)
-if [ -z "${RAILWAY_ENVIRONMENT}" ]; then
+# Skip TCP wait on Railway (managed Postgres) or Local mode (SQLite)
+if [ -z "${RAILWAY_ENVIRONMENT}" ] && [ "${LOCAL_MODE}" != "true" ]; then
   DB_HOST="${DB_HOST:-db}"
   DB_PORT="${DB_PORT:-5432}"
   echo "Waiting for database at ${DB_HOST}:${DB_PORT}..."
