@@ -169,7 +169,7 @@ const MobileAppBanner = () => {
 
 const App = () => {
   const { view, setView, selectedId, setSelectedId, searchQuery, setSearchQuery } = useContext(ViewContext);
-  const { inboxFilter, setInboxFilter, categoryFilter, setCategoryFilter, dateRange, setDateRange, inboxDateRange, setInboxDateRange, catOpen, setCatOpen, catRef, tweaksOn, setTweaksOn } = useContext(FilterContext);
+  const { inboxFilter, setInboxFilter, categoryFilter, setCategoryFilter, dateRange, setDateRange, inboxDateRange, setInboxDateRange, activePreset, setActivePreset, catOpen, setCatOpen, catRef, tweaksOn, setTweaksOn } = useContext(FilterContext);
   const { syncStatus, setSyncStatus, syncing, syncProgress, syncPanelDismissed, setSyncPanelDismissed, syncPanelPosition, startPolling, handleRescan, syncLabel } = useContext(SyncContext);
 
   const [transactions, setTransactions] = useState([]);
@@ -609,8 +609,8 @@ const App = () => {
             )
           }</ViewSlot>
           <ViewSlot view="search" activeView={view}><SearchView query={searchQuery} categoryFilter={categoryFilter}/></ViewSlot>
-          <ViewSlot view="flow" activeView={view}><ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}</ViewChunkLoader></ViewSlot>
-          <ViewSlot view="dashboard" activeView={view}><ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader></ViewSlot>
+          <ViewSlot view="flow" activeView={view}><ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} activePreset={activePreset} setActivePreset={setActivePreset} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}</ViewChunkLoader></ViewSlot>
+          <ViewSlot view="dashboard" activeView={view}><ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} activePreset={activePreset} setActivePreset={setActivePreset}/>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="health" activeView={view}><ViewChunkLoader view="health">{() => <HealthView />}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="reports" activeView={view}><ViewChunkLoader view="reports">{() => <ReportsView />}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="recurring" activeView={view}><ViewChunkLoader view="recurring">{() => <RecurringView userCategories={account?.categories || []}/>}</ViewChunkLoader></ViewSlot>
@@ -619,8 +619,8 @@ const App = () => {
           <ViewSlot view="budgets" activeView={view}><ViewChunkLoader view="budgets">{() => <BudgetsView />}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="profile" activeView={view}><ViewChunkLoader view="profile">{() => account ? <ProfileView transactions={transactions} account={account} setAccount={setAccount}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading profile...</div></div>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="settings" activeView={view}><ViewChunkLoader view="settings">{() => account ? <SettingsView syncStatus={syncStatus} setSyncStatus={setSyncStatus} onRescan={handleRescan} syncing={syncing} account={account} setAccount={setAccount} theme={theme} setTheme={setTheme}/> : <div style={{display:"flex",alignItems:"center",justifyContent:"center",height: viewport.isMobile ? mobileStyles.navOffset : "calc(100dvh - 72px)"}}><div style={{fontSize:13,color:"var(--ink-3)"}}>Loading settings...</div></div>}</ViewChunkLoader></ViewSlot>
-          <ViewSlot view="today" activeView={view}><ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader></ViewSlot>
-          <ViewSlot view="picture" activeView={view}><ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange}/>}</ViewChunkLoader></ViewSlot>
+          <ViewSlot view="today" activeView={view}><ViewChunkLoader view="dashboard">{() => <DashboardView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} activePreset={activePreset} setActivePreset={setActivePreset}/>}</ViewChunkLoader></ViewSlot>
+          <ViewSlot view="picture" activeView={view}><ViewChunkLoader view="flow">{() => <FlowView transactions={transactions} categoryFilter={categoryFilter} dateRange={dateRange} setDateRange={setDateRange} activePreset={activePreset} setActivePreset={setActivePreset} onNavigateToView={setView} onSetCategoryFilter={setCategoryFilter} onSetFilter={setInboxFilter} onSetDateRange={setDateRange} onSetInboxDateRange={setInboxDateRange}/>}</ViewChunkLoader></ViewSlot>
           <ViewSlot view="review" activeView={view}><InboxView
               transactions={transactions}
               setTransactions={setTransactions}

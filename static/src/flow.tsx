@@ -678,10 +678,9 @@ const WeeklyBurn = ({ data }) => {
   );
 };
 
-const FlowView = React.memo(({ transactions, categoryFilter, dateRange, setDateRange, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange, onSetInboxDateRange }) => {
+const FlowView = React.memo(({ transactions, categoryFilter, dateRange, setDateRange, activePreset, setActivePreset, onNavigateToView, onSetCategoryFilter, onSetFilter, onSetDateRange, onSetInboxDateRange }) => {
   const { isMobile, isTablet } = useViewport();
   const todayStr = new Date().toISOString().slice(0, 10);
-  const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [flowLoading, setFlowLoading] = React.useState(false);

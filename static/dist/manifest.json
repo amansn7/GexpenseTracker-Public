@@ -1,6 +1,6 @@
 {
-  "version": "29c8f2fb",
-  "timestamp": "2026-06-09T13:38:53.722Z",
+  "version": "099f52e8",
+  "timestamp": "2026-06-09T13:46:26.420Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -14,11 +14,11 @@
     "/static/dist/components/ProgressBar.js?v=348b498b",
     "/static/dist/components/Skeleton.js?v=999a12d3",
     "/static/dist/components/Toggle.js?v=8f5a7c55",
-    "/static/dist/mf-core.js?v=f394e953",
-    "/static/dist/mf-app.js?v=68c09bbd",
+    "/static/dist/mf-core.js?v=05220f16",
+    "/static/dist/mf-app.js?v=aebf9a72",
     "/static/dist/inbox.js?v=0c43e9c2",
-    "/static/dist/flow.js?v=23e525ff",
-    "/static/dist/dashboard.js?v=2c3d42bd",
+    "/static/dist/flow.js?v=79825556",
+    "/static/dist/dashboard.js?v=c3b16b36",
     "/static/dist/health.js?v=5fbf7f4e",
     "/static/dist/reports.js?v=8ecfb765",
     "/static/dist/recurring.js?v=f139eece",
@@ -28,20 +28,20 @@
     "/static/dist/account.js?v=3dabcbef",
     "/static/dist/admin.js?v=b17501c0",
     "/static/dist/onboarding.js?v=e88cd9d1",
-    "/static/dist/esm/app.esm.js?v=9fdc7700"
+    "/static/dist/esm/app.esm.js?v=0f95e5f4"
   ],
   "bundles": {
     "mf-core": {
       "file": "mf-core.js",
-      "size": 92719,
-      "size_kb": 90.5,
-      "hash": "f394e953"
+      "size": 93681,
+      "size_kb": 91.5,
+      "hash": "05220f16"
     },
     "mf-app": {
       "file": "mf-app.js",
-      "size": 25085,
-      "size_kb": 24.5,
-      "hash": "68c09bbd"
+      "size": 25352,
+      "size_kb": 24.8,
+      "hash": "aebf9a72"
     },
     "styles.css": {
       "file": "styles.css",
@@ -57,15 +57,15 @@
     },
     "flow": {
       "file": "flow.js",
-      "size": 40367,
+      "size": 40375,
       "size_kb": 39.4,
-      "hash": "23e525ff"
+      "hash": "79825556"
     },
     "dashboard": {
       "file": "dashboard.js",
-      "size": 31585,
-      "size_kb": 30.8,
-      "hash": "2c3d42bd"
+      "size": 31591,
+      "size_kb": 30.9,
+      "hash": "c3b16b36"
     },
     "health": {
       "file": "health.js",
@@ -122,12 +122,12 @@
       "hash": "e88cd9d1"
     }
   },
-  "always_loaded_size_kb": 563,
-  "total_size_kb": 1060.8,
+  "always_loaded_size_kb": 564.2,
+  "total_size_kb": 1062,
   "budgets": {
     "passed": false,
     "violations": [
-      "always-loaded 563.0KB (max 250KB)"
+      "always-loaded 564.2KB (max 250KB)"
     ]
   }
 }

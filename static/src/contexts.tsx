@@ -53,6 +53,7 @@ const FilterProvider = ({ children }) => {
   const catRef = useRef(null);
   const [dateRange, setDateRange] = useState(DateUtils.getCurrentMonthRange());
   const [inboxDateRange, setInboxDateRange] = useState(DateUtils.getAllTimeRange());
+  const [activePreset, setActivePreset] = useState(null);
   const [tweaksOn, setTweaksOn] = useState(false);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ const FilterProvider = ({ children }) => {
     <FilterContext.Provider value={{
       inboxFilter, setInboxFilter, categoryFilter, setCategoryFilter,
       dateRange, setDateRange, inboxDateRange, setInboxDateRange,
+      activePreset, setActivePreset,
       catOpen, setCatOpen, catRef, tweaksOn, setTweaksOn,
     }}>
       {children}

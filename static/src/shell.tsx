@@ -565,6 +565,23 @@ const BottomTabBar = ({ view, setView, counts, onMenu }) => {
   );
 };
 
+const _calSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+const _dateInputStyle = {
+  border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px 5px 26px",
+  fontSize: "0.75rem", background: "var(--card)", color: "var(--ink)",
+  outline: "none", fontFamily: "inherit", boxSizing: "border-box",
+  minWidth: 130, WebkitAppearance: "none" as any,
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(_calSvg)}")`,
+  backgroundRepeat: "no-repeat", backgroundPosition: "6px center", backgroundSize: "13px",
+};
+
+const _presetBase = {
+  padding: "4px 11px", borderRadius: 999, border: "1px solid var(--line)",
+  fontSize: "0.6875rem", fontWeight: 600, cursor: "pointer", outline: "none",
+  fontFamily: "'Geist', sans-serif", letterSpacing: "0.01em" as const,
+  transition: "background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+};
+
 const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
   const fmt = d => { const off = d.getTimezoneOffset() * 60000; return new Date(d - off).toISOString().slice(0, 10); };
   const presets = [
@@ -574,8 +591,9 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
     ["90d", "90d", 90],
     ["1y", "1y", 365],
   ];
+  const noFilter = !rangeFrom && !rangeTo;
   return (
-    <div role="radiogroup" aria-label="Date range" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div role="radiogroup" aria-label="Date range" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       {presets.map(([label, display, days]) => (
         <button
           key={label}
@@ -586,28 +604,38 @@ const DateRangeControl = ({ rangeFrom, rangeTo, activePreset, onChange }) => {
             const start = new Date(); start.setDate(end.getDate() - days + 1);
             onChange(fmt(start), fmt(end), label);
           }}
-          style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--line)", background: activePreset === label ? "var(--ink)" : "var(--card)", color: activePreset === label ? "var(--paper)" : "var(--ink-2)", fontSize: "0.75rem", fontWeight: 500, cursor: "pointer", outline: "none", transition: "background 120ms ease, color 120ms ease" }}
+          className="btn-press"
+          style={{
+            ..._presetBase,
+            background: activePreset === label ? "var(--accent)" : "var(--card)",
+            color: activePreset === label ? "var(--on-accent)" : "var(--ink-2)",
+            borderColor: activePreset === label ? "var(--accent)" : "var(--line)",
+            boxShadow: activePreset === label ? "0 1px 3px var(--shadow-sm)" : "none",
+          }}
           onFocus={e => { e.currentTarget.style.boxShadow = "0 0 0 2px var(--accent)"; }}
-          onBlur={e => { e.currentTarget.style.boxShadow = "none"; }}
+          onBlur={e => { if (activePreset !== label) e.currentTarget.style.boxShadow = "none"; }}
         >{display}</button>
       ))}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4 }}>
+        <div style={{ width: 1, height: 20, background: "var(--line)", marginRight: 2 }} />
         <input
           type="date"
           aria-label="Start date"
-          value={rangeFrom}
-          max={rangeTo}
-          onChange={e => onChange(e.target.value, rangeTo, null)}
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: "0.75rem", background: "var(--card)", color: "var(--ink)", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+          value={rangeFrom || ""}
+          max={rangeTo || undefined}
+          onChange={e => onChange(e.target.value || null, rangeTo, null)}
+          style={{ ..._dateInputStyle, opacity: noFilter ? 0.35 : 1, pointerEvents: noFilter ? "none" as any : "auto" as any }}
+          disabled={noFilter}
         />
-        <span aria-hidden="true" style={{ color: "var(--ink-4)", fontSize: "0.75rem" }}>→</span>
+        <span aria-hidden="true" style={{ color: "var(--ink-4)", fontSize: "0.625rem", fontWeight: 500, margin: "0 1px" }}>→</span>
         <input
           type="date"
           aria-label="End date"
-          value={rangeTo}
-          min={rangeFrom}
-          onChange={e => onChange(rangeFrom, e.target.value, null)}
-          style={{ border: "1px solid var(--line)", borderRadius: 6, padding: "5px 8px", fontSize: "0.75rem", background: "var(--card)", color: "var(--ink)", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+          value={rangeTo || ""}
+          min={rangeFrom || undefined}
+          onChange={e => onChange(rangeFrom, e.target.value || null, null)}
+          style={{ ..._dateInputStyle, opacity: noFilter ? 0.35 : 1, pointerEvents: noFilter ? "none" as any : "auto" as any }}
+          disabled={noFilter}
         />
       </div>
     </div>

@@ -23,10 +23,9 @@ const dashStyles = {
   catCard: { padding: "14px 16px", background: "var(--paper-2)", borderRadius: 8, border: "1px solid var(--line)" },
 };
 
-const DashboardView = React.memo(({ transactions, categoryFilter, dateRange, setDateRange }) => {
+const DashboardView = React.memo(({ transactions, categoryFilter, dateRange, setDateRange, activePreset, setActivePreset }) => {
   var { isMobile, isTablet } = useViewport();
   var todayStr = new Date().toISOString().slice(0, 10);
-  const [activePreset, setActivePreset] = React.useState(null);
   const [stats, setStats] = React.useState(null);
   const [catBreakdown, setCatBreakdown] = React.useState(null);
   const [topMerchants, setTopMerchants] = React.useState([]);
