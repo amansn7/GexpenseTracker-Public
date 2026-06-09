@@ -181,9 +181,9 @@ const LAZY_CHUNKS = {
   "debt":         { files: ["debt"],                                       views: ["debt"] },
   "goals":        { files: ["goals"],                                      views: ["goals"] },
   "budgets":      { files: ["budget-llm-sections", "budget-modal", "budgets"], views: ["budgets"] },
-  "account":      { files: ["account-admin", "account-rule-modal", "account-rules", "account-admin-settings", "account"], views: ["profile", "settings"] },
+  "account":      { files: ["account-admin", "account-rule-modal", "account-rules", "account-admin-settings", "hooks/useTOTP", "hooks/usePasskey", "account"], views: ["profile", "settings"] },
   "admin":        { files: ["admin"],                                      views: ["admin"] },
-  "onboarding":   { files: ["onboarding"],                                 views: ["onboarding"] },
+  "onboarding":   { files: ["hooks/useTOTP", "hooks/usePasskey", "onboarding"], views: ["onboarding"] },
 };
 
 // ── ESM side-effect bundle pipeline ─────────────────────────────────────────

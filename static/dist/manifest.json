@@ -1,6 +1,6 @@
 {
-  "version": "711d3576",
-  "timestamp": "2026-06-09T05:17:48.385Z",
+  "version": "8d1b2bcb",
+  "timestamp": "2026-06-09T06:12:03.876Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -25,9 +25,9 @@
     "/static/dist/debt.js?v=77269a43",
     "/static/dist/goals.js?v=e538afa1",
     "/static/dist/budgets.js?v=4863e651",
-    "/static/dist/account.js?v=02abebd2",
+    "/static/dist/account.js?v=3dabcbef",
     "/static/dist/admin.js?v=b17501c0",
-    "/static/dist/onboarding.js?v=3a2d3c0a",
+    "/static/dist/onboarding.js?v=e88cd9d1",
     "/static/dist/esm/app.esm.js?v=1efea4d9"
   ],
   "bundles": {
@@ -105,9 +105,9 @@
     },
     "account": {
       "file": "account.js",
-      "size": 136446,
-      "size_kb": 133.2,
-      "hash": "02abebd2"
+      "size": 138783,
+      "size_kb": 135.5,
+      "hash": "3dabcbef"
     },
     "admin": {
       "file": "admin.js",
@@ -117,13 +117,13 @@
     },
     "onboarding": {
       "file": "onboarding.js",
-      "size": 32407,
-      "size_kb": 31.6,
-      "hash": "3a2d3c0a"
+      "size": 34744,
+      "size_kb": 33.9,
+      "hash": "e88cd9d1"
     }
   },
   "always_loaded_size_kb": 563,
-  "total_size_kb": 1056.1,
+  "total_size_kb": 1060.7,
   "budgets": {
     "passed": false,
     "violations": [
