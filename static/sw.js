@@ -95,7 +95,9 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  if (isStaticAsset(url) || isFontUrl(url)) {
+  // Only intercept same-origin requests for static assets
+  // Cross-origin requests (profile images, external resources) pass through naturally
+  if (isFontUrl(url) || (url.origin === self.location.origin && isStaticAsset(url))) {
     e.respondWith(
       (async () => {
         const cached = await caches.match(e.request);
@@ -123,9 +125,12 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  e.respondWith(
-    fetch(e.request).catch(() =>
-      caches.match(e.request).then((cached) => cached || new Response(null, { status: 504 }))
-    )
-  );
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      fetch(e.request).catch(() =>
+        caches.match(e.request).then((cached) => cached || new Response(null, { status: 504 }))
+      )
+    );
+  }
+  // Cross-origin requests pass through — let the browser handle them naturally
 });
