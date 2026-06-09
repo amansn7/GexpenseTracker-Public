@@ -7,6 +7,14 @@
 2. If unintended files are present, use `git reset HEAD <file>` to unstage them, or `git checkout HEAD -- <file>` to revert the working tree version.
 3. This is especially important when switching contexts between feature work (e.g., frontend polish vs. backend infrastructure spikes).
 
+## CSS: Transform in modal animations causes visual/hit-area misalignment
+
+CSS `transform` in `@keyframes` animations creates a compositor layer. The visual rendering can offset from the layout hit area, making buttons/inputs appear unresponsive — clicks register at the layout position, not where the element is visually rendered.
+
+**Fix**: Use only `opacity` in modal enter/exit animations. Avoid `transform` (scale, translate) in `@keyframes` for overlay/modal elements. If a scale effect is desired, apply it via a one-time transition or inline style (not an ongoing CSS animation with `animation-fill-mode: both`).
+
+**Related**: Remove `paddingRight` on modal titles that creates padding asymmetry — absolute-positioned close buttons don't need compensation.
+
 ## React: useEffect dependency arrays referencing render-time `const` variables
 
 A `useEffect` dependency array is evaluated **during render**. If it references a `const` or `let` that's declared later in the function body, you'll hit a **Temporal Dead Zone** error (`Cannot access uninitialized variable`), even though the effect callback runs after mount.
