@@ -193,7 +193,7 @@
     var bottom=window.innerHeight-38;
     physX=38;
     physY=bottom;
-    physVX=16+Math.random()*4;
+    physVX=20+Math.random()*4;
     physVY=-(12+Math.random()*4);
     physTgtX=window.innerWidth-38;
     physTgtY=bottom;
