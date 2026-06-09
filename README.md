@@ -2,7 +2,7 @@
   <br/>
   <img src="https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python" alt="Python 3.12"/>
   <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi" alt="FastAPI"/>
-  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql" alt="PostgreSQL 16"/>
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React 18"/>
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square" alt="License"/>
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome"/>
@@ -17,15 +17,32 @@
 
 MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invoices, receipts, UPI confirmations) using a two-stage pipeline (domain rules → multi-provider LLM fallback), and gives you a live dashboard of your spending — without manually entering a single transaction.
 
-## Demo
+## Architecture at a Glance
 
-<p align="center">
-  <i>Screenshots coming soon — run locally to see it in action!</i>
-</p>
-
-| [Inbox — Gmail-style transaction list](http://localhost:8000) | [Dashboard — monthly snapshot](http://localhost:8000) |
-|:--:|:--:|
-| <code>⎤ Pending: 3 &nbsp;&nbsp; ▲ 750.00 &nbsp;&nbsp; ▼ 1,200.50</code> | <code>📊 Balance · Burn · Budgets · Top Merchants</code> |
+```
+┌─────────────┐    ┌─────────────────────────────────────┐    ┌────────────┐
+│   Browser   │◄──►│          FastAPI Backend             │    │  PostgreSQL│
+│  (React 18) │    │  ┌───────┐  ┌────────┐  ┌────────┐ │    │  / SQLite  │
+│             │    │  │ Auth  │  │ Classi-│  │  Sync  │ │    │            │
+│  Jinja2 SPA │    │  │(OAuth │  │ fier   │  │(Gmail) │ │    │  Alembic   │
+│  + esbuild  │    │  │ +2FA) │  │ Rules  │  │        │ │    │ migrations │
+│             │    │  │       │  │ └─►LLM │  │        │ │    └────────────┘
+│  3 themes   │    │  └───────┘  └────────┘  └────────┘ │    ┌────────────┐
+└─────────────┘    │  ┌────────┐  ┌────────┐            │    │   Redis    │
+                   │  │ Stats  │  │Dedup   │            │◄──►│   (queue   │
+                   │  │Rollups │  │Engine  │            │    │  + cache)  │
+                   │  └────────┘  └────────┘            │    └────────────┘
+                   └─────────────────────────────────────┘    ┌────────────┐
+                        │            │                        │   Gmail    │
+                        ▼            ▼                        │   API      │
+                   ┌──────────┐ ┌──────────┐                  └────────────┘
+                   │  ARQ     │ │  LLM     │
+                   │  Worker  │ │ Gemini   │
+                   │          │ │ Grok     │
+                   └──────────┘ │ Groq     │
+                                │ OpenRoute│
+                                └──────────┘
+```
 
 ## Features
 
@@ -78,9 +95,11 @@ MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invo
 
 ### Account & Security
 - Google OAuth 2.0 with optional TOTP 2FA
+- Passkey (WebAuthn) support for passwordless login
 - Multi-user via email allowlist (owner + members)
 - Custom sender rules + user-configured AI service (bring your own LLM key)
 - Account deletion (scheduled or immediate)
+- CSP, HSTS, X-Frame-Options, CSRF double-submit cookie pattern, rate limiting
 
 ---
 
@@ -89,13 +108,17 @@ MoneyFlow syncs your Gmail inbox, classifies financial emails (bank alerts, invo
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | FastAPI (async) + SQLAlchemy 2.0 async + Alembic |
-| **Database** | PostgreSQL (prod) / SQLite (dev) |
+| **Database** | PostgreSQL 16 (prod) / SQLite (dev) |
 | **Frontend** | Vanilla JSX (esbuild → React 18 CDN) + Jinja2 shell |
 | **Gmail** | Google OAuth 2.0 + Gmail REST API |
-| **LLM** | Gemini, Grok (xAI), Groq, Scaleway, OpenRouter, Cloudflare Workers AI |
+| **LLM** | Gemini, Grok (xAI), Groq, Scaleway, OpenRouter, Cloudflare Workers AI, FreeLLMAPI |
+| **Auth** | Google OAuth, TOTP 2FA, WebAuthn/Passkeys, JWT (RS256), session cookies |
 | **Scheduler** | APScheduler (async) |
+| **Task Queue** | ARQ (Redis-backed) with in-memory fallback |
 | **Container** | Docker + docker-compose |
 | **Deploy** | Railway (via Dockerfile) |
+| **Mobile** | Capacitor (iOS) |
+| **Testing** | pytest, pytest-asyncio, pytest-mock, Playwright, axe-core |
 
 ---
 
@@ -105,26 +128,8 @@ Two modes:
 
 | Mode | Dependencies | Best for |
 |------|-------------|----------|
-| **Local** | None — SQLite + in-memory | Trying it out, personal use |
+| **Local** | None — SQLite + in-memory queue | Trying it out, personal use |
 | **Cloud** | PostgreSQL, Redis, Google OAuth + Gmail API | Multi-user, Gmail sync |
-
-### 🤖 AI-Assisted Setup
-
-Copy this prompt into an AI assistant (Claude, ChatGPT, etc.) to set up and launch MoneyFlow in one shot:
-
-<pre>
-You are a senior DevOps engineer. Set up MoneyFlow from https://github.com/amansn7/GexpenseTracker-Public using
-**local mode** (SQLite + in-memory queue, no external services).
-
-Do not ask questions. Execute these steps:
-1. `git clone https://github.com/amansn7/GexpenseTracker-Public.git && cd GexpenseTracker-Public`
-2. `bash scripts/setup-local.sh`
-3. `source .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000`
-4. Confirm it's running at http://localhost:8000
-
-Tell the user: "MoneyFlow is live at http://localhost:8000. Click 'Start locally' to log in with
-no credentials. Add transactions manually (or export as CSV later). Your data stays on this machine."
-</pre>
 
 ### 🏠 Local Mode (one command)
 
@@ -179,30 +184,56 @@ node scripts/build-frontend.mjs --watch  # dev watch mode
 ## Project Structure
 
 ```
-├── app/
-│   ├── main.py              # FastAPI app factory + middleware
-│   ├── config.py            # Pydantic settings (env vars)
-│   ├── database.py          # Async SQLAlchemy engine + session
-│   ├── auth_deps.py         # get_current_user() dependency
-│   ├── api/                 # Route handlers (auth, txns, sync, stats, admin…)
-│   ├── classifier/          # Classification pipeline (rule engine → LLM)
-│   ├── gmail/               # Gmail OAuth + API client
-│   ├── dedup/               # 3-strategy duplicate detection
-│   ├── models/              # SQLAlchemy models (user, txn, email, financial…)
-│   └── services/            # Business logic services
-├── static/
-│   ├── src/                 # JSX source (React 18, esbuild-bundled)
-│   └── styles.css           # CSS variables + theme classes + all styles
-├── templates/               # Jinja2 HTML shell
-├── tests/                   # Pytest suite (async, 28 files)
-├── alembic/                 # Database migrations
-├── scripts/                 # Build, setup, migration helpers
-├── Dockerfile
-├── docker-compose.yml       # Cloud mode (PostgreSQL + Redis)
-├── docker-compose.local.yml # Local mode (SQLite)
-├── Dockerfile
-└── entrypoint.sh
+├── app/                    # FastAPI backend
+│   ├── main.py             # App factory + middleware stack
+│   ├── config.py           # Pydantic settings (env vars)
+│   ├── database.py         # Async SQLAlchemy engine + session
+│   ├── auth_deps.py        # get_current_user() dependency
+│   ├── api/                # 26 route modules
+│   ├── classifier/         # Classification pipeline (rule engine → LLM)
+│   │   ├── rules.py        # 18 built-in vendor rules
+│   │   ├── llm/            # Multi-provider LLM client
+│   │   ├── merchant.py     # Fuzzy merchant matching
+│   │   └── pre_filter.py   # Email pre-filtering
+│   ├── gmail/              # Gmail OAuth + API client
+│   ├── sync/               # Sync orchestration (fetch → classify → persist)
+│   ├── dedup/              # 3-strategy duplicate detection
+│   ├── models/             # 14 SQLAlchemy models
+│   ├── services/           # Business logic services
+│   └── workers/            # Background workers (ARQ)
+├── static/                 # Frontend assets
+│   ├── src/                # JSX source (React 18, esbuild-bundled, 48 files)
+│   └── styles.css          # CSS variables + theme classes + all styles
+├── templates/              # Jinja2 HTML shell
+├── tests/                  # 80+ pytest files + Playwright E2E
+├── alembic/                # 70+ database migrations
+├── scripts/                # Build, setup, migration helpers
+├── Dockerfile              # Multi-stage build (python:3.12-slim)
+├── docker-compose.yml      # Cloud mode (PostgreSQL + Redis)
+└── docker-compose.local.yml # Local mode (SQLite, zero dependencies)
 ```
+
+---
+
+## API Documentation
+
+Full API reference at [API_DOCS.md](./API_DOCS.md). Key endpoint groups:
+
+| Group | Base Path | Description |
+|-------|-----------|-------------|
+| Auth | `/api/auth/*` | Google OAuth, local login, sessions, 2FA, passkeys |
+| Transactions | `/api/transactions` | CRUD, search, export, bulk actions, reclassify |
+| Stats | `/api/stats/*` | Summary, category breakdown, health, trends |
+| Sync | `/api/sync/*` | Gmail sync trigger, progress, backfill |
+| Review | `/api/review` | Review queue, batch reprocess |
+| Budgets | `/api/budgets` | Budget CRUD, budget links |
+| Rules | `/api/rules` | Sender rules, pattern rules, rule tester |
+| Goals | `/api/goals` | Savings goals + contributions |
+| Debt | `/api/debts` | Loan/EMI/CC debt tracking |
+| Recurring | `/api/recurring` | Subscriptions + AI suggestions |
+| Insights | `/api/insights` | Spending insights, patterns, compare |
+| Settings | `/api/account/*` | Profile, categories, AI services, 2FA, deletion |
+| Admin | `/api/admin/*` | Owner-only: fetch preview, classify test, audit logs |
 
 ---
 
@@ -211,7 +242,9 @@ node scripts/build-frontend.mjs --watch  # dev watch mode
 ### Running Tests
 
 ```bash
-pytest -v --tb=short     # unit tests (skips LLM tests requiring API keys)
+pytest -v --tb=short                               # unit tests (skips LLM tests)
+pytest -v --tb=short --cov=app --cov-report=term-missing  # with coverage
+npm run test                                        # Playwright E2E
 ```
 
 ### Database Migrations
@@ -229,15 +262,41 @@ alembic upgrade head
 curl -X POST http://localhost:8000/api/sync/trigger
 ```
 
+### Code Quality
+
+```bash
+ruff check app/ tests/         # Lint
+ruff format --check app/ tests/ # Format check
+mypy app/config.py app/database.py  # Type check (select modules)
+```
+
+---
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for:
+- Railway deployment (1-click)
+- Docker Compose (cloud + local modes)
+- Production checklist (secrets, HTTPS, CORS)
+- Environment variable reference
+
+---
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for reporting vulnerabilities. The application implements:
+- CSP with nonce-based script-src
+- CSRF double-submit cookie pattern
+- Rate limiting on auth endpoints
+- Encrypted credentials at rest (Fernet)
+- Audit logging for state-changing operations
+- Security headers (HSTS, X-Frame-Options, X-Content-Type-Options)
+
 ---
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.
-
-## Security
-
-See [SECURITY.md](SECURITY.md) for reporting vulnerabilities.
 
 ## License
 
