@@ -43,3 +43,6 @@ android/
 
 # external projects
 money-movie/
+
+# agent worktrees (embedded git repos)
+.claude/worktrees/
