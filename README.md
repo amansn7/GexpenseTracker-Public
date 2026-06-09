@@ -108,6 +108,24 @@ Two modes:
 | **Local** | None — SQLite + in-memory | Trying it out, personal use |
 | **Cloud** | PostgreSQL, Redis, Google OAuth + Gmail API | Multi-user, Gmail sync |
 
+### 🤖 AI-Assisted Setup
+
+Copy this prompt into an AI assistant (Claude, ChatGPT, etc.) to set up and launch MoneyFlow in one shot:
+
+<pre>
+You are a senior DevOps engineer. Set up MoneyFlow from https://github.com/amansn7/GexpenseTracker-Public using
+**local mode** (SQLite + in-memory queue, no external services).
+
+Do not ask questions. Execute these steps:
+1. `git clone https://github.com/amansn7/GexpenseTracker-Public.git && cd GexpenseTracker-Public`
+2. `bash scripts/setup-local.sh`
+3. `source .venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port 8000`
+4. Confirm it's running at http://localhost:8000
+
+Tell the user: "MoneyFlow is live at http://localhost:8000. Click 'Start locally' to log in with
+no credentials. Add transactions manually or import a CSV. Your data stays on this machine."
+</pre>
+
 ### 🏠 Local Mode (one command)
 
 ```bash
