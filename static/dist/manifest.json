@@ -1,6 +1,6 @@
 {
-  "version": "fc5fb9d8",
-  "timestamp": "2026-06-09T03:59:20.499Z",
+  "version": "d716469f",
+  "timestamp": "2026-06-09T04:05:31.054Z",
   "shell": [
     "/static/styles.css?v=aaec0151",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -8,13 +8,13 @@
     "/static/dist/vendor/d3-sankey.js?v=49d2a337",
     "/static/dist/vendor/react-window.js?v=5cafea92",
     "/static/dist/components/Button.js?v=d7dc7e44",
-    "/static/dist/components/Input.js?v=25b90d27",
+    "/static/dist/components/Input.js?v=c94e331b",
     "/static/dist/components/Modal.js?v=2cd37857",
     "/static/dist/components/BottomSheet.js?v=95fbed6e",
     "/static/dist/components/ProgressBar.js?v=348b498b",
     "/static/dist/components/Skeleton.js?v=999a12d3",
     "/static/dist/components/Toggle.js?v=8f5a7c55",
-    "/static/dist/mf-core.js?v=e478d983",
+    "/static/dist/mf-core.js?v=fa252b22",
     "/static/dist/mf-app.js?v=9fcd8cce",
     "/static/dist/inbox.js?v=1f666cc1",
     "/static/dist/flow.js?v=23e525ff",
@@ -28,14 +28,14 @@
     "/static/dist/account.js?v=02abebd2",
     "/static/dist/admin.js?v=b17501c0",
     "/static/dist/onboarding.js?v=91d1ecd9",
-    "/static/dist/esm/app.esm.js?v=1c1b315c"
+    "/static/dist/esm/app.esm.js?v=1efea4d9"
   ],
   "bundles": {
     "mf-core": {
       "file": "mf-core.js",
-      "size": 92624,
+      "size": 92641,
       "size_kb": 90.5,
-      "hash": "e478d983"
+      "hash": "fa252b22"
     },
     "mf-app": {
       "file": "mf-app.js",
@@ -122,12 +122,12 @@
       "hash": "91d1ecd9"
     }
   },
-  "always_loaded_size_kb": 562.7,
+  "always_loaded_size_kb": 562.8,
   "total_size_kb": 1055.6,
   "budgets": {
     "passed": false,
     "violations": [
-      "always-loaded 562.7KB (max 250KB)"
+      "always-loaded 562.8KB (max 250KB)"
     ]
   }
 }

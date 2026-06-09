@@ -36,6 +36,7 @@ const Input = ({ label, error, hint, prefix, type = "text", value, onChange, pla
           onChange={onChange}
           placeholder={placeholder}
           style={{
+            width: "100%",
             paddingLeft: prefix ? 28 : undefined,
             ...errorStyle,
           }}

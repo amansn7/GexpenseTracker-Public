@@ -329,7 +329,7 @@ const Sidebar = ({ view, setView, mode = "classic", setMode = () => {}, counts, 
       </div>
     ))}
 
-    <div style={{ padding: "4px 8px 8px" }}>
+    <div style={{ padding: "4px 8px 8px", marginTop: "auto" }}>
       <AccountTrigger />
       {menu && (
         <>
