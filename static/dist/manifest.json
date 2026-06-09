@@ -1,6 +1,6 @@
 {
-  "version": "8d1b2bcb",
-  "timestamp": "2026-06-09T13:02:25.313Z",
+  "version": "ffd49033",
+  "timestamp": "2026-06-09T13:15:22.467Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -9,7 +9,7 @@
     "/static/dist/vendor/react-window.js?v=5cafea92",
     "/static/dist/components/Button.js?v=d7dc7e44",
     "/static/dist/components/Input.js?v=c94e331b",
-    "/static/dist/components/Modal.js?v=f635e2d8",
+    "/static/dist/components/Modal.js?v=e2af1055",
     "/static/dist/components/BottomSheet.js?v=7b89bb55",
     "/static/dist/components/ProgressBar.js?v=348b498b",
     "/static/dist/components/Skeleton.js?v=999a12d3",
