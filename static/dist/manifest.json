@@ -1,15 +1,15 @@
 {
-  "version": "d716469f",
-  "timestamp": "2026-06-09T04:05:31.054Z",
+  "version": "1c21ad36",
+  "timestamp": "2026-06-09T04:21:17.299Z",
   "shell": [
-    "/static/styles.css?v=aaec0151",
+    "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
     "/static/vendor/react-dom.production.min.js?v=35f4f974",
     "/static/dist/vendor/d3-sankey.js?v=49d2a337",
     "/static/dist/vendor/react-window.js?v=5cafea92",
     "/static/dist/components/Button.js?v=d7dc7e44",
     "/static/dist/components/Input.js?v=c94e331b",
-    "/static/dist/components/Modal.js?v=2cd37857",
+    "/static/dist/components/Modal.js?v=f635e2d8",
     "/static/dist/components/BottomSheet.js?v=95fbed6e",
     "/static/dist/components/ProgressBar.js?v=348b498b",
     "/static/dist/components/Skeleton.js?v=999a12d3",
@@ -45,8 +45,8 @@
     },
     "styles.css": {
       "file": "styles.css",
-      "size": 50409,
-      "size_kb": 49.2,
+      "size": 50258,
+      "size_kb": 49.1,
       "hash": "e3b0c442"
     },
     "inbox": {
@@ -122,12 +122,12 @@
       "hash": "91d1ecd9"
     }
   },
-  "always_loaded_size_kb": 562.8,
-  "total_size_kb": 1055.6,
+  "always_loaded_size_kb": 562.6,
+  "total_size_kb": 1055.4,
   "budgets": {
     "passed": false,
     "violations": [
-      "always-loaded 562.8KB (max 250KB)"
+      "always-loaded 562.6KB (max 250KB)"
     ]
   }
 }

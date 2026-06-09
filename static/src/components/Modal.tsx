@@ -31,7 +31,7 @@ const Modal = ({ open, onClose, title, children, width = 420, danger = false, cl
         style={{ background: "var(--card)", border: danger ? "1px solid var(--neg-soft)" : "1px solid var(--line)", borderRadius: 12, padding: 28, width: "100%", maxWidth: width, position: "relative" }}
       >
         {title && (
-          <div style={{ fontFamily: "'Geist', sans-serif", fontSize: "1.125rem", fontWeight: 500, color: danger ? "var(--neg)" : "var(--ink)", marginBottom: 8, paddingRight: 28 }}>{title}</div>
+          <div style={{ fontFamily: "'Geist', sans-serif", fontSize: "1.125rem", fontWeight: 500, color: danger ? "var(--neg)" : "var(--ink)", marginBottom: 8 }}>{title}</div>
         )}
         {children}
         <button
