@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // CDN resources: cache-first
-  if (url.hostname === 'unpkg.com' || url.hostname.includes('fonts.g')) {
+  if (url.hostname === 'unpkg.com') {
     e.respondWith(
       caches.open(CDN_CACHE).then(c =>
         c.match(e.request).then(r => {

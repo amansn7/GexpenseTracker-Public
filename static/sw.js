@@ -59,10 +59,6 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-function isFontUrl(url) {
-  return url.hostname === "fonts.gstatic.com";
-}
-
 function isApiCall(url) {
   return url.pathname.startsWith("/api/");
 }
@@ -97,7 +93,7 @@ self.addEventListener("fetch", (e) => {
 
   // Only intercept same-origin requests for static assets
   // Cross-origin requests (profile images, external resources) pass through naturally
-  if (isFontUrl(url) || (url.origin === self.location.origin && isStaticAsset(url))) {
+  if (url.origin === self.location.origin && isStaticAsset(url)) {
     e.respondWith(
       (async () => {
         const cached = await caches.match(e.request);
