@@ -129,14 +129,14 @@ const Row = ({ tx, selected, selectMode, onRowClick, onCheckbox, onEditCat, onDe
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}>
         {rowContent}
-        <div style={{
+        {swipeX !== 0 && <div style={{
           position: "absolute", right: 0, top: 0, bottom: 0, width: 80,
           background: "var(--neg)", color: "white",
           display: "flex", alignItems: "center", justifyContent: "center",
           pointerEvents: "none",
         }}>
           <Icon name="trash" size={18} stroke="white" />
-        </div>
+        </div>}
       </div>
     );
   }

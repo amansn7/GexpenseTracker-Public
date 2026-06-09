@@ -153,15 +153,16 @@ const InboxView = React.memo(({ transactions, setTransactions, selectedId, setSe
   }, [grouped, filter]);
   const [listHeight, setListHeight] = React.useState(600);
   const listAreaRef = React.useRef(null);
+  const heightUpdateRef = React.useRef(null);
   React.useLayoutEffect(() => {
     const el = listAreaRef.current;
     if (!el) return;
-    const update = () => { if (listAreaRef.current) setListHeight(listAreaRef.current.clientHeight); };
-    update();
-    const ro = new ResizeObserver(update);
+    heightUpdateRef.current = () => { if (listAreaRef.current) setListHeight(listAreaRef.current.clientHeight); };
+    heightUpdateRef.current();
+    const ro = new ResizeObserver(() => { heightUpdateRef.current?.(); });
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [flatItems.length, filter]);
+    return () => { heightUpdateRef.current = null; ro.disconnect(); };
+  }, [filter]);
   const getItemSize = React.useCallback((index) => {
     const item = flatItems[index];
     if (!item) return 56;

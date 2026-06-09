@@ -299,8 +299,6 @@ const App = () => {
         .catch(() => {});
     };
     loadAccount();
-    const timer = setTimeout(loadAccount, 2000);
-    return () => clearTimeout(timer);
   }, []);
 
   // Tweaks panel edit-mode bridge

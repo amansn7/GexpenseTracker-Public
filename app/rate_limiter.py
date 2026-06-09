@@ -133,6 +133,7 @@ RATE_LIMITS = {
     "/api/review/reprocess-all": (5, 300),
     "/api/account/ai-services": (10, 60),
     "/api/auth/verify-2fa": (5, 60),
+    "/api/auth/me": (30, 60),
     "/api/emails/retrain": (10, 60),
     "/health": (30, 60),
 }
