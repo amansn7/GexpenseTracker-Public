@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     CLOUDFLARE_ACCOUNT_ID: str = ""
 
     # FreeLLMAPI proxy — trial-tier LLM provider (bring-your-own-key after trial)
-    FREELLMAPI_BASE_URL: str = "https://humble-wholeness-production.up.railway.app"
+    FREELLMAPI_BASE_URL: str = ""
     FREELLMAPI_API_KEY: str = ""
     FREELLMAPI_MODEL: str = ""  # empty = let proxy auto-select
     TRIAL_DURATION_DAYS: int = 7

@@ -65,7 +65,7 @@ const Onboarding = ({ onDone }) => {
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14, fontWeight:600}}>Continue with Gmail</div>
-                    <div className="small" style={{marginTop:2}}>aman@gmail.com</div>
+                    <div className="small" style={{marginTop:2}}>user@example.com</div>
                   </div>
                   <Icon name="chevron" size={16} style={{color:'var(--ink-3)'}}/>
                 </div>

@@ -115,7 +115,7 @@ const Settings = ({ theme, onTheme }) => {
             <div style={{width:56, height:56, borderRadius:'50%', background:'var(--brand-50)', color:'var(--brand)', display:'grid', placeItems:'center', fontSize:22, fontWeight:600, flexShrink:0}}>A</div>
             <div style={{flex:1, minWidth:0}}>
               <div style={{fontWeight:600, fontSize:15}}>Aman Sharma</div>
-              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
+              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>user@example.com</div>
             </div>
             <button className="btn btn-ghost" style={{padding:'8px 14px', fontSize:12}}>Edit</button>
           </div>
@@ -124,7 +124,7 @@ const Settings = ({ theme, onTheme }) => {
         {/* Auto-tracking */}
         <div className="label" style={{margin:'14px 4px 8px'}}>Auto-tracking</div>
         <div className="card fade-up fade-up-3" style={{padding:0, marginBottom:14}}>
-          <Row icon="mail" label="Gmail extraction" sub="Connected · aman@gmail.com" right={<Toggle on={autoFetch} onClick={() => setAutoFetch(!autoFetch)}/>}/>
+          <Row icon="mail" label="Gmail extraction" sub="Connected · user@example.com" right={<Toggle on={autoFetch} onClick={() => setAutoFetch(!autoFetch)}/>}/>
           <Divider/>
           <Row icon="zap" label="SMS parsing" sub="Bank & UPI alerts" right={<Toggle on={sms} onClick={() => setSms(!sms)}/>}/>
           <Divider/>
@@ -397,7 +397,7 @@ const SettingsAI = () => {
             </div>
             <div style={{flex:1, minWidth:0}}>
               <div style={{fontSize:14, fontWeight:600}}>Gmail</div>
-              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>aman@gmail.com</div>
+              <div className="small mono" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>user@example.com</div>
             </div>
             <Badge tone="ok">connected</Badge>
           </div>

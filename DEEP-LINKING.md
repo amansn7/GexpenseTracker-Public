@@ -40,7 +40,7 @@ To enable Universal Links:
 2. Enable Associated Domains capability in Xcode:
    - Open `ios/App/App.xcworkspace` in Xcode
    - Under Signing & Capabilities, add "Associated Domains"
-   - Add `applinks:gexpense-production.up.railway.app`
+   - Add `applinks:your-production-domain.com`
 
 ### Handling Deep Links in Capacitor
 
@@ -87,7 +87,7 @@ Add to `AndroidManifest.xml`:
     <category android:name="android.intent.category.BROWSABLE" />
     <data
         android:scheme="https"
-        android:host="gexpense-production.up.railway.app"
+        android:host="your-production-domain.com"
         android:pathPrefix="/" />
 </intent-filter>
 ```

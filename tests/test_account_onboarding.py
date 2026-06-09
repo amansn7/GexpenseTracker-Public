@@ -35,7 +35,7 @@ async def test_onboarding_creates_user_profile_settings_and_defaults(db_session)
             )
         assert resp.status_code == 201
         data = resp.json()
-        assert data["user"]["email"] == "aman@example.com"
+        assert data["user"]["email"] == "user@example.com"
         assert data["user"]["role"] == "owner"
         assert data["user"]["onboarding_complete"] is True
         assert data["profile"]["full_name"] == "Aman Saini"
@@ -44,7 +44,7 @@ async def test_onboarding_creates_user_profile_settings_and_defaults(db_session)
         assert data["connected_accounts"][0]["provider"] == "gmail"
         assert len(data["categories"]) >= 8
 
-        user = (await db_session.execute(select(User).where(User.email == "aman@example.com"))).scalar_one()
+        user = (await db_session.execute(select(User).where(User.email == "user@example.com"))).scalar_one()
         settings_obj = (
             await db_session.execute(select(UserSettings).where(UserSettings.user_id == user.id))
         ).scalar_one()

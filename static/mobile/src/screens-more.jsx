@@ -25,7 +25,7 @@ const SectionLabel = ({ children, style }) => (
 const BankAccounts = ({ onBack }) => {
   const [accts, setAccts] = useStateM([
     { id:1, kind:'bank',   name:'HDFC Bank',   masked:'•••• 4821', sub:'Salary · UPI · Cards', updated:'2m ago', on:true,  tone:'#1a4ea8' },
-    { id:2, kind:'upi',    name:'Google Pay',  masked:'aman@oksbi',sub:'UPI alerts',           updated:'just now', on:true,  tone:'#1a73e8' },
+    { id:2, kind:'upi',    name:'Google Pay',  masked:'user@okhdfc',sub:'UPI alerts',           updated:'just now', on:true,  tone:'#1a73e8' },
     { id:3, kind:'card',   name:'ICICI Credit',masked:'•••• 9911', sub:'Sapphiro · auto-statement', updated:'1h ago', on:false, tone:'#a8141a' },
   ]);
   const total = accts.filter(a => a.on).length;
@@ -187,7 +187,7 @@ const NotificationsSettings = ({ onBack }) => {
         <div className="card fade-up fade-up-2" style={{padding:0, marginBottom:14}}>
           <Row icon="bell" label="Push" sub="On this device" right={<Toggle on={push} onClick={() => setPush(!push)}/>}/>
           <Divider/>
-          <Row icon="mail" label="Email" sub="aman@gmail.com" right={<Toggle on={email} onClick={() => setEmail(!email)}/>}/>
+          <Row icon="mail" label="Email" sub="user@example.com" right={<Toggle on={email} onClick={() => setEmail(!email)}/>}/>
         </div>
 
         <SectionLabel>What to send</SectionLabel>

@@ -3,7 +3,7 @@
   "appName": "MoneyFlow",
   "webDir": "capacitor",
   "server": {
-    "url": "https://gexpense-production.up.railway.app",
+    "url": "https://your-production-domain.com",
     "cleartext": true
   },
   "plugins": {

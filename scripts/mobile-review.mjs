@@ -2,14 +2,14 @@ import { chromium } from 'playwright';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 
-const BASE_URL = 'https://gexpense-production.up.railway.app';
+const BASE_URL = 'https://your-production-domain.com';
 const OUT = join(process.cwd(), 'mobile-screenshots');
 mkdirSync(OUT, { recursive: true });
 
 const SESSION_COOKIE = {
   name: 'session',
-  value: 'f45dbbc76af44fa357f768a4d2ea3536c4187cd112ccc43d51b8079a0c4148f7',
-  domain: 'gexpense-production.up.railway.app',
+  value: '<your-session-cookie>',
+  domain: 'your-production-domain.com',
   path: '/',
   secure: true,
   httpOnly: true,

@@ -594,7 +594,7 @@ const SmartInsight = ({ kind = 'subs', onBack, onAction = () => {} }) => {
 /* ===== ProfileEdit ===== */
 const ProfileEdit = ({ onBack, onSave }) => {
   const [name, setName] = React.useState('Aman Sharma');
-  const [email, setEmail] = React.useState('aman@gmail.com');
+  const [email, setEmail] = React.useState('user@example.com');
   const [phone, setPhone] = React.useState('+91 98••• ••432');
   const [currency, setCurrency] = React.useState('INR');
   const [country, setCountry] = React.useState('India');
