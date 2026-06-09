@@ -273,7 +273,8 @@ const _initCSRF = async () => {
   } catch (_) {}
 };
 
-const _withCSRF = (headers) => {
+const _withCSRF = async (headers) => {
+  if (!_csrfToken) await _initCSRF();
   if (!_csrfToken) return headers;
   return { ...headers, "X-CSRF-Token": _csrfToken };
 };
@@ -291,7 +292,7 @@ const API = {
     const r = _checkAuth(await fetch(path, {
       method: "PATCH",
       credentials: "include",
-      headers: _withCSRF({ "Content-Type": "application/json" }),
+      headers: await _withCSRF({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
     }));
     if (!r) return;
@@ -302,7 +303,7 @@ const API = {
     const r = _checkAuth(await fetch(path, {
       method: "POST",
       credentials: "include",
-      headers: _withCSRF({ "Content-Type": "application/json" }),
+      headers: await _withCSRF({ "Content-Type": "application/json" }),
       body: body ? JSON.stringify(body) : undefined,
     }));
     if (!r) return;
@@ -314,7 +315,7 @@ const API = {
     const r = _checkAuth(await fetch(path, {
       method: "DELETE",
       credentials: "include",
-      headers: _withCSRF({}),
+      headers: await _withCSRF({}),
     }));
     if (!r) return;
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);

@@ -1097,6 +1097,31 @@ const SettingsView = React.memo(({ syncStatus, setSyncStatus, onRescan, syncing,
         </SettingsRow>
       </SettingsSection>
 
+      {/* Appearance */}
+      <SettingsSection title="Appearance" subtitle="switch the look and feel">
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          {([
+            ["auto","linear-gradient(135deg, var(--theme-paper-swatch) 50%, var(--theme-midnight-swatch) 50%)","Auto","var(--ink)"],
+            ["paper","var(--theme-paper-swatch)","Paper","#1a1814"],
+            ["cool","var(--theme-cool-swatch)","Cool","#171923"],
+            ["midnight","var(--theme-midnight-swatch)","Midnight","#efe9d8"],
+            ["observatory","var(--theme-observatory-swatch)","Observatory","#e8e4df"],
+          ]).map(([k, swatch, label, ink]) => (
+            <button key={k} title={label} aria-label={`Switch to ${label} theme`} aria-pressed={theme === k}
+              onClick={() => { window.hapticLight?.(); setTheme && setTheme(k); }}
+              style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                padding: "12px 4px 8px", borderRadius: 8, cursor: "pointer",
+                background: "var(--card)", border: theme === k ? "1.5px solid var(--accent)" : "1px solid var(--line)",
+                transition: "border-color 120ms ease, transform 80ms",
+              }}>
+              <span style={{ width: 28, height: 28, borderRadius: 999, background: swatch, border: "1px solid var(--line)", flexShrink: 0 }} />
+              <span style={{ fontSize: "0.625rem", fontWeight: 600, letterSpacing: "0.02em", lineHeight: 1, color: theme === k ? ink : "var(--ink-3)" }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </SettingsSection>
+
       {/* Categories */}
       <CategoriesSection categories={categories} onRefresh={async () => {
         const d = await API.get("/api/account/me");
