@@ -312,6 +312,7 @@ function applyContentHashes() {
   html = html.replace(/^\s*<script type="module" src="\/static\/dist\/esm\/[^"]*"><\/script>\s*$/gm, "");
   html = html.replace(/^\s*<script[^>]*>window\.__mfChunksESM=.*?<\/script>\s*$/gm, "");
   // Remove old modulepreload tags from previous builds
+  html = html.replace(/^\s*<link rel="modulepreload" href="\/static\/dist\/esm\/app\.esm\.js[^"]*">\s*$/gm, "");
   html = html.replace(/^\s*<link rel="modulepreload" href="\/static\/dist\/esm\/lazy\/[^"]*">\s*$/gm, "");
   // Remove blank lines left by removal
   html = html.replace(/\n{3,}/g, "\n\n");

@@ -254,7 +254,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
     """Block unauthenticated requests: 401 for API calls, redirect for browser pages."""
 
     EXEMPT = {"/login", "/api/auth/google", "/api/auth/callback", "/api/auth/token/refresh", "/api/auth/passkey/login/begin", "/api/auth/passkey/login/complete", "/api/auth/check-mode", "/api/auth/local-login", "/health", "/mobile", "/oauth/success", "/sw.js"}
-    CSRF_EXEMPT = {"/api/auth/csrf-token"}
+    CSRF_EXEMPT = {"/api/auth/csrf-token", "/api/auth/logout"}
 
     async def dispatch(self, request: StarletteRequest, call_next):
         path = request.url.path
