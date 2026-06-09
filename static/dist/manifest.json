@@ -1,6 +1,6 @@
 {
-  "version": "1c21ad36",
-  "timestamp": "2026-06-09T04:21:17.299Z",
+  "version": "b6f6c247",
+  "timestamp": "2026-06-09T04:42:57.579Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -21,10 +21,10 @@
     "/static/dist/dashboard.js?v=2c3d42bd",
     "/static/dist/health.js?v=5fbf7f4e",
     "/static/dist/reports.js?v=8ecfb765",
-    "/static/dist/recurring.js?v=acd33ecf",
-    "/static/dist/debt.js?v=8d614bf8",
-    "/static/dist/goals.js?v=929df045",
-    "/static/dist/budgets.js?v=feebe21d",
+    "/static/dist/recurring.js?v=f139eece",
+    "/static/dist/debt.js?v=77269a43",
+    "/static/dist/goals.js?v=e538afa1",
+    "/static/dist/budgets.js?v=4863e651",
     "/static/dist/account.js?v=02abebd2",
     "/static/dist/admin.js?v=b17501c0",
     "/static/dist/onboarding.js?v=91d1ecd9",
@@ -81,27 +81,27 @@
     },
     "recurring": {
       "file": "recurring.js",
-      "size": 14652,
+      "size": 14634,
       "size_kb": 14.3,
-      "hash": "acd33ecf"
+      "hash": "f139eece"
     },
     "debt": {
       "file": "debt.js",
-      "size": 9388,
+      "size": 9370,
       "size_kb": 9.2,
-      "hash": "8d614bf8"
+      "hash": "77269a43"
     },
     "goals": {
       "file": "goals.js",
-      "size": 11420,
-      "size_kb": 11.2,
-      "hash": "929df045"
+      "size": 11399,
+      "size_kb": 11.1,
+      "hash": "e538afa1"
     },
     "budgets": {
       "file": "budgets.js",
-      "size": 42281,
+      "size": 42263,
       "size_kb": 41.3,
-      "hash": "feebe21d"
+      "hash": "4863e651"
     },
     "account": {
       "file": "account.js",

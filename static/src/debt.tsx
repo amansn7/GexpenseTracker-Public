@@ -58,7 +58,7 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
 
   const formContent = (
     <>
-      <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Input label="Name *" value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Car Loan, Credit Card" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Input label="Total Amount (\u20B9) *" type="number" min="0" value={form.total_amount} onChange={e => set("total_amount", e.target.value)} placeholder="500000" />
@@ -71,7 +71,7 @@ const DebtModal = ({ item, onSave, onDelete, onClose }) => {
         <Input label="Notes" value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Optional notes" />
         {err && <div style={{ fontSize: "0.75rem", color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
       </div>
-      <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+      <div style={{ padding: "14px 0", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
         {item && !confirming && (
           <Button onClick={() => setConfirming(true)} variant="danger" style={{ background: "none", border: "1px solid var(--neg)" }}>Delete</Button>
         )}

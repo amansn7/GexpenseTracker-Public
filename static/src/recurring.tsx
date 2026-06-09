@@ -54,7 +54,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
 
   const formContent = (
     <>
-        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={lbl}>Name *</label>
             <input style={inp} value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Netflix, Rent" />
@@ -88,7 +88,7 @@ const RecurringModal = ({ item, onSave, onDelete, onClose }) => {
           </label>
           {err && <div style={{ fontSize: "0.75rem", color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
         </div>
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+        <div style={{ padding: "14px 0", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
           {item && !confirming && (
             <button onClick={() => setConfirming(true)} style={{ padding: "8px 14px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--neg)", fontSize: "0.8125rem", cursor: "pointer" }}>Delete</button>
           )}

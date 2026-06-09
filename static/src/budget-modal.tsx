@@ -148,7 +148,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
 
   const formContent = (
     <>
-      <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {item ? (
           <Input label="Category" value={item.category} disabled />
         ) : (
@@ -281,7 +281,7 @@ const BudgetModal = ({ item, onSave, onDelete, onClose }) => {
           {llmErr && <div style={{ fontSize: "0.6875rem", color: "var(--ink-3)", padding: "4px 0" }}>{llmErr}</div>}
           {err && <div style={{ fontSize: "0.75rem", color: "var(--neg)", padding: "6px 10px", background: "var(--neg-soft)", borderRadius: 5 }}>{err}</div>}
         </div>
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+        <div style={{ padding: "14px 0", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
           {item && !confirming && (
             <Button onClick={() => setConfirming(true)} variant="ghost" style={{ border: "1px solid var(--neg)", color: "var(--neg)" }}>Delete</Button>
           )}

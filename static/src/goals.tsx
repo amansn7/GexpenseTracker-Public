@@ -75,7 +75,7 @@ const GoalModal = ({ item, onSave, onDelete, onClose }) => {
 
   const formContent = (
     <>
-      <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Input label="Name *" value={form.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Emergency Fund, Vacation" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Input label="Target Amount (\u20B9) *" type="number" min="0" value={form.target_amount} onChange={e => set("target_amount", e.target.value)} placeholder="100000" />
@@ -93,7 +93,7 @@ const GoalModal = ({ item, onSave, onDelete, onClose }) => {
       </div>
 
       {item && (
-        <div style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ padding: "0 0 20px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16 }}>
             <span style={{ fontSize: "0.6875rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-4)", fontWeight: 500, marginBottom: 8, display: "block" }}>Add Contribution</span>
             <div style={{ display: "flex", gap: 8 }}>
@@ -108,7 +108,7 @@ const GoalModal = ({ item, onSave, onDelete, onClose }) => {
         </div>
       )}
 
-      <div style={{ padding: "14px 20px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+      <div style={{ padding: "14px 0", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
         {item && !confirming && (
           <Button onClick={() => setConfirming(true)} variant="danger" style={{ background: "none", border: "1px solid var(--neg)" }}>Delete</Button>
         )}
