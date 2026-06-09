@@ -111,7 +111,9 @@ const SyncProvider = ({ children, onLoadData }) => {
     let started = !!initialProgress?.running;
     let attempts = 0;
     const MAX_ATTEMPTS = 480;
-    const poll = setInterval(async () => {
+    let poll;
+
+    const doPoll = async () => {
       attempts++;
       try {
         const p = await API.get("/api/sync/progress");
@@ -123,7 +125,7 @@ const SyncProvider = ({ children, onLoadData }) => {
           await onLoadData();
           API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
           setSyncing(false);
-          return;
+          return true;
         }
         if (attempts >= MAX_ATTEMPTS) {
           clearInterval(poll);
@@ -134,16 +136,22 @@ const SyncProvider = ({ children, onLoadData }) => {
               await onLoadData();
               API.get("/api/sync/status").then(setSyncStatus).catch(() => {});
               setSyncing(false);
-              return;
+              return true;
             }
           } catch (_) {}
           setSyncing(false);
           setSyncProgress(prev => prev ? { ...prev, phase: "error", error: "Sync timed out — please try again" } : null);
+          return true;
         }
       } catch (_) {
-        if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); }
+        if (attempts >= MAX_ATTEMPTS) { clearInterval(poll); setSyncing(false); return true; }
       }
-    }, 1200);
+      return false;
+    };
+
+    // Immediate first poll to avoid 1200ms dead period
+    const immediate = await doPoll();
+    if (!immediate) poll = setInterval(doPoll, 1200);
   }, [onLoadData]);
 
   useEffect(() => {
@@ -156,7 +164,15 @@ const SyncProvider = ({ children, onLoadData }) => {
     if (syncing) return;
     setSyncing(true);
     setSyncPanelDismissed(false);
-    setSyncProgress(null);
+    setSyncProgress({
+      phase: "connect",
+      running: true,
+      current: 0,
+      total: 0,
+      tally: { expense: 0, income: 0, ignore: 0, review: 0 },
+      log: [{ time: new Date().toISOString(), message: "Starting sync…", type: "info" }],
+      error: null,
+    });
     try {
       await API.post("/api/sync/trigger");
       startPolling(null);
