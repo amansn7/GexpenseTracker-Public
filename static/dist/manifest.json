@@ -1,6 +1,6 @@
 {
-  "version": "b6f6c247",
-  "timestamp": "2026-06-09T04:42:57.579Z",
+  "version": "21490ce5",
+  "timestamp": "2026-06-09T04:53:00.858Z",
   "shell": [
     "/static/styles.css?v=3e5c6dff",
     "/static/vendor/react.production.min.js?v=d949f1c3",
@@ -10,7 +10,7 @@
     "/static/dist/components/Button.js?v=d7dc7e44",
     "/static/dist/components/Input.js?v=c94e331b",
     "/static/dist/components/Modal.js?v=f635e2d8",
-    "/static/dist/components/BottomSheet.js?v=95fbed6e",
+    "/static/dist/components/BottomSheet.js?v=7b89bb55",
     "/static/dist/components/ProgressBar.js?v=348b498b",
     "/static/dist/components/Skeleton.js?v=999a12d3",
     "/static/dist/components/Toggle.js?v=8f5a7c55",
@@ -122,12 +122,12 @@
       "hash": "91d1ecd9"
     }
   },
-  "always_loaded_size_kb": 562.6,
-  "total_size_kb": 1055.4,
+  "always_loaded_size_kb": 563,
+  "total_size_kb": 1055.7,
   "budgets": {
     "passed": false,
     "violations": [
-      "always-loaded 562.6KB (max 250KB)"
+      "always-loaded 563.0KB (max 250KB)"
     ]
   }
 }

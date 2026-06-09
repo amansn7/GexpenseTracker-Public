@@ -86,7 +86,7 @@ const BottomSheet = ({ open, onClose, title, children, height = "auto", classNam
         {title && (
           <div style={{ fontFamily: "'Geist', sans-serif", fontSize: "1.125rem", fontWeight: 500, color: "var(--ink)", marginBottom: 8, padding: "0 20px" }}>{title}</div>
         )}
-        <div style={height !== "auto" ? { height } : {}}>
+        <div style={{ padding: "0 20px", ...(height !== "auto" ? { height } : {}) }}>
           {children}
         </div>
       </div>
