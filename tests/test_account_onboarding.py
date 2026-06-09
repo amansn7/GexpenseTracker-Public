@@ -26,7 +26,7 @@ async def test_onboarding_creates_user_profile_settings_and_defaults(db_session)
                 "/api/account/onboarding",
                 json={
                     "email": "USER@Example.COM",
-                    "full_name": "Aman Saini",
+                    "full_name": "Test User",
                     "location": "Bengaluru, IN",
                     "default_currency": "INR",
                     "timezone": "Asia/Kolkata",
