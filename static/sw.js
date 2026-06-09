@@ -97,21 +97,35 @@ self.addEventListener("fetch", (e) => {
 
   if (isStaticAsset(url) || isFontUrl(url)) {
     e.respondWith(
-      caches.match(e.request).then((cached) => {
-        const fetchPromise = fetch(e.request).then((res) => {
+      (async () => {
+        const cached = await caches.match(e.request);
+        if (cached) {
+          fetch(e.request).then((res) => {
+            if (res.ok) {
+              const clone = res.clone();
+              caches.open(STATIC_CACHE).then((cache) => cache.put(e.request, clone));
+            }
+          }).catch(() => {});
+          return cached;
+        }
+        try {
+          const res = await fetch(e.request);
           if (res.ok) {
             const clone = res.clone();
             caches.open(STATIC_CACHE).then((cache) => cache.put(e.request, clone));
           }
           return res;
-        });
-        return cached || fetchPromise;
-      })
+        } catch {
+          return new Response(null, { status: 504 });
+        }
+      })()
     );
     return;
   }
 
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request).catch(() =>
+      caches.match(e.request).then((cached) => cached || new Response(null, { status: 504 }))
+    )
   );
 });
