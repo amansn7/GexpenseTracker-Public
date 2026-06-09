@@ -118,7 +118,7 @@
     geo.attributes.position.needsUpdate=true;
 
     if(physActive){
-      physVY+=0.42;
+      physVY+=0.5;
       physX+=physVX;
       physY+=physVY;
 
@@ -193,8 +193,8 @@
     var bottom=window.innerHeight-38;
     physX=38;
     physY=bottom;
-    physVX=8+Math.random()*3;
-    physVY=-(20+Math.random()*4);
+    physVX=12+Math.random()*3;
+    physVY=-(22+Math.random()*4);
     physTgtX=window.innerWidth-38;
     physTgtY=bottom;
     tgl.style.transform="translate("+(physX-physTgtX)+"px,0px)";
@@ -206,7 +206,7 @@
         wrap.style.opacity="1";
         setTimeout(function(){wrap.style.transition="";},800);
       }
-    },800);
+    },400);
 
     setTimeout(function(){
       if(physActive){
@@ -214,12 +214,12 @@
         tgl.style.transition="transform 500ms cubic-bezier(.34,1.56,.64,1)";
         tgl.style.transform="";
       }
-    },7000);
+    },4000);
 
     setTimeout(function(){
       tgl.style.transition="";
       el.style.transition="";
-    },7500);
+    },4500);
   }else{
     el.style.opacity="1";
     if(wrap){wrap.style.opacity="1";}
