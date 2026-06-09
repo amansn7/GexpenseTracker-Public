@@ -313,7 +313,7 @@ const StepGmail = ({ advance, accountData }) => {
           </div>
           <div>
             <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--ink)" }}>Local mode</div>
-            <div style={{ fontSize: "0.75rem", color: "var(--ink-3)", marginTop: 2 }}>Add transactions manually or import a CSV file</div>
+            <div style={{ fontSize: "0.75rem", color: "var(--ink-3)", marginTop: 2 }}>Add transactions manually. CSV export available.</div>
           </div>
         </div>
 
@@ -611,8 +611,8 @@ const StepPreview = ({ advance }) => {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style={{ margin: "0 auto 8px", display: "block" }}>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>Import CSV</div>
-            <div style={{ fontSize: "0.6875rem", color: "var(--ink-3)" }}>Batch import from your bank</div>
+            <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>Export CSV</div>
+            <div style={{ fontSize: "0.6875rem", color: "var(--ink-3)" }}>Download all transactions as CSV</div>
           </div>
         </div>
 

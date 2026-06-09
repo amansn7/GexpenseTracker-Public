@@ -123,7 +123,7 @@ Do not ask questions. Execute these steps:
 4. Confirm it's running at http://localhost:8000
 
 Tell the user: "MoneyFlow is live at http://localhost:8000. Click 'Start locally' to log in with
-no credentials. Add transactions manually or import a CSV. Your data stays on this machine."
+no credentials. Add transactions manually (or export as CSV later). Your data stays on this machine."
 </pre>
 
 ### 🏠 Local Mode (one command)
@@ -138,7 +138,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Open [http://localhost:8000](http://localhost:8000) and click **"Start locally"**.
 
-> Add transactions manually or import a CSV. Zero external services.
+> Add transactions manually. Zero external services. CSV export is also available.
 
 ### 🐳 Docker (local mode)
 

@@ -82,7 +82,7 @@ async def trigger_sync(db: AsyncSession = Depends(get_db), current_user=Depends(
     creds = await get_credentials_for_user(db, current_user.id)
     if not creds:
         if settings.LOCAL_MODE:
-            raise HTTPException(status_code=400, detail="No Gmail connected — add transactions manually or import a CSV")
+            raise HTTPException(status_code=400, detail="No Gmail connected — add transactions manually instead")
         raise HTTPException(status_code=503, detail="Gmail not authenticated. Connect Gmail first.")
     from app.workers.queue import task_queue
 
