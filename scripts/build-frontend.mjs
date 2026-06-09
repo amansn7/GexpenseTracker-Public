@@ -342,7 +342,7 @@ function applyContentHashes() {
   const appPreloadTag = appESMHash
     ? `  <link rel="modulepreload" href="/static/dist/esm/app.esm.js?v=${appESMHash}">`
     : '';
-  const criticalPreload = ["inbox", "flow", "dashboard"];
+  const criticalPreload = ["inbox"];
   const preloadTags = criticalPreload
     .filter(name => esmManifest[name])
     .map(name => `  <link rel="modulepreload" href="${esmManifest[name]}">`)
