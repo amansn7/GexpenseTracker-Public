@@ -94,6 +94,34 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 16. Test suites often use ORM `metadata.create_all()`, not Alembic migrations. Migration bugs are invisible to tests — validate against a production-like DB.
 17. Before running `ALTER COLUMN SET NOT NULL`, count NULLs first. Skip with warning instead of crashing.
 
+## ESM Bundles & Bare Global References
+
+### Bare Globals Throw ReferenceError in ESM Module Scope
+1. In esbuild ESM bundles with `bundle: true`, all imported files merge into a single module scope. Bare references like `useContext(...)`, `usePullToRefresh(...)`, `useAsync(...)` that are NOT declared in that scope throw `ReferenceError`. ESM strict mode does NOT resolve bare identifiers through the global object scope chain the way non-module scripts do.
+
+2. The app's pattern of `function useXxx() { ... }; Object.assign(window, { useXxx })` works in IIFE mode because:
+   - IIFE scripts run in non-module global scope where `window.*` properties ARE in the scope chain
+   - Bare `useXxx(...)` resolves to `window.useXxx`
+   
+   But in ESM modules (both main and lazy chunks), this CRASHES:
+   - The `Object.assign(window, ...)` must execute first (file must be imported)
+   - Even then, bare `useXxx(...)` may still fail if the identifier isn't in the module scope
+
+3. **Fix pattern:** Use `window.useXxx(...)` explicitly instead of bare `useXxx(...)` in ESM-bundled code. This always works because `window` is a global available in any scope.
+
+4. **Registration requirement:** Any hook file assigned to `window.*` must be imported in `main.ts` to be included in the `app.esm.js` bundle. Without the import, the `Object.assign(window, ...)` never executes and `window.useXxx` is `undefined`:
+   ```js
+   // main.ts — add for every window.* hook
+   import "./hooks/usePullToRefresh";
+   import "./hooks/useAsync";
+   ```
+
+5. **Checklist when adding a new hook:**
+   - Add `import "./hooks/useXxx"` to `main.ts`
+   - Use `window.useXxx(...)` in all consumer files (not bare `useXxx(...)`)
+   - Verify the built `app.esm.js` contains `useXxx` (grep the dist file)
+   - Verify lazy ESM chunks reference `window.useXxx`, not bare `useXxx`
+
 ## Frontend Build & JSX
 
 ### Global Component Registration
@@ -239,6 +267,31 @@ Frontend JS changes require a manual `railway up --detach` — Railway does not 
 
 1. SVG text contrast must account for all themes. Light theme fills are often too light for hardcoded `fill="white"`. Use theme-aware variables on light fills, white only on semantically dark fills.
 2. When removing inline hover handlers, verify CSS classes provide the default styles. Browser defaults for button backgrounds differ from explicit `background: transparent`.
+
+## Service Worker
+
+### e.respondWith() Must Always Receive a Valid Response
+1. `e.respondWith(null)` or `e.respondWith(undefined)` throws `TypeError: Returned response is null`. Every code path in `fetch` event handlers must produce a `Response` object, even in error/fallback cases.
+
+2. **Stale-while-revalidate pattern** — when returning cached immediately and refreshing in background, ensure the background fetch error is caught:
+   ```js
+   // GOOD: background refresh errors are silently caught
+   if (cached) {
+     fetch(e.request).then(res => {
+       if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res));
+     }).catch(() => {});  // ← required
+     return cached;
+   }
+   ```
+
+3. **Network-only fallback** — when both cache and network fail, return a 504 placeholder:
+   ```js
+   fetch(e.request).catch(() =>
+     caches.match(e.request).then(cached => cached || new Response(null, { status: 504 }))
+   )
+   ```
+
+4. **External resource handling** — `isFontUrl()` matches Google Fonts domains. If the Google Fonts fetch is blocked by CSP or network, the stale-while-revalidate must gracefully degrade. Always add `.catch(() => {})` on background revalidation fetches for external resources.
 
 ## CSP & Security
 
