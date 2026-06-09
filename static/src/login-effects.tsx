@@ -118,7 +118,7 @@
     geo.attributes.position.needsUpdate=true;
 
     if(physActive){
-      physVY+=0.5;
+      physVY+=0.55;
       physX+=physVX;
       physY+=physVY;
 
@@ -193,8 +193,8 @@
     var bottom=window.innerHeight-38;
     physX=38;
     physY=bottom;
-    physVX=12+Math.random()*3;
-    physVY=-(22+Math.random()*4);
+    physVX=16+Math.random()*4;
+    physVY=-(12+Math.random()*4);
     physTgtX=window.innerWidth-38;
     physTgtY=bottom;
     tgl.style.transform="translate("+(physX-physTgtX)+"px,0px)";
